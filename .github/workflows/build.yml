@@ -1,0 +1,180 @@
+name: Build
+
+# Builds tdesktop UPSTREAM with the patches applied (Release, x64) and publishes it as a GitHub release.
+# Opens a `build-failure` issue when that doesn't work.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - UPSTREAM
+      - 'patches/**'
+      - tele.py
+      - 'ci/**'
+      - .github/workflows/build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: build
+
+jobs:
+  windows:
+    name: Windows x64
+    runs-on: windows-latest
+    timeout-minutes: 360
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    defaults:
+      run:
+        shell: cmd
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: tele
+
+      - name: Check API credentials
+        shell: bash
+        env:
+          API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
+            echo "::error::Set the TDESKTOP_API_ID and TDESKTOP_API_HASH repository secrets."
+            exit 1
+          fi
+
+      # Same layout as upstream CI: the build lives on C:, reachable from the workspace.
+      - name: Prepare directories
+        run: |
+          mkdir %USERPROFILE%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %USERPROFILE%\TBuild
+          echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
+
+      - name: Clone tdesktop
+        shell: bash
+        run: |
+          tag=$(tr -d '[:space:]' < tele/UPSTREAM)
+          echo "UPSTREAM_TAG=$tag" >> "$GITHUB_ENV"
+          git -c advice.detachedHead=false clone --quiet --recurse-submodules --branch "$tag" \
+            https://github.com/telegramdesktop/tdesktop.git "$TBUILD/tdesktop"
+
+      - name: Apply patches
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python tele\tele.py --tdesktop %TBUILD%\tdesktop apply
+
+      - name: Read toolchain versions
+        shell: bash
+        run: |
+          doc="$TBUILD/tdesktop/docs/building-win.md"
+          sdk=$(grep -oE '\*\*[0-9.]+\*\* SDK version' "$doc" | grep -oE '[0-9][0-9.]+' | head -n1)
+          toolset=$(grep -oE 'vcvars_ver=[0-9.]+' "$doc" | head -n1 | cut -d= -f2)
+          if [ -z "$sdk" ]; then
+            echo "::error::No Windows SDK version found in docs/building-win.md"
+            exit 1
+          fi
+          echo "SDK=$sdk" >> "$GITHUB_ENV"
+          echo "VCVARS_VER=$toolset" >> "$GITHUB_ENV"
+          prepare_hash=$(sha256sum "$TBUILD/tdesktop/Telegram/build/prepare/prepare.py" | cut -c1-16)
+          echo "CACHE_KEY=win64-$sdk-$prepare_hash" >> "$GITHUB_ENV"
+          # Like upstream CI: no debug info in the Debug builds of the libraries, keeps the cache small.
+          sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
+
+      - name: Restore libraries
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries
+          key: ${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ${{ env.CACHE_KEY }}-
+            win64-
+
+      - name: Remember library state
+        shell: bash
+        run: |
+          state=$(find "$TBUILD/ThirdParty/cache_keys" "$TBUILD/Libraries/win64/cache_keys" -type f -exec sha256sum {} + 2>/dev/null | sort | sha256sum)
+          echo "LIBS_STATE=$state" >> "$GITHUB_ENV"
+
+      - name: NuGet sources
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
+
+      - name: Prepare libraries
+        id: prepare
+        run: |
+          call tele\ci\msvc.cmd || exit /b 1
+          %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
+
+      # Runs even when prepare fails or times out, so finished libraries are cached for the next run.
+      - name: Trim libraries
+        id: trim
+        if: always() && steps.prepare.outcome != 'skipped'
+        shell: bash
+        run: |
+          libs="$TBUILD/Libraries/win64"
+          # Upstream CI's filter: keep what linking tdesktop needs, drop sources and intermediates.
+          find "$libs" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+          state=$(find "$TBUILD/ThirdParty/cache_keys" "$libs/cache_keys" -type f -exec sha256sum {} + 2>/dev/null | sort | sha256sum)
+          if [ "$state" != "$LIBS_STATE" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Save libraries
+        if: always() && steps.trim.outputs.changed == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ${{ env.TBUILD }}\ThirdParty
+            ${{ env.TBUILD }}\Libraries
+          key: ${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Build Telegram
+        env:
+          API_ID: ${{ secrets.TDESKTOP_API_ID }}
+          API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+        run: |
+          call tele\ci\msvc.cmd || exit /b 1
+          cd /d %TBUILD%\tdesktop\Telegram
+          call configure.bat -G "Ninja Multi-Config" -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% || exit /b 1
+          cmake --build ..\out --config Release --parallel --target Telegram
+
+      - name: Publish release
+        shell: bash
+        run: |
+          base="$UPSTREAM_TAG-tele"
+          last=$(gh release list --limit 1000 --json tagName --jq '.[].tagName' \
+            | sed -n "s/^${base//./\\.}\.\([0-9][0-9]*\)$/\1/p" | sort -n | tail -n1)
+          tag="$base.$(( ${last:-0} + 1 ))"
+          zip="tele-$tag-win64.zip"
+          7z a -tzip "$zip" "$TBUILD/tdesktop/out/Release/Telegram.exe" > /dev/null
+          patches=$(cd tele && find patches -name '*.patch' 2>/dev/null | sort)
+          {
+            echo "Telegram Desktop [$UPSTREAM_TAG](https://github.com/telegramdesktop/tdesktop/releases/tag/$UPSTREAM_TAG) with these patches:"
+            echo
+            if [ -z "$patches" ]; then
+              echo "- none, this is upstream as is"
+            fi
+            for patch in $patches; do
+              echo "- [$patch]($GITHUB_SERVER_URL/$GH_REPO/blob/$GITHUB_SHA/$patch)"
+            done
+          } > notes.md
+          gh release create "$tag" "$zip" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md
+          bash tele/ci/issue.sh close build-failure "Built $tag."
+
+      - name: Report failure
+        if: failure() || cancelled()
+        shell: bash
+        run: |
+          echo "Building ${UPSTREAM_TAG:-UPSTREAM} failed: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID" > issue.md
+          bash tele/ci/issue.sh open build-failure "Build failed: ${UPSTREAM_TAG:-UPSTREAM}" issue.md
