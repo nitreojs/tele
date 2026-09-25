@@ -112,6 +112,26 @@ jobs:
           nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
           nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
+      # The runner image has the 14.44 toolset but only the latest toolset's ATL,
+      # and breakpad's dump_syms (built for Release libraries) needs ATL.
+      - name: Install ATL for the MSVC toolset
+        if: env.VCVARS_VER != ''
+        timeout-minutes: 20
+        shell: pwsh
+        run: |
+          $components = @{ '14.44' = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.ATL' }
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+          $vs = & "$installer\vswhere.exe" -latest -products * -property installationPath
+          $atl = "$vs\VC\Tools\MSVC\$env:VCVARS_VER.*\atlmfc\include\atlbase.h"
+          if (Test-Path $atl) { "ATL for $env:VCVARS_VER is installed"; exit 0 }
+          $component = $components[$env:VCVARS_VER]
+          if (-not $component) { "::error::No known ATL component for toolset $env:VCVARS_VER"; exit 1 }
+          $process = Start-Process -Wait -PassThru "$installer\vs_installer.exe" -ArgumentList `
+            'modify', '--installPath', "`"$vs`"", '--add', $component, '--quiet', '--norestart', '--nocache'
+          if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) { exit $process.ExitCode }
+          if (-not (Test-Path $atl)) { "::error::$component did not install $atl"; exit 1 }
+          "Installed $component"
+
       - name: Prepare libraries
         id: prepare
         run: |
