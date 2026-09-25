@@ -75,15 +75,17 @@ jobs:
         shell: bash
         run: |
           doc="$TBUILD/tdesktop/docs/building-win.md"
-          sdk=$(grep -oE '\*\*[0-9.]+\*\* SDK version' "$doc" | grep -oE '[0-9][0-9.]+' | head -n1)
-          toolset=$(grep -oE 'vcvars_ver=[0-9.]+' "$doc" | head -n1 | cut -d= -f2)
+          sdk=$(grep -oE '\*\*[0-9.]+\*\* SDK version' "$doc" | grep -oE '[0-9][0-9.]+' | head -n1 || true)
+          # Older docs don't pin a toolset; vcvars then picks the default one.
+          toolset=$(grep -oE 'vcvars_ver=[0-9.]+' "$doc" | head -n1 | cut -d= -f2 || true)
           if [ -z "$sdk" ]; then
             echo "::error::No Windows SDK version found in docs/building-win.md"
             exit 1
           fi
           echo "SDK=$sdk" >> "$GITHUB_ENV"
           echo "VCVARS_VER=$toolset" >> "$GITHUB_ENV"
-          prepare_hash=$(sha256sum "$TBUILD/tdesktop/Telegram/build/prepare/prepare.py" | cut -c1-16)
+          # From stdin: for a path with backslashes sha256sum prefixes its output with `\`.
+          prepare_hash=$(sha256sum < "$TBUILD/tdesktop/Telegram/build/prepare/prepare.py" | cut -c1-16)
           echo "CACHE_KEY=win64-$sdk-$prepare_hash" >> "$GITHUB_ENV"
           # Like upstream CI: no debug info in the Debug builds of the libraries, keeps the cache small.
           sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
@@ -102,7 +104,7 @@ jobs:
       - name: Remember library state
         shell: bash
         run: |
-          state=$(find "$TBUILD/ThirdParty/cache_keys" "$TBUILD/Libraries/win64/cache_keys" -type f -exec sha256sum {} + 2>/dev/null | sort | sha256sum)
+          state=$( { find "$TBUILD/ThirdParty/cache_keys" "$TBUILD/Libraries/win64/cache_keys" -type f -exec sha256sum {} + 2>/dev/null || true; } | sort | sha256sum)
           echo "LIBS_STATE=$state" >> "$GITHUB_ENV"
 
       - name: NuGet sources
@@ -123,9 +125,12 @@ jobs:
         shell: bash
         run: |
           libs="$TBUILD/Libraries/win64"
+          if [ ! -d "$libs" ]; then
+            exit 0
+          fi
           # Upstream CI's filter: keep what linking tdesktop needs, drop sources and intermediates.
           find "$libs" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
-          state=$(find "$TBUILD/ThirdParty/cache_keys" "$libs/cache_keys" -type f -exec sha256sum {} + 2>/dev/null | sort | sha256sum)
+          state=$( { find "$TBUILD/ThirdParty/cache_keys" "$libs/cache_keys" -type f -exec sha256sum {} + 2>/dev/null || true; } | sort | sha256sum)
           if [ "$state" != "$LIBS_STATE" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
@@ -158,7 +163,7 @@ jobs:
           tag="$base.$(( ${last:-0} + 1 ))"
           zip="tele-$tag-win64.zip"
           7z a -tzip "$zip" "$TBUILD/tdesktop/out/Release/Telegram.exe" > /dev/null
-          patches=$(cd tele && find patches -name '*.patch' 2>/dev/null | sort)
+          patches=$(cd tele && { find patches -name '*.patch' 2>/dev/null || true; } | sort)
           {
             echo "Telegram Desktop [$UPSTREAM_TAG](https://github.com/telegramdesktop/tdesktop/releases/tag/$UPSTREAM_TAG) with these patches:"
             echo
