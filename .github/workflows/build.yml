@@ -12,8 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  issues: write
+  contents: read
 
 concurrency:
   group: build
@@ -23,6 +22,14 @@ jobs:
     name: Windows x64
     runs-on: windows-latest
     timeout-minutes: 360
+    permissions:
+      contents: read
+      issues: write
+    outputs:
+      tag: ${{ steps.number.outputs.tag }}
+      base: ${{ steps.number.outputs.base }}
+      counter: ${{ steps.number.outputs.counter }}
+      upstream: ${{ steps.number.outputs.upstream }}
     defaults:
       run:
         shell: cmd
@@ -34,14 +41,18 @@ jobs:
           path: tele
           persist-credentials: false
 
-      - name: Check API credentials
+      - name: Check secrets
         shell: bash
         env:
           API_ID: ${{ secrets.TDESKTOP_API_ID }}
           API_HASH: ${{ secrets.TDESKTOP_API_HASH }}
+          UPDATE_KEY: ${{ secrets.TELE_UPDATE_KEY }}
         run: |
           if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
             echo "::error::set the TDESKTOP_API_ID and TDESKTOP_API_HASH repository secrets"
+            exit 1
+          elif [ -z "$UPDATE_KEY" ]; then
+            echo "::error::set the TELE_UPDATE_KEY repository secret"
             exit 1
           fi
 
@@ -58,6 +69,34 @@ jobs:
           echo "UPSTREAM_TAG=$tag" >> "$GITHUB_ENV"
           git -c advice.detachedHead=false clone --quiet --recurse-submodules --branch "$tag" \
             https://github.com/telegramdesktop/tdesktop.git "$TBUILD/tdesktop"
+
+      - name: Pick the release number
+        id: number
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          base="$UPSTREAM_TAG-tele"
+          pattern="^${base//./\\.}\.\([0-9][0-9]*\)$"
+          last=$( {
+            gh release list --limit 1000 --json tagName --jq '.[].tagName'
+            git ls-remote --tags "$GITHUB_SERVER_URL/$GH_REPO.git" | sed -n 's|^[0-9a-f]*\trefs/tags/||p'
+          } | sed -n "s/$pattern/\1/p" | sort -n | tail -n1)
+          number=$(( ${last:-0} + 1 ))
+          version=$(tr -d '\r' < "$TBUILD/tdesktop/Telegram/build/version" | sed -n 's/^AppVersion *\([0-9][0-9]*\)$/\1/p')
+          if [ -z "$version" ]; then
+            echo "::error::no AppVersion in Telegram/build/version"
+            exit 1
+          fi
+          echo "TELE_BUILD=$number" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG=$base.$number" >> "$GITHUB_ENV"
+          {
+            echo "tag=$base.$number"
+            echo "base=$version"
+            echo "counter=$number"
+            echo "upstream=$UPSTREAM_TAG"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Apply patches
         run: |
@@ -175,21 +214,74 @@ jobs:
         run: |
           call tele\ci\msvc.cmd || exit /b 1
           cd /d %TBUILD%\tdesktop\Telegram
-          call configure.bat -G "Ninja Multi-Config" -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% || exit /b 1
+          call configure.bat -G "Ninja Multi-Config" -D CMAKE_CONFIGURATION_TYPES=Release -D CMAKE_MSVC_DEBUG_INFORMATION_FORMAT= -D TDESKTOP_API_ID=%API_ID% -D TDESKTOP_API_HASH=%API_HASH% -D TELE_BUILD=%TELE_BUILD% || exit /b 1
           cmake --build ..\out --config Release --parallel --target Telegram
 
-      - name: Publish release
+      - name: Package
+        shell: bash
+        run: 7z a -tzip "tele-$RELEASE_TAG-win64.zip" "$TBUILD/tdesktop/out/Release/tele.exe" > /dev/null
+
+      - name: Upload the build
+        uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: tele-${{ env.RELEASE_TAG }}-win64.zip
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Report failure
+        if: failure() || cancelled()
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          base="$UPSTREAM_TAG-tele"
-          last=$(gh release list --limit 1000 --json tagName --jq '.[].tagName' \
-            | sed -n "s/^${base//./\\.}\.\([0-9][0-9]*\)$/\1/p" | sort -n | tail -n1)
-          tag="$base.$(( ${last:-0} + 1 ))"
-          zip="tele-$tag-win64.zip"
-          7z a -tzip "$zip" "$TBUILD/tdesktop/out/Release/Telegram.exe" > /dev/null
+          echo "Building ${UPSTREAM_TAG:-UPSTREAM} failed: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID" > issue.md
+          bash tele/ci/issue.sh open build-failure "Build failed: ${UPSTREAM_TAG:-UPSTREAM}" issue.md
+
+  publish:
+    name: Publish
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.windows.outputs.tag }}
+      BASE: ${{ needs.windows.outputs.base }}
+      COUNTER: ${{ needs.windows.outputs.counter }}
+      UPSTREAM_TAG: ${{ needs.windows.outputs.upstream }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          path: tele
+          persist-credentials: false
+
+      - name: Download the build
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+
+      - name: Sign the update feed
+        env:
+          UPDATE_KEY: ${{ secrets.TELE_UPDATE_KEY }}
+        run: |
+          zip="tele-$TAG-win64.zip"
+          printf '{"tag":"%s","base":%s,"counter":%s,"url":"%s","zip_sha256":"%s","exe_sha256":"%s"}' \
+            "$TAG" "$BASE" "$COUNTER" \
+            "$GITHUB_SERVER_URL/$GH_REPO/releases/download/$TAG/$zip" \
+            "$(sha256sum < "$zip" | cut -c1-64)" \
+            "$(unzip -p "$zip" tele.exe | sha256sum | cut -c1-64)" > feed.json
+          openssl pkeyutl -sign -rawin -inkey <(printf '%s\n' "$UPDATE_KEY") -in feed.json -out feed.sig
+          openssl pkeyutl -verify -rawin -pubin -inkey tele/ci/update-public-key.pem -in feed.json -sigfile feed.sig
+          printf '{"feed":"%s","signature":"%s"}\n' "$(base64 -w0 feed.json)" "$(base64 -w0 feed.sig)" > tele-update-win64.json
+
+      - name: Publish release
+        run: |
+          zip="tele-$TAG-win64.zip"
           patches=$(cd tele && { find patches -name '*.patch' 2>/dev/null || true; } | sort)
           {
             echo "Telegram Desktop [$UPSTREAM_TAG](https://github.com/telegramdesktop/tdesktop/releases/tag/$UPSTREAM_TAG) with these patches:"
@@ -201,15 +293,11 @@ jobs:
               echo "- [$patch]($GITHUB_SERVER_URL/$GH_REPO/blob/$GITHUB_SHA/$patch)"
             done
           } > notes.md
-          gh release create "$tag" "$zip" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md
-          bash tele/ci/issue.sh close build-failure "Built $tag."
+          gh release create "$TAG" "$zip" tele-update-win64.json --latest --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+          bash tele/ci/issue.sh close build-failure "Built $TAG."
 
       - name: Report failure
         if: failure() || cancelled()
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
         run: |
-          echo "Building ${UPSTREAM_TAG:-UPSTREAM} failed: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID" > issue.md
-          bash tele/ci/issue.sh open build-failure "Build failed: ${UPSTREAM_TAG:-UPSTREAM}" issue.md
+          echo "Publishing ${TAG:-the build} failed: $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$GITHUB_RUN_ID" > issue.md
+          bash tele/ci/issue.sh open build-failure "Publish failed: ${TAG:-unknown}" issue.md

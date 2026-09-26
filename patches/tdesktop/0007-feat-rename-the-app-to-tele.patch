@@ -1,0 +1,215 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 26 Sep 2026 19:14:47 +0300
+Subject: [PATCH] feat: rename the app to tele
+
+---
+ Telegram/CMakeLists.txt                                      | 2 +-
+ Telegram/Resources/winrc/Telegram.rc                         | 4 ++--
+ Telegram/SourceFiles/api/api_authorizations.cpp              | 2 +-
+ Telegram/SourceFiles/boxes/about_box.cpp                     | 2 +-
+ Telegram/SourceFiles/core/version.h                          | 4 ++--
+ .../SourceFiles/export/output/export_output_abstract.cpp     | 2 +-
+ Telegram/SourceFiles/intro/intro_start.cpp                   | 5 +++--
+ .../SourceFiles/platform/win/windows_app_user_model_id.cpp   | 2 +-
+ .../SourceFiles/settings/sections/settings_notifications.cpp | 2 +-
+ Telegram/SourceFiles/window/main_window.cpp                  | 2 +-
+ .../SourceFiles/window/notifications_manager_default.cpp     | 2 +-
+ Telegram/SourceFiles/window/window_main_menu.cpp             | 4 ++--
+ Telegram/SourceFiles/window/window_restore_shell.cpp         | 2 +-
+ Telegram/SourceFiles/window/window_saved_windows.cpp         | 2 +-
+ 14 files changed, 19 insertions(+), 18 deletions(-)
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 17c541778f1bde0e0ff69e41871197fc2e156edd..e40820ccf65d53c6083366a7dc68d13af1b8cb8e 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2412,7 +2412,7 @@ else()
+         set(bundle_identifier "com.tdesktop.Telegram")
+     endif()
+     set(bundle_entitlements "Telegram.entitlements")
+-    set(output_name "Telegram")
++    set(output_name "tele")
+ endif()
+ 
+ if (CMAKE_GENERATOR STREQUAL Xcode)
+diff --git a/Telegram/Resources/winrc/Telegram.rc b/Telegram/Resources/winrc/Telegram.rc
+index 14bb8a8f4874c349631ee99420829441d89f84ad..fbeb49dfb1f3c1e3b0ddd7ae2bbf49458ec4d46f 100644
+--- a/Telegram/Resources/winrc/Telegram.rc
++++ b/Telegram/Resources/winrc/Telegram.rc
+@@ -61,10 +61,10 @@ BEGIN
+         BLOCK "040904b0"
+         BEGIN
+             VALUE "CompanyName", "Telegram FZ-LLC"
+-            VALUE "FileDescription", "Telegram Desktop"
++            VALUE "FileDescription", "tele"
+             VALUE "FileVersion", "7.2.9.0"
+             VALUE "LegalCopyright", "Copyright (C) 2014-2026"
+-            VALUE "ProductName", "Telegram Desktop"
++            VALUE "ProductName", "tele"
+             VALUE "ProductVersion", "7.2.9.0"
+         END
+     END
+diff --git a/Telegram/SourceFiles/api/api_authorizations.cpp b/Telegram/SourceFiles/api/api_authorizations.cpp
+index 9652e7feddee202aa0c2eb5fe108c40743166618..a1e4611b6b6308b0a517f75915d51bf4ae293a11 100644
+--- a/Telegram/SourceFiles/api/api_authorizations.cpp
++++ b/Telegram/SourceFiles/api/api_authorizations.cpp
+@@ -38,7 +38,7 @@ Authorizations::Entry ParseEntry(const MTPDauthorization &data) {
+ 		|| isTest;
+ 
+ 	const auto appName = isDesktop
+-		? u"Telegram Desktop%1"_q.arg(isTest ? " (GitHub)" : QString())
++		? u"tele%1"_q.arg(isTest ? " (GitHub)" : QString())
+ 		: qs(data.vapp_name());// + u" for "_q + qs(d.vplatform());
+ 	const auto appVer = [&] {
+ 		const auto version = qs(data.vapp_version());
+diff --git a/Telegram/SourceFiles/boxes/about_box.cpp b/Telegram/SourceFiles/boxes/about_box.cpp
+index 31c60aa81f4481c3cc59ccf7637b6830f3818bc2..a61d37448bb53cfec6231927b84a41de006023a5 100644
+--- a/Telegram/SourceFiles/boxes/about_box.cpp
++++ b/Telegram/SourceFiles/boxes/about_box.cpp
+@@ -65,7 +65,7 @@ rpl::producer<TextWithEntities> Text3() {
+ } // namespace
+ 
+ void AboutBox(not_null<Ui::GenericBox*> box) {
+-	box->setTitle(u"Telegram Desktop"_q);
++	box->setTitle(u"tele"_q);
+ 
+ 	auto layout = box->verticalLayout();
+ 
+diff --git a/Telegram/SourceFiles/core/version.h b/Telegram/SourceFiles/core/version.h
+index 5b49d99da0ee2b45c8b9888d93887e43caebc583..5d56a7828e9572d3393ca274b37a9e5e75fd0615 100644
+--- a/Telegram/SourceFiles/core/version.h
++++ b/Telegram/SourceFiles/core/version.h
+@@ -20,8 +20,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ // used in Updater.cpp and Setup.iss for Windows
+ constexpr auto AppId = "{53F49750-6209-4FBF-9CA8-7A333C87D1ED}"_cs;
+ constexpr auto AppNameOld = "Telegram Win (Unofficial)"_cs;
+-constexpr auto AppName = "Telegram Desktop"_cs;
+-constexpr auto AppFile = "Telegram"_cs;
++constexpr auto AppName = "tele"_cs;
++constexpr auto AppFile = "tele"_cs;
+ constexpr auto AppVersion = 7002009;
+ constexpr auto AppVersionStr = "7.2.9";
+ constexpr auto AppBetaVersion = false;
+diff --git a/Telegram/SourceFiles/export/output/export_output_abstract.cpp b/Telegram/SourceFiles/export/output/export_output_abstract.cpp
+index cadd6dbb3ca7a6cc42c10830cda35ab7bd68016f..4dfda9620bc249f374ce904849b2ba592d67c4b1 100644
+--- a/Telegram/SourceFiles/export/output/export_output_abstract.cpp
++++ b/Telegram/SourceFiles/export/output/export_output_abstract.cpp
+@@ -167,7 +167,7 @@ Stats AbstractWriter::produceTestExample(
+ 
+ 	auto sessions = Data::SessionsList();
+ 	auto session = Data::Session();
+-	session.applicationName = "Telegram Desktop";
++	session.applicationName = "tele";
+ 	session.applicationVersion = "1.3.8";
+ 	session.country = "GB";
+ 	session.created = date();
+diff --git a/Telegram/SourceFiles/intro/intro_start.cpp b/Telegram/SourceFiles/intro/intro_start.cpp
+index d1b835a09a28eddf5b8e6d8a072b4b4f9315fdc2..49a477144e4a3a7494582e31b979554bcfa8a223 100644
+--- a/Telegram/SourceFiles/intro/intro_start.cpp
++++ b/Telegram/SourceFiles/intro/intro_start.cpp
+@@ -24,8 +24,9 @@ StartWidget::StartWidget(
+ 	not_null<Data*> data)
+ : Step(parent, account, data, true) {
+ 	setMouseTracking(true);
+-	setTitleText(rpl::single(u"Telegram Desktop"_q));
+-	setDescriptionText(tr::lng_intro_about());
++	setTitleText(rpl::single(u"tele"_q));
++	setDescriptionText(rpl::single(
++		u"Welcome to tele, a Telegram Desktop fork.\nIt's fast and secure."_q));
+ 	show();
+ }
+ 
+diff --git a/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp b/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp
+index 3d051f4ce0afcf33207141b0d0355f1accee7ba7..262d6e88840e0f34e92c481060c515dfc01243cc 100644
+--- a/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp
++++ b/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp
+@@ -28,7 +28,7 @@ const PROPERTYKEY pkey_AppUserModel_ToastActivator = { { 0x9F4C2855, 0x9F79, 0x4
+ #ifdef OS_WIN_STORE
+ const WCHAR AppUserModelIdBase[] = L"Telegram.TelegramDesktop.Store";
+ #else // OS_WIN_STORE
+-const WCHAR AppUserModelIdBase[] = L"Telegram.TelegramDesktop";
++const WCHAR AppUserModelIdBase[] = L"nitreojs.tele";
+ #endif // OS_WIN_STORE
+ 
+ [[nodiscard]] QString PinnedIconsPath() {
+diff --git a/Telegram/SourceFiles/settings/sections/settings_notifications.cpp b/Telegram/SourceFiles/settings/sections/settings_notifications.cpp
+index a16c3ee9690de934d795a2803ada0e82c3f9db94..d4bb51f1bae8205a1d2e33c1cd2aa20ee382e09d 100644
+--- a/Telegram/SourceFiles/settings/sections/settings_notifications.cpp
++++ b/Telegram/SourceFiles/settings/sections/settings_notifications.cpp
+@@ -495,7 +495,7 @@ void NotificationsCount::prepareNotificationSampleLarge() {
+ 		p.setPen(st::dialogsNameFg);
+ 		p.setFont(st::msgNameFont);
+ 
+-		auto notifyTitle = st::msgNameFont->elided(u"Telegram Desktop"_q, rectForName.width());
++		auto notifyTitle = st::msgNameFont->elided(u"tele"_q, rectForName.width());
+ 		p.drawText(rectForName.left(), rectForName.top() + st::msgNameFont->ascent, notifyTitle);
+ 
+ 		st::notifyClose.icon.paint(p, w - st::notifyClosePos.x() - st::notifyClose.width + st::notifyClose.iconPosition.x(), st::notifyClosePos.y() + st::notifyClose.iconPosition.y(), w);
+diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
+index b5f5ea0c511b46e0d487a4c0784f7eb53fa297d5..d90788ac7ec4a1574fef2fbca92be462943f9f01 100644
+--- a/Telegram/SourceFiles/window/main_window.cpp
++++ b/Telegram/SourceFiles/window/main_window.cpp
+@@ -908,7 +908,7 @@ void MainWindow::updateTitle() {
+ 		: Dialogs::Key();
+ 	const auto thread = key ? key.thread() : nullptr;
+ 	if (!thread) {
+-		setTitle((user.isEmpty() ? u"Telegram"_q : user) + added + suffix);
++		setTitle((user.isEmpty() ? u"tele"_q : user) + added + suffix);
+ 		return;
+ 	}
+ 	const auto history = thread->owningHistory();
+diff --git a/Telegram/SourceFiles/window/notifications_manager_default.cpp b/Telegram/SourceFiles/window/notifications_manager_default.cpp
+index 12f5bf9a91ab215f3d8e10a10f343ba6c501e0d1..57e1453a52f945a69460db41e25c7507993c766e 100644
+--- a/Telegram/SourceFiles/window/notifications_manager_default.cpp
++++ b/Telegram/SourceFiles/window/notifications_manager_default.cpp
+@@ -1005,7 +1005,7 @@ void Notification::updateNotifyDisplay() {
+ 				: TextWithEntities{ name };
+ 		};
+ 		auto title = options.hideNameAndPhoto
+-			? TextWithEntities{ u"Telegram Desktop"_q }
++			? TextWithEntities{ u"tele"_q }
+ 			: reminder
+ 			? tr::lng_notification_reminder(tr::now, tr::marked)
+ 			: topicWithChat();
+diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
+index 649e6382da7050a72adb8700eb772089531cc4e3..0782599d4394bd544b26f24c919537de53ca6d5d 100644
+--- a/Telegram/SourceFiles/window/window_main_menu.cpp
++++ b/Telegram/SourceFiles/window/window_main_menu.cpp
+@@ -384,8 +384,8 @@ MainMenu::MainMenu(
+ 	parentResized();
+ 
+ 	_telegram->setMarkedText(tr::link(
+-		u"Telegram Desktop"_q,
+-		u"https://desktop.telegram.org"_q));
++		u"tele"_q,
++		u"https://github.com/nitreojs/tele"_q));
+ 	_telegram->setLinksTrusted();
+ 	// The canary version is too long for the "Version {version}" form.
+ 	_version->setMarkedText(
+diff --git a/Telegram/SourceFiles/window/window_restore_shell.cpp b/Telegram/SourceFiles/window/window_restore_shell.cpp
+index 3e49f93cf3cd08500cb3848c11d1b94d613b74cf..4b94562f4878e7539b12c717afda70b2f4038b11 100644
+--- a/Telegram/SourceFiles/window/window_restore_shell.cpp
++++ b/Telegram/SourceFiles/window/window_restore_shell.cpp
+@@ -28,7 +28,7 @@ RestoreShell::RestoreShell(
+ 	const QString &title,
+ 	Core::WindowPosition position)
+ : _window(base::make_unique_q<Ui::RpWindow>()) {
+-	_window->setTitle(title.isEmpty() ? u"Telegram"_q : title);
++	_window->setTitle(title.isEmpty() ? u"tele"_q : title);
+ 	_window->setMinimumSize(
+ 		QSize(st::windowShellMinWidth, st::windowShellMinHeight));
+ 	setupBody();
+diff --git a/Telegram/SourceFiles/window/window_saved_windows.cpp b/Telegram/SourceFiles/window/window_saved_windows.cpp
+index a775248b4605870fce9e064c2708d30204f4b39c..8c2104acb7cea50f0df49b325e029e4a0d8142c9 100644
+--- a/Telegram/SourceFiles/window/window_saved_windows.cpp
++++ b/Telegram/SourceFiles/window/window_saved_windows.cpp
+@@ -956,7 +956,7 @@ QString SavedWindows::shellTitle(
+ 		? st::wrap_rtl(session->user()->name())
+ 		: QString();
+ 	return name.isEmpty()
+-		? (user.isEmpty() ? u"Telegram"_q : user)
++		? (user.isEmpty() ? u"tele"_q : user)
+ 		: user.isEmpty()
+ 		? name
+ 		: (name + u" @ "_q + user);

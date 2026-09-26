@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 26 Sep 2026 18:32:45 +0300
+Subject: [PATCH] feat: show the tele build number in the title bar
+
+---
+ Telegram/CMakeLists.txt                     | 11 +++++++++++
+ Telegram/SourceFiles/tele/tele_build.cpp    | 15 +++++++++++++++
+ Telegram/SourceFiles/tele/tele_build.h      |  8 ++++++++
+ Telegram/SourceFiles/window/main_window.cpp | 15 ++++++---------
+ 4 files changed, 40 insertions(+), 9 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_build.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_build.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 1f7163198028b201ed38fea9a184bf1a0c3f5c4f..80321bef5262c1b8955cd3334909403f26917e05 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2208,6 +2208,17 @@ else()
+     )
+ endif()
+ 
++set(TELE_BUILD 0 CACHE STRING "tele release number, 0 for local builds")
++nice_target_sources(Telegram ${src_loc}
++PRIVATE
++    tele/tele_build.cpp
++    tele/tele_build.h
++)
++set_source_files_properties(${src_loc}/tele/tele_build.cpp
++PROPERTIES
++    COMPILE_DEFINITIONS TELE_BUILD=${TELE_BUILD}
++)
++
+ if (NOT build_winstore)
+     remove_target_sources(Telegram ${src_loc}
+         platform/win/windows_start_task.cpp
+diff --git a/Telegram/SourceFiles/tele/tele_build.cpp b/Telegram/SourceFiles/tele/tele_build.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..cbe75951c5997381cca8d39d3a1ee133cc8fbabe
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_build.cpp
+@@ -0,0 +1,15 @@
++#include "tele/tele_build.h"
++
++namespace Tele {
++
++int BuildNumber() {
++	return TELE_BUILD;
++}
++
++QString TitleLabel() {
++	return (BuildNumber() > 0)
++		? u"TELE #%1"_q.arg(BuildNumber())
++		: u"TELE DEV"_q;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_build.h b/Telegram/SourceFiles/tele/tele_build.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..2e2bceb142dfe499e63f170dc41128d275b365ea
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_build.h
+@@ -0,0 +1,8 @@
++#pragma once
++
++namespace Tele {
++
++[[nodiscard]] int BuildNumber();
++[[nodiscard]] QString TitleLabel();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
+index 921cc0de37eb6d3e1df15d061d3483a8405359fe..b5f5ea0c511b46e0d487a4c0784f7eb53fa297d5 100644
+--- a/Telegram/SourceFiles/window/main_window.cpp
++++ b/Telegram/SourceFiles/window/main_window.cpp
+@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "mainwidget.h" // session->content()->windowShown().
+ #include "tray.h"
++#include "tele/tele_build.h"
+ #include "styles/style_window.h"
+ #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
+ 
+@@ -567,9 +568,7 @@ void MainWindow::init() {
+ 		}, lifetime());
+ 	}
+ 	refreshTitleWidget();
+-	if constexpr (Core::BuildIsCanary) {
+-		setupCanaryTitleLabel();
+-	}
++	setupCanaryTitleLabel();
+ 
+ 	updateTitle();
+ 	updateWindowIcon();
+@@ -700,7 +699,7 @@ void MainWindow::setupCanaryTitleLabel() {
+ 	const auto label = Ui::CreateTitleSubWidget(
+ 		title,
+ 		st::titleSubWidgetStyle,
+-		rpl::single(Core::CanaryTitleLabel()),
++		rpl::single(Tele::TitleLabel()),
+ 		layout->value(
+ 		) | rpl::map([](const Ui::Platform::TitleLayout &layout) {
+ 			return layout.onLeft() ? style::al_right : style::al_left;
+@@ -715,11 +714,9 @@ void MainWindow::setupCanaryTitleLabel() {
+ }
+ 
+ QString MainWindow::nativeTitleSuffix() const {
+-	if constexpr (Core::BuildIsCanary) {
+-		const auto title = titleWidget();
+-		if (!title || title->isHidden()) {
+-			return u" \u2022 "_q + Core::CanaryTitleLabel();
+-		}
++	const auto title = titleWidget();
++	if (!title || title->isHidden()) {
++		return u" \u2022 "_q + Tele::TitleLabel();
+ 	}
+ 	return QString();
+ }

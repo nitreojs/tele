@@ -1,0 +1,699 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 26 Sep 2026 18:49:54 +0300
+Subject: [PATCH] feat: update from the tele github releases
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/core/application.cpp     |   2 +
+ .../SourceFiles/dialogs/dialogs_widget.cpp    |  16 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  57 ++-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  23 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ Telegram/SourceFiles/tele/tele_updater.cpp    | 399 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_updater.h      |  36 ++
+ 8 files changed, 532 insertions(+), 6 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_updater.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_updater.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 95cd52d25766ede11920d5410f960f13d777e7de..17c541778f1bde0e0ff69e41871197fc2e156edd 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2219,6 +2219,8 @@ PRIVATE
+     tele/tele_button_payload.h
+     tele/tele_options.cpp
+     tele/tele_options.h
++    tele/tele_updater.cpp
++    tele/tele_updater.h
+ )
+ set_source_files_properties(${src_loc}/tele/tele_build.cpp
+ PROPERTIES
+diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
+index d1cf3cdc395c1aedc2d06a2d6a866b18946fc106..c1fffa359d39b5d7d0eee936f277c97c1cdcebf3 100644
+--- a/Telegram/SourceFiles/core/application.cpp
++++ b/Telegram/SourceFiles/core/application.cpp
+@@ -100,6 +100,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/boxes/confirm_box.h"
+ #include "core/cached_webview_availability.h"
+ #include "test/test_agent.h"
++#include "tele/tele_updater.h"
+ 
+ #include <QtCore/QStandardPaths>
+ #include <QtCore/QMimeDatabase>
+@@ -349,6 +350,7 @@ void Application::run() {
+ 	Media::Player::start(_audio.get());
+ 	Media::Encode::ClearStaleTempFiles();
+ 	Storage::ClearStaleArchiveFiles();
++	Tele::StartUpdater();
+ 
+ 	if (MediaControlsManager::Supported()) {
+ 		_mediaControlsManager = std::make_unique<MediaControlsManager>();
+diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
+index 959e22ebef266eb1b51d0ac1c23c0e897e551b36..2b4440bfdc0b20f3f1ec962ca296dd75a29ff84e 100644
+--- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
++++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
+@@ -95,6 +95,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "info/profile/info_profile_values.h"
+ #include "info/info_memento.h"
+ #include "inline_bots/bot_attach_web_view.h"
++#include "tele/tele_updater.h"
+ #include "styles/style_dialogs.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+@@ -661,6 +662,11 @@ Widget::Widget(
+ 		) | rpl::on_next([=] {
+ 			checkUpdateStatus();
+ 		}, lifetime());
++	} else {
++		Tele::UpdateReadyValue(
++		) | rpl::on_next([=](bool) {
++			checkUpdateStatus();
++		}, lifetime());
+ 	}
+ 
+ 	_cancelSearch->setClickedCallback([=] {
+@@ -2622,14 +2628,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
+ }
+ 
+ void Widget::checkUpdateStatus() {
+-	Expects(!Core::UpdaterDisabled());
+-
+ 	if (_layout == Layout::Child) {
+ 		return;
+ 	}
+ 
+ 	using Checker = Core::UpdateChecker;
+-	if (Checker().state() == Checker::State::Ready) {
++	if (Core::UpdaterDisabled()
++		? Tele::UpdateReady()
++		: (Checker().state() == Checker::State::Ready)) {
+ 		if (_updateTelegram) {
+ 			return;
+ 		}
+@@ -2642,6 +2648,10 @@ void Widget::checkUpdateStatus() {
+ 			true);
+ 		_updateTelegram->show();
+ 		_updateTelegram->setClickedCallback([] {
++			if (Core::UpdaterDisabled()) {
++				Tele::RestartToUpdate();
++				return;
++			}
+ 			Core::checkReadyUpdate();
+ 			Core::Restart();
+ 		});
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 7d5a2859ea4be6df329b43f04bf898035acc8884..8aa99352d215ced94b1ecab540876349df242159 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -9,6 +9,7 @@
+ #include "settings/settings_common_session.h"
+ #include "tele/tele_build.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_updater.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/vertical_list.h"
+ #include "ui/widgets/buttons.h"
+@@ -111,6 +112,46 @@ void AddOptionToggle(
+ 	}, button->lifetime());
+ }
+ 
++[[nodiscard]] QString UpdateStatusText(const ::Tele::UpdateStatus &status) {
++	using State = ::Tele::UpdateState;
++	switch (status.state) {
++	case State::Disabled:
++		return u"Local builds don't update themselves."_q;
++	case State::Idle:
++		return u"Not checked yet."_q;
++	case State::Checking:
++		return u"Checking for updates..."_q;
++	case State::Latest:
++		return u"You have the latest build."_q;
++	case State::Downloading:
++		return (status.total > 0)
++			? u"Downloading %1: %2%"_q.arg(status.tag).arg(
++				status.ready * 100 / status.total)
++			: u"Downloading %1..."_q.arg(status.tag);
++	case State::Ready:
++		return u"%1 is ready, restart to update."_q.arg(status.tag);
++	case State::Failed:
++		return u"Update failed: %1"_q.arg(status.error);
++	}
++	return QString();
++}
++
++void AddUpdates(not_null<Ui::VerticalLayout*> container) {
++	const auto button = container->add(object_ptr<Button>(
++		container,
++		::Tele::UpdateReadyValue() | rpl::map([](bool ready) {
++			return ready ? u"Restart to update"_q : u"Check for updates"_q;
++		}),
++		st::settingsButtonNoIcon));
++	button->setClickedCallback([] {
++		if (::Tele::UpdateReady()) {
++			::Tele::RestartToUpdate();
++		} else {
++			::Tele::CheckForUpdates();
++		}
++	});
++}
++
+ TeleSection::TeleSection(
+ 	QWidget *parent,
+ 	not_null<Window::SessionController*> controller)
+@@ -135,12 +176,22 @@ void TeleSection::setupContent() {
+ 	Ui::AddSubsectionTitle(content, rpl::single(u"Bots"_q));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionButtonPayloads);
+ 	Ui::AddSkip(content);
++	Ui::AddDivider(content);
++	Ui::AddSkip(content);
++	Ui::AddSubsectionTitle(content, rpl::single(u"Updates"_q));
++	AddOptionToggle(content, controller(), ::Tele::kOptionAutoUpdate);
++	AddUpdates(content);
++	Ui::AddSkip(content);
+ 
++	const auto build = u"Telegram Desktop %1 with tele patches, build %2."_q.arg(
++		QString::fromLatin1(AppVersionStr),
++		::Tele::TitleLabel());
+ 	Ui::AddDividerText(
+ 		content,
+-		rpl::single(u"Telegram Desktop %1 with tele patches, build %2."_q.arg(
+-			QString::fromLatin1(AppVersionStr),
+-			::Tele::TitleLabel())));
++		::Tele::UpdateStatusValue(
++		) | rpl::map([=](const ::Tele::UpdateStatus &status) {
++			return UpdateStatusText(status) + u"\n\n"_q + build;
++		}));
+ 
+ 	Ui::ResizeFitChild(this, content);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 2be3b2f04ae14a2c624df8dae2ee104ee81e2ab6..e4bc0261910b539f8356ee9abccc74ce8c18b9d3 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -7,6 +7,7 @@ namespace Tele {
+ const char kOptionHideStories[] = "tele-hide-stories";
+ const char kOptionInvisibleStories[] = "tele-invisible-stories";
+ const char kOptionButtonPayloads[] = "tele-button-payloads";
++const char kOptionAutoUpdate[] = "tele-auto-update";
+ 
+ namespace {
+ 
+@@ -35,6 +36,14 @@ base::options::toggle ButtonPayloadsOption({
+ 		"callback data, links, inline queries, web apps and more.",
+ });
+ 
++base::options::toggle AutoUpdateOption({
++	.id = kOptionAutoUpdate,
++	.name = "Update automatically",
++	.description = "Check the tele releases on GitHub every 3 hours, "
++		"download new builds in the background and offer a restart.",
++	.defaultValue = true,
++});
++
+ } // namespace
+ 
+ bool HideStories() {
+@@ -49,4 +58,18 @@ bool ButtonPayloads() {
+ 	return ButtonPayloadsOption.value();
+ }
+ 
++bool AutoUpdate() {
++	return AutoUpdateOption.value();
++}
++
++rpl::producer<bool> AutoUpdateValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		AutoUpdateOption.changes()
++	) | rpl::map([] {
++		return AutoUpdateOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 48e433dccd1abcf6643ec48f1032afd604eef806..8701f56e74f11b4dc252508b38b546083fe982cb 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -5,9 +5,12 @@ namespace Tele {
+ extern const char kOptionHideStories[];
+ extern const char kOptionInvisibleStories[];
+ extern const char kOptionButtonPayloads[];
++extern const char kOptionAutoUpdate[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+ [[nodiscard]] bool ButtonPayloads();
++[[nodiscard]] bool AutoUpdate();
++[[nodiscard]] rpl::producer<bool> AutoUpdateValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e9ee7166725a32c34b3481ca697c9e2c843a30c
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_updater.cpp
+@@ -0,0 +1,399 @@
++#include "tele/tele_updater.h"
++
++#include "base/timer.h"
++#include "base/zlib_help.h"
++#include "core/application.h"
++#include "core/update_verify.h"
++#include "core/version.h"
++#include "settings.h"
++#include "tele/tele_build.h"
++#include "tele/tele_options.h"
++
++#include <QtCore/QCoreApplication>
++#include <QtCore/QCryptographicHash>
++#include <QtCore/QFile>
++#include <QtCore/QJsonDocument>
++#include <QtCore/QJsonObject>
++#include <QtCore/QPointer>
++#include <QtCore/QThread>
++#include <QtNetwork/QNetworkAccessManager>
++#include <QtNetwork/QNetworkReply>
++#include <QtNetwork/QNetworkRequest>
++
++namespace Tele {
++namespace {
++
++constexpr auto kFirstCheckDelay = 15 * crl::time(1000);
++constexpr auto kCheckInterval = 3 * 60 * 60 * crl::time(1000);
++constexpr auto kTransferTimeout = 60 * 1000;
++constexpr auto kMaxFeedSize = qint64(64 * 1024);
++constexpr auto kMaxZipSize = qint64(512 * 1024 * 1024);
++constexpr auto kMaxExeSize = 1024 * 1024 * 1024;
++constexpr auto kRenameAttempts = 10;
++constexpr auto kRenameRetryDelay = 100;
++constexpr auto kPublicKeyHex = "b824f455f8a50732a1f062b7e29029a7"
++	"7691cab1e88bc23f84187bba26d82ea7";
++constexpr auto kFeedUrl = "https://github.com/nitreojs/tele/releases/"
++	"latest/download/tele-update-win64.json";
++constexpr auto kDownloadPrefix = "https://github.com/nitreojs/tele/"
++	"releases/download/";
++constexpr auto kExeInZip = "tele.exe";
++
++struct Release {
++	QString tag;
++	QString url;
++	QByteArray zipSha256;
++	QByteArray exeSha256;
++};
++
++[[nodiscard]] quint64 RunningVersion() {
++	return Core::Updates::MakeUpdateVersion(
++		quint32(AppVersion),
++		quint32(BuildNumber()));
++}
++
++[[nodiscard]] QByteArray Sha256Hex(const QByteArray &data) {
++	return QCryptographicHash::hash(
++		data,
++		QCryptographicHash::Sha256).toHex();
++}
++
++[[nodiscard]] QByteArray FileSha256Hex(const QString &path) {
++	auto file = QFile(path);
++	if (!file.open(QIODevice::ReadOnly)) {
++		return QByteArray();
++	}
++	auto hash = QCryptographicHash(QCryptographicHash::Sha256);
++	if (!hash.addData(&file)) {
++		return QByteArray();
++	}
++	return hash.result().toHex();
++}
++
++[[nodiscard]] QString ExePath() {
++	return QCoreApplication::applicationFilePath();
++}
++
++[[nodiscard]] bool CanWriteNextToExe() {
++	const auto probe = ExePath() + u".probe"_q;
++	auto file = QFile(probe);
++	if (!file.open(QIODevice::WriteOnly)) {
++		return false;
++	}
++	file.close();
++	return QFile::remove(probe);
++}
++
++[[nodiscard]] bool RenameWithRetries(const QString &from, const QString &to) {
++	for (auto attempt = 0; attempt != kRenameAttempts; ++attempt) {
++		if (QFile::rename(from, to)) {
++			return true;
++		}
++		QThread::msleep(kRenameRetryDelay);
++	}
++	return false;
++}
++
++[[nodiscard]] QString Unpack(const Release &release, const QByteArray &zip) {
++	if (Sha256Hex(zip) != release.zipSha256) {
++		return u"downloaded archive doesn't match the feed"_q;
++	}
++	auto archive = zlib::FileToRead(zip);
++	const auto exe = archive.readFileContent(kExeInZip, 0, kMaxExeSize);
++	if (exe.isEmpty() || archive.error() != UNZ_OK) {
++		return u"can't unpack %1 from the archive"_q.arg(kExeInZip);
++	} else if (Sha256Hex(exe) != release.exeSha256) {
++		return u"unpacked exe doesn't match the feed"_q;
++	}
++	const auto newPath = ExePath() + u".new"_q;
++	QFile::remove(newPath);
++	auto file = QFile(newPath);
++	if (!file.open(QIODevice::WriteOnly)
++		|| file.write(exe) != exe.size()
++		|| !file.flush()) {
++		file.close();
++		QFile::remove(newPath);
++		return u"can't write %1"_q.arg(newPath);
++	}
++	return QString();
++}
++
++class Updater final : public QObject, public base::has_weak_ptr {
++public:
++	Updater();
++
++	void check();
++
++	[[nodiscard]] UpdateStatus status() const;
++	[[nodiscard]] rpl::producer<UpdateStatus> statusValue() const;
++
++private:
++	using Done = Fn<void(QByteArray)>;
++
++	void scheduleCheck(crl::time delay);
++	void get(const QString &url, qint64 limit, bool progress, Done done);
++	void verifyFeed(const QByteArray &envelope);
++	void download(const Release &release);
++	void install(const Release &release);
++	void fail(const QString &error);
++	void finish(UpdateStatus status);
++
++	QNetworkAccessManager _manager;
++	base::Timer _timer;
++	bool _busy = false;
++	rpl::variable<UpdateStatus> _status;
++	rpl::lifetime _lifetime;
++
++};
++
++QPointer<Updater> Instance;
++
++Updater::Updater()
++: QObject(QCoreApplication::instance())
++, _timer([=] { check(); }) {
++	_status = UpdateStatus{
++		.state = BuildNumber() > 0
++			? UpdateState::Idle
++			: UpdateState::Disabled,
++	};
++	if (BuildNumber() <= 0) {
++		return;
++	}
++	QFile::remove(ExePath() + u".old"_q);
++	QFile::remove(ExePath() + u".new"_q);
++	AutoUpdateValue() | rpl::on_next([=](bool enabled) {
++		if (!enabled) {
++			_timer.cancel();
++		} else if (!_busy
++			&& _status.current().state != UpdateState::Ready) {
++			scheduleCheck(kFirstCheckDelay);
++		}
++	}, _lifetime);
++}
++
++void Updater::scheduleCheck(crl::time delay) {
++	if (AutoUpdate() && _status.current().state != UpdateState::Ready) {
++		_timer.callOnce(delay);
++	}
++}
++
++UpdateStatus Updater::status() const {
++	return _status.current();
++}
++
++rpl::producer<UpdateStatus> Updater::statusValue() const {
++	return _status.value();
++}
++
++void Updater::check() {
++	const auto state = _status.current().state;
++	if (state == UpdateState::Disabled
++		|| state == UpdateState::Ready
++		|| _busy) {
++		return;
++	}
++	_busy = true;
++	_timer.cancel();
++	_status = UpdateStatus{ .state = UpdateState::Checking };
++	get(QString::fromLatin1(kFeedUrl), kMaxFeedSize, false, [=](
++			QByteArray envelope) {
++		verifyFeed(envelope);
++	});
++}
++
++void Updater::get(
++		const QString &url,
++		qint64 limit,
++		bool progress,
++		Done done) {
++	auto request = QNetworkRequest(QUrl(url));
++	request.setAttribute(
++		QNetworkRequest::RedirectPolicyAttribute,
++		QNetworkRequest::NoLessSafeRedirectPolicy);
++	request.setTransferTimeout(kTransferTimeout);
++	const auto reply = _manager.get(request);
++	const auto tooLarge = std::make_shared<bool>(false);
++	connect(reply, &QNetworkReply::downloadProgress, this, [=](
++			qint64 ready,
++			qint64 total) {
++		if (ready > limit || total > limit) {
++			*tooLarge = true;
++			reply->abort();
++			return;
++		} else if (progress) {
++			auto status = _status.current();
++			status.ready = ready;
++			status.total = total;
++			_status = std::move(status);
++		}
++	});
++	connect(reply, &QNetworkReply::finished, this, [=] {
++		reply->deleteLater();
++		const auto code = reply->attribute(
++			QNetworkRequest::HttpStatusCodeAttribute).toInt();
++		if (*tooLarge) {
++			fail(u"response is too large"_q);
++		} else if (reply->error() != QNetworkReply::NoError) {
++			fail(u"network error: %1"_q.arg(reply->errorString()));
++		} else if (code != 200) {
++			fail(u"unexpected http status %1"_q.arg(code));
++		} else {
++			done(reply->readAll());
++		}
++	});
++}
++
++void Updater::verifyFeed(const QByteArray &envelope) {
++	const auto outer = QJsonDocument::fromJson(envelope).object();
++	const auto feed = QByteArray::fromBase64(
++		outer.value(u"feed"_q).toString().toLatin1());
++	const auto signature = QByteArray::fromBase64(
++		outer.value(u"signature"_q).toString().toLatin1());
++	auto error = QString();
++	const auto key = Core::Updates::ManifestKey{
++		.ed25519 = true,
++		.x = QByteArray::fromHex(kPublicKeyHex),
++	};
++	if (!Core::Updates::VerifySignature(key, feed, signature, &error)) {
++		fail(u"bad feed signature: %1"_q.arg(error));
++		return;
++	}
++	const auto object = QJsonDocument::fromJson(feed).object();
++	const auto base = object.value(u"base"_q).toVariant().toULongLong();
++	const auto counter = object.value(u"counter"_q).toVariant().toULongLong();
++	const auto release = Release{
++		.tag = object.value(u"tag"_q).toString(),
++		.url = object.value(u"url"_q).toString(),
++		.zipSha256 = object.value(u"zip_sha256"_q).toString().toLatin1(),
++		.exeSha256 = object.value(u"exe_sha256"_q).toString().toLatin1(),
++	};
++	if (!base
++		|| !counter
++		|| base > 0xFFFFFFFFULL
++		|| counter > 0xFFFFFFFFULL
++		|| release.tag.isEmpty()
++		|| !release.url.startsWith(QString::fromLatin1(kDownloadPrefix))
++		|| release.zipSha256.size() != 64
++		|| release.exeSha256.size() != 64) {
++		fail(u"malformed feed"_q);
++		return;
++	}
++	const auto version = Core::Updates::MakeUpdateVersion(
++		quint32(base),
++		quint32(counter));
++	if (version <= RunningVersion()) {
++		finish({ .state = UpdateState::Latest });
++		return;
++	} else if (!CanWriteNextToExe()) {
++		fail(u"can't write to the tele folder, "
++			"download %1 from GitHub by hand"_q.arg(release.tag));
++		return;
++	}
++	_status = UpdateStatus{
++		.state = UpdateState::Downloading,
++		.tag = release.tag,
++	};
++	crl::async([=, weak = base::make_weak(this), path = ExePath()] {
++		const auto installed = (FileSha256Hex(path) == release.exeSha256);
++		crl::on_main(weak, [=] {
++			if (installed) {
++				finish({ .state = UpdateState::Ready, .tag = release.tag });
++			} else {
++				download(release);
++			}
++		});
++	});
++}
++
++void Updater::download(const Release &release) {
++	get(release.url, kMaxZipSize, true, [=](QByteArray zip) {
++		crl::async([=, weak = base::make_weak(this)] {
++			const auto error = Unpack(release, zip);
++			crl::on_main(weak, [=] {
++				if (!error.isEmpty()) {
++					fail(error);
++				} else {
++					install(release);
++				}
++			});
++		});
++	});
++}
++
++void Updater::install(const Release &release) {
++	const auto path = ExePath();
++	const auto newPath = path + u".new"_q;
++	const auto oldPath = path + u".old"_q;
++	QFile::remove(oldPath);
++	if (!RenameWithRetries(path, oldPath)) {
++		QFile::remove(newPath);
++		fail(u"can't move the running exe aside"_q);
++		return;
++	} else if (!RenameWithRetries(newPath, path)) {
++		if (!RenameWithRetries(oldPath, path)) {
++			fail(u"%1 is missing, rename %2 back to it"_q.arg(path, oldPath));
++			return;
++		}
++		QFile::remove(newPath);
++		fail(u"can't put the new exe in place"_q);
++		return;
++	}
++	finish({ .state = UpdateState::Ready, .tag = release.tag });
++}
++
++void Updater::fail(const QString &error) {
++	LOG(("Tele Updater Error: %1").arg(error));
++	finish({ .state = UpdateState::Failed, .error = error });
++}
++
++void Updater::finish(UpdateStatus status) {
++	_busy = false;
++	_status = std::move(status);
++	scheduleCheck(kCheckInterval);
++}
++
++} // namespace
++
++void StartUpdater() {
++	if (!Instance) {
++		Instance = new Updater();
++	}
++}
++
++void CheckForUpdates() {
++	if (Instance) {
++		Instance->check();
++	}
++}
++
++void RestartToUpdate() {
++	if (UpdateReady()) {
++		cSetRestarting(true);
++		Core::Quit();
++	}
++}
++
++UpdateStatus CurrentUpdateStatus() {
++	return Instance
++		? Instance->status()
++		: UpdateStatus{ .state = UpdateState::Disabled };
++}
++
++rpl::producer<UpdateStatus> UpdateStatusValue() {
++	return Instance
++		? Instance->statusValue()
++		: rpl::single(UpdateStatus{ .state = UpdateState::Disabled });
++}
++
++bool UpdateReady() {
++	return CurrentUpdateStatus().state == UpdateState::Ready;
++}
++
++rpl::producer<bool> UpdateReadyValue() {
++	return UpdateStatusValue(
++	) | rpl::map([](const UpdateStatus &status) {
++		return status.state == UpdateState::Ready;
++	}) | rpl::distinct_until_changed();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_updater.h b/Telegram/SourceFiles/tele/tele_updater.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..bd9a86ae454042e4e80d12fdf5cd6d52e58f46a8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_updater.h
+@@ -0,0 +1,36 @@
++#pragma once
++
++namespace Tele {
++
++enum class UpdateState {
++	Disabled,
++	Idle,
++	Checking,
++	Latest,
++	Downloading,
++	Ready,
++	Failed,
++};
++
++struct UpdateStatus {
++	UpdateState state = UpdateState::Idle;
++	QString tag;
++	int64 ready = 0;
++	int64 total = 0;
++	QString error;
++
++	friend inline bool operator==(
++		const UpdateStatus &,
++		const UpdateStatus &) = default;
++};
++
++void StartUpdater();
++void CheckForUpdates();
++void RestartToUpdate();
++
++[[nodiscard]] UpdateStatus CurrentUpdateStatus();
++[[nodiscard]] rpl::producer<UpdateStatus> UpdateStatusValue();
++[[nodiscard]] bool UpdateReady();
++[[nodiscard]] rpl::producer<bool> UpdateReadyValue();
++
++} // namespace Tele

@@ -1,0 +1,122 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 26 Sep 2026 18:42:36 +0300
+Subject: [PATCH] feat: add an option to watch stories invisibly
+
+---
+ Telegram/SourceFiles/data/data_stories.cpp         |  5 +++--
+ .../media/view/media_view_overlay_widget.cpp       |  8 ++++++++
+ Telegram/SourceFiles/settings/settings_tele.cpp    |  1 +
+ Telegram/SourceFiles/tele/tele_options.cpp         | 14 ++++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h           |  2 ++
+ 5 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/Telegram/SourceFiles/data/data_stories.cpp b/Telegram/SourceFiles/data/data_stories.cpp
+index 03f5d38068ec4e8a131e7a47e73959dd94c31389..b88ba7e336a9bfe01ab9e3aedfcbe4d4ec936412 100644
+--- a/Telegram/SourceFiles/data/data_stories.cpp
++++ b/Telegram/SourceFiles/data/data_stories.cpp
+@@ -1242,13 +1242,14 @@ void Stories::markAsRead(FullStoryId id, bool viewed) {
+ 		return;
+ 	}
+ 	const auto story = *maybeStory;
+-	if (story->expired() && story->inProfile()) {
++	const auto invisible = Tele::InvisibleStories();
++	if (!invisible && story->expired() && story->inProfile()) {
+ 		_incrementViewsPending[id.peer].emplace(id.story);
+ 		if (!_incrementViewsTimer.isActive()) {
+ 			_incrementViewsTimer.callOnce(kIncrementViewsDelay);
+ 		}
+ 	}
+-	if (!bumpReadTill(id.peer, id.story)) {
++	if (!bumpReadTill(id.peer, id.story) || invisible) {
+ 		return;
+ 	}
+ 	if (!_markReadPending.contains(id.peer)) {
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index 36e08897723f019b4fc4eea37e504e1b4be1530f..49c9edeef04011f7ab77f8369e068bd3b4fe72c1 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -4520,6 +4520,9 @@ void OverlayWidget::show(OpenRequest request) {
+ 	const auto story = request.story();
+ 	if (story && Tele::HideStories()) {
+ 		return;
++	} else if (story && story->call() && Tele::InvisibleStories()) {
++		Ui::Toast::Show(u"Live stories can't be watched invisibly."_q);
++		return;
+ 	}
+ 	const auto document = story ? story->document() : request.document();
+ 	const auto photo = story ? story->photo() : request.photo();
+@@ -4878,6 +4881,11 @@ void OverlayWidget::displayDocument(
+ void OverlayWidget::displayVideoStream(
+ 		const std::shared_ptr<Data::GroupCall> &call,
+ 		anim::activation activation) {
++	if (_stories && Tele::InvisibleStories()) {
++		Ui::Toast::Show(u"Live stories can't be watched invisibly."_q);
++		close();
++		return;
++	}
+ 	_fullScreenVideo = false;
+ 	_staticContent = QImage();
+ 	clearStreaming(true);
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 431ad10bb25286c95b4eb8eba8b960248731dd6c..5c55fc55ece56da0bf5add8cfbdf2c67e9530ae5 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -128,6 +128,7 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddSubsectionTitle(content, rpl::single(u"Stories"_q));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideStories);
++	AddOptionToggle(content, controller(), ::Tele::kOptionInvisibleStories);
+ 	Ui::AddSkip(content);
+ 
+ 	Ui::AddDividerText(
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 335ebec14f07215103e5c57caa960ef681dd8175..4500af757e95c76ca98abfa3219b8f3ed507fad0 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -5,6 +5,7 @@
+ namespace Tele {
+ 
+ const char kOptionHideStories[] = "tele-hide-stories";
++const char kOptionInvisibleStories[] = "tele-invisible-stories";
+ 
+ namespace {
+ 
+@@ -17,10 +18,23 @@ base::options::toggle HideStoriesOption({
+ 	.restartRequired = true,
+ });
+ 
++base::options::toggle InvisibleStoriesOption({
++	.id = kOptionInvisibleStories,
++	.name = "Watch stories invisibly",
++	.description = "Watching a story doesn't tell the server, so you "
++		"don't appear among its viewers. Seen stories come back "
++		"as unread after a restart. Reactions and replies still "
++		"reveal you, and live stories can't be opened.",
++});
++
+ } // namespace
+ 
+ bool HideStories() {
+ 	return HideStoriesOption.value();
+ }
+ 
++bool InvisibleStories() {
++	return InvisibleStoriesOption.value();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 97ed2f6363b47168ae58db39fd7122bd03625d8c..908c75c51d55a35a01384e76ca758f90e166bb58 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -3,7 +3,9 @@
+ namespace Tele {
+ 
+ extern const char kOptionHideStories[];
++extern const char kOptionInvisibleStories[];
+ 
+ [[nodiscard]] bool HideStories();
++[[nodiscard]] bool InvisibleStories();
+ 
+ } // namespace Tele

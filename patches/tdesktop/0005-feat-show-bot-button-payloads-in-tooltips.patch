@@ -1,0 +1,420 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 26 Sep 2026 18:45:52 +0300
+Subject: [PATCH] feat: show bot button payloads in tooltips
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../history/history_item_components.cpp       |   8 +
+ .../SourceFiles/settings/settings_tele.cpp    |   5 +
+ .../SourceFiles/tele/tele_button_payload.cpp  | 267 ++++++++++++++++++
+ .../SourceFiles/tele/tele_button_payload.h    |  19 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  12 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ 7 files changed, 315 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_button_payload.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_button_payload.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 56308300b9fb3503cdf53b2f9f6ee8b3bbe5b759..95cd52d25766ede11920d5410f960f13d777e7de 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2215,6 +2215,8 @@ PRIVATE
+     settings/settings_tele.h
+     tele/tele_build.cpp
+     tele/tele_build.h
++    tele/tele_button_payload.cpp
++    tele/tele_button_payload.h
+     tele/tele_options.cpp
+     tele/tele_options.h
+ )
+diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
+index 7a13def3804bfbf14068852a88c8e91db8c6dc6a..575798c0082743dbcbdf399d424b076bd3277827 100644
+--- a/Telegram/SourceFiles/history/history_item_components.cpp
++++ b/Telegram/SourceFiles/history/history_item_components.cpp
+@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
+ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ */
+ #include "history/history_item_components.h"
++#include "tele/tele_button_payload.h"
+ 
+ #include "api/api_text_entities.h"
+ #include "base/qt/qt_key_modifiers.h"
+@@ -789,6 +790,13 @@ QString ReplyMarkupClickHandler::buttonText() const {
+ }
+ 
+ QString ReplyMarkupClickHandler::tooltip() const {
++	if (auto payload = Tele::MarkupButtonTooltip(
++			_owner,
++			_itemId,
++			getButton(),
++			_fullDisplayed); !payload.isEmpty()) {
++		return payload;
++	}
+ 	if (const auto button = getButton()) {
+ 		if (button->type == HistoryMessageMarkupButton::Type::CopyText) {
+ 			return tr::lng_bot_copy_text_tooltip(
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 5c55fc55ece56da0bf5add8cfbdf2c67e9530ae5..7d5a2859ea4be6df329b43f04bf898035acc8884 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -130,6 +130,11 @@ void TeleSection::setupContent() {
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideStories);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionInvisibleStories);
+ 	Ui::AddSkip(content);
++	Ui::AddDivider(content);
++	Ui::AddSkip(content);
++	Ui::AddSubsectionTitle(content, rpl::single(u"Bots"_q));
++	AddOptionToggle(content, controller(), ::Tele::kOptionButtonPayloads);
++	Ui::AddSkip(content);
+ 
+ 	Ui::AddDividerText(
+ 		content,
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e331eedc1b954094a5a5d3bf596b2855bfb3978
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -0,0 +1,267 @@
++#include "tele/tele_button_payload.h"
++
++#include "data/data_game.h"
++#include "data/data_media_types.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "history/history_item.h"
++#include "history/history_item_reply_markup.h"
++#include "inline_bots/bot_attach_web_view.h"
++#include "tele/tele_options.h"
++
++#include <QtCore/QDataStream>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxValueLength = 512;
++
++using Button = HistoryMessageMarkupButton;
++using Type = Button::Type;
++
++[[nodiscard]] QString Limited(QString value) {
++	if (value.size() > kMaxValueLength) {
++		value = value.mid(0, kMaxValueLength) + QChar(0x2026);
++	}
++	return value;
++}
++
++[[nodiscard]] QString Quoted(const QString &value) {
++	auto escaped = value;
++	escaped.replace('\\', u"\\\\"_q)
++		.replace('\n', u"\\n"_q)
++		.replace('\r', u"\\r"_q)
++		.replace('\t', u"\\t"_q);
++	return '"' + Limited(escaped) + '"';
++}
++
++[[nodiscard]] bool IsPrintable(const QString &value) {
++	for (const auto ch : value) {
++		const auto code = ch.unicode();
++		if ((code < 0x20 && code != '\n' && code != '\r' && code != '\t')
++			|| code == 0x7F
++			|| code == 0xFFFD) {
++			return false;
++		}
++	}
++	return true;
++}
++
++[[nodiscard]] QString Bytes(const QByteArray &data) {
++	if (data.isEmpty()) {
++		return u"(empty)"_q;
++	}
++	const auto text = QString::fromUtf8(data);
++	if (text.toUtf8() == data && IsPrintable(text)) {
++		return Quoted(text);
++	}
++	return u"hex, %1 bytes: %2"_q.arg(data.size()).arg(
++		Limited(QString::fromLatin1(data.toHex(' '))));
++}
++
++[[nodiscard]] QString Utf8(const QByteArray &data) {
++	return Limited(QString::fromUtf8(data));
++}
++
++[[nodiscard]] QString PeerTypesText(InlineBots::PeerTypes types) {
++	using PeerType = InlineBots::PeerType;
++	auto names = QStringList();
++	const auto add = [&](PeerType type, const QString &name) {
++		if (types & type) {
++			names.push_back(name);
++		}
++	};
++	add(PeerType::SameBot, u"this bot"_q);
++	add(PeerType::Bot, u"bots"_q);
++	add(PeerType::User, u"users"_q);
++	add(PeerType::Group, u"groups"_q);
++	add(PeerType::Broadcast, u"channels"_q);
++	return names.join(u", "_q);
++}
++
++[[nodiscard]] QString RestrictionText(RequestPeerQuery::Restriction value) {
++	using Restriction = RequestPeerQuery::Restriction;
++	switch (value) {
++	case Restriction::Yes: return u"yes"_q;
++	case Restriction::No: return u"no"_q;
++	case Restriction::Any: break;
++	}
++	return QString();
++}
++
++void AppendRequestPeer(QStringList &lines, const Button &button) {
++	if (button.data.size() != sizeof(RequestPeerQuery)) {
++		lines.push_back(u"requests a chat"_q);
++		return;
++	}
++	auto query = RequestPeerQuery();
++	memcpy(&query, button.data.constData(), sizeof(query));
++	using PeerType = RequestPeerQuery::Type;
++	const auto type = (query.type == PeerType::User)
++		? u"user"_q
++		: (query.type == PeerType::Group)
++		? u"group"_q
++		: u"channel"_q;
++	lines.push_back(u"requests: %1, up to %2"_q.arg(type).arg(
++		std::max(query.maxQuantity, 1)));
++	const auto restriction = [&](
++			const QString &name,
++			RequestPeerQuery::Restriction value) {
++		if (const auto text = RestrictionText(value); !text.isEmpty()) {
++			lines.push_back(name + u": "_q + text);
++		}
++	};
++	restriction(u"bot"_q, query.userIsBot);
++	restriction(u"premium"_q, query.userIsPremium);
++	restriction(u"forum"_q, query.groupIsForum);
++	restriction(u"has username"_q, query.hasUsername);
++	if (query.amCreator) {
++		lines.push_back(u"you must be the owner"_q);
++	}
++	if (query.isBotParticipant) {
++		lines.push_back(u"the bot must be a member"_q);
++	}
++}
++
++void AppendCreateBot(QStringList &lines, const Button &button) {
++	auto name = QString();
++	auto username = QString();
++	auto stream = QDataStream(button.data);
++	stream >> name >> username;
++	lines.push_back(u"creates a bot"_q);
++	if (!name.isEmpty()) {
++		lines.push_back(u"suggested name: "_q + Quoted(name));
++	}
++	if (!username.isEmpty()) {
++		lines.push_back(u"suggested username: @"_q + Limited(username));
++	}
++}
++
++void AppendUser(
++		QStringList &lines,
++		not_null<Data::Session*> owner,
++		const QByteArray &data) {
++	const auto id = data.toULongLong();
++	lines.push_back(u"user id: "_q + QString::number(id));
++	if (const auto user = owner->userLoaded(UserId(id))) {
++		lines.push_back(u"user: "_q + Limited(user->name()));
++	}
++}
++
++void AppendGame(
++		QStringList &lines,
++		not_null<Data::Session*> owner,
++		FullMsgId itemId) {
++	const auto item = owner->message(itemId);
++	const auto media = item ? item->media() : nullptr;
++	const auto game = media ? media->game() : nullptr;
++	lines.push_back(game
++		? (u"game: "_q + Limited(game->shortName))
++		: u"game"_q);
++}
++
++} // namespace
++
++QString MarkupButtonTooltip(
++		not_null<Data::Session*> owner,
++		FullMsgId itemId,
++		const HistoryMessageMarkupButton *button,
++		bool fullDisplayed) {
++	if (!button || !ButtonPayloads()) {
++		return QString();
++	}
++	auto lines = QStringList();
++	switch (button->type) {
++	case Type::Default:
++		lines.push_back(u"sends: "_q + Quoted(button->text));
++		break;
++	case Type::Url:
++		lines.push_back(u"url: "_q + Utf8(button->data));
++		break;
++	case Type::Auth:
++		lines.push_back(u"login url: "_q + Utf8(button->data));
++		if (button->buttonId) {
++			lines.push_back(u"button id: "_q
++				+ QString::number(button->buttonId));
++		}
++		if (!button->forwardText.isEmpty()) {
++			lines.push_back(u"forward text: "_q
++				+ Quoted(button->forwardText));
++		}
++		break;
++	case Type::Callback:
++		lines.push_back(u"callback: "_q + Bytes(button->data));
++		break;
++	case Type::CallbackWithPassword:
++		lines.push_back(u"callback: "_q + Bytes(button->data));
++		lines.push_back(u"asks for your password"_q);
++		break;
++	case Type::RequestPhone:
++		lines.push_back(u"requests your phone number"_q);
++		break;
++	case Type::RequestLocation:
++		lines.push_back(u"requests your location"_q);
++		break;
++	case Type::RequestPoll:
++		lines.push_back(button->data.isEmpty()
++			? u"requests a poll"_q
++			: button->data[0]
++			? u"requests a quiz"_q
++			: u"requests a regular poll"_q);
++		break;
++	case Type::RequestPeer:
++		AppendRequestPeer(lines, *button);
++		if (button->buttonId) {
++			lines.push_back(u"button id: "_q
++				+ QString::number(button->buttonId));
++		}
++		break;
++	case Type::SwitchInline:
++	case Type::SwitchInlineSame:
++		lines.push_back((button->type == Type::SwitchInlineSame
++			? u"inline query here: "_q
++			: u"inline query: "_q) + Quoted(QString::fromUtf8(button->data)));
++		if (button->peerTypes) {
++			lines.push_back(u"chats: "_q + PeerTypesText(button->peerTypes));
++		}
++		break;
++	case Type::Game:
++		AppendGame(lines, owner, itemId);
++		break;
++	case Type::Buy:
++		lines.push_back(u"payment"_q);
++		break;
++	case Type::UserProfile:
++		AppendUser(lines, owner, button->data);
++		break;
++	case Type::WebView:
++	case Type::SimpleWebView:
++		lines.push_back(u"web app: "_q + Utf8(button->data));
++		break;
++	case Type::CopyText:
++		lines.push_back(u"copies: "_q + Quoted(QString::fromUtf8(button->data)));
++		break;
++	case Type::Disabled:
++		lines.push_back(u"disabled"_q);
++		break;
++	case Type::CreateBot:
++		AppendCreateBot(lines, *button);
++		if (button->buttonId) {
++			lines.push_back(u"button id: "_q
++				+ QString::number(button->buttonId));
++		}
++		break;
++	case Type::SuggestDecline:
++	case Type::SuggestAccept:
++	case Type::SuggestChange:
++	case Type::kCount:
++		return QString();
++	}
++	if (!fullDisplayed) {
++		lines.push_front(QString());
++		lines.push_front(button->text);
++	}
++	return lines.join('\n');
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.h b/Telegram/SourceFiles/tele/tele_button_payload.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4861df4775f9603c4fae8c545b48c00cd3af4cbf
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_button_payload.h
+@@ -0,0 +1,19 @@
++#pragma once
++
++#include "data/data_msg_id.h"
++
++struct HistoryMessageMarkupButton;
++
++namespace Data {
++class Session;
++} // namespace Data
++
++namespace Tele {
++
++[[nodiscard]] QString MarkupButtonTooltip(
++	not_null<Data::Session*> owner,
++	FullMsgId itemId,
++	const HistoryMessageMarkupButton *button,
++	bool fullDisplayed);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 4500af757e95c76ca98abfa3219b8f3ed507fad0..2be3b2f04ae14a2c624df8dae2ee104ee81e2ab6 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -6,6 +6,7 @@ namespace Tele {
+ 
+ const char kOptionHideStories[] = "tele-hide-stories";
+ const char kOptionInvisibleStories[] = "tele-invisible-stories";
++const char kOptionButtonPayloads[] = "tele-button-payloads";
+ 
+ namespace {
+ 
+@@ -27,6 +28,13 @@ base::options::toggle InvisibleStoriesOption({
+ 		"reveal you, and live stories can't be opened.",
+ });
+ 
++base::options::toggle ButtonPayloadsOption({
++	.id = kOptionButtonPayloads,
++	.name = "Show bot button payloads",
++	.description = "Hovering a bot button shows what it carries: "
++		"callback data, links, inline queries, web apps and more.",
++});
++
+ } // namespace
+ 
+ bool HideStories() {
+@@ -37,4 +45,8 @@ bool InvisibleStories() {
+ 	return InvisibleStoriesOption.value();
+ }
+ 
++bool ButtonPayloads() {
++	return ButtonPayloadsOption.value();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 908c75c51d55a35a01384e76ca758f90e166bb58..48e433dccd1abcf6643ec48f1032afd604eef806 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -4,8 +4,10 @@ namespace Tele {
+ 
+ extern const char kOptionHideStories[];
+ extern const char kOptionInvisibleStories[];
++extern const char kOptionButtonPayloads[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
++[[nodiscard]] bool ButtonPayloads();
+ 
+ } // namespace Tele

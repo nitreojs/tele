@@ -1,0 +1,143 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 26 Sep 2026 18:33:45 +0300
+Subject: [PATCH] feat: add a tele section to the settings
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../settings/sections/settings_main.cpp       |  3 +
+ .../SourceFiles/settings/settings_tele.cpp    | 69 +++++++++++++++++++
+ Telegram/SourceFiles/settings/settings_tele.h | 14 ++++
+ 4 files changed, 88 insertions(+)
+ create mode 100644 Telegram/SourceFiles/settings/settings_tele.cpp
+ create mode 100644 Telegram/SourceFiles/settings/settings_tele.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 80321bef5262c1b8955cd3334909403f26917e05..6d2111f94e0326b6e09d75f43def44780ab6aad5 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2211,6 +2211,8 @@ endif()
+ set(TELE_BUILD 0 CACHE STRING "tele release number, 0 for local builds")
+ nice_target_sources(Telegram ${src_loc}
+ PRIVATE
++    settings/settings_tele.cpp
++    settings/settings_tele.h
+     tele/tele_build.cpp
+     tele/tele_build.h
+ )
+diff --git a/Telegram/SourceFiles/settings/sections/settings_main.cpp b/Telegram/SourceFiles/settings/sections/settings_main.cpp
+index d4f3633a5bad3025421a4289760078ea4102c9eb..049f01bb70447a97b7569d8583bca08f21b67fc6 100644
+--- a/Telegram/SourceFiles/settings/sections/settings_main.cpp
++++ b/Telegram/SourceFiles/settings/sections/settings_main.cpp
+@@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_premium.h"
+ #include "settings/sections/settings_privacy_security.h"
+ #include "settings/settings_scale_preview.h"
++#include "settings/settings_tele.h"
+ #include "storage/localstorage.h"
+ #include "ui/basic_click_handlers.h"
+ #include "ui/boxes/confirm_box.h"
+@@ -468,6 +469,8 @@ void BuildSectionButtons(SectionBuilder &builder) {
+ 		},
+ 		.keywords = { u"translate"_q, u"localization"_q, u"language"_q },
+ 	});
++
++	AddTeleSectionButton(builder);
+ }
+ 
+ void BuildInterfaceScale(SectionBuilder &builder) {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..56e5327dc7f466f2f5c3216565593299a91b69d1
+--- /dev/null
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -0,0 +1,69 @@
++#include "settings/settings_tele.h"
++
++#include "core/version.h"
++#include "settings/settings_builder.h"
++#include "settings/settings_common_session.h"
++#include "tele/tele_build.h"
++#include "ui/vertical_list.h"
++#include "ui/wrap/vertical_layout.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++
++namespace Settings {
++namespace {
++
++class TeleSection final : public Section<TeleSection> {
++public:
++	TeleSection(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller);
++
++	[[nodiscard]] rpl::producer<QString> title() override;
++
++private:
++	void setupContent();
++
++};
++
++TeleSection::TeleSection(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller)
++: Section(parent, controller) {
++	setupContent();
++}
++
++rpl::producer<QString> TeleSection::title() {
++	return rpl::single(u"tele"_q);
++}
++
++void TeleSection::setupContent() {
++	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
++
++	Ui::AddDividerText(
++		content,
++		rpl::single(u"Telegram Desktop %1 with tele patches, build %2."_q.arg(
++			QString::fromLatin1(AppVersionStr),
++			::Tele::TitleLabel())));
++
++	Ui::ResizeFitChild(this, content);
++}
++
++} // namespace
++
++Type TeleId() {
++	return TeleSection::Id();
++}
++
++void AddTeleSectionButton(Builder::SectionBuilder &builder) {
++	builder.addSkip();
++	builder.addDivider();
++	builder.addSkip();
++	builder.addSectionButton({
++		.title = rpl::single(u"tele"_q),
++		.targetSection = TeleId(),
++		.icon = { &st::menuIconCustomize },
++		.keywords = { u"tele"_q, u"fork"_q },
++	});
++}
++
++} // namespace Settings
+diff --git a/Telegram/SourceFiles/settings/settings_tele.h b/Telegram/SourceFiles/settings/settings_tele.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..729bad1f2234157137cc69718f23b0f7ca97bd0c
+--- /dev/null
++++ b/Telegram/SourceFiles/settings/settings_tele.h
+@@ -0,0 +1,14 @@
++#pragma once
++
++#include "settings/settings_type.h"
++
++namespace Settings::Builder {
++class SectionBuilder;
++} // namespace Settings::Builder
++
++namespace Settings {
++
++[[nodiscard]] Type TeleId();
++void AddTeleSectionButton(Builder::SectionBuilder &builder);
++
++} // namespace Settings
