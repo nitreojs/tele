@@ -91,6 +91,7 @@ jobs:
           sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
 
       - name: Restore libraries
+        id: restore
         uses: actions/cache/restore@v6
         with:
           path: |
@@ -118,7 +119,13 @@ jobs:
         if: env.VCVARS_VER != ''
         timeout-minutes: 20
         shell: pwsh
+        env:
+          MATCHED_KEY: ${{ steps.restore.outputs.cache-matched-key }}
         run: |
+          # Same prepare.py as the restored cache and breakpad in it: prepare won't rebuild breakpad.
+          if ($env:MATCHED_KEY -like "$env:CACHE_KEY-*" -and (Test-Path "$env:TBUILD\Libraries\win64\cache_keys\breakpad")) {
+            "breakpad is cached for this prepare.py, ATL is not needed"; exit 0
+          }
           $components = @{ '14.44' = 'Microsoft.VisualStudio.Component.VC.14.44.17.14.ATL' }
           $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
           $vs = & "$installer\vswhere.exe" -latest -products * -property installationPath
