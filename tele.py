@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Keep a queue of patches on top of Telegram Desktop releases.
+"""keep a queue of patches on top of telegram desktop releases.
 
-This repository holds:
+this repository holds:
   UPSTREAM                      the tdesktop release tag the patches target, e.g. v7.2.9
   patches/tdesktop/*.patch      patches for the tdesktop repository itself
   patches/<submodule>/*.patch   patches for a submodule, e.g. patches/Telegram/lib_ui/
 
-Commands (the tdesktop checkout defaults to ../tdesktop next to this repository):
+commands (the tdesktop checkout defaults to ../tdesktop next to this repository):
   checkout [TAG]  move tdesktop and all submodules to TAG (default: UPSTREAM)
                   and apply the patches as commits on a `tele` branch
   continue        resume applying after resolving a conflict with git am
   export          turn the commits on top of TAG back into patches/ and set UPSTREAM to TAG
-  apply           apply the patches to a fresh clone that is already on the right tag (CI)
+  apply           apply the patches to a fresh clone that is already on the right tag (ci)
 """
 
 import argparse
@@ -30,10 +30,10 @@ HERE = Path(__file__).resolve().parent
 PATCHES = HERE / 'patches'
 UPSTREAM_FILE = HERE / 'UPSTREAM'
 
-# Stable output so re-exporting unchanged commits produces byte-identical files.
+# no hashes or n/m numbering, so re-exporting unchanged commits changes nothing
 FORMAT_PATCH_ARGS = ['--zero-commit', '--no-signature', '--no-numbered', '--full-index']
-# --keep-cr: patch files are stored verbatim (see .gitattributes), so a CR in them is real content.
-AM_ARGS = ['am', '--3way', '--keep-cr']
+# am strips \r and every [bracketed] subject prefix by default, which would rewrite patches on the next export
+AM_ARGS = ['am', '--3way', '--keep-cr', '--keep-non-patch']
 
 
 class Fail(Exception):
@@ -63,7 +63,6 @@ def read_upstream():
 
 
 def patch_groups():
-    """{group: [patch files]}, group being 'tdesktop' or a submodule path."""
     groups = {}
     if PATCHES.is_dir():
         for patch in sorted(PATCHES.rglob('*.patch')):
@@ -113,13 +112,17 @@ def save_state(tdesktop, state):
     write_text(state_file(tdesktop), json.dumps(state, indent=2) + '\n')
 
 
-def rebase_apply_dir(repo):
-    path = Path(git(repo, 'rev-parse', '--git-path', 'rebase-apply'))
+def git_path(repo, name):
+    path = Path(git(repo, 'rev-parse', '--git-path', name))
     return path if path.is_absolute() else repo / path
 
 
-def am_in_progress(repo):
-    return rebase_apply_dir(repo).is_dir()
+def unfinished_operation(repo):
+    if git_path(repo, 'rebase-apply').is_dir():
+        return 'git am'
+    if git_path(repo, 'rebase-merge').is_dir():
+        return 'git rebase'
+    return None
 
 
 def is_dirty(repo):
@@ -127,7 +130,7 @@ def is_dirty(repo):
 
 
 def ignore_submodule_changes(tdesktop):
-    """Keep `git status`/`git commit -a` in a parent repo from picking up moved submodule pointers."""
+    # keeps `git commit -a` in a parent from picking up a moved submodule pointer
     for repo in [tdesktop, *(tdesktop / p for p in submodule_paths(tdesktop))]:
         if not (repo / '.gitmodules').is_file():
             continue
@@ -140,16 +143,16 @@ def ignore_submodule_changes(tdesktop):
 def conflict_report(tdesktop, group, patches, am_output):
     repo = repo_path(tdesktop, group)
     prefix = '' if group == ROOT_GROUP else group + '/'
-    lines = [f'Patches for {group} do not apply.']
-    next_file = rebase_apply_dir(repo) / 'next'
+    lines = [f'patches for {group} do not apply.']
+    next_file = git_path(repo, 'rebase-apply') / 'next'
     if next_file.is_file():
         index = int(next_file.read_text().strip())
-        lines.append(f'Failed patch ({index}/{len(patches)}): patches/{group}/{patches[index - 1].name}')
+        lines.append(f'failed patch ({index}/{len(patches)}): patches/{group}/{patches[index - 1].name}')
     conflicted = git(repo, 'diff', '--name-only', '--diff-filter=U').splitlines()
     if conflicted:
-        lines += ['Conflicted files:', *(f'  {prefix}{f}' for f in conflicted)]
+        lines += ['conflicted files:', *(f'  {prefix}{f}' for f in conflicted)]
     lines += ['', 'git am output:', *('  ' + line for line in am_output.strip().splitlines()), '',
-              f'To resolve: cd {repo}',
+              f'to resolve: cd {repo}',
               '  fix the files, `git add` them, `git am --continue` (or `git am --skip` to drop the patch),',
               f'  then run `python {Path(__file__).name} continue`.']
     return '\n'.join(lines)
@@ -164,7 +167,7 @@ def apply_pending(tdesktop, state):
         if result.returncode != 0:
             save_state(tdesktop, state)
             raise Fail(conflict_report(tdesktop, group, patches, result.stdout + result.stderr))
-        print(f'applied {len(patches)} patch(es) to {group}')
+        print(f'applied {len(patches)} patch(es) to {group}', flush=True)
         state['pending'].pop(0)
         save_state(tdesktop, state)
     state['heads'] = current_heads(tdesktop)
@@ -173,11 +176,12 @@ def apply_pending(tdesktop, state):
 
 def start_applying(tdesktop, tag):
     groups = patch_groups()
+    heads = current_heads(tdesktop)
     for group in groups:
-        if not is_repo(repo_path(tdesktop, group)):
+        if group not in heads:
             raise Fail(f'patches/{group}: {group} is not a submodule of tdesktop {tag}')
     ignore_submodule_changes(tdesktop)
-    state = {'tag': tag, 'bases': current_heads(tdesktop), 'pending': list(groups), 'heads': {}}
+    state = {'tag': tag, 'bases': heads, 'pending': list(groups), 'heads': {}}
     save_state(tdesktop, state)
     apply_pending(tdesktop, state)
     print(f'tdesktop is on {tag} with {sum(map(len, groups.values()))} patch(es) applied')
@@ -194,8 +198,9 @@ def ensure_nothing_to_lose(tdesktop, state):
         problems.append(f'patches for {state["pending"][0]} are still being applied (use `continue`)')
     for group, repo in all_repos(tdesktop).items():
         expected = state['heads'].get(group) if state else None
-        if am_in_progress(repo):
-            problems.append(f'{group}: git am is in progress')
+        operation = unfinished_operation(repo)
+        if operation:
+            problems.append(f'{group}: {operation} is in progress')
         elif is_dirty(repo):
             problems.append(f'{group}: uncommitted changes')
         elif expected and expected != git(repo, 'rev-parse', 'HEAD'):
@@ -211,14 +216,15 @@ def cmd_checkout(args):
     force = ['--force'] if args.force else []
     if args.force:
         for repo in all_repos(tdesktop).values():
-            if am_in_progress(repo):
-                git(repo, 'am', '--quit')
+            operation = unfinished_operation(repo)
+            if operation:
+                git(repo, *operation.split()[1:], '--quit')
     else:
         ensure_nothing_to_lose(tdesktop, load_state(tdesktop))
-    print(f'fetching {tag}')
+    print(f'fetching {tag}', flush=True)
     git(tdesktop, 'fetch', '--no-tags', UPSTREAM_URL, f'+refs/tags/{tag}:refs/tags/{tag}')
     git(tdesktop, 'checkout', '-q', *force, '-B', BRANCH, f'refs/tags/{tag}')
-    print('updating submodules')
+    print('updating submodules', flush=True)
     git(tdesktop, 'submodule', 'sync', '-q', '--recursive')
     git(tdesktop, 'submodule', 'update', '-q', '--init', '--recursive', *force)
     for path in submodule_paths(tdesktop):
@@ -239,10 +245,11 @@ def cmd_continue(args):
         raise Fail('nothing to continue')
     group = state['pending'][0]
     repo = repo_path(tdesktop, group)
-    if am_in_progress(repo):
-        raise Fail(f'git am is still in progress in {repo}: resolve, `git add`, `git am --continue` '
-                   '(or `git am --skip`), then run continue again')
-    if git(repo, 'rev-parse', 'HEAD') == state['bases'][group]:
+    operation = unfinished_operation(repo)
+    if operation:
+        raise Fail(f'{operation} is still in progress in {repo}: resolve, `git add`, `{operation} --continue` '
+                   f'(or `{operation} --skip`), then run continue again')
+    if git(repo, 'rev-parse', 'HEAD') == state['bases'].get(group):
         print(f'warning: no patches ended up applied to {group} (all skipped, or git am was aborted)')
     state['pending'].pop(0)
     save_state(tdesktop, state)
@@ -263,8 +270,9 @@ def cmd_export(args):
         repo = repo_path(tdesktop, group)
         if not is_repo(repo):
             continue
-        if am_in_progress(repo):
-            raise Fail(f'{group}: git am is in progress')
+        operation = unfinished_operation(repo)
+        if operation:
+            raise Fail(f'{group}: {operation} is in progress; finish it first')
         if is_dirty(repo):
             raise Fail(f'{group}: uncommitted changes; commit or stash them first')
         if not git(repo, 'rev-list', f'{base}..HEAD'):
@@ -306,7 +314,7 @@ def main():
     checkout.add_argument('--force', action='store_true', help='discard uncommitted and unexported work')
     commands.add_parser('continue', help='resume applying after a resolved conflict')
     commands.add_parser('export', help='write commits back into patches/ and update UPSTREAM')
-    commands.add_parser('apply', help='apply the patches to a fresh clone on the right tag (CI)')
+    commands.add_parser('apply', help='apply the patches to a fresh clone on the right tag (ci)')
     args = parser.parse_args()
     args.tdesktop = args.tdesktop.resolve()
     if not is_repo(args.tdesktop):

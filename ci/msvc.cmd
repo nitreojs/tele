@@ -1,11 +1,9 @@
 @echo off
-rem Enter the x64 MSVC environment that tdesktop's docs/building-win.md asks for.
-rem Expects SDK (Windows SDK version) and optionally VCVARS_VER (MSVC toolset version).
 set "VSWHERE=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
 set "VSINSTALL="
 for /f "usebackq delims=" %%i in (`"%VSWHERE%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VSINSTALL=%%i"
 if not defined VSINSTALL (
-  echo Visual Studio with C++ tools was not found
+  echo visual studio with c++ tools was not found
   exit /b 1
 )
 set "VCVARS_ARGS=%SDK%"
