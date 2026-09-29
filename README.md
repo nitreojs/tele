@@ -31,7 +31,13 @@ gh attestation verify tele-<version>-win64.zip --repo nitreojs/tele
 everything tele adds lives in settings → tele, right below the language row, grouped into pages: interface, chats and messages, privacy, profiles and ids, bots and debug, with server, backup and updates on the page itself. the search at the top of the page, and the main settings search, find every tele setting. backup exports your tele settings to a file you can give to anyone, and imports one with a preview of what changes.
 
 <details>
-<summary>all 127 patches, newest release first</summary>
+<summary>all 128 patches, newest release first</summary>
+
+### [tele 12](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.12)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [128](patches/tdesktop/0128-feat-hide-phone-numbers-in-profiles.patch) | the mobile row is hidden in every profile, yours included | tele → profiles and ids, off |
 
 ### [tele 11](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.11)
 
