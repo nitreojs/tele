@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 19:19:13 +0300
+Subject: [PATCH] fix: the failed send badge is clock-sized and no longer
+ covers the time
+
+---
+ .../SourceFiles/tele/tele_failed_sends.cpp     | 18 ++++++++++--------
+ 1 file changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_failed_sends.cpp b/Telegram/SourceFiles/tele/tele_failed_sends.cpp
+index ccc4b55163a916dc60f9f8ba5e5d8f7e3709d536..63047accb6f80259984db15e30ac3dfe0b54c795 100644
+--- a/Telegram/SourceFiles/tele/tele_failed_sends.cpp
++++ b/Telegram/SourceFiles/tele/tele_failed_sends.cpp
+@@ -141,14 +141,16 @@ void PaintFailedIcon(
+ 		QPoint position,
+ 		QPoint offset,
+ 		int outerWidth) {
+-	const auto size = std::max(clock.width(), clock.height())
+-		+ style::ConvertScale(4);
+-	auto left = position.x()
+-		+ style::ConvertScale(offset.x())
+-		+ (clock.width() - size) / 2;
+-	const auto top = position.y()
+-		+ style::ConvertScale(offset.y())
+-		+ (clock.height() - size) / 2;
++	const auto shift = QPoint(
++		style::ConvertScale(offset.x()),
++		style::ConvertScale(offset.y()));
++	const auto glyph = QSize(
++		clock.width() - shift.x(),
++		clock.height() - shift.y());
++	const auto size = std::max(glyph.width(), glyph.height())
++		+ style::ConvertScale(2);
++	auto left = position.x() + shift.x() + (glyph.width() - size) / 2.;
++	const auto top = position.y() + shift.y() + (glyph.height() - size) / 2.;
+ 	if (style::RightToLeft()) {
+ 		left = outerWidth - left - size;
+ 	}
