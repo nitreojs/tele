@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 18:40:16 +0300
+Subject: [PATCH] fix: unbreakable characters no longer push message text past
+ the bubble
+
+---
+ .../SourceFiles/history/view/history_view_element.cpp     | 8 +++++++-
+ .../SourceFiles/history/view/history_view_message.cpp     | 8 +++++++-
+ 2 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index 883d1102fce1795e5c1d2feef41560f5bd4a1241..3f173157739ae0dcfc2fddba0a2b28c717b64a07 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -1826,7 +1826,13 @@ int Element::textHeightFor(int textWidth) const {
+ 			}
+ 		} else {
+ 			const auto result = _text.countSize(textWidth);
+-			_textRealWidth = std::clamp(result.width(), 0, kMaxWidth);
++			// A grapheme wider than the line overflows it, painting at that
++			// width would wrap every other line wider than the bubble.
++			const auto laidOut = std::max(textWidth, _text.minResizeWidth());
++			_textRealWidth = std::clamp(
++				result.width(),
++				0,
++				std::min(laidOut, kMaxWidth));
+ 			_textHeight = result.height();
+ 		}
+ 	}
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index c41b73970989a42e83c113774ddb2002736372b3..4366f2de0f4d9ff9fe1c17e3f92f4310d145cecf 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -3134,9 +3134,14 @@ void Message::paintText(
+ 	}
+ 
+ 	auto highlightRequest = context.computeHighlightCache();
++	const auto layoutWidth = std::max(textRealWidth(), trect.width());
++	p.save();
++	p.setClipRect(
++		QRect(trect.x(), 0, layoutWidth, height()),
++		Qt::IntersectClip);
+ 	text().draw(p, {
+ 		.position = trect.topLeft(),
+-		.availableWidth = std::max(textRealWidth(), trect.width()),
++		.availableWidth = layoutWidth,
+ 		.palette = &stm->textPalette,
+ 		.pre = stm->preCache.get(),
+ 		.blockquote = context.quoteCache(
+@@ -3154,6 +3159,7 @@ void Message::paintText(
+ 		.useFullWidth = true,
+ 		.linePostprocess = linePostprocess ? &*linePostprocess : nullptr,
+ 	});
++	p.restore();
+ 	Tele::PaintCodeLineNumbers(
+ 		p,
+ 		this,

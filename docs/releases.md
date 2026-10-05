@@ -2,7 +2,14 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 270 patches, newest release first.
+all 272 patches, newest release first.
+
+### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [270](../patches/tdesktop/0270-fix-unbreakable-characters-no-longer-push-message-te.patch) | a long run of characters that can't wrap, like hangul fillers, no longer pushes the message text or its selection past the bubble | always on |
+| [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 
 ### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)
 

@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 18:40:15 +0300
+Subject: [PATCH] fix: unbreakable characters no longer scroll text fields
+ sideways
+
+---
+ ui/widgets/fields/input_field.cpp | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/ui/widgets/fields/input_field.cpp b/ui/widgets/fields/input_field.cpp
+index e41f8df43d0a814a713d531b4c122d44c3a252d0..fd9b59faba039d1f4473a99cfc2c5b5714ac6939 100644
+--- a/ui/widgets/fields/input_field.cpp
++++ b/ui/widgets/fields/input_field.cpp
+@@ -2022,6 +2022,15 @@ InputField::InputField(
+ 	connect(bar, &QScrollBar::valueChanged, [=] {
+ 		_scrollTop = bar->value();
+ 	});
++	if (_mode != Mode::SingleLine) {
++		// A grapheme wider than the field can't wrap and widens the document.
++		const auto hbar = _inner->horizontalScrollBar();
++		connect(hbar, &QScrollBar::rangeChanged, [=](int, int max) {
++			if (max > 0) {
++				hbar->setRange(0, 0);
++			}
++		});
++	}
+ 
+ 	setCursor(style::cur_text);
+ 	heightAutoupdated();
