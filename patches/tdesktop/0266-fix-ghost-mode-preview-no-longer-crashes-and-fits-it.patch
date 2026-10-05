@@ -1,0 +1,304 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 10:40:55 +0300
+Subject: [PATCH] fix: ghost mode preview no longer crashes and fits its texts
+
+---
+ .../SourceFiles/tele/tele_ghost_preview.cpp   | 140 +++++++++++++-----
+ 1 file changed, 99 insertions(+), 41 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_ghost_preview.cpp b/Telegram/SourceFiles/tele/tele_ghost_preview.cpp
+index b6450f326cb1f8f49ea5990da4c7004ae25b26db..37e4ac0eac61233f3cfff876fc1286c5bc99e856 100644
+--- a/Telegram/SourceFiles/tele/tele_ghost_preview.cpp
++++ b/Telegram/SourceFiles/tele/tele_ghost_preview.cpp
+@@ -25,6 +25,7 @@
+ #include "window/section_widget.h"
+ #include "window/window_session_controller.h"
+ #include "styles/style_chat.h"
++#include "styles/style_chat_style.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_media_view.h"
+ #include "styles/style_menu_icons.h"
+@@ -37,6 +38,9 @@ namespace {
+ constexpr auto kDimmedOpacity = 0.4;
+ constexpr auto kOverOpacity = 0.5;
+ constexpr auto kStoryViews = 12;
++constexpr auto kMarkSize = 16;
++constexpr auto kMarkStroke = 2;
++constexpr auto kMarkShift = 2;
+ 
+ enum class Row {
+ 	Online,
+@@ -137,6 +141,16 @@ public:
+ 
+ };
+ 
++[[nodiscard]] QRect BubbleGeometry(not_null<HistoryView::Element*> view) {
++	auto result = view->innerGeometry();
++	result.setTop(
++		result.top() - st::msgPadding.top() - st::mediaInBubbleSkip);
++	const auto tail = st::historyBubbleTailInLeft.width();
++	return view->hasOutLayout()
++		? result.marginsAdded({ 0, 0, tail, 0 })
++		: result.marginsAdded({ tail, 0, 0, 0 });
++}
++
+ class Preview final : public Ui::RpWidget {
+ public:
+ 	Preview(
+@@ -166,8 +180,8 @@ private:
+ 		int left,
+ 		const QString &title,
+ 		const QString &status,
+-		bool active,
+-		bool marked);
++		const QString &shorter,
++		bool active);
+ 	void paintHeader(
+ 		QPainter &p,
+ 		QRect card,
+@@ -177,7 +191,7 @@ private:
+ 	void paintField(QPainter &p, QRect card);
+ 	void paintStory(QPainter &p, QRect card);
+ 	void paintViews(QPainter &p, QRect card, bool seen);
+-	void paintMark(QPainter &p, QRect card);
++	void paintMark(QPainter &p, QRect icon, const style::color &ring);
+ 	void paintMessage(
+ 		Painter &p,
+ 		const Message &message,
+@@ -262,6 +276,10 @@ Preview::Preview(
+ 	}, lifetime());
+ 
+ 	GhostValue() | rpl::on_next([=](bool ghost) {
++		if (!ghost) {
++			_pressed = -1;
++			setOver(-1);
++		}
+ 		if (!width()) {
+ 			return;
+ 		}
+@@ -288,14 +306,15 @@ int Preview::resizeGetHeight(int newWidth) {
+ 	const auto card = st::msgPhotoSize + 2 * _padding;
+ 	const auto element = column
+ 		+ st::msgMargin.left()
+-		+ st::msgMargin.right();
++		+ st::msgMargin.right()
++		- st::historyBubbleTailInLeft.width();
+ 	for (auto i = 0; i != int(kRows.size()); ++i) {
+ 		auto height = card;
+ 		if (kRows[i] == Row::Read) {
+ 			_incoming->resizeGetHeight(element);
+ 			_outgoing->resizeGetHeight(element);
+-			const auto incoming = _incoming->innerGeometry();
+-			const auto outgoing = _outgoing->innerGeometry();
++			const auto incoming = BubbleGeometry(_incoming.get());
++			const auto outgoing = BubbleGeometry(_outgoing.get());
+ 			height = std::max(incoming.height(), outgoing.height());
+ 			_left = Message{
+ 				_incoming.get(),
+@@ -327,7 +346,7 @@ void Preview::paintEvent(QPaintEvent *e) {
+ 		QImage::Format_ARGB32_Premultiplied);
+ 	frame.setDevicePixelRatio(ratio);
+ 	{
+-		auto p = QPainter(&frame);
++		auto p = Painter(&frame);
+ 		Window::SectionWidget::PaintBackground(p, theme, size(), rect());
+ 		const auto opacity = _dim.value(Ghost() ? 1. : kDimmedOpacity);
+ 		if (opacity < 1.) {
+@@ -343,8 +362,7 @@ void Preview::paintEvent(QPaintEvent *e) {
+ 			p.setOpacity(opacity);
+ 			p.drawImage(0, 0, content);
+ 		} else {
+-			auto q = Painter(&frame);
+-			paintContent(q);
++			paintContent(p);
+ 		}
+ 	}
+ 	QPainter(this).drawImage(
+@@ -420,7 +438,7 @@ void Preview::paintContent(Painter &p) {
+ 			paintMessage(p, *_left, context);
+ 			paintMessage(p, *_right, context);
+ 			if (hidden) {
+-				const auto bubble = _outgoing->innerGeometry().translated(
++				const auto bubble = BubbleGeometry(_outgoing.get()).translated(
+ 					_right->position);
+ 				const auto &icon = st::menuIconStealth;
+ 				const auto size = icon.width() + st::defaultVerticalListSkip;
+@@ -489,19 +507,17 @@ void Preview::paintLines(
+ 		int left,
+ 		const QString &title,
+ 		const QString &status,
+-		bool active,
+-		bool marked) {
+-	auto right = card.x() + card.width() - _padding;
+-	if (marked) {
+-		paintMark(p, card);
+-		right -= st::menuIconStealth.width() + _padding;
+-	}
+-	const auto available = right - left;
++		const QString &shorter,
++		bool active) {
++	const auto available = card.x() + card.width() - _padding - left;
+ 	if (available <= 0) {
+ 		return;
+ 	}
+ 	const auto &bold = st::semiboldFont;
+ 	const auto &normal = st::normalFont;
++	const auto line = (normal->width(status) <= available || shorter.isEmpty())
++		? status
++		: shorter;
+ 	const auto top = card.y()
+ 		+ (card.height() - bold->height - normal->height) / 2;
+ 	p.setFont(bold);
+@@ -512,7 +528,7 @@ void Preview::paintLines(
+ 	p.drawText(
+ 		left,
+ 		top + bold->height + normal->ascent,
+-		normal->elided(status, available));
++		normal->elided(line, available));
+ }
+ 
+ void Preview::paintHeader(
+@@ -523,20 +539,23 @@ void Preview::paintHeader(
+ 		bool marked) {
+ 	paintCard(p, card, st::windowBg);
+ 	const auto size = st::msgPhotoSize;
+-	_self->paintUserpic(
+-		p,
+-		_userpic,
++	const auto userpic = QRect(
+ 		card.x() + _padding,
+ 		card.y() + (card.height() - size) / 2,
++		size,
+ 		size);
++	_self->paintUserpic(p, _userpic, userpic.x(), userpic.y(), size);
++	if (marked) {
++		paintMark(p, userpic, st::windowBg);
++	}
+ 	paintLines(
+ 		p,
+ 		card,
+ 		card.x() + 2 * _padding + size,
+ 		_self->name(),
+ 		status,
+-		active,
+-		marked);
++		marked ? Lower(u"Recently"_q) : QString(),
++		active);
+ }
+ 
+ void Preview::paintField(QPainter &p, QRect card) {
+@@ -544,10 +563,17 @@ void Preview::paintField(QPainter &p, QRect card) {
+ 	const auto &font = st::normalFont;
+ 	const auto left = card.x() + 2 * _padding;
+ 	const auto available = card.width() - 4 * _padding - st::lineWidth;
+-	const auto text = font->elided(
+-		Lower(u"On my way, be there in"_q),
+-		available,
+-		Qt::ElideLeft);
++	auto text = QString();
++	for (const auto &word : Lower(u"On my way, be there in"_q).split(' ')) {
++		const auto longer = text.isEmpty() ? word : (text + ' ' + word);
++		if (font->width(longer) > available) {
++			break;
++		}
++		text = longer;
++	}
++	if (text.isEmpty()) {
++		return;
++	}
+ 	const auto top = card.y() + (card.height() - font->height) / 2;
+ 	p.setFont(font);
+ 	p.setPen(st::historyComposeAreaFg);
+@@ -589,7 +615,7 @@ void Preview::paintStory(QPainter &p, QRect card) {
+ 		card.x() + 2 * _padding + size,
+ 		Lower(u"Their story"_q),
+ 		Lower(u"You watch it"_q),
+-		false,
++		QString(),
+ 		false);
+ }
+ 
+@@ -597,12 +623,20 @@ void Preview::paintViews(QPainter &p, QRect card, bool seen) {
+ 	paintCard(p, card, st::windowBg);
+ 	const auto size = st::msgPhotoSize;
+ 	const auto &icon = st::storiesViewsIcon;
++	const auto area = QRect(
++		card.x() + _padding,
++		card.y() + (card.height() - size) / 2,
++		size,
++		size);
+ 	icon.paint(
+ 		p,
+-		card.x() + _padding + (size - icon.width()) / 2,
+-		card.y() + (card.height() - icon.height()) / 2,
++		area.x() + (size - icon.width()) / 2,
++		area.y() + (size - icon.height()) / 2,
+ 		width(),
+ 		st::windowSubTextFg->c);
++	if (!seen) {
++		paintMark(p, area, st::windowBg);
++	}
+ 	paintLines(
+ 		p,
+ 		card,
+@@ -612,18 +646,39 @@ void Preview::paintViews(QPainter &p, QRect card, bool seen) {
+ 			lt_count,
+ 			kStoryViews - (seen ? 0 : 1)),
+ 		Lower(seen ? u"Including you"_q : u"Without you"_q),
+-		seen,
+-		!seen);
++		QString(),
++		seen);
+ }
+ 
+-void Preview::paintMark(QPainter &p, QRect card) {
+-	const auto &icon = st::menuIconStealth;
+-	icon.paint(
+-		p,
+-		card.x() + card.width() - _padding - icon.width(),
+-		card.y() + (card.height() - icon.height()) / 2,
+-		width(),
+-		st::windowActiveTextFg->c);
++void Preview::paintMark(QPainter &p, QRect icon, const style::color &ring) {
++	const auto badge = style::ConvertScale(kMarkSize);
++	const auto stroke = style::ConvertScale(kMarkStroke);
++	const auto shift = style::ConvertScale(kMarkShift);
++	const auto mark = QRect(
++		icon.x() + icon.width() - badge + shift,
++		icon.y() + icon.height() - badge + shift,
++		badge,
++		badge);
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(Qt::NoPen);
++	p.setBrush(ring);
++	p.drawEllipse(mark.marginsAdded({ stroke, stroke, stroke, stroke }));
++	p.setBrush(st::windowBgActive);
++	p.drawEllipse(mark);
++	const auto &stealth = st::menuIconStealth;
++	const auto inner = badge - 2 * stroke;
++	const auto percent = inner * 100 / stealth.width();
++	const auto image = stealth.instance(
++		st::windowFgActive->c,
++		style::Scale() * style::DevicePixelRatio() * percent / 100,
++		true);
++	p.drawImage(
++		QRect(
++			mark.x() + (badge - inner) / 2,
++			mark.y() + (badge - inner) / 2,
++			inner,
++			inner),
++		image);
+ }
+ 
+ void Preview::paintMessage(
+@@ -637,6 +692,9 @@ void Preview::paintMessage(
+ }
+ 
+ int Preview::rowAt(QPoint position) const {
++	if (!Ghost()) {
++		return -1;
++	}
+ 	const auto half = _skip / 2;
+ 	for (auto i = 0; i != int(kRows.size()); ++i) {
+ 		const auto area = _rows[i].marginsAdded({ half, half, half, half });

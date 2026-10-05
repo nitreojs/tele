@@ -126,6 +126,7 @@ every patch has one row in `docs/releases.md`, under the heading of the release 
 - "where to toggle" is `tele → <page>` (optionally `→ <row>`) followed by the default (`off`, `on`, `off, needs a restart`), or `always on`, or `with N` for a patch that extends patch N. the page names are the ones in the app: `interface`, `chats`, `messages`, `sending`, `notifications`, `menus`, `privacy`, `profiles and ids`, `bots`, `server`, `backup`, `updates`, `debug`. see [release notes](architecture.md#release-notes) for how this becomes a category.
 - new rows go at the end of the table of the next release. if the newest section belongs to a release that is already out, start a new section above it: `### [tele N](https://github.com/nitreojs/tele/releases/tag/<UPSTREAM>-tele.N)` with the next release number.
 - update the count in the `all N patches, newest release first.` line at the top.
+- a patch for a submodule (`patches/Telegram/lib_ui/…`) gets a number from 1001 up (1001, 1002, …), so it never takes a number a tdesktop patch will get. numbers have to be unique: the in-app what's new matches items by number.
 - leave `docs/features.md` alone: its tables are regenerated from `docs/releases.md` with `python ci/features.py` before a release.
 - if the feature changes what a launch flag turns off, or the tele server protocol, update [launch flags](launch-flags.md) or [tele server](server.md) too.
 

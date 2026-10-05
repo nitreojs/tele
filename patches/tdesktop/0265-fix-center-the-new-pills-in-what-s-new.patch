@@ -1,0 +1,130 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 08:50:42 +0300
+Subject: [PATCH] fix: center the new pills in what's new
+
+---
+ .../SourceFiles/settings/settings_tele.cpp    | 86 +++++++++++++++----
+ 1 file changed, 67 insertions(+), 19 deletions(-)
+
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 4e1cf88b44e8ebabf1400ab38c7d311a3ed49af7..2d6bae169441e4b837ca203364b45a80ea0a5215 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -65,8 +65,8 @@
+ #include "ui/controls/sub_tabs.h"
+ #include "ui/effects/animations.h"
+ #include "ui/layers/generic_box.h"
+-#include "ui/new_badges.h"
+ #include "ui/painter.h"
++#include "ui/wrap/padding_wrap.h"
+ #include "ui/text/format_values.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/toast/toast.h"
+@@ -3968,10 +3968,56 @@ void AddBackup(SectionBuilder &builder) {
+ 		{ u"backup"_q, u"restore"_q, u"load"_q, u"file"_q });
+ }
+ 
++[[nodiscard]] int LowercaseHeight(const style::font &font) {
++	return -QFontMetrics(font->f).tightBoundingRect(u"x"_q).top();
++}
++
++[[nodiscard]] not_null<Ui::RpWidget*> CreateNewPill(
++		not_null<Ui::RpWidget*> parent) {
++	const auto &st = st::settingsPremiumNewBadge;
++	const auto &base = st::settingsPremiumNewBadgePadding;
++	const auto font = st.style.font;
++	const auto vertical = base.top() + base.bottom();
++	const auto shift = font->height
++		- 2 * font->ascent
++		+ LowercaseHeight(font);
++	const auto top = std::clamp((vertical + shift) / 2, 0, vertical);
++	const auto padding = style::margins(
++		base.left(),
++		top,
++		base.right(),
++		vertical - top);
++	const auto badge = Ui::CreateChild<Ui::PaddingWrap<Ui::FlatLabel>>(
++		parent.get(),
++		object_ptr<Ui::FlatLabel>(
++			parent,
++			::Tele::Lower(u"NEW"_q),
++			st),
++		padding);
++	badge->show();
++	badge->setAttribute(Qt::WA_TransparentForMouseEvents);
++	badge->paintRequest() | rpl::on_next([=] {
++		auto p = QPainter(badge);
++		auto hq = PainterHighQualityEnabler(p);
++		p.setPen(Qt::NoPen);
++		p.setBrush(st::windowBgActive);
++		const auto radius = base.left();
++		p.drawRoundedRect(badge->rect(), radius, radius);
++	}, badge->lifetime());
++	return badge;
++}
++
++[[nodiscard]] int NewPillTop(
++		const style::font &font,
++		int lineTop,
++		not_null<Ui::RpWidget*> pill) {
++	return lineTop
++		+ font->ascent
++		- (LowercaseHeight(font) + pill->height()) / 2;
++}
++
+ void AddNewBadge(not_null<Button*> button, const QString &title) {
+-	const auto badge = Ui::NewBadge::CreateNewBadge(
+-		button,
+-		rpl::single(::Tele::Lower(u"NEW"_q))).get();
++	const auto badge = CreateNewPill(button);
+ 	rpl::combine(
+ 		button->widthValue(),
+ 		::Tele::NewSettingsSeenValue()
+@@ -3983,10 +4029,10 @@ void AddNewBadge(not_null<Button*> button, const QString &title) {
+ 		const auto available = width - left - st.padding.right();
+ 		badge->setVisible(!seen && available >= badge->width());
+ 		if (!badge->isHidden()) {
+-			const auto top = st.padding.top()
+-				+ st.style.font->ascent
+-				- st::settingsPremiumNewBadge.style.font->ascent
+-				- st::settingsPremiumNewBadgePadding.top();
++			const auto top = NewPillTop(
++				st.style.font,
++				st.padding.top(),
++				badge);
+ 			badge->moveToLeft(left, top, width);
+ 		}
+ 	}, badge->lifetime());
+@@ -4362,18 +4408,20 @@ void AddNewText(
+ 			margin);
+ 		label->setMarkedText(text);
+ 		if (fresh) {
+-			const auto badge = Ui::NewBadge::CreateNewBadge(
+-				raw,
+-				rpl::single(::Tele::Lower(u"NEW"_q))).get();
+-			label->geometryValue(
+-			) | rpl::on_next([=](QRect geometry) {
+-				const auto font = label->st().style.font;
+-				const auto width = std::min(
+-					label->textMaxWidth(),
+-					geometry.width());
++			const auto badge = CreateNewPill(raw);
++			rpl::combine(
++				label->geometryValue(),
++				raw->widthValue()
++			) | rpl::on_next([=](QRect geometry, int outer) {
++				const auto &st = st::settingsButtonNoIcon;
++				const auto toggle = 2 * st.toggle.border
++					+ st.toggle.diameter
++					+ st.toggle.width;
++				const auto center = outer - st.toggleSkip - toggle / 2;
+ 				badge->moveToLeft(
+-					geometry.x() + width + font->spacew,
+-					geometry.y() + (font->height - badge->height()) / 2);
++					center - badge->width() / 2,
++					NewPillTop(label->st().style.font, geometry.y(), badge),
++					outer);
+ 			}, badge->lifetime());
+ 		}
+ 		return SectionBuilder::WidgetToAdd{

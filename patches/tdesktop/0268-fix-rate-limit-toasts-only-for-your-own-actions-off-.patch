@@ -1,0 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 11:06:01 +0300
+Subject: [PATCH] fix: rate limit toasts only for your own actions, off by
+ default
+
+---
+ Telegram/SourceFiles/tele/tele_options.cpp    |  7 +-
+ .../SourceFiles/tele/tele_rate_limits.cpp     | 65 ++-----------------
+ 2 files changed, 10 insertions(+), 62 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0ff8a752a165a42836fece37e2a46179037e73bd..7d0bd9d95794180afdfeb956ab70f66699384c4a 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -1074,9 +1074,10 @@ base::options::toggle NoticesOption({
+ base::options::toggle NoticesLimitsOption({
+ 	.id = kOptionNoticesLimits,
+ 	.name = "Rate-limit toasts and bar",
+-	.description = "Counts down Telegram's waits after too many requests, "
+-		"with a bar above the chat list from a minute.",
+-	.defaultValue = true,
++	.description = "Counts down Telegram's waits when you send, react, "
++		"join, search or pay too fast, with a bar above the chat list "
++		"from a minute.",
++	.defaultValue = false,
+ });
+ 
+ base::options::toggle NoticesLogLimitsOption({
+diff --git a/Telegram/SourceFiles/tele/tele_rate_limits.cpp b/Telegram/SourceFiles/tele/tele_rate_limits.cpp
+index 91f2e071b7b5cb367aadc9f083d39c4c00f06be9..f2a1f08775d42348876d2996754d0fff5ed2b237 100644
+--- a/Telegram/SourceFiles/tele/tele_rate_limits.cpp
++++ b/Telegram/SourceFiles/tele/tele_rate_limits.cpp
+@@ -41,7 +41,6 @@ enum class Action : uchar {
+ struct Limit {
+ 	QString key;
+ 	Action action = Action::Other;
+-	QString method;
+ 	QString episode;
+ 	crl::time started = 0;
+ 	crl::time deadline = 0;
+@@ -62,54 +61,6 @@ struct BarState {
+ 	QString text;
+ };
+ 
+-[[nodiscard]] const base::flat_map<mtpTypeId, QString> &MethodNames() {
+-	static const auto result = [] {
+-		auto map = base::flat_map<mtpTypeId, QString>();
+-		auto file = QFile(u":/tele/api.tl"_q);
+-		if (!file.open(QIODevice::ReadOnly)) {
+-			return map;
+-		}
+-		auto functions = false;
+-		for (const auto &line : file.readAll().split('\n')) {
+-			const auto trimmed = line.trimmed();
+-			if (trimmed == "---functions---") {
+-				functions = true;
+-				continue;
+-			} else if (trimmed == "---types---") {
+-				functions = false;
+-				continue;
+-			} else if (!functions || trimmed.startsWith("//")) {
+-				continue;
+-			}
+-			const auto hash = trimmed.indexOf('#');
+-			const auto space = trimmed.indexOf(' ');
+-			if (hash <= 0 || (space >= 0 && space < hash)) {
+-				continue;
+-			}
+-			const auto till = (space > hash) ? space : trimmed.size();
+-			auto ok = false;
+-			const auto id = trimmed.mid(hash + 1, till - hash - 1).toUInt(
+-				&ok,
+-				16);
+-			if (ok) {
+-				map.emplace(
+-					mtpTypeId(id),
+-					QString::fromLatin1(trimmed.left(hash)));
+-			}
+-		}
+-		return map;
+-	}();
+-	return result;
+-}
+-
+-[[nodiscard]] QString MethodName(mtpTypeId request) {
+-	const auto &names = MethodNames();
+-	const auto i = names.find(request);
+-	return (i != end(names))
+-		? i->second
+-		: u"0x%1"_q.arg(request, 8, 16, QChar('0'));
+-}
+-
+ [[nodiscard]] Action Classify(mtpTypeId request) {
+ 	switch (request) {
+ 	case mtpc_messages_sendMessage:
+@@ -192,7 +143,7 @@ struct BarState {
+ 	case Action::Search: return Lower(u"Search is limited"_q);
+ 	case Action::Contacts: return Lower(u"Importing contacts is limited"_q);
+ 	case Action::Payment: return Lower(u"Payments are limited"_q);
+-	case Action::Other: return Lower(u"%1 is limited"_q).arg(limit.method);
++	case Action::Other: break;
+ 	}
+ 	Unexpected("Action in Tele::Limited.");
+ }
+@@ -205,8 +156,7 @@ struct BarState {
+ 	case Action::Search: return Lower(u"You can search again"_q);
+ 	case Action::Contacts: return Lower(u"You can import contacts again"_q);
+ 	case Action::Payment: return Lower(u"You can pay again"_q);
+-	case Action::Other: return Lower(u"%1 is available again"_q).arg(
+-		limit.method);
++	case Action::Other: break;
+ 	}
+ 	Unexpected("Action in Tele::Again.");
+ }
+@@ -356,12 +306,10 @@ void RateLimits::wait(const FloodWait &event) {
+ 		return;
+ 	}
+ 	const auto action = Classify(event.request);
+-	const auto method = (action == Action::Other)
+-		? MethodName(event.request)
+-		: QString();
+-	const auto key = (action == Action::Other)
+-		? method
+-		: QString::number(int(action));
++	if (action == Action::Other) {
++		return;
++	}
++	const auto key = QString::number(int(action));
+ 	const auto now = crl::now();
+ 	const auto deadline = now + event.seconds * crl::time(1000);
+ 	auto i = ranges::find(_limits, key, &Limit::key);
+@@ -372,7 +320,6 @@ void RateLimits::wait(const FloodWait &event) {
+ 		_limits.push_back({
+ 			.key = key,
+ 			.action = action,
+-			.method = method,
+ 			.episode = (recent
+ 				? ended->second.episode
+ 				: QString::number(base::unixtime::now())),

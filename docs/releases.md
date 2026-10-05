@@ -2,7 +2,16 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 265 patches, newest release first.
+all 269 patches, newest release first.
+
+### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [265](../patches/tdesktop/0265-fix-center-the-new-pills-in-what-s-new.patch) | the new marks in what's new sit in the middle of their line, in line with the toggles | with 254 |
+| [266](../patches/tdesktop/0266-fix-ghost-mode-preview-no-longer-crashes-and-fits-it.patch) | turning on ghost mode, or opening privacy while it's on, no longer crashes tele. the ghost mode preview fits its texts, marks hidden things on the userpic and ignores clicks while ghost mode is off | with 258 |
+| [267](../patches/tdesktop/0267-fix-the-menu-editor-hides-support-only-items.patch) | the menu editor no longer lists items only telegram's support accounts get, like edit support info | with 174 |
+| [268](../patches/tdesktop/0268-fix-rate-limit-toasts-only-for-your-own-actions-off-.patch) | rate limit toasts and the bar are off by default and only count waits on things you do, not on requests tele makes in the background | with 211 |
 
 ### [tele 16](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.16)
 
@@ -59,7 +68,7 @@ all 265 patches, newest release first.
 | [262](../patches/tdesktop/0262-feat-rarity-tiers-and-pills-in-the-gift-studio.patch) | crafted models show their rarity tier, and rarities in the gift studio sit in coloured pills | with 201 |
 | [263](../patches/tdesktop/0263-feat-never-open-web-apps-in-fullscreen.patch) | mini apps always open in a window and can't go fullscreen | tele → bots, off |
 | [264](../patches/tdesktop/0264-fix-fullscreen-border-only-on-the-main-window.patch) | fullscreen windows like the media viewer no longer have a 1 px gap at the edges (windows) | with 36 |
-| [265](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
+| [1001](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
 
 ### [tele 14](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.14)
 

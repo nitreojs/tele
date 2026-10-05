@@ -159,6 +159,7 @@ settings → tele → notifications.
 | [252](../patches/tdesktop/0252-fix-notification-centre-shows-whole-entries.patch) | the notification centre shows whole entries, long ones with show more, and plays the press ripple | with 210 |
 | [253](../patches/tdesktop/0253-feat-copied-values-in-the-notification-centre.patch) | copy toasts are logged in the notification centre with the copied value: click it to copy it again | tele → notifications, on |
 | [260](../patches/tdesktop/0260-feat-reply-and-mention-badges-in-the-notification-ce.patch) | replies and mentions in the notification centre have a reply or @ badge on the sender's userpic | with 245 |
+| [268](../patches/tdesktop/0268-fix-rate-limit-toasts-only-for-your-own-actions-off-.patch) | rate limit toasts and the bar are off by default and only count waits on things you do, not on requests tele makes in the background | with 211 |
 
 ## menus
 
@@ -179,6 +180,7 @@ settings → tele → menus.
 | [152](../patches/tdesktop/0152-feat-open-view-as-tl-inside-tele.patch) | view as tl opens inside tele, titled with the object's constructor. with -teleoffline it opens in the browser | with 33 |
 | [174](../patches/tdesktop/0174-feat-rearrange-menus-with-groups-and-submenus-in-a-m.patch) | tele's own layout for the message, chat, profile, chat list, folder, send and field menus, with groups, submenus and thin or thick separators. an editor rearranges, hides and groups items with a live preview and presets, alt+right-click opens it from a menu | tele → menus |
 | [240](../patches/tdesktop/0240-fix-shots-without-time-keep-reactions-below-the-text.patch) | shots without the time keep reactions under the text | with 114 |
+| [267](../patches/tdesktop/0267-fix-the-menu-editor-hides-support-only-items.patch) | the menu editor no longer lists items only telegram's support accounts get, like edit support info | with 174 |
 
 ## privacy
 
@@ -377,4 +379,6 @@ always on, or without a switch of their own.
 | [254](../patches/tdesktop/0254-feat-what-s-new-as-a-settings-page-with-live-toggles.patch) | what's new is a settings page: every setting a version added is a live toggle right there | with 250 |
 | [258](../patches/tdesktop/0258-feat-live-previews-in-settings.patch) | the ghost mode, invisible names and peer ids settings show a live preview of what they change | always on |
 | [264](../patches/tdesktop/0264-fix-fullscreen-border-only-on-the-main-window.patch) | fullscreen windows like the media viewer no longer have a 1 px gap at the edges (windows) | with 36 |
-| [265](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
+| [265](../patches/tdesktop/0265-fix-center-the-new-pills-in-what-s-new.patch) | the new marks in what's new sit in the middle of their line, in line with the toggles | with 254 |
+| [266](../patches/tdesktop/0266-fix-ghost-mode-preview-no-longer-crashes-and-fits-it.patch) | turning on ghost mode, or opening privacy while it's on, no longer crashes tele. the ghost mode preview fits its texts, marks hidden things on the userpic and ignores clicks while ghost mode is off | with 258 |
+| [1001](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
