@@ -381,4 +381,5 @@ always on, or without a switch of their own.
 | [264](../patches/tdesktop/0264-fix-fullscreen-border-only-on-the-main-window.patch) | fullscreen windows like the media viewer no longer have a 1 px gap at the edges (windows) | with 36 |
 | [265](../patches/tdesktop/0265-fix-center-the-new-pills-in-what-s-new.patch) | the new marks in what's new sit in the middle of their line, in line with the toggles | with 254 |
 | [266](../patches/tdesktop/0266-fix-ghost-mode-preview-no-longer-crashes-and-fits-it.patch) | turning on ghost mode, or opening privacy while it's on, no longer crashes tele. the ghost mode preview fits its texts, marks hidden things on the userpic and ignores clicks while ghost mode is off | with 258 |
+| [269](../patches/tdesktop/0269-fix-a-video-ending-in-the-media-viewer-no-longer-cra.patch) | a video ending in the media viewer no longer crashes tele | with 143 |
 | [1001](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |

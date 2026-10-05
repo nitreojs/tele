@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 5 Oct 2026 11:41:35 +0300
+Subject: [PATCH] fix: a video ending in the media viewer no longer crashes
+
+---
+ Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index d62d689cad94c420dc3d49441b432f18e26b1735..7bae4038d99246045a10e5786316718a7f5c7ddc 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -5335,7 +5335,8 @@ void OverlayWidget::handleStreamingUpdate(Streaming::Update &&update) {
+ 		updatePlaybackState();
+ 		if (base::take(_ttlDeferredClose)) {
+ 			close();
+-		} else if (_streamed->controls
++		} else if (_streamed
++			&& _streamed->controls
+ 			&& _streamed->withSound
+ 			&& Tele::ViewerLoop()) {
+ 			const auto created = _streamedCreated;

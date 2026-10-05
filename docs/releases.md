@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 269 patches, newest release first.
+all 270 patches, newest release first.
 
 ### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)
 
@@ -12,6 +12,7 @@ all 269 patches, newest release first.
 | [266](../patches/tdesktop/0266-fix-ghost-mode-preview-no-longer-crashes-and-fits-it.patch) | turning on ghost mode, or opening privacy while it's on, no longer crashes tele. the ghost mode preview fits its texts, marks hidden things on the userpic and ignores clicks while ghost mode is off | with 258 |
 | [267](../patches/tdesktop/0267-fix-the-menu-editor-hides-support-only-items.patch) | the menu editor no longer lists items only telegram's support accounts get, like edit support info | with 174 |
 | [268](../patches/tdesktop/0268-fix-rate-limit-toasts-only-for-your-own-actions-off-.patch) | rate limit toasts and the bar are off by default and only count waits on things you do, not on requests tele makes in the background | with 211 |
+| [269](../patches/tdesktop/0269-fix-a-video-ending-in-the-media-viewer-no-longer-cra.patch) | a video ending in the media viewer no longer crashes tele | with 143 |
 
 ### [tele 16](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.16)
 
