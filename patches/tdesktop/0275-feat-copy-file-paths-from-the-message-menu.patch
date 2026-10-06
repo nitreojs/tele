@@ -1,0 +1,209 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 6 Oct 2026 18:38:54 +0300
+Subject: [PATCH] feat: copy file paths from the message menu
+
+---
+ .../view/history_view_context_menu.cpp        |  4 ++++
+ .../SourceFiles/settings/settings_tele.cpp    |  4 ++++
+ .../SourceFiles/tele/tele_menu_registry.cpp   | 13 +++++++++---
+ .../SourceFiles/tele/tele_message_menu.cpp    | 20 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_message_menu.h |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 11 ++++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 8 files changed, 56 insertions(+), 3 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index df1dff62ee91517f16f356906b340729ad54513d..1718b63b581e2b5165166e2dcdb3f0727f345dba 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -2765,6 +2765,10 @@ void AddCopyFilename(
+ 			}
+ 		}, &st::menuIconCopy);
+ 	}
++	Tele::AddCopyFilePathAction(
++		menu,
++		document,
++		std::move(showCopyRestrictionForSelected));
+ }
+ 
+ void ShowWhoReactedMenu(
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 9f703e168a270933a2d2320b9bbc76062fbc3807..3f313bb61f2dfc86dab502dc3e49e871c48b47fd 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3363,6 +3363,10 @@ void FillMenus(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyEmojiId);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCopyFilePath,
++		{ u"path"_q, u"folder"_q, u"download"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyMarkdown);
+ 	AddOptionToggle(
+ 		builder,
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index f6352da939eed47c5b4e8669d782ee8d3c566743..b83573462589314c6881cbca4cf5c58b422632dc 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -486,6 +486,10 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			P([](int) { return tr::lng_context_copy_filename(tr::now); },
+ 				st::menuIconCopy),
+ 		}, .contexts = kMedia },
++		{ .key = u"copy_file_path"_q, .phrases = {
++			P([](int) { return Lower(u"Copy file path"_q); },
++				st::menuIconCopy),
++		}, .contexts = kMedia, .gate = kOptionCopyFilePath },
+ 		{ .key = u"attached_stickers"_q, .phrases = {
+ 			P([](int) {
+ 				return tr::lng_context_attached_stickers(tr::now);
+@@ -734,7 +738,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,[Copy#copy:copy_markdown,copy_html,"
+ 		"copy_link,alias_copy,copy_message_link,copy_id,copy_emoji_id,"
+-		"copy_button_data,copy_filename,copy_phone],translate_selected,"
++		"copy_button_data,copy_filename,copy_file_path,copy_phone],"
++		"translate_selected,"
+ 		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+ 		"[tele#tele:[Bookmark#bookmark:bookmark,rename_bookmark],mark_read,"
+ 		"edit_history,shot,mark_viewed],|,"
+@@ -750,7 +755,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"mark_viewed,mark_read,rename_bookmark,bookmark,factcheck,pin,"
+ 		"statistics,poll_results,poll_retract,poll_stop,cancel_download,"
+ 		"open_gif,save_gif,sticker_set,fave_sticker,show_in_folder,"
+-		"save_sound,save_as,copy_image,copy_filename,attached_stickers,"
++		"save_sound,save_as,copy_image,copy_filename,copy_file_path,"
++		"attached_stickers,"
+ 		"copy_phone,send_gift,copy_text,translate,copy_link,"
+ 		"open_uncleaned,open_username,alias_copy,alias_open,alias_delete,"
+ 		"copy_button_data,copy_message_link,"
+@@ -782,7 +788,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,copy_markdown,copy_html,copy_link,"
+ 		"alias_copy,copy_message_link,copy_id,copy_emoji_id,"
+-		"copy_button_data,copy_filename,copy_phone,translate_selected,"
++		"copy_button_data,copy_filename,copy_file_path,copy_phone,"
++		"translate_selected,"
+ 		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+ 		"bookmark,rename_bookmark,mark_read,edit_history,shot,mark_viewed,|,"
+ 		"select,select_up_to,clear_selection,|,"
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.cpp b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+index d07df405b20a1569f376a0387355becbb113a9b2..cea38f1190b6fcad7455c77a5166b0baa1125bf5 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.cpp
++++ b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+@@ -25,6 +25,7 @@
+ 
+ #include <QtGui/QClipboard>
+ #include <QtGui/QGuiApplication>
++#include <QtCore/QDir>
+ 
+ namespace Tele {
+ namespace {
+@@ -207,4 +208,23 @@ void AddCopyEmojiIdAction(
+ 		&st::menuIconCopy);
+ }
+ 
++void AddCopyFilePathAction(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<DocumentData*> document,
++		Fn<bool()> showCopyRestriction) {
++	if (!CopyFilePath()) {
++		return;
++	}
++	const auto path = document->filepath(true);
++	if (path.isEmpty()) {
++		return;
++	}
++	const auto text = QDir::toNativeSeparators(path);
++	menu->addAction(Lower(u"Copy file path"_q), [=] {
++		if (!showCopyRestriction()) {
++			QGuiApplication::clipboard()->setText(text);
++		}
++	}, &st::menuIconCopy);
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.h b/Telegram/SourceFiles/tele/tele_message_menu.h
+index f92a71e61899387aee80d91840c1ea1a3677c0e7..cdb419c338e5162893d7595ae1c00f5b0077bdad 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.h
++++ b/Telegram/SourceFiles/tele/tele_message_menu.h
+@@ -28,5 +28,9 @@ void AddCopyEmojiIdAction(
+ 	not_null<Ui::PopupMenu*> menu,
+ 	std::shared_ptr<Main::SessionShow> show,
+ 	DocumentData *document);
++void AddCopyFilePathAction(
++	not_null<Ui::PopupMenu*> menu,
++	not_null<DocumentData*> document,
++	Fn<bool()> showCopyRestriction);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index a55e8e3cb7ea37f5c805b15ae75d19c3a83d8b60..32de5c9ce1b11527f23b503f16e10d5c67acdf81 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -116,6 +116,7 @@ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
+ const char kOptionCalcmulaInline[] = "tele-calcmula-inline";
+ const char kOptionTranslateOut[] = "tele-translate-out";
+ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
++const char kOptionCopyFilePath[] = "tele-copy-file-path";
+ const char kOptionCopyMarkdown[] = "tele-copy-markdown";
+ const char kOptionRmbBesideBubble[] = "tele-rmb-beside-bubble";
+ const char kOptionShot[] = "tele-shot";
+@@ -902,6 +903,12 @@ base::options::toggle CopyEmojiIdOption({
+ 	.description = "Right-click a custom emoji in a message to copy its ID.",
+ });
+ 
++base::options::toggle CopyFilePathOption({
++	.id = kOptionCopyFilePath,
++	.name = "Copy file path",
++	.description = "For files saved on this computer.",
++});
++
+ base::options::toggle CopyMarkdownOption({
+ 	.id = kOptionCopyMarkdown,
+ 	.name = "Copy as Markdown and HTML",
+@@ -2406,6 +2413,10 @@ bool CopyEmojiId() {
+ 	return CopyEmojiIdOption.value();
+ }
+ 
++bool CopyFilePath() {
++	return CopyFilePathOption.value();
++}
++
+ bool CopyMarkdown() {
+ 	return CopyMarkdownOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 5c8d9f23d0fedccb31e7b44fec966119db3fb410..b5345a227b7a35f95028ca00ab3864b441b63aae 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -111,6 +111,7 @@ extern const char kOptionCalcmulaPreview[];
+ extern const char kOptionCalcmulaInline[];
+ extern const char kOptionTranslateOut[];
+ extern const char kOptionCopyEmojiId[];
++extern const char kOptionCopyFilePath[];
+ extern const char kOptionCopyMarkdown[];
+ extern const char kOptionRmbBesideBubble[];
+ extern const char kOptionShot[];
+@@ -383,6 +384,7 @@ void SetStreamerMode(bool enabled);
+ [[nodiscard]] bool CalcmulaInline();
+ [[nodiscard]] bool TranslateOut();
+ [[nodiscard]] bool CopyEmojiId();
++[[nodiscard]] bool CopyFilePath();
+ [[nodiscard]] bool CopyMarkdown();
+ [[nodiscard]] bool RmbBesideBubble();
+ [[nodiscard]] bool ShotInMenu();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index bffed1f0e924b664be5e83d0eec1f981404725c4..05c1b49c8958c153ca1e6de9cc9aab74642550c1 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -204,6 +204,7 @@ struct Spec {
+ 		Toggle(kOptionCalcmulaInline),
+ 		Toggle(kOptionTranslateOut),
+ 		Toggle(kOptionCopyEmojiId),
++		Toggle(kOptionCopyFilePath),
+ 		Toggle(kOptionCopyMarkdown),
+ 		Toggle(kOptionRmbBesideBubble),
+ 		Toggle(kOptionShot),

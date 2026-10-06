@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 6 Oct 2026 18:38:37 +0300
+Subject: [PATCH] fix: copy peer ids as plain digits
+
+---
+ Telegram/SourceFiles/tele/tele_peer_id.cpp | 20 ++++++++++++++------
+ 1 file changed, 14 insertions(+), 6 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_peer_id.cpp b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+index bee6fcdc44ca9c71f2387352487a3f7b5bd4200f..68166329618c51d17423b196f789bf8d267a5488 100644
+--- a/Telegram/SourceFiles/tele/tele_peer_id.cpp
++++ b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+@@ -255,17 +255,25 @@ void CopyDc(int dc, base::weak_ptr<Window::SessionController> weak) {
+ 	}
+ }
+ 
+-} // namespace
+-
+-QString FormatPeerId(not_null<PeerData*> peer) {
++[[nodiscard]] int64 PeerIdNumber(not_null<PeerData*> peer) {
+ 	const auto bare = int64(peer->id.value & PeerId::kChatTypeMask);
+-	const auto id = !BotApiPeerIds()
++	return !BotApiPeerIds()
+ 		? bare
+ 		: peer->isChat()
+ 		? -bare
+ 		: peer->isChannel()
+ 		? -(kChannelShift + bare)
+ 		: bare;
++}
++
++[[nodiscard]] QString CopiedPeerId(not_null<PeerData*> peer) {
++	return QString::number(PeerIdNumber(peer));
++}
++
++} // namespace
++
++QString FormatPeerId(not_null<PeerData*> peer) {
++	const auto id = PeerIdNumber(peer);
+ 	return PeerIdsWithoutSpaces()
+ 		? QString::number(id)
+ 		: Lang::FormatCountDecimal(id);
+@@ -303,7 +311,7 @@ void SetupPeerIdLabel(
+ 		not_null<Window::SessionController*> controller) {
+ 	const auto weak = base::make_weak(controller);
+ 	const auto copy = [=] {
+-		const auto text = FormatPeerId(peer);
++		const auto text = CopiedPeerId(peer);
+ 		TextUtilities::SetClipboardText({ text });
+ 		if (const auto strong = weak.get()) {
+ 			ShowCopiedToast(strong, {
+@@ -316,7 +324,7 @@ void SetupPeerIdLabel(
+ 	PeerIdTextValue(peer) | rpl::on_next([=] {
+ 		label->setLink(
+ 			kLinkIndex,
+-			std::make_shared<CopyClickHandler>(FormatPeerId(peer), copy));
++			std::make_shared<CopyClickHandler>(CopiedPeerId(peer), copy));
+ 	}, label->lifetime());
+ 	const auto mergedDc = label->lifetime().make_state<int>(0);
+ 	MergedDcValue(peer) | rpl::on_next([=](PeerDcInfo info) {
