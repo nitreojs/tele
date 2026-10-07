@@ -4,14 +4,14 @@ Date: Wed, 7 Oct 2026 21:42:48 +0300
 Subject: [PATCH] feat: ease mouse wheel steps in scroll areas
 
 ---
- CMakeLists.txt                |  2 +
- ui/widgets/elastic_scroll.cpp | 11 +++-
- ui/widgets/elastic_scroll.h   |  2 +
- ui/widgets/scroll_area.cpp    | 16 ++++++
- ui/widgets/scroll_area.h      |  2 +
- ui/widgets/smooth_wheel.cpp   | 99 +++++++++++++++++++++++++++++++++++
- ui/widgets/smooth_wheel.h     | 44 ++++++++++++++++
- 7 files changed, 175 insertions(+), 1 deletion(-)
+ CMakeLists.txt                |   2 +
+ ui/widgets/elastic_scroll.cpp |  11 +++-
+ ui/widgets/elastic_scroll.h   |   2 +
+ ui/widgets/scroll_area.cpp    |  16 +++++
+ ui/widgets/scroll_area.h      |   2 +
+ ui/widgets/smooth_wheel.cpp   | 113 ++++++++++++++++++++++++++++++++++
+ ui/widgets/smooth_wheel.h     |  46 ++++++++++++++
+ 7 files changed, 191 insertions(+), 1 deletion(-)
  create mode 100644 ui/widgets/smooth_wheel.cpp
  create mode 100644 ui/widgets/smooth_wheel.h
 
@@ -29,7 +29,7 @@ index 930ea8f830285852b107874afded8720f702d2fa..af8562004ab9d42d711ddcbaffc00729
      ui/widgets/shadow.h
      ui/widgets/time_input.cpp
 diff --git a/ui/widgets/elastic_scroll.cpp b/ui/widgets/elastic_scroll.cpp
-index 667a233eea2d8c1b4904d80f587e89d9d214b4ff..01187e76f15f8c4576d6960f326c9d3208f78f81 100644
+index 667a233eea2d8c1b4904d80f587e89d9d214b4ff..c134b201f0d36e05ce0f797d4533e04dfe68c8c0 100644
 --- a/ui/widgets/elastic_scroll.cpp
 +++ b/ui/widgets/elastic_scroll.cpp
 @@ -952,7 +952,16 @@ bool ElasticScroll::handleWheelEvent(not_null<QWheelEvent*> e, bool touch) {
@@ -41,8 +41,8 @@ index 667a233eea2d8c1b4904d80f587e89d9d214b4ff..01187e76f15f8c4576d6960f326c9d32
 +				&& _smoothWheel.handle(
 +					e,
 +					delta,
-+					scrollTopMax(),
 +					[=] { return scrollTop(); },
++					[=] { return scrollTopMax(); },
 +					[=](int top) { tryScrollTo(top); });
 +			if (!smooth) {
 +				tryScrollTo(_state.visibleFrom + delta);
@@ -71,7 +71,7 @@ index 7909e165ec68e52dad0c2c6697baf95858c6a0e4..69ca38802e825474ad842985f2a9287c
  	Fn<bool(QPoint, Qt::ScrollPhase)> _crossAxisWheelProcess;
  	ScrollDirectionLock _wheelDirectionLock;
 diff --git a/ui/widgets/scroll_area.cpp b/ui/widgets/scroll_area.cpp
-index bf4af8e28694cdd2154cda30e031e6a28ec19472..b87d2f78749a693a94089ac2ea532831083c97e4 100644
+index bf4af8e28694cdd2154cda30e031e6a28ec19472..f2a4090240552bc4078b671afa2b90aee810c7c9 100644
 --- a/ui/widgets/scroll_area.cpp
 +++ b/ui/widgets/scroll_area.cpp
 @@ -649,6 +649,22 @@ bool ScrollArea::viewportEvent(QEvent *e) {
@@ -89,8 +89,8 @@ index bf4af8e28694cdd2154cda30e031e6a28ec19472..b87d2f78749a693a94089ac2ea532831
 +		if (_smoothWheel.handle(
 +				ev,
 +				pixels,
-+				scrollTopMax(),
 +				[=] { return scrollTop(); },
++				[=] { return scrollTopMax(); },
 +				[=](int top) { scrollToY(top); })) {
 +			return true;
 +		}
@@ -119,10 +119,10 @@ index a05ab78b40b2f3af5c4d3b3ff8795cb9b01f9893..1261b8b3e922f840c055418f12791c58
  	ScrollDirectionLock _wheelDirectionLock;
 diff --git a/ui/widgets/smooth_wheel.cpp b/ui/widgets/smooth_wheel.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..74826dcf9955790b9d765ebc401dd47cdbd59edb
+index 0000000000000000000000000000000000000000..75d73fd7932cc09bc0bec3e08f08d78b79ed26a6
 --- /dev/null
 +++ b/ui/widgets/smooth_wheel.cpp
-@@ -0,0 +1,99 @@
+@@ -0,0 +1,113 @@
 +// This file is part of Desktop App Toolkit,
 +// a set of libraries for developing nice desktop applications.
 +//
@@ -162,8 +162,8 @@ index 0000000000000000000000000000000000000000..74826dcf9955790b9d765ebc401dd47c
 +bool SmoothWheel::handle(
 +		not_null<QWheelEvent*> e,
 +		int pixels,
-+		int topMax,
 +		Fn<int()> current,
++		Fn<int()> max,
 +		Fn<void(int)> apply) {
 +	const auto delta = e->angleDelta();
 +	const auto notch = Enabled
@@ -174,20 +174,24 @@ index 0000000000000000000000000000000000000000..74826dcf9955790b9d765ebc401dd47c
 +		&& delta.y()
 +		&& !(delta.y() % kNotch)
 +		&& !(e->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier))
-+		&& (topMax > 0);
++		&& (max() > 0);
 +	if (!notch) {
 +		stop();
 +		return false;
 +	}
 +	_current = std::move(current);
++	_max = std::move(max);
 +	_apply = std::move(apply);
 +	const auto animating = _animation.animating();
 +	const auto from = _current();
++	if (animating && from != _lastApplied) {
++		follow(from - _lastApplied);
++	}
 +	const auto base = animating ? _target : from;
-+	_target = std::clamp(base + pixels, 0, topMax);
++	_target = std::clamp(base + pixels, 0, _max());
 +	_from = from;
 +	_started = crl::now();
-+	_lastApplied = -1;
++	_lastApplied = from;
 +	if (!animating) {
 +		_animation.start();
 +	}
@@ -199,10 +203,16 @@ index 0000000000000000000000000000000000000000..74826dcf9955790b9d765ebc401dd47c
 +	_lastApplied = -1;
 +}
 +
++void SmoothWheel::follow(int shift) {
++	// The content moved under the glide, like older messages loaded above
++	// with the list keeping its place, so keep gliding over the same content.
++	_from += shift;
++	_target += shift;
++}
++
 +void SmoothWheel::step(crl::time now) {
-+	if (_lastApplied >= 0 && _current() != _lastApplied) {
-+		stop();
-+		return;
++	if (const auto before = _current(); before != _lastApplied) {
++		follow(before - _lastApplied);
 +	}
 +	const auto progress = std::clamp(
 +		(now - _started) / float64(kStepTime),
@@ -212,22 +222,26 @@ index 0000000000000000000000000000000000000000..74826dcf9955790b9d765ebc401dd47c
 +		_from,
 +		_target,
 +		anim::easeOutQuint(1., progress));
-+	_apply(value);
++	const auto max = _max();
++	const auto clamped = std::clamp(value, 0, max);
++	_apply(clamped);
 +	const auto actual = _current();
-+	if (progress >= 1. || actual != value) {
-+		stop();
-+		return;
++	if (actual != clamped) {
++		follow(actual - clamped);
 +	}
 +	_lastApplied = actual;
++	if (progress >= 1. || clamped != value) {
++		stop();
++	}
 +}
 +
 +} // namespace Ui
 diff --git a/ui/widgets/smooth_wheel.h b/ui/widgets/smooth_wheel.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..6eadf77179b31c27d4502d331b758d79e6cd51f8
+index 0000000000000000000000000000000000000000..1937ba84f0094a02e44ef817b0f7956a9932e835
 --- /dev/null
 +++ b/ui/widgets/smooth_wheel.h
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,46 @@
 +// This file is part of Desktop App Toolkit,
 +// a set of libraries for developing nice desktop applications.
 +//
@@ -253,16 +267,18 @@ index 0000000000000000000000000000000000000000..6eadf77179b31c27d4502d331b758d79
 +	[[nodiscard]] bool handle(
 +		not_null<QWheelEvent*> e,
 +		int pixels,
-+		int topMax,
 +		Fn<int()> current,
++		Fn<int()> max,
 +		Fn<void(int)> apply);
 +	void stop();
 +
 +private:
 +	void step(crl::time now);
++	void follow(int shift);
 +
 +	Animations::Basic _animation;
 +	Fn<int()> _current;
++	Fn<int()> _max;
 +	Fn<void(int)> _apply;
 +	int _from = 0;
 +	int _target = 0;
