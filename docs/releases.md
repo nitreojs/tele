@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 277 patches, newest release first.
+all 278 patches, newest release first.
 
 ### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
 
@@ -14,6 +14,7 @@ all 277 patches, newest release first.
 | [273](../patches/tdesktop/0273-fix-copy-peer-ids-as-plain-digits.patch) | copying a peer id from its profile row gives plain digits, even when the row shows them with spaces | with 14 |
 | [274](../patches/tdesktop/0274-feat-send-quick-replies-by-their-exact-name.patch) | a message that is exactly /name sends your quick reply with that name instead of the text, and that quick reply is the first suggestion | tele → chats, off |
 | [275](../patches/tdesktop/0275-feat-copy-file-paths-from-the-message-menu.patch) | copy the full path of a downloaded file from its message menu | tele → menus, off |
+| [276](../patches/tdesktop/0276-feat-turn-on-a-menu-item-from-the-menu-editor.patch) | in the menu editor, clicking the eye on a greyed item turns on the setting it needs, and the hint saying which one is readable | with 174 |
 | [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 
 ### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)
