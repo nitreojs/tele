@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 280 patches, newest release first.
+all 282 patches, newest release first.
 
 ### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
 
@@ -35,9 +35,11 @@ all 280 patches, newest release first.
 | [274](../patches/tdesktop/0274-feat-classic-text-padding-in-bubbles.patch) | bubbles without tails can use the text padding of older telegram desktop: 13 px on the sides and 7 on top | with 269 |
 | [275](../patches/tdesktop/0275-feat-fix-fonts-picked-in-chat-settings.patch) | a font picked in chat settings that comes out shifted or cut off, like google sans, can be measured by its real letters and drawn through directwrite, which reads the line heights such fonts mean (windows) | tele → debug, off, needs a restart |
 | [276](../patches/tdesktop/0276-fix-sharp-boost-icons-and-button-emoji-in-scaled-sho.patch) | shots scaled up keep boost icons and custom emoji in bot buttons sharp | with 105 |
+| [277](../patches/tdesktop/0277-feat-smooth-wheel-scrolling.patch) | each mouse wheel step glides instead of jumping in chats, the chat list, sections, boxes and settings, like profiles already do. touchpads are unchanged | tele → interface, off |
 | [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 | [1003](../patches/Telegram/lib_ui/0003-feat-let-picked-fonts-use-their-real-metrics-on-wind.patch) | the part of the picked font fix that lives in the ui library | with 275 |
 | [1004](../patches/Telegram/lib_ui/0004-fix-icon-emoji-stay-sharp-in-renders-at-a-higher-rat.patch) | icons drawn inside text, like the boost mark next to names, stay sharp in shots scaled up | with 105 |
+| [1005](../patches/Telegram/lib_ui/0005-feat-ease-mouse-wheel-steps-in-scroll-areas.patch) | the part of smooth wheel scrolling that lives in the ui library's scroll areas | with 277 |
 
 ### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)
 

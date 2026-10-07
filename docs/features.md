@@ -40,6 +40,8 @@ settings → tele → interface.
 | [193](../patches/tdesktop/0193-feat-filter-long-lists-by-date.patch) | filter star and ton transactions, shared media and profile gifts by a day or a date range | tele → interface, off |
 | [259](../patches/tdesktop/0259-feat-lowercase-the-default-title-bar-label.patch) | the title bar label is `tele #N` by default instead of `TELE #N` | with 10 |
 | [266](../patches/tdesktop/0266-feat-smaller-minimum-window-size.patch) | the window can be made as small as 256x256 instead of 380x480 | tele → interface, off |
+| [277](../patches/tdesktop/0277-feat-smooth-wheel-scrolling.patch) | each mouse wheel step glides instead of jumping in chats, the chat list, sections, boxes and settings, like profiles already do. touchpads are unchanged | tele → interface, off |
+| [1005](../patches/Telegram/lib_ui/0005-feat-ease-mouse-wheel-steps-in-scroll-areas.patch) | the part of smooth wheel scrolling that lives in the ui library's scroll areas | with 277 |
 
 ## chats
 
