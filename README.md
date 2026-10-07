@@ -53,6 +53,12 @@ everything tele adds lives in settings → tele, right below the language row.
 - [tele server](docs/server.md): what it does and how to run your own.
 - [contributing](CONTRIBUTING.md).
 
+## credits
+
+- [tdesktop](https://github.com/telegramdesktop/tdesktop), which every tele build is made from.
+- [materialgram](https://github.com/kukuruzka165/materialgram) by kukuruzka165, another tdesktop fork. these tele features come from its ideas: hiding bubble tails, no outline on large emoji, selecting more than 100 messages, showing online members in big groups, the upload date in the media viewer, copying a sticker set's owner id, better voice quality and keeping the start of voice messages, less photo compression, a thinner photo editor brush, a smaller minimum window and a bigger, faster chat export.
+- [SPOwnerBot](https://github.com/arynyklas/SPOwnerBot) by arynyklas and [its fork](https://github.com/madrik1337/SPOwnerBot) by madrik1337, for how a sticker set's id holds its owner, including owners past 8 billion.
+
 ## contributing
 
 bug fixes, conflict fixes and new features are welcome. for a feature, open an issue first. [CONTRIBUTING.md](CONTRIBUTING.md) walks through the whole cycle: getting the patched sources with `tele.py`, building, testing, exporting patches and opening a pull request.

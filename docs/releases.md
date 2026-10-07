@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 262 patches, newest release first.
+all 274 patches, newest release first.
 
 ### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
 
@@ -19,6 +19,18 @@ all 262 patches, newest release first.
 | [258](../patches/tdesktop/0258-fix-a-line-under-every-open-group-of-tele-settings.patch) | an open group of tele settings ends with a thin line, so you can see where its settings end | with 42 |
 | [259](../patches/tdesktop/0259-feat-lowercase-the-default-title-bar-label.patch) | the title bar label is `tele #N` by default instead of `TELE #N` | with 10 |
 | [260](../patches/tdesktop/0260-feat-forward-messages-one-by-one.patch) | forwarded messages go out one at a time instead of as one batch. albums stay together, and forwarding many at once can hit rate limits | tele → sending, off |
+| [261](../patches/tdesktop/0261-feat-keep-the-start-of-voice-messages.patch) | recording without fading also keeps the first 0.4 seconds of a voice message, which telegram desktop cuts | with 135 |
+| [262](../patches/tdesktop/0262-feat-record-voice-in-higher-quality.patch) | voice messages can be recorded at 128 kbps instead of 32, for clearer sound and 4 times bigger files | tele → sending, off |
+| [263](../patches/tdesktop/0263-feat-compress-photos-less.patch) | photos are compressed at jpeg quality 94 instead of 87 | tele → sending, off |
+| [264](../patches/tdesktop/0264-feat-thinner-brush-in-the-photo-editor.patch) | the photo editor's brush goes down to 1 px instead of 3.4 px | tele → sending, off |
+| [265](../patches/tdesktop/0265-feat-bigger-faster-chat-export.patch) | chat export puts 10000 messages in each html file instead of 1000 and downloads files in 1 MB parts instead of 128 KB | tele → backup, off |
+| [266](../patches/tdesktop/0266-feat-smaller-minimum-window-size.patch) | the window can be made as small as 256x256 instead of 380x480 | tele → interface, off |
+| [267](../patches/tdesktop/0267-feat-show-when-media-was-uploaded-in-the-media-viewe.patch) | the media viewer shows when a photo or file was uploaded, when that differs from the message date, like in forwards | tele → profiles and ids, off |
+| [268](../patches/tdesktop/0268-feat-copy-the-owner-id-of-sticker-sets.patch) | copy the id of the account that made a sticker or emoji set from the set's menu | tele → profiles and ids, off |
+| [269](../patches/tdesktop/0269-feat-hide-bubble-tails.patch) | message bubbles can lose their tails: the corner that pointed at the sender is rounded like the others | tele → messages, off |
+| [270](../patches/tdesktop/0270-feat-show-online-members-in-big-groups.patch) | big groups show how many members are online in the chat header and profile, like small groups do | tele → chats, off |
+| [271](../patches/tdesktop/0271-feat-select-more-than-100-messages.patch) | select up to 10000 messages instead of 100; deleting and forwarding them goes out in parts of 100 | tele → chats, off |
+| [272](../patches/tdesktop/0272-feat-no-outline-on-large-emoji.patch) | messages with a single emoji lose the white outline around it | tele → messages, off |
 | [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 
 ### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)

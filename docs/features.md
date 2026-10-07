@@ -39,6 +39,7 @@ settings → tele → interface.
 | [192](../patches/tdesktop/0192-feat-search-filter-and-export-star-transactions.patch) | search, filter, total and export star and ton transactions to csv | tele → interface, off |
 | [193](../patches/tdesktop/0193-feat-filter-long-lists-by-date.patch) | filter star and ton transactions, shared media and profile gifts by a day or a date range | tele → interface, off |
 | [259](../patches/tdesktop/0259-feat-lowercase-the-default-title-bar-label.patch) | the title bar label is `tele #N` by default instead of `TELE #N` | with 10 |
+| [266](../patches/tdesktop/0266-feat-smaller-minimum-window-size.patch) | the window can be made as small as 256x256 instead of 380x480 | tele → interface, off |
 
 ## chats
 
@@ -69,6 +70,8 @@ settings → tele → chats.
 | [179](../patches/tdesktop/0179-feat-copy-or-delete-aliases-from-their-menu.patch) | right-click an alias in a profile or a message to copy or delete it, or open the profile | with 71 |
 | [235](../patches/tdesktop/0235-feat-your-own-reaction-strip.patch) | choose how many reactions sit above the message menu and their order: click a reaction in the live preview to replace and pin it, drag to reorder | tele → chats, off |
 | [254](../patches/tdesktop/0254-feat-send-quick-replies-by-their-exact-name.patch) | a message that is exactly /name sends your quick reply with that name instead of the text, and that quick reply is the first suggestion | tele → chats, off |
+| [270](../patches/tdesktop/0270-feat-show-online-members-in-big-groups.patch) | big groups show how many members are online in the chat header and profile, like small groups do | tele → chats, off |
+| [271](../patches/tdesktop/0271-feat-select-more-than-100-messages.patch) | select up to 10000 messages instead of 100; deleting and forwarding them goes out in parts of 100 | tele → chats, off |
 
 ## messages
 
@@ -102,6 +105,8 @@ settings → tele → messages.
 | [199](../patches/tdesktop/0199-feat-quote-rich-messages.patch) | select part of a rich message and pick quote and reply: the rich editor opens with the selection as a blockquote. a quote without an author no longer disappears when it's sent | tele → messages, on |
 | [210](../patches/tdesktop/0210-feat-multiple-quotes-in-one-reply.patch) | quote several parts of a message in one reply: quoting again while replying with a quote adds the new part | tele → messages, on |
 | [257](../patches/tdesktop/0257-feat-leave-kept-deleted-messages-out-of-the-chat-lis.patch) | kept deleted messages can stay out of the chat list and unread counts: the chat shows its last message that wasn't deleted, and their unread marks, mentions and notifications go away | with 19 |
+| [269](../patches/tdesktop/0269-feat-hide-bubble-tails.patch) | message bubbles can lose their tails: the corner that pointed at the sender is rounded like the others | tele → messages, off |
+| [272](../patches/tdesktop/0272-feat-no-outline-on-large-emoji.patch) | messages with a single emoji lose the white outline around it | tele → messages, off |
 
 ## sending
 
@@ -136,6 +141,10 @@ settings → tele → sending.
 | [242](../patches/tdesktop/0242-feat-choose-how-silent-videos-are-sent.patch) | choose whether videos without sound are sent as gifs or as videos | tele → sending |
 | [245](../patches/tdesktop/0245-feat-markdown-renders-as-you-type.patch) | markdown renders while you type: bold, italic, strike, spoilers, code and code blocks, with the markers kept and dimmed. lines starting with > become quotes, >! expandable quotes | tele → sending, off |
 | [260](../patches/tdesktop/0260-feat-forward-messages-one-by-one.patch) | forwarded messages go out one at a time instead of as one batch. albums stay together, and forwarding many at once can hit rate limits | tele → sending, off |
+| [261](../patches/tdesktop/0261-feat-keep-the-start-of-voice-messages.patch) | recording without fading also keeps the first 0.4 seconds of a voice message, which telegram desktop cuts | with 135 |
+| [262](../patches/tdesktop/0262-feat-record-voice-in-higher-quality.patch) | voice messages can be recorded at 128 kbps instead of 32, for clearer sound and 4 times bigger files | tele → sending, off |
+| [263](../patches/tdesktop/0263-feat-compress-photos-less.patch) | photos are compressed at jpeg quality 94 instead of 87 | tele → sending, off |
+| [264](../patches/tdesktop/0264-feat-thinner-brush-in-the-photo-editor.patch) | the photo editor's brush goes down to 1 px instead of 3.4 px | tele → sending, off |
 
 ## notifications
 
@@ -232,6 +241,8 @@ settings → tele → profiles and ids.
 | [247](../patches/tdesktop/0247-feat-open-anyone-s-gifts-in-the-gift-grid.patch) | open anyone's gifts, or one of their collections, in the gift grid, or import them into a grid. big grids scroll, rows can be left out of the export and single gifts hidden | with 204 |
 | [248](../patches/tdesktop/0248-feat-rarity-tiers-and-pills-in-the-gift-studio.patch) | crafted models show their rarity tier, and rarities in the gift studio sit in coloured pills | with 197 |
 | [253](../patches/tdesktop/0253-fix-copy-peer-ids-as-plain-digits.patch) | copying a peer id from its profile row gives plain digits, even when the row shows them with spaces | with 14 |
+| [267](../patches/tdesktop/0267-feat-show-when-media-was-uploaded-in-the-media-viewe.patch) | the media viewer shows when a photo or file was uploaded, when that differs from the message date, like in forwards | tele → profiles and ids, off |
+| [268](../patches/tdesktop/0268-feat-copy-the-owner-id-of-sticker-sets.patch) | copy the id of the account that made a sticker or emoji set from the set's menu | tele → profiles and ids, off |
 
 ### gift studio
 
@@ -281,6 +292,7 @@ settings → tele → backup.
 | # | what it does | toggle |
 |---|---|---|
 | [106](../patches/tdesktop/0106-feat-export-and-import-tele-settings.patch) | export tele settings to a file or as text and import them on any account, system or tele version, with a preview first. people and device settings are optional | tele → backup |
+| [265](../patches/tdesktop/0265-feat-bigger-faster-chat-export.patch) | chat export puts 10000 messages in each html file instead of 1000 and downloads files in 1 MB parts instead of 128 KB | tele → backup, off |
 
 ## updates
 
