@@ -282,10 +282,13 @@ jobs:
             ${{ env.TBUILD }}\Libraries
           key: ${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+      # libraries and sources stay on C: (prepare.py keys embed their paths), the build tree goes to D:
       - name: Make room on C
         shell: pwsh
         run: |
           Remove-Item -Recurse -Force -ErrorAction SilentlyContinue C:\Android
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\out" | Out-Null
+          New-Item -ItemType Junction -Path "$env:TBUILD\tdesktop\out" -Target "$env:RUNNER_TEMP\out" | Out-Null
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\link" | Out-Null
           "TMP=$env:RUNNER_TEMP\link" >> $env:GITHUB_ENV
           "TEMP=$env:RUNNER_TEMP\link" >> $env:GITHUB_ENV
