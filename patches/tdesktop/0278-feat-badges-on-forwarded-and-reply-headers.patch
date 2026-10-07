@@ -1,0 +1,342 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Thu, 8 Oct 2026 00:04:56 +0300
+Subject: [PATCH] feat: badges on forwarded and reply headers
+
+---
+ .../history/history_item_components.cpp       |  11 +-
+ .../history/view/history_view_message.cpp     |  17 +++
+ .../history/view/history_view_message.h       |   1 +
+ .../history/view/history_view_reply.cpp       |  11 +-
+ .../history/view/history_view_reply.h         |   1 +
+ .../SourceFiles/tele/tele_bubble_badges.cpp   | 131 ++++++++++++++++++
+ .../SourceFiles/tele/tele_bubble_badges.h     |  14 ++
+ 7 files changed, 180 insertions(+), 6 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
+index 800b10350adb9672e9693b3efffe9cda58998656..3452d3a75cc8706ab988039361331db33c2e12f2 100644
+--- a/Telegram/SourceFiles/history/history_item_components.cpp
++++ b/Telegram/SourceFiles/history/history_item_components.cpp
+@@ -6,6 +6,7 @@ For license and copyright information please follow this link:
+ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ */
+ #include "history/history_item_components.h"
++#include "tele/tele_bubble_badges.h"
+ #include "tele/tele_button_payload.h"
+ #include "tele/tele_rich_timestamps.h"
+ #include "tele/tele_shot_sharp.h"
+@@ -295,11 +296,11 @@ void HistoryMessageForwarded::create(
+ 	const auto fromChannel = originalSender
+ 		&& originalSender->isChannel()
+ 		&& !originalSender->isMegagroup();
+-	const auto name = TextWithEntities{
++	const auto name = Tele::BadgedHeaderName(originalSender, {
+ 		.text = (originalSender
+ 			? originalSender->name()
+ 			: originalHiddenSenderInfo->name)
+-	};
++	});
+ 	if (const auto copy = originalSender) {
+ 		context.repaint = [=] {
+ 			// It is important to capture here originalSender by value,
+@@ -387,7 +388,11 @@ void HistoryMessageForwarded::create(
+ 				tr::marked);
+ 		}
+ 	}
+-	text.setMarkedText(st::fwdTextStyle, phrase, kMarkupTextOptions, context);
++	text.setMarkedText(
++		st::fwdTextStyle,
++		phrase,
++		kMarkupTextOptions,
++		Tele::WithBadgeObjects(std::move(context), st::fwdTextStyle));
+ 
+ 	text.setLink(1, fromChannel
+ 		? JumpToMessageClickHandler(originalSender, originalId)
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index 2d2de9e10204562c09d3c2d05454fcb813e7f756..3bd63a12ef9ea6c0f7a63d49f157718a4035018d 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -1320,6 +1320,11 @@ QRect Message::effectIconGeometry() const {
+ 
+ QSize Message::performCountOptimalSize() {
+ 	const auto item = data();
++	if (const auto forwarded = item->Get<HistoryMessageForwarded>()) {
++		_forwardedBadges = forwarded->originalSender
++			? Tele::BubbleBadgesKey(forwarded->originalSender)
++			: 0;
++	}
+ 
+ 	const auto replyData = item->Get<HistoryMessageReply>();
+ 	const auto &summary = item->summaryEntry();
+@@ -2246,6 +2251,18 @@ void Message::draw(Painter &p, const PaintContext &context) const {
+ 			}
+ 		}
+ 	}
++	if (const auto forwarded = item->Get<HistoryMessageForwarded>()) {
++		const auto badges = forwarded->originalSender
++			? Tele::BubbleBadgesKey(forwarded->originalSender)
++			: 0;
++		if (badges != _forwardedBadges) {
++			_forwardedBadges = badges;
++			const auto that = const_cast<Message*>(this);
++			crl::on_main(that, [=] {
++				that->history()->owner().requestViewResize(that);
++			});
++		}
++	}
+ 	if (gestureShift) {
+ 		p.translate(-gestureShift, 0);
+ 		if (context.reactionInfo && context.reactionInfo->effectPaint) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.h b/Telegram/SourceFiles/history/view/history_view_message.h
+index fc22360cdc8aee5d95999e47ec60106d3c62b505..f64773c454bb3f497e00f50b573f1c034f5ec65e 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.h
++++ b/Telegram/SourceFiles/history/view/history_view_message.h
+@@ -539,6 +539,7 @@ private:
+ 	mutable Ui::Text::String _fromName;
+ 	mutable std::unique_ptr<FromNameStatus> _fromNameStatus;
+ 	mutable uint64 _fromNameBadges = 0;
++	mutable uint64 _forwardedBadges = 0;
+ 	mutable std::unique_ptr<Ui::RoundCheckbox> _selectionRoundCheckbox;
+ 	mutable uint32 _fromNameVersion : 16 = 0;
+ 	uint32 _nonTextMaxWidth : 16 = 0;
+diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
+index 4b8f900b0405dac9f9524ab04718cd6c86911503..1cf05997982a28d5900ec7d17e2c773751169ed1 100644
+--- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/painter.h"
+ #include "ui/power_saving.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_bubble_badges.h"
+ #include "tele/tele_shot_sharp.h"
+ #include "tele/tele_spoilers.h"
+ #include "styles/style_chat.h"
+@@ -617,7 +618,8 @@ bool Reply::isNameUpdated(
+ 		not_null<const Element*> view,
+ 		not_null<HistoryMessageReply*> data) const {
+ 	if (const auto from = sender(view, data)) {
+-		if (_nameVersion < from->nameVersion()) {
++		if (_nameVersion < from->nameVersion()
++			|| _badges != ::Tele::BubbleBadgesKey(from)) {
+ 			updateName(view, data, from);
+ 			return true;
+ 		}
+@@ -673,7 +675,9 @@ void Reply::updateName(
+ 	if (displayAsExternal && !groupNameAdded && !fields.storyId) {
+ 		nameFull.append(PeerEmoji(sender));
+ 	}
+-	nameFull.append(name);
++	nameFull.append(sender
++		? ::Tele::BadgedHeaderName(sender, { name })
++		: TextWithEntities{ name });
+ 	if (groupNameAdded) {
+ 		nameFull.append(' ').append(PeerEmoji(externalPeer));
+ 		nameFull.append(externalPeer->name());
+@@ -695,9 +699,10 @@ void Reply::updateName(
+ 		st::fwdTextStyle,
+ 		nameFull,
+ 		Ui::NameTextOptions(),
+-		context);
++		::Tele::WithBadgeObjects(context, st::fwdTextStyle));
+ 	if (sender) {
+ 		_nameVersion = sender->nameVersion();
++		_badges = ::Tele::BubbleBadgesKey(sender);
+ 	}
+ 	const auto nameMaxWidth = previewSkip
+ 		+ _name.maxWidth()
+diff --git a/Telegram/SourceFiles/history/view/history_view_reply.h b/Telegram/SourceFiles/history/view/history_view_reply.h
+index e21d2676f0d933bb98c293004ef3f533a0e2d7d0..0d1c5ae95bd3bf39ffcaa4c4b243ab632c7556f7 100644
+--- a/Telegram/SourceFiles/history/view/history_view_reply.h
++++ b/Telegram/SourceFiles/history/view/history_view_reply.h
+@@ -159,6 +159,7 @@ private:
+ 	mutable int _minHeight = 0;
+ 	mutable int _height = 0;
+ 	mutable int _nameVersion = 0;
++	mutable uint64 _badges = 0;
+ 	uint8 _hiddenSenderColorIndexPlusOne : 7 = 0;
+ 	uint8 _hasQuoteIcon : 1 = 0;
+ 	uint8 _expanded : 1 = 0;
+diff --git a/Telegram/SourceFiles/tele/tele_bubble_badges.cpp b/Telegram/SourceFiles/tele/tele_bubble_badges.cpp
+index ef3acc77d5d1fdfc5620b62371f2cc7c4cbc5b65..230eaefac605f94239f3735c2ea03ee4a53746da 100644
+--- a/Telegram/SourceFiles/tele/tele_bubble_badges.cpp
++++ b/Telegram/SourceFiles/tele/tele_bubble_badges.cpp
+@@ -21,11 +21,107 @@ namespace {
+ 
+ constexpr auto kVerifiedBit = uint64(1);
+ 
++[[nodiscard]] QString CheckData() {
++	return u"tele-badge-check"_q;
++}
++
+ [[nodiscard]] DocumentId VerifyIcon(not_null<PeerData*> peer) {
+ 	const auto details = peer->botVerifyDetails();
+ 	return details ? details->iconId : DocumentId();
+ }
+ 
++[[nodiscard]] QImage CheckFrame(const QColor &color, int ratio) {
++	static auto frames = base::flat_map<std::pair<QRgb, int>, QImage>();
++	if (frames.size() > 32) {
++		frames.clear();
++	}
++	auto &frame = frames[{ color.rgba(), ratio }];
++	if (frame.isNull()) {
++		const auto scale = style::Scale() * ratio;
++		frame = st::infoVerifiedStar.instance(color, scale, true);
++		auto q = QPainter(&frame);
++		q.setCompositionMode(QPainter::CompositionMode_DestinationOut);
++		q.drawImage(
++			0,
++			0,
++			st::infoVerifiedCheck.instance(QColor(0, 0, 0), scale, true));
++	}
++	return frame;
++}
++
++class CheckObject final : public Ui::Text::CustomEmoji {
++public:
++	explicit CheckObject(style::font font);
++
++	int width() override;
++	QString entityData() override;
++	std::optional<Ui::Text::CustomEmojiVerticalMetrics> vertical(
++		const style::TextStyle &st) override;
++	Ui::Text::CustomEmojiSemantics semantics() override;
++	void paint(QPainter &p, const Context &context) override;
++	void unload() override;
++	bool ready() override;
++	bool readyInDefaultState() override;
++
++private:
++	const style::font _font;
++	const int _size = 0;
++
++};
++
++CheckObject::CheckObject(style::font font)
++: _font(font)
++, _size(std::min(font->height, st::infoVerifiedStar.height())) {
++}
++
++int CheckObject::width() {
++	return _size;
++}
++
++QString CheckObject::entityData() {
++	return CheckData();
++}
++
++std::optional<Ui::Text::CustomEmojiVerticalMetrics> CheckObject::vertical(
++		const style::TextStyle &st) {
++	return Ui::Text::CustomEmojiVerticalMetrics{
++		.ascent = _font->ascent,
++		.descent = _font->descent,
++	};
++}
++
++Ui::Text::CustomEmojiSemantics CheckObject::semantics() {
++	return {
++		.isEmoji = false,
++		.isRealCustomEmoji = false,
++		.exportEntity = false,
++		.unloadPersistentAnimation = false,
++		.allowCustomEmojiClick = false,
++	};
++}
++
++void CheckObject::paint(QPainter &p, const Context &context) {
++	const auto sharp = ShotSharpRatio();
++	const auto ratio = sharp ? sharp : style::DevicePixelRatio();
++	const auto frame = CheckFrame(context.textColor, ratio);
++	const auto top = context.position.y() + (_font->height - _size) / 2.;
++	auto hq = PainterHighQualityEnabler(p);
++	p.drawImage(
++		QRectF(context.position.x(), top, _size, _size),
++		frame);
++}
++
++void CheckObject::unload() {
++}
++
++bool CheckObject::ready() {
++	return true;
++}
++
++bool CheckObject::readyInDefaultState() {
++	return true;
++}
++
+ } // namespace
+ 
+ uint64 BubbleBadgesKey(not_null<PeerData*> peer) {
+@@ -124,4 +220,39 @@ void SetBubbleName(
+ 	});
+ }
+ 
++TextWithEntities BadgedHeaderName(PeerData *peer, TextWithEntities name) {
++	if (!peer || !BubbleBadges()) {
++		return name;
++	}
++	auto result = TextWithEntities();
++	if (const auto icon = VerifyIcon(peer)) {
++		result.append(Data::SingleCustomEmoji(icon)).append(' ');
++	}
++	result.append(std::move(name));
++	if (peer->isVerified()) {
++		result.append(' ').append(Ui::Text::SingleCustomEmoji(CheckData()));
++	}
++	return result;
++}
++
++Ui::Text::MarkedContext WithBadgeObjects(
++		Ui::Text::MarkedContext context,
++		const style::TextStyle &st) {
++	if (!BubbleBadges()) {
++		return context;
++	}
++	const auto font = st.font;
++	auto original = std::move(context.customEmojiFactory);
++	context.customEmojiFactory = [=](
++			QStringView data,
++			const Ui::Text::MarkedContext &context)
++	-> std::unique_ptr<Ui::Text::CustomEmoji> {
++		if (data == CheckData()) {
++			return std::make_unique<CheckObject>(font);
++		}
++		return original ? original(data, context) : nullptr;
++	};
++	return context;
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_bubble_badges.h b/Telegram/SourceFiles/tele/tele_bubble_badges.h
+index 013b718ecdcf2795ac1bbf35287ade44aa8db18e..6683663db88f795ce96232e3c9e876d8cb0f78af 100644
+--- a/Telegram/SourceFiles/tele/tele_bubble_badges.h
++++ b/Telegram/SourceFiles/tele/tele_bubble_badges.h
+@@ -4,8 +4,13 @@ class PeerData;
+ 
+ namespace Ui::Text {
+ class String;
++struct MarkedContext;
+ } // namespace Ui::Text
+ 
++namespace style {
++struct TextStyle;
++} // namespace style
++
+ namespace Tele {
+ 
+ [[nodiscard]] uint64 BubbleBadgesKey(not_null<PeerData*> peer);
+@@ -17,4 +22,13 @@ void SetBubbleName(
+ 	uint64 badges,
+ 	Fn<void()> repaint);
+ 
++// Forwarded and reply headers: the verify icon before the name and the
++// checkmark after it, as text objects of the header itself.
++[[nodiscard]] TextWithEntities BadgedHeaderName(
++	PeerData *peer,
++	TextWithEntities name);
++[[nodiscard]] Ui::Text::MarkedContext WithBadgeObjects(
++	Ui::Text::MarkedContext context,
++	const style::TextStyle &st);
++
+ } // namespace Tele

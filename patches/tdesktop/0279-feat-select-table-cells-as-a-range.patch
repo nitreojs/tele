@@ -1,0 +1,611 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Thu, 8 Oct 2026 00:09:45 +0300
+Subject: [PATCH] feat: select table cells as a range
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../history/view/history_view_element.cpp     |   3 +-
+ .../iv/markdown/iv_markdown_article.cpp       |  20 +-
+ .../iv/markdown/iv_markdown_article.h         |   3 +-
+ .../iv/markdown/iv_markdown_article_paint.cpp |  13 +
+ .../iv_markdown_article_selection.cpp         |  27 +-
+ .../markdown/iv_markdown_article_selection.h  |   3 +-
+ .../iv/markdown/iv_markdown_view_widget.cpp   |   5 +-
+ .../SourceFiles/tele/tele_table_selection.cpp | 285 ++++++++++++++++++
+ .../SourceFiles/tele/tele_table_selection.h   |  46 +++
+ 10 files changed, 397 insertions(+), 10 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_table_selection.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_table_selection.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 338e50755ebba36eb56b58da8f47b4d38129f8a4..0ae6c54f3b6911005d3692069bd7defe75ce9df5 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2560,6 +2560,8 @@ PRIVATE
+     tele/tele_sticker_captions.h
+     tele/tele_sticker_truth.cpp
+     tele/tele_sticker_truth.h
++    tele/tele_table_selection.cpp
++    tele/tele_table_selection.h
+     tele/tele_tgs_rules.cpp
+     tele/tele_tgs_rules.h
+     tele/tele_streamer_mode.cpp
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index 3f173157739ae0dcfc2fddba0a2b28c717b64a07..da4e2a83abbdd05e5ad2304e75e82a2637c59094 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -3182,7 +3182,8 @@ Iv::RichPageBlocksSlice Element::selectedRichBlocks(
+ 	}
+ 	return {
+ 		.blocks = rich->article.richPageSliceForSelection(
+-			selection.richPage.selection),
++			selection.richPage.selection,
++			&selection.richPage.endpoints),
+ 		.rtl = (rich->page && rich->page->rtl),
+ 	};
+ }
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
+index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe11865f9af08 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/widgets/checkbox.h"
+ #include "ui/basic_click_handlers.h"
+ #include "ui/dynamic_image.h"
++#include "tele/tele_table_selection.h"
+ 
+ #include "styles/style_iv.h"
+ #include "styles/style_widgets.h"
+@@ -3980,7 +3981,8 @@ public:
+ 		const PreparedEditSelection *structuralSelection) const;
+ 
+ 	[[nodiscard]] std::vector<RichPage::Block> richPageSliceForSelection(
+-		MarkdownArticleSelection selection) const;
++		MarkdownArticleSelection selection,
++		const MarkdownArticleSelectionEndpoints *endpoints) const;
+ 
+ 	[[nodiscard]] bool richPageRtl() const;
+ 
+@@ -5273,6 +5275,11 @@ bool MarkdownArticle::Impl::selectionContains(
+ 		.selection = selection,
+ 		.endpoints = endpoints,
+ 	};
++	if (const auto inRange = Tele::TableCellRangeContains(
++			selectionState,
++			segment->index)) {
++		return *inRange;
++	}
+ 	if (segment->tableSegmentIndex >= 0
+ 		&& TableSegmentSelected(selectionState, segment->tableSegmentIndex)) {
+ 		return true;
+@@ -5309,14 +5316,16 @@ TextForMimeData MarkdownArticle::Impl::textForSelection(
+ }
+ 
+ std::vector<RichPage::Block> MarkdownArticle::Impl::richPageSliceForSelection(
+-		MarkdownArticleSelection selection) const {
++		MarkdownArticleSelection selection,
++		const MarkdownArticleSelectionEndpoints *endpoints) const {
+ 	if (!_content.richPage) {
+ 		return {};
+ 	}
+ 	return RichPageBlocksForSelectedSegments(
+ 		*_content.richPage,
+ 		_segments,
+-		selection);
++		selection,
++		endpoints);
+ }
+ 
+ bool MarkdownArticle::Impl::richPageRtl() const {
+@@ -7239,8 +7248,9 @@ TextForMimeData MarkdownArticle::textForSelection(
+ }
+ 
+ std::vector<RichPage::Block> MarkdownArticle::richPageSliceForSelection(
+-		MarkdownArticleSelection selection) const {
+-	return _impl->richPageSliceForSelection(selection);
++		MarkdownArticleSelection selection,
++		const MarkdownArticleSelectionEndpoints *endpoints) const {
++	return _impl->richPageSliceForSelection(selection, endpoints);
+ }
+ 
+ bool MarkdownArticle::richPageRtl() const {
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
+index 3e08f0d1990215602195964f19b3827e5a04e606..72d06d36173ed7f455eccaf2bf1b77c904558572 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
+@@ -522,7 +522,8 @@ public:
+ 		const MarkdownArticleSelectionEndpoints *endpoints,
+ 		const PreparedEditSelection *structuralSelection = nullptr) const;
+ 	[[nodiscard]] std::vector<RichPage::Block> richPageSliceForSelection(
+-		MarkdownArticleSelection selection) const;
++		MarkdownArticleSelection selection,
++		const MarkdownArticleSelectionEndpoints *endpoints = nullptr) const;
+ 	[[nodiscard]] bool richPageRtl() const;
+ 	[[nodiscard]] bool highlightProcessDone(
+ 		Spellchecker::HighlightProcessId processId);
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
+index ea9c6d86a70d6d26990154d8069ec525af71bd8b..c411ce987ff530d32a42a692418bafa2874352e3 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
+@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/style/style_core_scale.h"
+ #include "ui/widgets/checkbox.h"
+ #include "tele/tele_code_lines.h"
++#include "tele/tele_table_selection.h"
+ 
+ #include "styles/palette.h"
+ #include "styles/style_chat.h"
+@@ -1712,6 +1713,12 @@ void PaintWholeTable(
+ 		shapePath,
+ 		tableClip,
+ 		context);
++	Tele::PaintTableCellRange(
++		p,
++		block,
++		shapePath,
++		tableClip,
++		context.selectionState);
+ 
+ 	PaintHorizontalOverflowIndicators(
+ 		p,
+@@ -1825,6 +1832,12 @@ void PaintTableRowBand(
+ 		shapePath,
+ 		rowClip,
+ 		context);
++	Tele::PaintTableCellRange(
++		p,
++		block,
++		shapePath,
++		rowClip,
++		context.selectionState);
+ 
+ 	PaintHorizontalOverflowIndicators(
+ 		p,
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp
+index b5874ecc364cca443e1843aaab3f16c03c0c2915..390ebac68e18edccb70ab10ea3c4dfeb98f25277 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp
+@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "iv/markdown/iv_markdown_prepare_links.h"
+ #include "ui/text/text_utilities.h"
+ #include "ui/widgets/fields/input_field.h"
++#include "tele/tele_table_selection.h"
+ 
+ #include "styles/style_iv.h"
+ 
+@@ -763,6 +764,11 @@ void ApplyRichPageSliceEndTrim(TextWithEntities *target, int offset) {
+ 	if (!selectionState.segments) {
+ 		return std::nullopt;
+ 	}
++	if (segment.tableSegmentIndex >= 0
++		&& (segment.tableSegmentIndex
++			== Tele::TableCellRangeTable(selectionState))) {
++		return std::nullopt;
++	}
+ 	if (segment.tableSegmentIndex >= 0) {
+ 		if (const auto singleCell = SingleTableCellSelection(
+ 				selectionState,
+@@ -1239,6 +1245,9 @@ bool TableSegmentSelected(
+ 	if (!selectionState.segments || tableSegmentIndex < 0) {
+ 		return false;
+ 	}
++	if (tableSegmentIndex == Tele::TableCellRangeTable(selectionState)) {
++		return false;
++	}
+ 	if (selectionState.hasStructuralSelection()) {
+ 		if (const auto segment = FindSegment(
+ 				selectionState.segments,
+@@ -1524,6 +1533,14 @@ TextForMimeData TextForSelectedSegments(
+ 		.endpoints = endpoints,
+ 		.structuralSelection = structuralSelection,
+ 	};
++	if (const auto range = Tele::FindTableCellRange(selectionState)) {
++		return CopyTextForTableRange(
++			*range->block,
++			range->rowFrom,
++			range->rowTill,
++			range->columnFrom,
++			range->columnTill);
++	}
+ 	auto pieces = std::vector<TextForMimeData>();
+ 	for (const auto &segment : segments) {
+ 		if (segment.isTextLeaf()) {
+@@ -1569,7 +1586,8 @@ TextForMimeData TextForSelectedSegments(
+ std::vector<RichPage::Block> RichPageBlocksForSelectedSegments(
+ 		const RichPage &page,
+ 		const std::vector<SelectableSegment> &segments,
+-		MarkdownArticleSelection selection) {
++		MarkdownArticleSelection selection,
++		const MarkdownArticleSelectionEndpoints *endpoints) {
+ 	// Each endpoint maps to a top-level page block index through the
+ 	// edit-source paths of the nearest contributing segment inside the
+ 	// selection, skipping empty-edge nodes and coarsely falling back
+@@ -1579,6 +1597,13 @@ std::vector<RichPage::Block> RichPageBlocksForSelectedSegments(
+ 	if (selection.empty() || page.blocks.empty()) {
+ 		return {};
+ 	}
++	if (auto cells = Tele::TableCellRangeBlocks(page, PaintSelectionState{
++			.segments = &segments,
++			.selection = selection,
++			.endpoints = endpoints,
++		})) {
++		return std::move(*cells);
++	}
+ 	auto start = std::optional<RichPageSliceEndpoint>();
+ 	auto startSegment = -1;
+ 	for (auto i = selection.from.segment; i <= selection.to.segment; ++i) {
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.h b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.h
+index b96a22acf1282577664382e670f8ebb798efc2c5..b68656683842a4c4fa084ae383b3a2f781a19540 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.h
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.h
+@@ -142,6 +142,7 @@ void CollectAnchors(
+ [[nodiscard]] std::vector<RichPage::Block> RichPageBlocksForSelectedSegments(
+ 	const RichPage &page,
+ 	const std::vector<SelectableSegment> &segments,
+-	MarkdownArticleSelection selection);
++	MarkdownArticleSelection selection,
++	const MarkdownArticleSelectionEndpoints *endpoints = nullptr);
+ 
+ } // namespace Iv::Markdown
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp
+index 2e0c50e70d71f8409d481a7b95c8b550d7d40883..ba63aa0bb840688ccd02a1a34f05ad4b7d4407fc 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp
+@@ -1034,9 +1034,12 @@ void MarkdownDocumentWidget::copySelectedText() {
+ 	if (text.empty()) {
+ 		return;
+ 	}
++	const auto endpoints = selectionEndpointsForCopy();
+ 	SetRichBlocksClipboard(text, {
+ 		.blocks = (_article
+-			? _article->richPageSliceForSelection(selectionForCopy())
++			? _article->richPageSliceForSelection(
++				selectionForCopy(),
++				&endpoints)
+ 			: std::vector<RichPage::Block>()),
+ 		.rtl = (_article && _article->richPageRtl()),
+ 	});
+diff --git a/Telegram/SourceFiles/tele/tele_table_selection.cpp b/Telegram/SourceFiles/tele/tele_table_selection.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..2288d6336ed9f449bfaa484bb42489e79281b3cc
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_table_selection.cpp
+@@ -0,0 +1,285 @@
++#include "tele/tele_table_selection.h"
++
++#include "iv/markdown/iv_markdown_article.h"
++#include "iv/markdown/iv_markdown_article_selection.h"
++#include "ui/painter.h"
++
++#include <QtGui/QPainterPath>
++
++#include <algorithm>
++
++namespace Tele {
++
++using namespace Iv::Markdown;
++
++namespace {
++
++struct CellSpan {
++	int row = 0;
++	int column = 0;
++	int rowspan = 1;
++	int colspan = 1;
++};
++
++[[nodiscard]] int CellRow(
++		const LaidOutBlock &block,
++		const LaidOutTableCell *cell) {
++	for (auto i = 0, count = int(block.tableRows.size()); i != count; ++i) {
++		for (const auto &current : block.tableRows[i].cells) {
++			if (&current == cell) {
++				return i;
++			}
++		}
++	}
++	return -1;
++}
++
++[[nodiscard]] CellSpan SpanOf(const LaidOutTableCell &cell, int row) {
++	return {
++		.row = row,
++		.column = std::max(cell.column, 0),
++		.rowspan = std::max(cell.rowspan, 1),
++		.colspan = std::max(cell.colspan, 1),
++	};
++}
++
++[[nodiscard]] bool Intersects(const CellSpan &span, const TableCellRange &range) {
++	return (span.row < range.rowTill)
++		&& (range.rowFrom < span.row + span.rowspan)
++		&& (span.column < range.columnTill)
++		&& (range.columnFrom < span.column + span.colspan);
++}
++
++[[nodiscard]] const Iv::RichPage::Block *ResolveBlock(
++		const Iv::RichPage &page,
++		const PreparedEditBlockPath &path) {
++	auto blocks = &page.blocks;
++	for (const auto &step : path.container.steps) {
++		if (step.kind == PreparedEditBlockContainerKind::Root) {
++			blocks = &page.blocks;
++			continue;
++		} else if (step.blockIndex < 0
++			|| step.blockIndex >= int(blocks->size())) {
++			return nullptr;
++		}
++		const auto &parent = (*blocks)[step.blockIndex];
++		if (step.kind == PreparedEditBlockContainerKind::BlockChildren) {
++			blocks = &parent.blocks;
++		} else if (step.listItemIndex >= 0
++			&& step.listItemIndex < int(parent.listItems.size())) {
++			blocks = &parent.listItems[step.listItemIndex].blocks;
++		} else {
++			return nullptr;
++		}
++	}
++	return (path.index >= 0 && path.index < int(blocks->size()))
++		? &(*blocks)[path.index]
++		: nullptr;
++}
++
++} // namespace
++
++int TableCellRangeTable(const PaintSelectionState &state) {
++	if (!state.segments
++		|| state.hasStructuralSelection()
++		|| state.selection.empty()) {
++		return -1;
++	}
++	const auto first = state.selection.from.segment;
++	const auto second = state.selection.to.segment;
++	if (first == second) {
++		return -1;
++	}
++	if (state.endpoints) {
++		const auto &from = state.endpoints->from;
++		const auto &to = state.endpoints->to;
++		const auto same = ((first == from.segment) && (second == to.segment))
++			|| ((first == to.segment) && (second == from.segment));
++		if (!from.direct || !to.direct || !same) {
++			return -1;
++		}
++	}
++	const auto a = FindSegment(state.segments, first);
++	const auto b = FindSegment(state.segments, second);
++	if (!a
++		|| !b
++		|| !a->cell
++		|| !b->cell
++		|| !a->block
++		|| (a->block != b->block)
++		|| (a->tableSegmentIndex < 0)
++		|| (a->tableSegmentIndex != b->tableSegmentIndex)) {
++		return -1;
++	}
++	return a->tableSegmentIndex;
++}
++
++std::optional<TableCellRange> FindTableCellRange(
++		const PaintSelectionState &state) {
++	const auto table = TableCellRangeTable(state);
++	if (table < 0) {
++		return std::nullopt;
++	}
++	const auto a = FindSegment(state.segments, state.selection.from.segment);
++	const auto b = FindSegment(state.segments, state.selection.to.segment);
++	const auto &block = *a->block;
++	const auto rowA = CellRow(block, a->cell);
++	const auto rowB = CellRow(block, b->cell);
++	if (rowA < 0 || rowB < 0) {
++		return std::nullopt;
++	}
++	const auto spanA = SpanOf(*a->cell, rowA);
++	const auto spanB = SpanOf(*b->cell, rowB);
++	auto result = TableCellRange{
++		.block = &block,
++		.tableSegmentIndex = table,
++		.rowFrom = std::min(spanA.row, spanB.row),
++		.rowTill = std::max(
++			spanA.row + spanA.rowspan,
++			spanB.row + spanB.rowspan),
++		.columnFrom = std::min(spanA.column, spanB.column),
++		.columnTill = std::max(
++			spanA.column + spanA.colspan,
++			spanB.column + spanB.colspan),
++	};
++	auto changed = true;
++	while (changed) {
++		changed = false;
++		for (auto i = 0, count = int(block.tableRows.size()); i != count; ++i) {
++			for (const auto &cell : block.tableRows[i].cells) {
++				const auto span = SpanOf(cell, i);
++				if (!Intersects(span, result)) {
++					continue;
++				}
++				const auto rowFrom = std::min(result.rowFrom, span.row);
++				const auto rowTill = std::max(
++					result.rowTill,
++					span.row + span.rowspan);
++				const auto columnFrom = std::min(
++					result.columnFrom,
++					span.column);
++				const auto columnTill = std::max(
++					result.columnTill,
++					span.column + span.colspan);
++				if (rowFrom != result.rowFrom
++					|| rowTill != result.rowTill
++					|| columnFrom != result.columnFrom
++					|| columnTill != result.columnTill) {
++					result.rowFrom = rowFrom;
++					result.rowTill = rowTill;
++					result.columnFrom = columnFrom;
++					result.columnTill = columnTill;
++					changed = true;
++				}
++			}
++		}
++	}
++	result.rowTill = std::min(result.rowTill, int(block.tableRows.size()));
++	return result;
++}
++
++std::optional<bool> TableCellRangeContains(
++		const PaintSelectionState &state,
++		int segmentIndex) {
++	const auto range = FindTableCellRange(state);
++	if (!range) {
++		return std::nullopt;
++	}
++	const auto segment = FindSegment(state.segments, segmentIndex);
++	if (!segment
++		|| !segment->cell
++		|| (segment->tableSegmentIndex != range->tableSegmentIndex)) {
++		return false;
++	}
++	const auto row = CellRow(*range->block, segment->cell);
++	return (row >= 0) && Intersects(SpanOf(*segment->cell, row), *range);
++}
++
++std::optional<std::vector<Iv::RichPage::Block>> TableCellRangeBlocks(
++		const Iv::RichPage &page,
++		const PaintSelectionState &state) {
++	const auto range = FindTableCellRange(state);
++	if (!range) {
++		return std::nullopt;
++	}
++	const auto fail = std::vector<Iv::RichPage::Block>();
++	const auto &block = *range->block;
++	auto source = (const Iv::RichPage::Block*)nullptr;
++	auto rows = std::vector<Iv::RichPage::TableRow>();
++	for (auto i = range->rowFrom; i != range->rowTill; ++i) {
++		auto &row = rows.emplace_back();
++		if (i < 0 || i >= int(block.tableRows.size())) {
++			continue;
++		}
++		for (const auto &cell : block.tableRows[i].cells) {
++			if (!Intersects(SpanOf(cell, i), *range)) {
++				continue;
++			} else if (!cell.editCell) {
++				return fail;
++			}
++			const auto &edit = *cell.editCell;
++			if (!source) {
++				source = ResolveBlock(page, edit.block);
++				if (!source || source->kind != Iv::RichPage::BlockKind::Table) {
++					return fail;
++				}
++			}
++			if (edit.tableRowIndex < 0
++				|| edit.tableRowIndex >= int(source->tableRows.size())) {
++				return fail;
++			}
++			const auto &cells = source->tableRows[edit.tableRowIndex].cells;
++			if (edit.tableCellIndex < 0
++				|| edit.tableCellIndex >= int(cells.size())) {
++				return fail;
++			}
++			auto copy = cells[edit.tableCellIndex];
++			copy.colspan = std::max(cell.colspan, 1);
++			copy.rowspan = std::max(cell.rowspan, 1);
++			row.cells.push_back(std::move(copy));
++		}
++	}
++	if (!source) {
++		return fail;
++	}
++	auto result = *source;
++	result.anchorId = QString();
++	result.caption = Iv::RichPage::RichText();
++	result.tableRows = std::move(rows);
++	return std::vector<Iv::RichPage::Block>{ std::move(result) };
++}
++
++void PaintTableCellRange(
++		Painter &p,
++		const LaidOutBlock &block,
++		const QPainterPath &shape,
++		QRect clip,
++		const PaintSelectionState &state) {
++	if (clip.isEmpty()
++		|| (block.segmentIndex < 0)
++		|| (block.segmentIndex != TableCellRangeTable(state))) {
++		return;
++	}
++	const auto range = FindTableCellRange(state);
++	if (!range || (range->block != &block)) {
++		return;
++	}
++	auto united = QRect();
++	for (auto i = 0, count = int(block.tableRows.size()); i != count; ++i) {
++		for (const auto &cell : block.tableRows[i].cells) {
++			if (!cell.outer.isEmpty() && Intersects(SpanOf(cell, i), *range)) {
++				united = united.united(cell.outer);
++			}
++		}
++	}
++	if (united.isEmpty() || !united.intersects(clip)) {
++		return;
++	}
++	p.save();
++	p.setClipRect(clip, Qt::IntersectClip);
++	p.setClipPath(shape, Qt::IntersectClip);
++	p.fillRect(united, p.textPalette().selectOverlay);
++	p.restore();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_table_selection.h b/Telegram/SourceFiles/tele/tele_table_selection.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4cb479a627daa0231facb05f55cf4e1dddb67df6
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_table_selection.h
+@@ -0,0 +1,46 @@
++#pragma once
++
++#include "iv/iv_rich_page.h"
++
++#include <QtCore/QRect>
++
++#include <optional>
++#include <vector>
++
++class Painter;
++class QPainterPath;
++
++namespace Iv::Markdown {
++struct LaidOutBlock;
++struct PaintSelectionState;
++} // namespace Iv::Markdown
++
++namespace Tele {
++
++struct TableCellRange {
++	const Iv::Markdown::LaidOutBlock *block = nullptr;
++	int tableSegmentIndex = -1;
++	int rowFrom = 0;
++	int rowTill = 0;
++	int columnFrom = 0;
++	int columnTill = 0;
++};
++
++[[nodiscard]] int TableCellRangeTable(
++	const Iv::Markdown::PaintSelectionState &state);
++[[nodiscard]] std::optional<TableCellRange> FindTableCellRange(
++	const Iv::Markdown::PaintSelectionState &state);
++[[nodiscard]] std::optional<bool> TableCellRangeContains(
++	const Iv::Markdown::PaintSelectionState &state,
++	int segmentIndex);
++[[nodiscard]] std::optional<std::vector<Iv::RichPage::Block>> TableCellRangeBlocks(
++	const Iv::RichPage &page,
++	const Iv::Markdown::PaintSelectionState &state);
++void PaintTableCellRange(
++	Painter &p,
++	const Iv::Markdown::LaidOutBlock &block,
++	const QPainterPath &shape,
++	QRect clip,
++	const Iv::Markdown::PaintSelectionState &state);
++
++} // namespace Tele
