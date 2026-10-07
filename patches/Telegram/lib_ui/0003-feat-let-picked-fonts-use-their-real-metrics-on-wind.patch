@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 7 Oct 2026 20:52:06 +0300
+Subject: [PATCH] feat: let picked fonts use their real metrics on windows
+
+---
+ ui/style/style_core_font.cpp | 17 ++++++++++++++++-
+ ui/style/style_core_font.h   |  1 +
+ 2 files changed, 17 insertions(+), 1 deletion(-)
+
+diff --git a/ui/style/style_core_font.cpp b/ui/style/style_core_font.cpp
+index 46b65c4b523c1c0f2bf822ad10f837c20fa5917d..1f64716e140baeca942e3d0d933aca6db1c085fd 100644
+--- a/ui/style/style_core_font.cpp
++++ b/ui/style/style_core_font.cpp
+@@ -44,6 +44,7 @@ namespace {
+ constexpr auto kSubSuperMultiplier = 0.75;
+ 
+ QString Custom;
++bool CustomFix = false;
+ 
+ } // namespace
+ 
+@@ -56,6 +57,10 @@ void SetCustomFont(const QString &font) {
+ 	Custom = font;
+ }
+ 
++void SetCustomFontFix(bool enabled) {
++	CustomFix = enabled;
++}
++
+ namespace internal {
+ 
+ struct ResolvedFont {
+@@ -243,7 +248,10 @@ struct Metrics {
+ 
+ 		auto heights = std::array<float64, kCount>{};
+ 		for (auto i = 0; i != kCount; ++i) {
+-			heights[i] = -metrics.boundingRect(QChar(Test[i])).y();
++			const auto letter = QChar(Test[i]);
++			heights[i] = CustomFix
++				? -metrics.tightBoundingRect(QString(letter)).y()
++				: -metrics.boundingRect(letter).y();
+ 		}
+ 		ranges::sort(heights);
+ 		//return heights[kCount / 2];
+@@ -346,6 +354,13 @@ struct Metrics {
+ 	font.setPixelSize(size);
+ 
+ 	const auto adjust = (overriden || system);
++#ifdef Q_OS_WIN
++	if (CustomFix && adjust) {
++		// GDI takes the line metrics from usWinAscent / usWinDescent, which
++		// fonts covering tall scripts inflate, DirectWrite reads typo metrics.
++		font.setHintingPreference(QFont::PreferVerticalHinting);
++	}
++#endif // Q_OS_WIN
+ 	const auto metrics = ComputeMetrics(font, adjust);
+ 
+ 	if (monospace || !(flags & FontFlag::SubOrSuper)) {
+diff --git a/ui/style/style_core_font.h b/ui/style/style_core_font.h
+index 42e32482c72f18cefa392ef24e60dc4eedfdd7d4..2340493299d137575ff2d4edf6cc48bdd0575ea6 100644
+--- a/ui/style/style_core_font.h
++++ b/ui/style/style_core_font.h
+@@ -21,6 +21,7 @@ namespace style {
+ 
+ [[nodiscard]] const QString &SystemFontTag();
+ void SetCustomFont(const QString &font);
++void SetCustomFontFix(bool enabled);
+ 
+ enum class FontFlag : uchar {
+ 	Bold       = 0x01,

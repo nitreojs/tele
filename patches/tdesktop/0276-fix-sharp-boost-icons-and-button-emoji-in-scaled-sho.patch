@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 7 Oct 2026 21:03:57 +0300
+Subject: [PATCH] fix: sharp boost icons and button emoji in scaled shots
+
+---
+ Telegram/SourceFiles/tele/tele_shot.cpp       | 49 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_shot_sharp.cpp |  2 +
+ 2 files changed, 51 insertions(+)
+
+diff --git a/Telegram/SourceFiles/tele/tele_shot.cpp b/Telegram/SourceFiles/tele/tele_shot.cpp
+index be06c58074f6693b63367eb8572ccba9d1f0abdc..de7f20d21013a8a6ff03ae4db2ccea93fcbc434e 100644
+--- a/Telegram/SourceFiles/tele/tele_shot.cpp
++++ b/Telegram/SourceFiles/tele/tele_shot.cpp
+@@ -179,6 +179,48 @@ private:
+ 
+ };
+ 
++using Keyboards = base::flat_map<
++	not_null<HistoryItem*>,
++	std::unique_ptr<ReplyKeyboard>>;
++
++// keyboards belong to the item and are built once, outside the shot's
++// emoji scope, so a shot lays out and paints its own ones
++class KeyboardsScope final {
++public:
++	KeyboardsScope(
++		const std::vector<not_null<HistoryItem*>> &items,
++		Keyboards &keyboards)
++	: _items(items)
++	, _keyboards(keyboards) {
++		if (!Depth()++) {
++			swap();
++		}
++	}
++	~KeyboardsScope() {
++		if (!--Depth()) {
++			swap();
++		}
++	}
++
++private:
++	[[nodiscard]] static int &Depth() {
++		static auto result = 0;
++		return result;
++	}
++
++	void swap() {
++		for (const auto &item : _items) {
++			if (const auto markup = item->Get<HistoryMessageReplyMarkup>()) {
++				std::swap(markup->inlineKeyboard, _keyboards[item]);
++			}
++		}
++	}
++
++	const std::vector<not_null<HistoryItem*>> &_items;
++	Keyboards &_keyboards;
++
++};
++
+ [[nodiscard]] auto Registered()
+ -> base::flat_map<const HistoryView::ElementDelegate*, ShotFlags> & {
+ 	static auto result = base::flat_map<
+@@ -477,6 +519,7 @@ private:
+ 
+ 	const not_null<Window::SessionController*> _controller;
+ 	std::vector<not_null<HistoryItem*>> _items;
++	Keyboards _keyboards;
+ 	const int _chatWidth = 0;
+ 	const int _liveHeight = 0;
+ 	const std::unique_ptr<Ui::ChatStyle> _style;
+@@ -757,6 +800,7 @@ void ShotRenderer::subscribe() {
+ 		const auto scope = ShotEmojiScope();
+ 		const auto buttons = ButtonsScope(
+ 			_options.hidden & uint16(ShotPart::Buttons));
++		const auto keyboards = KeyboardsScope(_items, _keyboards);
+ 		for (const auto &view : _views) {
+ 			if (view->data() == item) {
+ 				view->itemDataChanged();
+@@ -769,6 +813,7 @@ void ShotRenderer::subscribe() {
+ 			not_null<const HistoryItem*>) {
+ 		clear();
+ 		_items.clear();
++		_keyboards.clear();
+ 		_removals.fire({});
+ 	}, _lifetime);
+ }
+@@ -804,6 +849,8 @@ void ShotRenderer::rebuild() {
+ 	const auto buttons = ButtonsScope(
+ 		_options.hidden & uint16(ShotPart::Buttons));
+ 	clear();
++	_keyboards.clear();
++	const auto keyboards = KeyboardsScope(_items, _keyboards);
+ 	loadPhotos();
+ 	for (const auto &item : _items) {
+ 		auto view = item->createView(_delegate.get());
+@@ -861,6 +908,7 @@ void ShotRenderer::relayout() {
+ 	const auto scope = ShotEmojiScope();
+ 	const auto buttons = ButtonsScope(
+ 		_options.hidden & uint16(ShotPart::Buttons));
++	const auto keyboards = KeyboardsScope(_items, _keyboards);
+ 	_layingOut = true;
+ 	for (const auto &view : base::take(_dirty)) {
+ 		view->initDimensions();
+@@ -1019,6 +1067,7 @@ void ShotRenderer::paintContent(Painter &p, QRect clip, int ratio) {
+ 	const auto scope = ShotEmojiScope();
+ 	const auto buttons = ButtonsScope(
+ 		_options.hidden & uint16(ShotPart::Buttons));
++	const auto keyboards = KeyboardsScope(_items, _keyboards);
+ 	validateCorners(ratio);
+ 	ValidateShotTextQuotes(style());
+ 	const auto st = style();
+diff --git a/Telegram/SourceFiles/tele/tele_shot_sharp.cpp b/Telegram/SourceFiles/tele/tele_shot_sharp.cpp
+index 924891ea689cd945b72c2bd94b80896b5dae872a..4da44fbedb6479502060c05c444b56f912b83181 100644
+--- a/Telegram/SourceFiles/tele/tele_shot_sharp.cpp
++++ b/Telegram/SourceFiles/tele/tele_shot_sharp.cpp
+@@ -244,6 +244,8 @@ void PaintColoredIcon(
+ [[nodiscard]] std::vector<const style::icon*> GlobalIcons() {
+ 	return {
+ 		&st::dialogsPremiumIcon.icon,
++		&st::boostMessageIcon.icon,
++		&st::boostsMessageIcon.icon,
+ 		&st::topicButtonArrow,
+ 		&st::markupWebview,
+ 		&st::msgBotKbUrlIcon,
