@@ -1,0 +1,276 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 04:08:36 +0300
+Subject: [PATCH] feat: open the message menu next to the bubble
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../history/history_inner_widget.cpp          | 14 ++++--
+ .../history/view/history_view_list_widget.cpp |  9 +++-
+ .../SourceFiles/settings/settings_tele.cpp    |  4 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 10 ++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 +
+ .../tele/tele_rmb_beside_bubble.cpp           | 49 +++++++++++++++++++
+ .../SourceFiles/tele/tele_rmb_beside_bubble.h | 21 ++++++++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 9 files changed, 106 insertions(+), 6 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_rmb_beside_bubble.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_rmb_beside_bubble.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index b9d5fee71942937ea5ef85e7d0a619a17f2909dc..cd224c99df26ef62f03fb78a179ba077fa44dfd1 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2367,6 +2367,8 @@ PRIVATE
+     tele/tele_recent_emoji.h
+     tele/tele_rich_timestamps.cpp
+     tele/tele_rich_timestamps.h
++    tele/tele_rmb_beside_bubble.cpp
++    tele/tele_rmb_beside_bubble.h
+     tele/tele_screen_capture.cpp
+     tele/tele_screen_capture.h
+     tele/tele_secret_media.cpp
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index d37ebe05019565d907b8e598e57566da3bf89582..461dbc632ff12c994bd043c8e7e584491c8427c3 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -141,6 +141,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_message_menu.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_protected.h"
++#include "tele/tele_rmb_beside_bubble.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -2838,6 +2839,11 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			return;
+ 		}
+ 	}
++	const auto menuHovered = Tele::MenuHoveredView(
++		Element::Hovered(),
++		Element::Moused(),
++		mapPointToItem(mapFromGlobal(_mousePosition), Element::Moused()),
++		(link != nullptr));
+ 	auto selectedState = getSelectionState();
+ 
+ 	// -2 - has full selected items, but not over, -1 - has selection, but no over, 0 - no selection, 1 - over text, 2 - over full selected items
+@@ -3533,8 +3539,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 				&& _dragStateItem) {
+ 				return groupLeaderOrSelf(_dragStateItem);
+ 			}
+-			const auto result = Element::Hovered()
+-				? Element::Hovered()->data().get()
++			const auto result = menuHovered
++				? menuHovered->data().get()
+ 				: Element::HoveredLink()
+ 				? Element::HoveredLink()->data().get()
+ 				: nullptr;
+@@ -3944,8 +3950,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 	}
+ 	using namespace HistoryView::Reactions;
+ 	const auto desiredPosition = e->globalPos();
+-	const auto reactItem = Element::Hovered()
+-		? Element::Hovered()->data().get()
++	const auto reactItem = menuHovered
++		? menuHovered->data().get()
+ 		: nullptr;
+ 	const auto attached = reactItem
+ 		? AttachSelectorToMenu(
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index 427f7b707cf36491da58d07529617366b71c6872..fc675921d203ecd40b9d3debcabb12fe4810f11c 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_options.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_protected.h"
++#include "tele/tele_rmb_beside_bubble.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_window.h" // columnMaximalWidthLeft
+ 
+@@ -4156,7 +4157,11 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 	request.link = link;
+ 	request.view = _overElement;
+ 	request.item = overItem;
+-	request.pointState = _overState.pointState;
++	request.pointState = Tele::MenuPointState(
++		_overElement,
++		_overState.point,
++		_overState.pointState,
++		(link != nullptr));
+ 	request.point = _overState.point;
+ 	request.quote = (_overElement
+ 		&& _selectedTextItem == _overElement->data())
+@@ -4182,7 +4187,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 	using namespace HistoryView::Reactions;
+ 	const auto desiredPosition = e->globalPos();
+ 	const auto reactItem = (_overElement
+-		&& _overState.pointState != PointState::Outside)
++		&& request.pointState != PointState::Outside)
+ 		? _overElement->data().get()
+ 		: nullptr;
+ 	const auto attached = reactItem
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 461da97add897e22658adce43915fb9c9a7e8739..0c02009a6a15b2b84ca29c706abb47ee1b92c661 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2094,6 +2094,10 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyEmojiId);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyMarkdown);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionRmbBesideBubble,
++		{ u"right click"_q, u"context"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionShot);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 4d8a6e5ac3b1c0c23bc6ec9337524d985e76e039..0dc3f66dafb0167ab1ef696f78169bd3aa7bd4cf 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -79,6 +79,7 @@ const char kOptionCalcmula[] = "tele-calcmula";
+ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
+ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
+ const char kOptionCopyMarkdown[] = "tele-copy-markdown";
++const char kOptionRmbBesideBubble[] = "tele-rmb-beside-bubble";
+ const char kOptionShot[] = "tele-shot";
+ const char kOptionShotView[] = "tele-shot-view";
+ const char kOptionServerUrl[] = "tele-server-url";
+@@ -581,6 +582,11 @@ base::options::toggle CopyMarkdownOption({
+ 	.name = "Copy as Markdown and HTML",
+ });
+ 
++base::options::toggle RmbBesideBubbleOption({
++	.id = kOptionRmbBesideBubble,
++	.name = "Message menu next to the bubble",
++});
++
+ base::options::toggle ShotOption({
+ 	.id = kOptionShot,
+ 	.name = "Shot in the message menu",
+@@ -1421,6 +1427,10 @@ bool CopyMarkdown() {
+ 	return CopyMarkdownOption.value();
+ }
+ 
++bool RmbBesideBubble() {
++	return RmbBesideBubbleOption.value();
++}
++
+ bool ShotInMenu() {
+ 	return ShotOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 811cff225d26fa3cbc03724bf0cc105f3d40cab0..7f882dc390a22e8c275ded99b4ff339667568d5e 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -75,6 +75,7 @@ extern const char kOptionCalcmula[];
+ extern const char kOptionCalcmulaPreview[];
+ extern const char kOptionCopyEmojiId[];
+ extern const char kOptionCopyMarkdown[];
++extern const char kOptionRmbBesideBubble[];
+ extern const char kOptionShot[];
+ extern const char kOptionShotView[];
+ extern const char kOptionServerUrl[];
+@@ -233,6 +234,7 @@ void SetDeletedReply(const QString &value);
+ [[nodiscard]] bool CalcmulaPreview();
+ [[nodiscard]] bool CopyEmojiId();
+ [[nodiscard]] bool CopyMarkdown();
++[[nodiscard]] bool RmbBesideBubble();
+ [[nodiscard]] bool ShotInMenu();
+ [[nodiscard]] QString ShotView();
+ void SetShotView(const QString &value);
+diff --git a/Telegram/SourceFiles/tele/tele_rmb_beside_bubble.cpp b/Telegram/SourceFiles/tele/tele_rmb_beside_bubble.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..5cf562aecabbb5df8c0fce2e4430a40343fa28d1
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_rmb_beside_bubble.cpp
+@@ -0,0 +1,49 @@
++#include "tele/tele_rmb_beside_bubble.h"
++
++#include "history/history_item.h"
++#include "history/view/history_view_cursor_state.h"
++#include "history/view/history_view_element.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++namespace {
++
++using HistoryView::PointState;
++
++[[nodiscard]] bool BesideBubble(
++		not_null<const HistoryView::Element*> view,
++		QPoint point,
++		bool overLink) {
++	return RmbBesideBubble()
++		&& !overLink
++		&& !view->data()->isService()
++		&& point.y() >= view->marginTop()
++		&& point.y() < view->height() - view->marginBottom()
++		&& view->pointState(point) == PointState::Outside;
++}
++
++} // namespace
++
++HistoryView::Element *MenuHoveredView(
++		HistoryView::Element *hovered,
++		HistoryView::Element *moused,
++		QPoint point,
++		bool overLink) {
++	return (!hovered && moused && BesideBubble(moused, point, overLink))
++		? moused
++		: hovered;
++}
++
++PointState MenuPointState(
++		const HistoryView::Element *view,
++		QPoint point,
++		PointState state,
++		bool overLink) {
++	return (state == PointState::Outside
++		&& view
++		&& BesideBubble(view, point, overLink))
++		? PointState::Inside
++		: state;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_rmb_beside_bubble.h b/Telegram/SourceFiles/tele/tele_rmb_beside_bubble.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e2a954bd328b769513b771fd54a5521dd7ce0280
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_rmb_beside_bubble.h
+@@ -0,0 +1,21 @@
++#pragma once
++
++namespace HistoryView {
++class Element;
++enum class PointState : char;
++} // namespace HistoryView
++
++namespace Tele {
++
++[[nodiscard]] HistoryView::Element *MenuHoveredView(
++	HistoryView::Element *hovered,
++	HistoryView::Element *moused,
++	QPoint point,
++	bool overLink);
++[[nodiscard]] HistoryView::PointState MenuPointState(
++	const HistoryView::Element *view,
++	QPoint point,
++	HistoryView::PointState state,
++	bool overLink);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 81c2d7af564bf9e9adfe5ef250da06596afa6a9a..0c71f002f2956c66b244a83dc115d56d637c31d9 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -161,6 +161,7 @@ struct Spec {
+ 		Toggle(kOptionCalcmulaPreview),
+ 		Toggle(kOptionCopyEmojiId),
+ 		Toggle(kOptionCopyMarkdown),
++		Toggle(kOptionRmbBesideBubble),
+ 		Toggle(kOptionShot),
+ 		Toggle(kOptionServerUsernames),
+ 		Toggle(kOptionSentToBottom),

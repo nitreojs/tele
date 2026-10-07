@@ -1,0 +1,1221 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Fri, 2 Oct 2026 10:34:18 +0300
+Subject: [PATCH] feat: preview chats in the chat area
+
+---
+ Telegram/CMakeLists.txt                       |    2 +
+ .../history/view/history_view_list_widget.cpp |    4 +
+ .../SourceFiles/settings/settings_tele.cpp    |    4 +
+ .../SourceFiles/tele/tele_full_preview.cpp    | 1020 +++++++++++++++++
+ Telegram/SourceFiles/tele/tele_full_preview.h |   27 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |   12 +
+ Telegram/SourceFiles/tele/tele_options.h      |    2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |    1 +
+ .../window/window_chat_preview.cpp            |    6 +
+ 9 files changed, 1078 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_full_preview.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_full_preview.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 378ef4dbe07fd201270ee7b9b152cf93dc5a9f12..6460d898d531af2a6711f98feb646dfac70b7516 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2309,6 +2309,8 @@ PRIVATE
+     tele/tele_field_resize.h
+     tele/tele_folders.cpp
+     tele/tele_folders.h
++    tele/tele_full_preview.cpp
++    tele/tele_full_preview.h
+     tele/tele_gif_video.cpp
+     tele/tele_gif_video.h
+     tele/tele_gifts.cpp
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index 56557c29e5d43188599561def805ef2a2d48fd4c..142e143a7485a94129c735b1fa03bc0f67d4058e 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_message_menu.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_full_preview.h"
+ #include "tele/tele_protected.h"
+ #include "tele/tele_rmb_beside_bubble.h"
+ #include "styles/style_chat.h"
+@@ -4030,6 +4031,9 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			_overElement = view;
+ 		}
+ 	}
++	if (Tele::FullPreviewMenu(this, e)) {
++		return;
++	}
+ 
+ 	const auto link = ClickHandler::getActive();
+ 	if (controller()->showFrozenError()) {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 09988b7a0913dbb628a74ae807835efa4af30d19..f83559b9dcb361fc5f64070f2127fc2d6d9d6518 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2497,6 +2497,10 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionSelectChats,
+ 		{ u"multiple"_q, u"bulk"_q, u"archive"_q, u"mute"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionFullChatPreview,
++		{ u"peek"_q, u"read-only"_q, u"hold"_q, u"userpic"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_full_preview.cpp b/Telegram/SourceFiles/tele/tele_full_preview.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..4cf0638df15111fbf9d796fcb9ff694d882e329d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_full_preview.cpp
+@@ -0,0 +1,1020 @@
++#include "tele/tele_full_preview.h"
++
++#include "base/event_filter.h"
++#include "core/click_handler_types.h"
++#include "data/data_forum_topic.h"
++#include "data/data_groups.h"
++#include "data/data_history_messages.h"
++#include "data/data_message_reactions.h"
++#include "data/data_message_reaction_id.h"
++#include "data/data_replies_list.h"
++#include "data/data_saved_sublist.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "history/history_item_reply_markup.h"
++#include "history/history_item_text.h"
++#include "history/history_view_swipe_back_session.h"
++#include "history/view/history_view_corner_buttons.h"
++#include "history/view/history_view_element.h"
++#include "history/view/history_view_emoji_interactions.h"
++#include "history/view/history_view_list_widget.h"
++#include "history/view/history_view_top_bar_widget.h"
++#include "history/view/reactions/history_view_reactions.h"
++#include "history/view/reactions/history_view_reactions_button.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/chat/chat_style.h"
++#include "ui/text/text_entity.h"
++#include "ui/ui_utility.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/elastic_scroll.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/widgets/shadow.h"
++#include "window/section_memento.h"
++#include "window/section_widget.h"
++#include "window/window_adaptive.h"
++#include "window/window_session_controller.h"
++#include "styles/style_chat.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_widgets.h"
++#include "styles/style_window.h"
++
++#include <QtGui/QClipboard>
++#include <QtGui/QGuiApplication>
++
++namespace Tele {
++namespace {
++
++using namespace HistoryView;
++
++class FullPreviewMemento final : public Window::SectionMemento {
++public:
++	explicit FullPreviewMemento(not_null<Data::Thread*> thread)
++	: _thread(thread) {
++	}
++
++	object_ptr<Window::SectionWidget> createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) override;
++
++	Data::ForumTopic *topicForRemoveRequests() const override {
++		return _thread->asTopic();
++	}
++	Data::SavedSublist *sublistForRemoveRequests() const override {
++		return _thread->asSublist();
++	}
++
++	[[nodiscard]] not_null<Data::Thread*> thread() const {
++		return _thread;
++	}
++	[[nodiscard]] not_null<ListMemento*> list() {
++		return &_list;
++	}
++
++private:
++	const not_null<Data::Thread*> _thread;
++	ListMemento _list;
++
++};
++
++class FullPreviewWidget final
++	: public Window::SectionWidget
++	, public HistoryView::WindowListDelegate
++	, private CornerButtonsDelegate {
++public:
++	FullPreviewWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread);
++
++	Dialogs::RowDescriptor activeChat() const override;
++
++	bool hasTopBarShadow() const override {
++		return true;
++	}
++
++	QPixmap grabForShowAnimation(
++		const Window::SectionSlideParams &params) override;
++
++	bool showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) override;
++	bool sameTypeAs(not_null<Window::SectionMemento*> memento) override;
++	std::shared_ptr<Window::SectionMemento> createMemento() override;
++
++	void setInternalState(
++		const QRect &geometry,
++		not_null<FullPreviewMemento*> memento);
++
++	bool floatPlayerHandleWheelEvent(QEvent *e) override;
++	QRect floatPlayerAvailableRect() override;
++
++	void showMenu(not_null<QContextMenuEvent*> e);
++
++	Context listContext() override;
++	bool listScrollTo(int top, bool syntetic = true) override;
++	void listCancelRequest() override;
++	void listDeleteRequest() override;
++	void listTryProcessKeyInput(not_null<QKeyEvent*> e) override;
++	rpl::producer<Data::MessagesSlice> listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) override;
++	bool listAllowsMultiSelect() override;
++	bool listIsItemGoodForSelection(not_null<HistoryItem*> item) override;
++	bool listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) override;
++	void listSelectionChanged(SelectedItems &&items) override;
++	void listMarkReadTill(not_null<HistoryItem*> item) override;
++	void listMarkContentsRead(
++		const base::flat_set<not_null<HistoryItem*>> &items) override;
++	MessagesBarData listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) override;
++	void listContentRefreshed() override;
++	void listUpdateDateLink(
++		ClickHandlerPtr &link,
++		not_null<Element*> view) override;
++	bool listElementHideReply(not_null<const Element*> view) override;
++	bool listElementShownUnread(not_null<const Element*> view) override;
++	bool listIsGoodForAroundPosition(
++		not_null<const Element*> view) override;
++	void listSendBotCommand(
++		const QString &command,
++		const FullMsgId &context) override;
++	void listSearch(
++		const QString &query,
++		const FullMsgId &context) override;
++	void listHandleViaClick(not_null<UserData*> bot) override;
++	not_null<Ui::ChatTheme*> listChatTheme() override;
++	CopyRestrictionType listCopyRestrictionType(HistoryItem *item) override;
++	CopyRestrictionType listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) override;
++	CopyRestrictionType listSelectRestrictionType() override;
++	auto listAllowedReactionsValue()
++		-> rpl::producer<Data::AllowedReactions> override;
++	void listShowPremiumToast(not_null<DocumentData*> document) override;
++	void listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) override;
++	void listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) override;
++	void listPaintEmpty(
++		Painter &p,
++		const Ui::ChatPaintContext &context) override;
++	QString listElementAuthorRank(not_null<const Element*> view) override;
++	bool listElementHideTopicButton(not_null<const Element*> view) override;
++	History *listTranslateHistory() override;
++	void listAddTranslatedItems(
++		not_null<TranslateTracker*> tracker) override;
++	std::unique_ptr<Reactions::Manager> listMakeReactionsManager(
++		QWidget *wheelEventsTarget,
++		Fn<void(QRect)> update) override;
++	bool listMarkingContentRead() override;
++	bool listShowReactPremiumError(
++		not_null<HistoryItem*> item,
++		const Data::ReactionId &id) override;
++	bool listAllowsDragForward() override;
++	Ui::ElasticScroll *listScrollArea() const override;
++
++private:
++	void resizeEvent(QResizeEvent *e) override;
++	void paintEvent(QPaintEvent *e) override;
++
++	void showAnimatedHook(
++		const Window::SectionSlideParams &params) override;
++	void showFinishedHook() override;
++	void doSetInnerFocus() override;
++
++	void cornerButtonsShowAtPosition(
++		Data::MessagePosition position) override;
++	Data::Thread *cornerButtonsThread() override;
++	FullMsgId cornerButtonsCurrentId() override;
++	bool cornerButtonsIgnoreVisibility() override;
++	std::optional<bool> cornerButtonsDownShown() override;
++	bool cornerButtonsUnreadMayBeShown() override;
++	bool cornerButtonsHas(CornerButtonType type) override;
++
++	void setupTopBar();
++	void setupBar();
++	void setupClickBlocker();
++	void onScroll();
++	void updateInnerVisibleArea();
++	void updateControlsGeometry();
++	void updateAdaptiveLayout();
++	void recountChatWidth();
++	void openChat();
++	void close();
++	[[nodiscard]] bool blocksClick(QPoint position) const;
++
++	const not_null<Data::Thread*> _thread;
++	const not_null<History*> _history;
++	const not_null<PeerData*> _peer;
++	const std::shared_ptr<Data::RepliesList> _replies;
++	Data::SavedSublist * const _sublist = nullptr;
++	std::shared_ptr<Ui::ChatTheme> _theme;
++	QPointer<ListWidget> _inner;
++	object_ptr<TopBarWidget> _topBar;
++	object_ptr<Ui::PlainShadow> _topBarShadow;
++	object_ptr<Ui::RpWidget> _bar;
++	Ui::FlatButton *_open = nullptr;
++	Ui::IconButton *_close = nullptr;
++	std::unique_ptr<Ui::ElasticScroll> _scroll;
++	std::unique_ptr<CornerButtons> _cornerButtons;
++	base::unique_qptr<Ui::PopupMenu> _menu;
++	bool _skipScrollEvent = false;
++
++};
++
++FullPreviewWidget::FullPreviewWidget(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller,
++	not_null<Data::Thread*> thread)
++: Window::SectionWidget(parent, controller, thread->peer())
++, HistoryView::WindowListDelegate(controller)
++, _thread(thread)
++, _history(thread->owningHistory())
++, _peer(thread->peer())
++, _replies(thread->asTopic() ? thread->asTopic()->replies() : nullptr)
++, _sublist(thread->asSublist())
++, _topBar(this, controller)
++, _topBarShadow(this)
++, _bar(this)
++, _scroll(std::make_unique<Ui::ElasticScroll>(
++	this,
++	controller->chatStyle()->value(lifetime(), st::historyScroll))) {
++	controller->chatStyle()->paletteChanged(
++	) | rpl::on_next([=] {
++		_scroll->updateBars();
++	}, _scroll->lifetime());
++
++	Window::ChatThemeValueFromPeer(
++		controller,
++		_peer
++	) | rpl::on_next([=](std::shared_ptr<Ui::ChatTheme> &&theme) {
++		_theme = std::move(theme);
++		controller->setChatStyleTheme(_theme);
++	}, lifetime());
++
++	setupTopBar();
++	setupBar();
++
++	_topBarShadow->raise();
++	controller->adaptive().value(
++	) | rpl::on_next([=] {
++		updateAdaptiveLayout();
++	}, lifetime());
++
++	_scroll->setHandleTouch(false);
++	_inner = _scroll->setOwnedWidget(object_ptr<ListWidget>(
++		this,
++		&controller->session(),
++		static_cast<ListDelegate*>(this)));
++	_inner->lower();
++	_scroll->move(0, _topBar->height());
++	_scroll->show();
++	_scroll->setOverscrollBg(QColor(0, 0, 0, 0));
++	_scroll->setOverscrollEdges([=] {
++		return _inner->loadedAtTopKnown() && _inner->loadedAtTop();
++	}, [=] {
++		return _inner->loadedAtBottomKnown() && _inner->loadedAtBottom();
++	});
++	_scroll->scrolls(
++	) | rpl::on_next([=] {
++		onScroll();
++	}, lifetime());
++
++	_inner->scrollKeyEvents(
++	) | rpl::on_next([=](not_null<QKeyEvent*> e) {
++		_scroll->keyPressEvent(e);
++	}, lifetime());
++
++	_cornerButtons = std::make_unique<CornerButtons>(
++		_scroll.get(),
++		controller->chatStyle(),
++		static_cast<CornerButtonsDelegate*>(this));
++
++	setupClickBlocker();
++
++	if (const auto topic = _thread->asTopic()) {
++		topic->destroyed(
++		) | rpl::on_next([=] {
++			close();
++		}, lifetime());
++	}
++
++	Window::SetupSwipeBackSection(this, _scroll.get(), _inner);
++}
++
++void FullPreviewWidget::setupTopBar() {
++	using Section = Dialogs::EntryState::Section;
++	_topBar->setActiveChat(
++		TopBarWidget::ActiveChat{
++			.key = Dialogs::Key(_thread),
++			.section = (_sublist
++				? Section::SavedSublist
++				: _replies
++				? Section::Replies
++				: Section::History),
++		},
++		_thread->sendActionPainter());
++	_topBar->move(0, 0);
++	_topBar->resizeToWidth(width());
++	_topBar->show();
++
++	_topBar->searchRequest(
++	) | rpl::on_next([=] {
++		controller()->searchInChat(Dialogs::Key(_thread));
++	}, _topBar->lifetime());
++}
++
++void FullPreviewWidget::setupBar() {
++	_open = Ui::CreateChild<Ui::FlatButton>(
++		_bar.data(),
++		Lower(u"Open chat"_q),
++		st::historyComposeButton);
++	_open->setClickedCallback([=] {
++		openChat();
++	});
++	_close = Ui::CreateChild<Ui::IconButton>(
++		_bar.data(),
++		st::historyReplyCancel);
++	_close->setClickedCallback([=] {
++		close();
++	});
++
++	const auto text = Lower(u"Preview "_q
++		+ QChar(0x00B7)
++		+ u" messages stay unread"_q);
++	_bar->resize(width(), st::historyComposeButton.height);
++	_bar->widthValue() | rpl::on_next([=](int outer) {
++		const auto height = _bar->height();
++		_close->moveToRight(0, (height - _close->height()) / 2, outer);
++		_open->moveToRight(_close->width(), 0, outer);
++	}, _bar->lifetime());
++
++	_bar->paintRequest() | rpl::on_next([=](QRect clip) {
++		auto p = QPainter(_bar.data());
++		p.fillRect(clip, st::historyComposeAreaBg);
++		p.fillRect(0, 0, _bar->width(), st::lineWidth, st::shadowFg);
++		const auto &font = st::normalFont;
++		const auto left = st::boxRowPadding.left();
++		const auto available = _open->x() - 2 * left;
++		if (available <= 0) {
++			return;
++		}
++		p.setFont(font->f);
++		p.setPen(st::windowSubTextFg);
++		p.drawText(
++			left,
++			(_bar->height() - font->height) / 2 + font->ascent,
++			font->elided(text, available));
++	}, _bar->lifetime());
++	_bar->show();
++}
++
++void FullPreviewWidget::setupClickBlocker() {
++	base::install_event_filter(_inner.data(), [=](not_null<QEvent*> e) {
++		const auto type = e->type();
++		if (type != QEvent::MouseButtonPress
++			&& type != QEvent::MouseButtonDblClick) {
++			return base::EventFilterResult::Continue;
++		}
++		const auto position = static_cast<QMouseEvent*>(e.get())->pos();
++		return blocksClick(position)
++			? base::EventFilterResult::Cancel
++			: base::EventFilterResult::Continue;
++	});
++}
++
++bool FullPreviewWidget::blocksClick(QPoint position) const {
++	const auto link = ClickHandler::getActive();
++	if (!link) {
++		return false;
++	}
++	const auto reaction = link->property(
++		kSendReactionEmojiProperty).value<Data::ReactionId>();
++	if (!Reactions::ReactionIdOfLink(link).empty()
++		|| !reaction.empty()
++		|| !link->property(kPollOptionProperty).toByteArray().isEmpty()
++		|| link->property(kTodoListItemIdProperty).toInt()
++		|| link->property(kFastShareProperty).toBool()) {
++		return true;
++	} else if (const auto markup = dynamic_cast<ReplyMarkupClickHandler*>(
++			link.get())) {
++		const auto button = markup->getButton();
++		return !button
++			|| (button->type != HistoryMessageMarkupButton::Type::Url);
++	}
++	const auto view = _inner->lookupItemByY(position.y());
++	return view
++		&& view->history()->peer->isUser()
++		&& CanPlayEmojiInteraction(view);
++}
++
++void FullPreviewWidget::openChat() {
++	controller()->showThread(
++		_thread,
++		ShowAtUnreadMsgId,
++		Window::SectionShow::Way::ClearStack);
++}
++
++void FullPreviewWidget::close() {
++	controller()->showBackFromStack();
++}
++
++void FullPreviewWidget::showMenu(not_null<QContextMenuEvent*> e) {
++	_menu = base::make_unique_q<Ui::PopupMenu>(
++		this,
++		st::popupMenuWithIcons);
++	const auto menu = _menu.get();
++	const auto link = ClickHandler::getActive();
++	const auto view = _inner->lookupItemByY(
++		_inner->mapFromGlobal(e->globalPos()).y());
++	const auto item = view ? view->data().get() : nullptr;
++	const auto owner = &_history->owner();
++	const auto list = _inner;
++
++	if (!_inner->getSelectedText().empty()
++		&& !_inner->hasCopyRestrictionForSelected()) {
++		const auto items = !_inner->getSelectedIds().empty();
++		menu->addAction((items
++			? tr::lng_context_copy_selected_items
++			: tr::lng_context_copy_selected)(tr::now), [=] {
++			if (list) {
++				list->copySelectedText();
++			}
++		}, &st::menuIconCopy);
++	} else if (item
++		&& !link
++		&& view->hasVisibleText()
++		&& !_inner->hasCopyRestriction(item)) {
++		const auto itemId = item->fullId();
++		menu->addAction(tr::lng_context_copy_text(tr::now), [=] {
++			const auto item = owner->message(itemId);
++			if (!item || !list || list->showCopyRestriction(item)) {
++				return;
++			} else if (const auto group = owner->groups().find(item)) {
++				TextUtilities::SetClipboardText(HistoryGroupText(group));
++			} else {
++				TextUtilities::SetClipboardText(HistoryItemText(item));
++			}
++		}, &st::menuIconCopy);
++	}
++	if (link) {
++		const auto label = link->copyToClipboardContextItemText();
++		const auto text = link->copyToClipboardText();
++		if (!label.isEmpty() && !text.isEmpty()) {
++			menu->addAction(label, [=] {
++				QGuiApplication::clipboard()->setText(text);
++			}, &st::menuIconCopy);
++		}
++	}
++	if (item && item->isRegular()) {
++		const auto itemId = item->fullId();
++		const auto window = controller();
++		menu->addAction(tr::lng_context_to_msg(tr::now), crl::guard(this, [=] {
++			if (const auto item = owner->message(itemId)) {
++				window->showMessage(
++					item,
++					Window::SectionShow::Way::ClearStack);
++			}
++		}), &st::menuIconShowInChat);
++	}
++	if (menu->empty()) {
++		_menu = nullptr;
++		return;
++	}
++	menu->popup(e->globalPos());
++}
++
++void FullPreviewWidget::updateAdaptiveLayout() {
++	_topBarShadow->moveToLeft(
++		controller()->adaptive().isOneColumn() ? 0 : st::lineWidth,
++		_topBar->height());
++}
++
++Dialogs::RowDescriptor FullPreviewWidget::activeChat() const {
++	return {
++		_thread,
++		FullMsgId(_peer->id, ShowAtUnreadMsgId),
++	};
++}
++
++QPixmap FullPreviewWidget::grabForShowAnimation(
++		const Window::SectionSlideParams &params) {
++	_topBar->updateControlsVisibility();
++	if (params.withTopBarShadow) _topBarShadow->hide();
++	auto result = Ui::GrabWidget(this);
++	if (params.withTopBarShadow) _topBarShadow->show();
++	return result;
++}
++
++void FullPreviewWidget::doSetInnerFocus() {
++	_inner->setFocus();
++}
++
++bool FullPreviewWidget::showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) {
++	const auto preview = dynamic_cast<FullPreviewMemento*>(memento.get());
++	return preview && (preview->thread() == _thread);
++}
++
++bool FullPreviewWidget::sameTypeAs(not_null<Window::SectionMemento*> memento) {
++	return dynamic_cast<FullPreviewMemento*>(memento.get()) != nullptr;
++}
++
++void FullPreviewWidget::setInternalState(
++		const QRect &geometry,
++		not_null<FullPreviewMemento*> memento) {
++	setGeometry(geometry);
++	Ui::SendPendingMoveResizeEvents(this);
++	_inner->restoreState(memento->list());
++}
++
++std::shared_ptr<Window::SectionMemento> FullPreviewWidget::createMemento() {
++	auto result = std::make_shared<FullPreviewMemento>(_thread);
++	_inner->saveState(result->list());
++	return result;
++}
++
++void FullPreviewWidget::resizeEvent(QResizeEvent *e) {
++	if (!width() || !height()) {
++		return;
++	}
++	recountChatWidth();
++	updateControlsGeometry();
++}
++
++void FullPreviewWidget::recountChatWidth() {
++	auto layout = (width() < st::adaptiveChatWideWidth)
++		? Window::Adaptive::ChatLayout::Normal
++		: Window::Adaptive::ChatLayout::Wide;
++	controller()->adaptive().setChatLayout(layout);
++}
++
++void FullPreviewWidget::updateControlsGeometry() {
++	const auto contentWidth = width();
++
++	const auto newScrollTop = _scroll->isHidden()
++		? std::nullopt
++		: base::make_optional(_scroll->scrollTop() + takeTopDelta());
++	_topBar->resizeToWidth(contentWidth);
++	_topBarShadow->resize(contentWidth, st::lineWidth);
++
++	const auto top = _topBar->height();
++	const auto barHeight = _bar->height();
++	_bar->setGeometry(0, height() - barHeight, contentWidth, barHeight);
++	const auto scrollSize = QSize(
++		contentWidth,
++		std::max(height() - top - barHeight, 0));
++	if (_scroll->size() != scrollSize) {
++		_skipScrollEvent = true;
++		_scroll->resize(scrollSize);
++		_inner->resizeToWidth(scrollSize.width(), _scroll->height());
++		_skipScrollEvent = false;
++	}
++	_scroll->move(0, top);
++	if (!_scroll->isHidden()) {
++		if (newScrollTop) {
++			_scroll->scrollToY(*newScrollTop);
++		}
++		updateInnerVisibleArea();
++	}
++	_cornerButtons->updatePositions();
++}
++
++void FullPreviewWidget::paintEvent(QPaintEvent *e) {
++	if (animatingShow()) {
++		SectionWidget::paintEvent(e);
++		return;
++	} else if (controller()->contentOverlapped(this, e)) {
++		return;
++	}
++	const auto aboveHeight = _topBar->height();
++	const auto bg = e->rect().intersected(QRect(
++		0,
++		aboveHeight,
++		width(),
++		height() - aboveHeight - _bar->height()));
++	SectionWidget::PaintBackground(controller(), _theme.get(), this, bg);
++}
++
++void FullPreviewWidget::onScroll() {
++	if (_skipScrollEvent) {
++		return;
++	}
++	updateInnerVisibleArea();
++}
++
++void FullPreviewWidget::updateInnerVisibleArea() {
++	const auto scrollTop = _scroll->scrollTop();
++	_inner->setVisibleTopBottom(scrollTop, scrollTop + _scroll->height());
++	_cornerButtons->updateJumpDownVisibility();
++}
++
++void FullPreviewWidget::showAnimatedHook(
++		const Window::SectionSlideParams &params) {
++	_topBar->setAnimatingMode(true);
++	if (params.withTopBarShadow) {
++		_topBarShadow->show();
++	}
++}
++
++void FullPreviewWidget::showFinishedHook() {
++	_topBar->setAnimatingMode(false);
++	_inner->showFinished();
++}
++
++bool FullPreviewWidget::floatPlayerHandleWheelEvent(QEvent *e) {
++	return _scroll->viewportEvent(e);
++}
++
++QRect FullPreviewWidget::floatPlayerAvailableRect() {
++	return mapToGlobal(_scroll->geometry());
++}
++
++Context FullPreviewWidget::listContext() {
++	return Context::ChatPreview;
++}
++
++bool FullPreviewWidget::listScrollTo(int top, bool syntetic) {
++	top = std::clamp(top, 0, _scroll->scrollTopMax());
++	if (_scroll->scrollTop() == top) {
++		updateInnerVisibleArea();
++		return false;
++	}
++	_scroll->scrollToY(top);
++	return true;
++}
++
++void FullPreviewWidget::listCancelRequest() {
++	close();
++}
++
++void FullPreviewWidget::listDeleteRequest() {
++}
++
++void FullPreviewWidget::listTryProcessKeyInput(not_null<QKeyEvent*> e) {
++}
++
++rpl::producer<Data::MessagesSlice> FullPreviewWidget::listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) {
++	return _replies
++		? _replies->source(aroundId, limitBefore, limitAfter)
++		: _sublist
++		? _sublist->source(aroundId, limitBefore, limitAfter)
++		: Data::HistoryMessagesViewer(
++			_history,
++			aroundId,
++			limitBefore,
++			limitAfter);
++}
++
++bool FullPreviewWidget::listAllowsMultiSelect() {
++	return true;
++}
++
++bool FullPreviewWidget::listIsItemGoodForSelection(
++		not_null<HistoryItem*> item) {
++	return item->canBeSelected();
++}
++
++bool FullPreviewWidget::listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) {
++	if (first->isRegular() && second->isRegular()) {
++		const auto firstPeer = first->history()->peer;
++		const auto secondPeer = second->history()->peer;
++		if (firstPeer == secondPeer) {
++			return first->id < second->id;
++		}
++		return firstPeer->isChat();
++	} else if (first->isRegular()) {
++		return true;
++	} else if (second->isRegular()) {
++		return false;
++	}
++	return first->id < second->id;
++}
++
++void FullPreviewWidget::listSelectionChanged(SelectedItems &&items) {
++}
++
++void FullPreviewWidget::listMarkReadTill(not_null<HistoryItem*> item) {
++}
++
++void FullPreviewWidget::listMarkContentsRead(
++	const base::flat_set<not_null<HistoryItem*>> &items) {
++}
++
++MessagesBarData FullPreviewWidget::listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) {
++	if (elements.empty()
++		|| (!_replies && !_sublist && !_history->unreadCount())) {
++		return {};
++	}
++	const auto repliesTill = _replies
++		? _replies->computeInboxReadTillFull()
++		: MsgId();
++	const auto sublistTill = _sublist
++		? _sublist->computeInboxReadTillFull()
++		: MsgId();
++	const auto migrated = (_replies || _sublist)
++		? nullptr
++		: _history->migrateFrom();
++	const auto migratedTill = (migrated && migrated->unreadCount() > 0)
++		? migrated->inboxReadTillId()
++		: 0;
++	const auto historyTill = (_replies
++		|| _sublist
++		|| !_history->unreadCount()
++		|| _history->amMonoforumAdmin())
++		? 0
++		: _history->inboxReadTillId();
++	if (!_replies && !_sublist && !migratedTill && !historyTill) {
++		return {};
++	}
++	auto skipped = false;
++	const auto hidden = (_replies && (repliesTill < 2))
++		|| (_sublist && (sublistTill < 2));
++	for (auto i = 0, count = int(elements.size()); i != count; ++i) {
++		const auto item = elements[i]->data();
++		if (!item->isRegular()
++			|| (_replies && !item->replyToId())
++			|| (_sublist && !item->sublistPeerId())) {
++			continue;
++		}
++		const auto inHistory = (item->history() == _history);
++		const auto unread = (_replies && item->id > repliesTill)
++			|| (_sublist && item->id > sublistTill)
++			|| (migratedTill && (inHistory || item->id > migratedTill))
++			|| (historyTill && inHistory && item->id > historyTill);
++		if (!unread) {
++			skipped = true;
++		}
++		if (item->out()) {
++			continue;
++		} else if (unread) {
++			if (!skipped) {
++				return {};
++			}
++			return {
++				.bar = {
++					.element = elements[i],
++					.hidden = hidden,
++					.focus = true,
++				},
++				.text = tr::lng_unread_bar_some(),
++			};
++		}
++	}
++	return {};
++}
++
++void FullPreviewWidget::listContentRefreshed() {
++}
++
++void FullPreviewWidget::listUpdateDateLink(
++	ClickHandlerPtr &link,
++	not_null<Element*> view) {
++}
++
++bool FullPreviewWidget::listElementHideReply(not_null<const Element*> view) {
++	if (!view->isTopicRootReply()) {
++		return false;
++	}
++	const auto reply = view->data()->Get<HistoryMessageReply>();
++	return reply && !reply->fields().manualQuote;
++}
++
++bool FullPreviewWidget::listElementShownUnread(
++		not_null<const Element*> view) {
++	const auto item = view->data();
++	return _replies
++		? _replies->isServerSideUnread(item)
++		: _sublist
++		? _sublist->isServerSideUnread(item)
++		: item->unread(item->history());
++}
++
++bool FullPreviewWidget::listIsGoodForAroundPosition(
++		not_null<const Element*> view) {
++	return view->data()->isRegular();
++}
++
++void FullPreviewWidget::listSendBotCommand(
++	const QString &command,
++	const FullMsgId &context) {
++}
++
++void FullPreviewWidget::listSearch(
++		const QString &query,
++		const FullMsgId &context) {
++	controller()->searchMessages(query, Dialogs::Key(_thread));
++}
++
++void FullPreviewWidget::listHandleViaClick(not_null<UserData*> bot) {
++}
++
++not_null<Ui::ChatTheme*> FullPreviewWidget::listChatTheme() {
++	return _theme.get();
++}
++
++CopyRestrictionType FullPreviewWidget::listCopyRestrictionType(
++		HistoryItem *item) {
++	return CopyRestrictionTypeFor(_peer, item);
++}
++
++CopyRestrictionType FullPreviewWidget::listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) {
++	return CopyMediaRestrictionTypeFor(_peer, item);
++}
++
++CopyRestrictionType FullPreviewWidget::listSelectRestrictionType() {
++	return SelectRestrictionTypeFor(_peer);
++}
++
++auto FullPreviewWidget::listAllowedReactionsValue()
++-> rpl::producer<Data::AllowedReactions> {
++	return rpl::single(Data::AllowedReactions());
++}
++
++void FullPreviewWidget::listShowPremiumToast(
++	not_null<DocumentData*> document) {
++}
++
++void FullPreviewWidget::listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) {
++	controller()->openPhoto(photo, {
++		.id = context,
++		.topicRootId = _replies ? _thread->asTopic()->rootId() : MsgId(),
++	});
++}
++
++void FullPreviewWidget::listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) {
++	controller()->openDocument(document, showInMediaView, {
++		.id = context,
++		.topicRootId = _replies ? _thread->asTopic()->rootId() : MsgId(),
++	});
++}
++
++void FullPreviewWidget::listPaintEmpty(
++	Painter &p,
++	const Ui::ChatPaintContext &context) {
++}
++
++QString FullPreviewWidget::listElementAuthorRank(
++		not_null<const Element*> view) {
++	return {};
++}
++
++bool FullPreviewWidget::listElementHideTopicButton(
++		not_null<const Element*> view) {
++	return _replies != nullptr;
++}
++
++History *FullPreviewWidget::listTranslateHistory() {
++	return _history;
++}
++
++void FullPreviewWidget::listAddTranslatedItems(
++	not_null<TranslateTracker*> tracker) {
++}
++
++auto FullPreviewWidget::listMakeReactionsManager(
++	QWidget *wheelEventsTarget,
++	Fn<void(QRect)> update)
++-> std::unique_ptr<Reactions::Manager> {
++	return nullptr;
++}
++
++bool FullPreviewWidget::listMarkingContentRead() {
++	return false;
++}
++
++bool FullPreviewWidget::listShowReactPremiumError(
++		not_null<HistoryItem*> item,
++		const Data::ReactionId &id) {
++	return true;
++}
++
++bool FullPreviewWidget::listAllowsDragForward() {
++	return false;
++}
++
++Ui::ElasticScroll *FullPreviewWidget::listScrollArea() const {
++	return _scroll.get();
++}
++
++void FullPreviewWidget::cornerButtonsShowAtPosition(
++		Data::MessagePosition position) {
++	if (position == Data::UnreadMessagePosition) {
++		position = Data::MaxMessagePosition;
++	}
++	_inner->showAtPosition(
++		position,
++		{},
++		_cornerButtons->doneJumpFrom(position.fullId, {}, true));
++}
++
++Data::Thread *FullPreviewWidget::cornerButtonsThread() {
++	return _thread;
++}
++
++FullMsgId FullPreviewWidget::cornerButtonsCurrentId() {
++	return {};
++}
++
++bool FullPreviewWidget::cornerButtonsIgnoreVisibility() {
++	return animatingShow();
++}
++
++std::optional<bool> FullPreviewWidget::cornerButtonsDownShown() {
++	const auto top = _scroll->scrollTop() + st::historyToDownShownAfter;
++	if (top < _scroll->scrollTopMax()) {
++		return true;
++	} else if (_inner->loadedAtBottomKnown()) {
++		return !_inner->loadedAtBottom();
++	}
++	return std::nullopt;
++}
++
++bool FullPreviewWidget::cornerButtonsUnreadMayBeShown() {
++	return _inner->loadedAtBottomKnown();
++}
++
++bool FullPreviewWidget::cornerButtonsHas(CornerButtonType type) {
++	return (type == CornerButtonType::Down);
++}
++
++object_ptr<Window::SectionWidget> FullPreviewMemento::createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) {
++	if (column == Window::Column::Third) {
++		return nullptr;
++	}
++	auto result = object_ptr<FullPreviewWidget>(parent, controller, _thread);
++	result->setInternalState(geometry, this);
++	return result;
++}
++
++} // namespace
++
++bool ShowFullChatPreview(
++		not_null<Window::SessionController*> controller,
++		Data::Thread *thread,
++		Fn<void(bool shown)> callback) {
++	if (!FullChatPreview() || !thread) {
++		return false;
++	}
++	if (callback) {
++		callback(true);
++		callback(false);
++	}
++	if (controller->activeChatCurrent().thread() != thread) {
++		auto params = Window::SectionShow(
++			Window::SectionShow::Way::Forward);
++		params.dropSameFromStack = true;
++		controller->showSection(
++			std::make_shared<FullPreviewMemento>(thread),
++			params);
++	}
++	return true;
++}
++
++bool FullPreviewMenu(
++		not_null<HistoryView::ListWidget*> list,
++		not_null<QContextMenuEvent*> e) {
++	const auto widget = dynamic_cast<FullPreviewWidget*>(
++		list->delegate().get());
++	if (!widget) {
++		return false;
++	}
++	widget->showMenu(e);
++	return true;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_full_preview.h b/Telegram/SourceFiles/tele/tele_full_preview.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..8b4f659e68eb50cc98942538848b11b9f07986a9
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_full_preview.h
+@@ -0,0 +1,27 @@
++#pragma once
++
++class QContextMenuEvent;
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace HistoryView {
++class ListWidget;
++} // namespace HistoryView
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] bool ShowFullChatPreview(
++	not_null<Window::SessionController*> controller,
++	Data::Thread *thread,
++	Fn<void(bool shown)> callback);
++[[nodiscard]] bool FullPreviewMenu(
++	not_null<HistoryView::ListWidget*> list,
++	not_null<QContextMenuEvent*> e);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 637ae107e72a318c3e2f6496f40891f8d06cdfad..9c3e9d2844fd1a118878dee8cb0f0b918635b8c8 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -154,6 +154,7 @@ const char kOptionFieldHeight[] = "tele-field-height";
+ const char kOptionLocalFolders[] = "tele-local-folders";
+ const char kOptionUnsortedFolder[] = "tele-unsorted-folder";
+ const char kOptionSelectChats[] = "tele-select-chats";
++const char kOptionFullChatPreview[] = "tele-full-chat-preview";
+ const char kOptionBookmarks[] = "tele-bookmarks";
+ const char kOptionReturnPoint[] = "tele-return-point";
+ const char kOptionNoGestures[] = "tele-no-gestures";
+@@ -1076,6 +1077,13 @@ base::options::toggle SelectChatsOption({
+ 	.name = "Select several chats",
+ });
+ 
++base::options::toggle FullChatPreviewOption({
++	.id = kOptionFullChatPreview,
++	.name = "Preview chats in the chat area",
++	.description = "Alt+click or holding a userpic opens the chat read-only, "
++		"leaving messages unread.",
++});
++
+ base::options::toggle BookmarksOption({
+ 	.id = kOptionBookmarks,
+ 	.name = "Message bookmarks",
+@@ -2346,6 +2354,10 @@ rpl::producer<bool> SelectChatsValue() {
+ 	});
+ }
+ 
++bool FullChatPreview() {
++	return FullChatPreviewOption.value();
++}
++
+ bool MessageBookmarks() {
+ 	return BookmarksOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 0cd125c99fedfbb3089d0860bda648e0f90bc584..0615ac356297c861138518dd95794f0f58e614ac 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -149,6 +149,7 @@ extern const char kOptionFieldHeight[];
+ extern const char kOptionLocalFolders[];
+ extern const char kOptionUnsortedFolder[];
+ extern const char kOptionSelectChats[];
++extern const char kOptionFullChatPreview[];
+ extern const char kOptionBookmarks[];
+ extern const char kOptionReturnPoint[];
+ extern const char kOptionNoGestures[];
+@@ -396,6 +397,7 @@ void SetFieldHeight(int height);
+ [[nodiscard]] rpl::producer<bool> UnsortedFolderValue();
+ [[nodiscard]] bool SelectChats();
+ [[nodiscard]] rpl::producer<bool> SelectChatsValue();
++[[nodiscard]] bool FullChatPreview();
+ [[nodiscard]] bool MessageBookmarks();
+ [[nodiscard]] rpl::producer<> MessageBookmarksChanges();
+ [[nodiscard]] bool ReturnPoint();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index da12c8e6e296ff99a54a1727107a5987a57ecccf..9fa1eb3bfed660828a0b5cfb22198cd8bc69d5ad 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -131,6 +131,7 @@ struct Spec {
+ 		Toggle(kOptionLocalFolders),
+ 		Toggle(kOptionUnsortedFolder),
+ 		Toggle(kOptionSelectChats),
++		Toggle(kOptionFullChatPreview),
+ 		Toggle(kOptionStaticUserpicsChats),
+ 		Toggle(kOptionHideMentionsButton),
+ 		Toggle(kOptionHideReactionsButton),
+diff --git a/Telegram/SourceFiles/window/window_chat_preview.cpp b/Telegram/SourceFiles/window/window_chat_preview.cpp
+index 7dfb0c3428ffd0103466a82f7b719f56d06f57c8..e7f56f2ec6313ef4d90f2cf2f0ac4cbd516de13d 100644
+--- a/Telegram/SourceFiles/window/window_chat_preview.cpp
++++ b/Telegram/SourceFiles/window/window_chat_preview.cpp
+@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/view/history_view_chat_preview.h"
+ #include "mainwidget.h"
+ #include "tele/tele_changelog_chat.h"
++#include "tele/tele_full_preview.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "window/window_peer_menu.h"
+ #include "window/window_session_controller.h"
+@@ -56,6 +57,11 @@ bool ChatPreviewManager::show(
+ 	}
+ 	if (SkipChatPreviewFor(row.key)) {
+ 		return false;
++	} else if (Tele::ShowFullChatPreview(
++			_controller,
++			row.key.thread(),
++			callback)) {
++		return true;
+ 	}
+ 
+ 	const auto parent = parentOverride

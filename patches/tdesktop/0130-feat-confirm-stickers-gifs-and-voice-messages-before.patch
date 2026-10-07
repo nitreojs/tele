@@ -1,0 +1,657 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 29 Sep 2026 07:30:27 +0300
+Subject: [PATCH] feat: confirm stickers, gifs and voice messages before
+ sending
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../chat_helpers/field_autocomplete.cpp       |   9 +
+ .../chat_helpers/gifs_list_widget.cpp         |  11 +
+ .../chat_helpers/stickers_list_widget.cpp     |   8 +-
+ .../SourceFiles/history/history_widget.cpp    |   2 +
+ .../history_view_compose_controls.cpp         |   2 +
+ .../history_view_voice_record_bar.cpp         |   3 +-
+ .../inline_bots/inline_results_inner.cpp      |  11 +
+ .../SourceFiles/settings/settings_tele.cpp    |  21 ++
+ .../SourceFiles/tele/tele_confirm_send.cpp    | 236 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_confirm_send.h |  35 +++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  39 +++
+ Telegram/SourceFiles/tele/tele_options.h      |   7 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   4 +
+ 14 files changed, 388 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_confirm_send.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_confirm_send.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 0cc2d58501bdcf6fd3dbad38815231fedbf8341e..2544b2f1570b89d9f65cfa522dd0801ac007fc39 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2251,6 +2251,8 @@ PRIVATE
+     tele/tele_chat_backgrounds.h
+     tele/tele_collectible_price.cpp
+     tele/tele_collectible_price.h
++    tele/tele_confirm_send.cpp
++    tele/tele_confirm_send.h
+     tele/tele_communities.cpp
+     tele/tele_communities.h
+     tele/tele_corner_buttons.cpp
+diff --git a/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp b/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
+index c242a7f44937499ada7bd458837a326b90d5ceaf..542f29d9adcc15d75ebeb84fd8b9fb21d46e7d46 100644
+--- a/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
++++ b/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
+@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "media/clip/media_clip_reader.h"
+ #include "menu/menu_send.h" // SendMenu::FillSendMenu
+ #include "storage/storage_account.h"
++#include "tele/tele_confirm_send.h"
+ #include "tele/tele_shortcuts.h"
+ #include "tele/tele_username_aliases.h"
+ #include "ui/effects/message_sending_animation_common.h"
+@@ -1206,6 +1207,11 @@ void FieldAutocomplete::Inner::paintStickers(Painter &p, QRect clip) {
+ 			if (_sel == index) {
+ 				_overBg.paint(p, myrtlrect(QRect(position, single)));
+ 			}
++			Tele::PaintSendSelection(
++				p,
++				this,
++				document,
++				myrtlrect(QRect(position, single)));
+ 
+ 			media->checkStickerSmall();
+ 			const auto size = ComputeStickerSize(
+@@ -1714,6 +1720,9 @@ void FieldAutocomplete::Inner::mouseReleaseEvent(QMouseEvent *e) {
+ 		return;
+ 	} else if (_sel < 0 || _sel != pressed || _srows->empty()) {
+ 		return;
++	} else if (_sel < _srows->size()
++		&& !Tele::SuggestionClickConfirmed(this, (*_srows)[_sel].document)) {
++		return;
+ 	}
+ 	chooseSelected(FieldAutocomplete::ChooseMethod::ByClick);
+ }
+diff --git a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
+index 9ecb91e8645c09dac223336bef24d0415e83e7cf..ec94fd4aa81109848a2c126e98a256165e742c95 100644
+--- a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
+@@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_session_controller.h"
+ #include "history/view/history_view_cursor_state.h"
+ #include "storage/storage_account.h" // Account::writeSavedGifs
++#include "tele/tele_confirm_send.h"
+ #include "tele/tele_gif_video.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_menu_icons.h"
+@@ -364,6 +365,11 @@ void GifsListWidget::paintInlineItems(Painter &p, QRect clip) {
+ 			p,
+ 			clip.translated(-point),
+ 			&context);
++		Tele::PaintSendSelection(
++			p,
++			this,
++			item,
++			QRect(0, 0, item->width(), item->height()));
+ 		p.translate(-point.x(), -point.y());
+ 	};
+ 	_mosaic.paint(std::move(paintItem), clip);
+@@ -467,6 +473,11 @@ void GifsListWidget::mouseReleaseEvent(QMouseEvent *e) {
+ 
+ 	if (_selected < 0 || _selected != pressed || !activated) {
+ 		return;
++	} else if (!Tele::PanelGifClickConfirmed(
++			this,
++			_mosaic.maybeItemAt(_selected),
++			activated)) {
++		return;
+ 	}
+ 
+ 	if (dynamic_cast<InlineBots::Layout::SendClickHandler*>(activated.get())) {
+diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
+index f30b2fdfe1e01f56676121a771d2e36c2722b1f1..452dd46ae6118f6a9c2a6a3ad5950dd2a5de9bc2 100644
+--- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
+@@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "api/api_toggling_media.h" // Api::ToggleFavedSticker
+ #include "api/api_premium.h"
+ #include "tele/tele_pin_sets.h"
++#include "tele/tele_confirm_send.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_window.h"
+@@ -2254,6 +2255,11 @@ void StickersListWidget::paintSticker(
+ 		}
+ 		_overBg.paint(p, QRect(tl, _singleSize));
+ 	}
++	Tele::PaintSendSelection(
++		p,
++		this,
++		document,
++		myrtlrect(QRect(pos, _singleSize)));
+ 
+ 	media->checkStickerSmall();
+ 
+@@ -2875,7 +2881,7 @@ void StickersListWidget::mouseReleaseEvent(QMouseEvent *e) {
+ 			if (_features.openStickerSets
+ 				&& (e->modifiers() & Qt::ControlModifier)) {
+ 				showStickerSetBox(document, set.id);
+-			} else {
++			} else if (Tele::PanelStickerClickConfirmed(this, document)) {
+ 				_chosen.fire({
+ 					.document = document,
+ 					.messageSendingFrom = messageSentAnimationInfo(
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 99103e20943e74ac75bb5ae9642f127af74d32b3..5b94ad477162a0b06c698daa79fb2abfb661f0f8 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -170,6 +170,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula_preview.h"
+ #include "tele/tele_link_previews.h"
+ #include "tele/tele_calls.h"
++#include "tele/tele_confirm_send.h"
+ #include "tele/tele_drafts_compose.h"
+ #include "tele/tele_docked_media.h"
+ #include "tele/tele_ghost.h"
+@@ -1737,6 +1738,7 @@ void HistoryWidget::initTabbedSelector() {
+ 	});
+ 
+ 	const auto selector = controller()->tabbedSelector();
++	Tele::MarkConfirmSendPanel(selector);
+ 
+ 	base::install_event_filter(this, selector, [=](not_null<QEvent*> e) {
+ 		if (_tabbedPanel && e->type() == QEvent::ParentChange) {
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 55b890e2903b21b14bc2c2b7dc7e68fc4670362f..b96fa364526d91f330e6ec06af888cf7c3fa19f3 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula_preview.h"
+ #include "tele/tele_link_previews.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_confirm_send.h"
+ #include "tele/tele_drafts_compose.h"
+ #include "tele/tele_docked_media.h"
+ #include "tele/tele_emoji_panel.h"
+@@ -4000,6 +4001,7 @@ void ComposeControls::initTabbedSelector() {
+ 		return base::EventFilterResult::Continue;
+ 	});
+ 
++	Tele::MarkConfirmSendPanel(_selector);
+ 	_selector->emojiChosen(
+ 	) | rpl::on_next([=](ChatHelpers::EmojiChosen data) {
+ 		Ui::InsertEmojiAtCursor(_field->textCursor(), data.emoji);
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_voice_record_bar.cpp b/Telegram/SourceFiles/history/view/controls/history_view_voice_record_bar.cpp
+index bee385fdbfc2fa806564d10e468fee4d41d3e225..fbb5798c8edd05da62341816c805a04ad31c3323 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_voice_record_bar.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_voice_record_bar.cpp
+@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "media/streaming/media_streaming_instance.h"
+ #include "media/streaming/media_streaming_round_preview.h"
+ #include "storage/storage_account.h"
++#include "tele/tele_options.h"
+ #include "ui/controls/round_video_recorder.h"
+ #include "ui/controls/send_button.h"
+ #include "ui/effects/animation_value.h"
+@@ -2810,7 +2811,7 @@ void VoiceRecordBar::recordUpdated(quint16 level, int samples) {
+ void VoiceRecordBar::stop(bool send) {
+ 	if (isHidden() && !send) {
+ 		return;
+-	} else if (send && _pauseInsteadSend) {
++	} else if (send && (_pauseInsteadSend || Tele::ConfirmVoice())) {
+ 		_fullRecord = true;
+ 		stopRecording(StopType::Listen);
+ 		_lockShowing = false;
+diff --git a/Telegram/SourceFiles/inline_bots/inline_results_inner.cpp b/Telegram/SourceFiles/inline_bots/inline_results_inner.cpp
+index 1f4c364d5cc215c17a3c7790bee46694bfb7c348..2f9eb8c5801482b319da6d1449a0b932221e43ba 100644
+--- a/Telegram/SourceFiles/inline_bots/inline_results_inner.cpp
++++ b/Telegram/SourceFiles/inline_bots/inline_results_inner.cpp
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/ui_utility.h"
+ #include "history/view/history_view_cursor_state.h"
+ #include "history/history.h"
++#include "tele/tele_confirm_send.h"
+ #include "styles/style_chat_helpers.h"
+ 
+ #include <QtWidgets/QApplication>
+@@ -244,6 +245,11 @@ void Inner::paintInlineItems(Painter &p, const QRect &r) {
+ 			p,
+ 			r.translated(-point),
+ 			&context);
++		Tele::PaintSendSelection(
++			p,
++			this,
++			item,
++			QRect(0, 0, item->width(), item->height()));
+ 		p.translate(-point.x(), -point.y());
+ 	};
+ 	_mosaic.paint(std::move(paintItem), r);
+@@ -277,6 +283,11 @@ void Inner::mouseReleaseEvent(QMouseEvent *e) {
+ 
+ 	if (_selected < 0 || _selected != pressed || !activated) {
+ 		return;
++	} else if (!Tele::InlineResultClickConfirmed(
++			this,
++			_mosaic.maybeItemAt(_selected),
++			activated)) {
++		return;
+ 	}
+ 
+ 	using namespace InlineBots::Layout;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 70682f584ca0a95f3b5fa992da57d693458f44aa..5c7466a7bfdec4666e11ce751c86ce9764fbccc6 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1989,6 +1989,27 @@ void FillChats(SectionBuilder &builder) {
+ 		{},
+ 		::Tele::kOptionCalcmula);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Confirmations"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionConfirmSend,
++		{ u"accidental"_q, u"double click"_q, u"twice"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionConfirmStickers,
++		{ u"suggestions"_q, u"emoji"_q },
++		::Tele::kOptionConfirmSend);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionConfirmGifs,
++		{ u"inline"_q },
++		::Tele::kOptionConfirmSend);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionConfirmVoice,
++		{ u"record"_q, u"round"_q, u"preview"_q },
++		::Tele::kOptionConfirmSend);
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Scheduled messages"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionPunctualScheduled);
+ 	AddGroupDivider(builder);
+diff --git a/Telegram/SourceFiles/tele/tele_confirm_send.cpp b/Telegram/SourceFiles/tele/tele_confirm_send.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..950291bb74e04f0f398c123f22d99b2befeb6941
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_confirm_send.cpp
+@@ -0,0 +1,236 @@
++#include "tele/tele_confirm_send.h"
++
++#include "base/event_filter.h"
++#include "base/timer.h"
++#include "data/data_document.h"
++#include "inline_bots/inline_bot_layout_item.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/painter.h"
++#include "ui/toast/toast.h"
++#include "styles/palette.h"
++#include "styles/style_basic.h"
++
++#include <QtCore/QPointer>
++#include <QtGui/QCursor>
++#include <QtGui/QKeyEvent>
++#include <QtGui/QMouseEvent>
++
++namespace Tele {
++namespace {
++
++constexpr auto kTimeout = 5 * crl::time(1000);
++constexpr auto kToastDuration = crl::time(1500);
++constexpr auto kPanelProperty = "teleConfirmSend";
++
++class Selection final : public QObject {
++public:
++	Selection(not_null<QWidget*> list, const void *key);
++
++	[[nodiscard]] bool matches(
++		not_null<const QWidget*> list,
++		const void *key) const;
++	void finish();
++
++private:
++	void clickAgain();
++
++	const not_null<QWidget*> _list;
++	const void *_key = nullptr;
++	const QPoint _globalPosition;
++	base::Timer _timer;
++	base::weak_ptr<Ui::Toast::Instance> _toast;
++
++};
++
++QPointer<Selection> Current;
++
++void Clear() {
++	if (const auto selection = Current.data()) {
++		Current = nullptr;
++		selection->finish();
++		selection->deleteLater();
++	}
++}
++
++Selection::Selection(not_null<QWidget*> list, const void *key)
++: QObject(list.get())
++, _list(list)
++, _key(key)
++, _globalPosition(QCursor::pos())
++, _timer([=] {
++	if (Current == this) {
++		Clear();
++	}
++}) {
++	_timer.callOnce(kTimeout);
++	base::install_event_filter(this, list, [=](not_null<QEvent*> e) {
++		if (e->type() == QEvent::Hide && Current == this) {
++			Clear();
++		}
++		return base::EventFilterResult::Continue;
++	});
++	base::install_event_filter(
++		this,
++		QCoreApplication::instance(),
++		[=](not_null<QEvent*> e) {
++			if (e->type() != QEvent::KeyPress || Current != this) {
++				return base::EventFilterResult::Continue;
++			}
++			const auto key = static_cast<QKeyEvent*>(e.get())->key();
++			if (key == Qt::Key_Escape) {
++				Clear();
++			} else if (key == Qt::Key_Enter || key == Qt::Key_Return) {
++				clickAgain();
++			} else {
++				return base::EventFilterResult::Continue;
++			}
++			return base::EventFilterResult::Cancel;
++		});
++	_toast = Ui::Toast::Show(list->window(), Ui::Toast::Config{
++		.text = TextWithEntities{ Lower(u"Click again to send"_q) },
++		.duration = kToastDuration,
++	});
++	list->update();
++}
++
++bool Selection::matches(not_null<const QWidget*> list, const void *key) const {
++	return (_list.get() == list.get()) && (_key == key);
++}
++
++void Selection::finish() {
++	_timer.cancel();
++	if (const auto toast = _toast.get()) {
++		toast->hideAnimated();
++	}
++	_list->update();
++}
++
++void Selection::clickAgain() {
++	const auto list = QPointer<QWidget>(_list.get());
++	const auto local = list->mapFromGlobal(_globalPosition);
++	auto press = QMouseEvent(
++		QEvent::MouseButtonPress,
++		local,
++		_globalPosition,
++		Qt::LeftButton,
++		Qt::LeftButton,
++		Qt::NoModifier);
++	auto release = QMouseEvent(
++		QEvent::MouseButtonRelease,
++		local,
++		_globalPosition,
++		Qt::LeftButton,
++		Qt::NoButton,
++		Qt::NoModifier);
++	QCoreApplication::sendEvent(list.data(), &press);
++	if (list) {
++		QCoreApplication::sendEvent(list.data(), &release);
++	}
++}
++
++[[nodiscard]] bool Confirmed(not_null<QWidget*> list, const void *key) {
++	if (Current && Current->matches(list, key)) {
++		Clear();
++		return true;
++	}
++	Clear();
++	Current = new Selection(list, key);
++	return false;
++}
++
++[[nodiscard]] bool InMarkedPanel(not_null<QWidget*> list) {
++	for (auto w = list->parentWidget(); w; w = w->parentWidget()) {
++		if (w->property(kPanelProperty).toBool()) {
++			return true;
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] bool NeedsConfirmation(
++		const InlineBots::Layout::ItemBase *item,
++		const std::shared_ptr<ClickHandler> &handler) {
++	using InlineBots::Layout::SendClickHandler;
++	if (!item || !dynamic_cast<SendClickHandler*>(handler.get())) {
++		return false;
++	}
++	const auto document = item->getDocument()
++		? item->getDocument()
++		: item->getPreviewDocument();
++	if (!document) {
++		return false;
++	} else if (document->sticker()) {
++		return ConfirmStickers();
++	}
++	return (document->isGifv() || document->isAnimation()) && ConfirmGifs();
++}
++
++} // namespace
++
++void MarkConfirmSendPanel(not_null<QWidget*> panel) {
++	panel->setProperty(kPanelProperty, true);
++}
++
++bool PanelStickerClickConfirmed(
++		not_null<QWidget*> list,
++		not_null<DocumentData*> document) {
++	if (!ConfirmStickers() || !InMarkedPanel(list)) {
++		return true;
++	}
++	return Confirmed(list, document.get());
++}
++
++bool SuggestionClickConfirmed(
++		not_null<QWidget*> list,
++		not_null<DocumentData*> document) {
++	if (!ConfirmStickers()) {
++		return true;
++	}
++	return Confirmed(list, document.get());
++}
++
++bool PanelGifClickConfirmed(
++		not_null<QWidget*> list,
++		const InlineBots::Layout::ItemBase *item,
++		const std::shared_ptr<ClickHandler> &handler) {
++	if (!NeedsConfirmation(item, handler) || !InMarkedPanel(list)) {
++		return true;
++	}
++	return Confirmed(list, item);
++}
++
++bool InlineResultClickConfirmed(
++		not_null<QWidget*> list,
++		const InlineBots::Layout::ItemBase *item,
++		const std::shared_ptr<ClickHandler> &handler) {
++	if (!NeedsConfirmation(item, handler)) {
++		return true;
++	}
++	return Confirmed(list, item);
++}
++
++void PaintSendSelection(
++		QPainter &p,
++		not_null<const QWidget*> list,
++		const void *key,
++		QRect rect) {
++	if (!Current || !Current->matches(list, key)) {
++		return;
++	}
++	const auto line = st::lineWidth * 2;
++	auto fill = st::windowActiveTextFg->c;
++	fill.setAlphaF(0.15);
++	p.save();
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(QPen(st::windowActiveTextFg->c, line));
++	p.setBrush(fill);
++	const auto half = line / 2.;
++	p.drawRoundedRect(
++		QRectF(rect).marginsRemoved({ half, half, half, half }),
++		st::roundRadiusLarge,
++		st::roundRadiusLarge);
++	p.restore();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_confirm_send.h b/Telegram/SourceFiles/tele/tele_confirm_send.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..aa584e02b6841d29e396332a3575ce795cc18b83
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_confirm_send.h
+@@ -0,0 +1,35 @@
++#pragma once
++
++class ClickHandler;
++class DocumentData;
++
++namespace InlineBots::Layout {
++class ItemBase;
++} // namespace InlineBots::Layout
++
++namespace Tele {
++
++void MarkConfirmSendPanel(not_null<QWidget*> panel);
++
++[[nodiscard]] bool PanelStickerClickConfirmed(
++	not_null<QWidget*> list,
++	not_null<DocumentData*> document);
++[[nodiscard]] bool SuggestionClickConfirmed(
++	not_null<QWidget*> list,
++	not_null<DocumentData*> document);
++[[nodiscard]] bool PanelGifClickConfirmed(
++	not_null<QWidget*> list,
++	const InlineBots::Layout::ItemBase *item,
++	const std::shared_ptr<ClickHandler> &handler);
++[[nodiscard]] bool InlineResultClickConfirmed(
++	not_null<QWidget*> list,
++	const InlineBots::Layout::ItemBase *item,
++	const std::shared_ptr<ClickHandler> &handler);
++
++void PaintSendSelection(
++	QPainter &p,
++	not_null<const QWidget*> list,
++	const void *key,
++	QRect rect);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 3c24881712f320a32ca0e3af64f71a298a2fd8c6..695de6c46cb64b2a652465ebefc8127fa0e7f8ce 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -88,6 +88,10 @@ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+ const char kOptionSilentPerChat[] = "tele-silent-per-chat";
++const char kOptionConfirmSend[] = "tele-confirm-send";
++const char kOptionConfirmStickers[] = "tele-confirm-stickers";
++const char kOptionConfirmGifs[] = "tele-confirm-gifs";
++const char kOptionConfirmVoice[] = "tele-confirm-voice";
+ const char kOptionPunctualScheduled[] = "tele-punctual-scheduled";
+ const char kOptionHdPhotos[] = "tele-hd-photos";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+@@ -621,6 +625,29 @@ base::options::toggle SilentPerChatOption({
+ 	.description = "Adds \"Send silently\" to the chat menu.",
+ });
+ 
++base::options::toggle ConfirmSendOption({
++	.id = kOptionConfirmSend,
++	.name = "Confirm before sending",
++});
++
++base::options::toggle ConfirmStickersOption({
++	.id = kOptionConfirmStickers,
++	.name = "Stickers",
++	.description = "A second click on the same sticker sends it.",
++});
++
++base::options::toggle ConfirmGifsOption({
++	.id = kOptionConfirmGifs,
++	.name = "GIFs",
++	.description = "A second click on the same GIF sends it.",
++});
++
++base::options::toggle ConfirmVoiceOption({
++	.id = kOptionConfirmVoice,
++	.name = "Voice and video messages",
++	.description = "Recordings stop in the preview instead of sending.",
++});
++
+ base::options::toggle PunctualScheduledOption({
+ 	.id = kOptionPunctualScheduled,
+ 	.name = "Send scheduled messages on time",
+@@ -1399,6 +1426,18 @@ rpl::producer<> SilentPerChatChanges() {
+ 	return SilentPerChatOption.changes();
+ }
+ 
++bool ConfirmStickers() {
++	return ConfirmSendOption.value() && ConfirmStickersOption.value();
++}
++
++bool ConfirmGifs() {
++	return ConfirmSendOption.value() && ConfirmGifsOption.value();
++}
++
++bool ConfirmVoice() {
++	return ConfirmSendOption.value() && ConfirmVoiceOption.value();
++}
++
+ bool PunctualScheduled() {
+ 	return PunctualScheduledOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index c8ae6844ef4726c723d5f91ab2944605e6deaea2..8e2930a8c9c38a610e7808a72e3b29f841360e33 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -84,6 +84,10 @@ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+ extern const char kOptionSilentPerChat[];
++extern const char kOptionConfirmSend[];
++extern const char kOptionConfirmStickers[];
++extern const char kOptionConfirmGifs[];
++extern const char kOptionConfirmVoice[];
+ extern const char kOptionPunctualScheduled[];
+ extern const char kOptionHdPhotos[];
+ extern const char kOptionChatBackgrounds[];
+@@ -234,6 +238,9 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] rpl::producer<> SilentByDefaultChanges();
+ [[nodiscard]] bool SilentPerChat();
+ [[nodiscard]] rpl::producer<> SilentPerChatChanges();
++[[nodiscard]] bool ConfirmStickers();
++[[nodiscard]] bool ConfirmGifs();
++[[nodiscard]] bool ConfirmVoice();
+ [[nodiscard]] bool PunctualScheduled();
+ [[nodiscard]] bool HdPhotos();
+ [[nodiscard]] rpl::producer<> PunctualScheduledChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 4e019efe9a54d96111889ced2b5793341dc95d03..eae5813f3fdced9d39d6c9a55c8c2bfef24167fa 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -161,6 +161,10 @@ struct Spec {
+ 		Toggle(kOptionHideGiftButton),
+ 		Toggle(kOptionSilentByDefault),
+ 		Toggle(kOptionSilentPerChat),
++		Toggle(kOptionConfirmSend),
++		Toggle(kOptionConfirmStickers),
++		Toggle(kOptionConfirmGifs),
++		Toggle(kOptionConfirmVoice),
+ 		Toggle(kOptionPunctualScheduled),
+ 		Toggle(kOptionHdPhotos),
+ 		Toggle(kOptionDockedAttachments),

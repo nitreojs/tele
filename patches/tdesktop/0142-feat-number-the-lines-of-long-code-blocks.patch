@@ -1,0 +1,724 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 03:34:21 +0300
+Subject: [PATCH] feat: number the lines of long code blocks
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../history/view/history_view_element.cpp     |   8 +-
+ .../history/view/history_view_message.cpp     |   8 +
+ .../iv_markdown_article_layout_blocks.cpp     |   7 +-
+ .../iv_markdown_article_layout_structure.cpp  |   7 +-
+ .../iv/markdown/iv_markdown_article_paint.cpp |   7 +
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ Telegram/SourceFiles/tele/tele_code_lines.cpp | 396 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_code_lines.h   |  46 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  14 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 12 files changed, 498 insertions(+), 5 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_code_lines.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_code_lines.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index fcffcdb3b4aa30037be437a7340782b3d0a38cb0..b9d5fee71942937ea5ef85e7d0a619a17f2909dc 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2249,6 +2249,8 @@ PRIVATE
+     tele/tele_changelog_section.h
+     tele/tele_chat_backgrounds.cpp
+     tele/tele_chat_backgrounds.h
++    tele/tele_code_lines.cpp
++    tele/tele_code_lines.h
+     tele/tele_collectible_price.cpp
+     tele/tele_collectible_price.h
+     tele/tele_confirm_send.cpp
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index 31f91283ead1ba00b74030d555becd0f571204a4..6670f3ea2739499faf36267bc222e8a744fb74d3 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_message_reactions.h"
+ #include "data/data_user.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_code_lines.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_options.h"
+@@ -2070,6 +2071,7 @@ void Element::validateText() {
+ 		}
+ 		ClickHandler::clearActive(this);
+ 		runtime->article.setContent(std::move(prepared.content));
++		Tele::TrackRichCodeLines(this);
+ 		runtime->hasUnsupportedBlocks
+ 			= runtime->article.hasUnsupportedNotices();
+ 		if (!runtime->hasUnsupportedBlocks) {
+@@ -2201,7 +2203,11 @@ void Element::setTextWithLinks(
+ 		const auto item = data();
+ 		const auto &options = Ui::ItemTextOptions(item);
+ 		clearSpecialOnlyEmoji();
+-		_text.setMarkedText(st::messageTextStyle, text, options, context);
++		_text.setMarkedText(
++			Tele::CodeLinesTextStyle(this, text),
++			text,
++			options,
++			context);
+ 		if (!item->_text.empty() && _text.isEmpty()){
+ 			// If server has allowed some text that we've trim-ed entirely,
+ 			// just replace it with something so that UI won't look buggy.
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index 9b74cc9ca4b4b99eeb0e698ee5671a6ef506ce19..5f4e20d9bccdfe1958e737e0fa528d6b8e362c7f 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "api/api_rich_tasks.h"
+ #include "tele/tele_bubble_badges.h"
++#include "tele/tele_code_lines.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_ignored.h"
+@@ -3146,6 +3147,13 @@ void Message::paintText(
+ 		.useFullWidth = true,
+ 		.linePostprocess = linePostprocess ? &*linePostprocess : nullptr,
+ 	});
++	Tele::PaintCodeLineNumbers(
++		p,
++		this,
++		text(),
++		trect.topLeft(),
++		std::max(textRealWidth(), trect.width()),
++		stm->textPalette.monoFg->c);
+ 	if (needRippleMask && !ripplePath.isEmpty()) {
+ 		createLinkRippleMask(
+ 			ripplePath,
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp
+index 372ef0f8c5a8610e69462ad147bedb17751d9447..f634f82f3002f8e74ff4557cd32a1cf180d76049 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp
+@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "spellcheck/spellcheck_highlight_syntax.h"
+ 
+ #include "lang/lang_keys.h"
++#include "tele/tele_code_lines.h"
+ 
+ #include "styles/style_chat.h"
+ #include "styles/style_iv.h"
+@@ -2117,7 +2118,8 @@ int CodeBlockPreferredWidth(
+ 		const PreparedBlock &prepared,
+ 		const style::Markdown &st,
+ 		LayoutContext context) {
+-	const auto padding = BlockquotePadding(st.code.pre);
++	const auto padding = BlockquotePadding(st.code.pre)
++		+ Tele::RichCodeLinesPadding(prepared.text.text, st.code);
+ 	const auto usePlaceholder = prepared.text.text.isEmpty()
+ 		&& !prepared.editPlaceholderText.isEmpty();
+ 	if (usePlaceholder) {
+@@ -4087,7 +4089,8 @@ LaidOutBlock LayoutGroupedMediaBlock(
+ 	}
+ 	ClearBlockGeometry(block);
+ 	const auto &pre = st.code.pre;
+-	const auto padding = BlockquotePadding(pre);
++	const auto padding = BlockquotePadding(pre)
++		+ Tele::RichCodeLinesPadding(prepared.text.text, st.code);
+ 	const auto outerWidth = std::max(
+ 		width,
+ 		padding.left() + padding.right() + 1);
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp
+index 6145b210b203718a1a6562536e2dff12cd67d617..8b641e3b8feeaecfd13c7841b10efc5e19ca1ed5 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp
+@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ 
+ #include "lang/lang_keys.h"
+ #include "ui/text/text_renderer.h" // Ui::Text::kQuoteCollapsedLines
++#include "tele/tele_code_lines.h"
+ 
+ #include "styles/style_iv.h"
+ 
+@@ -836,7 +837,8 @@ void FinalizeOwnerSelection(
+ 		analysis.ownerEligible = !IsAnchorOnlyBlock(prepared);
+ 		break;
+ 	case PreparedBlockKind::CodeBlock: {
+-		const auto padding = BlockquotePadding(st.code.pre);
++		const auto padding = BlockquotePadding(st.code.pre)
++			+ Tele::RichCodeLinesPadding(prepared.text.text, st.code);
+ 		visibleScrollViewportWidth = availableWidth
+ 			- HorizontalMarginsWidth(padding);
+ 		analysis.contentMinimumWidth = CodeBlockMinimumWidth(st);
+@@ -1473,7 +1475,8 @@ void FinalizeOwnerSelection(
+ 		analysis.ownerEligible = !IsAnchorOnlyBlock(prepared);
+ 	} break;
+ 	case PreparedBlockKind::CodeBlock: {
+-		const auto padding = BlockquotePadding(st.code.pre);
++		const auto padding = BlockquotePadding(st.code.pre)
++			+ Tele::RichCodeLinesPadding(block.codeText.text, st.code);
+ 		visibleScrollViewportWidth = availableWidth
+ 			- HorizontalMarginsWidth(padding);
+ 		analysis.contentMinimumWidth = CodeBlockMinimumWidth(st);
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
+index f413a1bf4b8ab9ac068d4f273ee611014b643ef1..ea9c6d86a70d6d26990154d8069ec525af71bd8b 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
+@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/integration.h"
+ #include "ui/style/style_core_scale.h"
+ #include "ui/widgets/checkbox.h"
++#include "tele/tele_code_lines.h"
+ 
+ #include "styles/palette.h"
+ #include "styles/style_chat.h"
+@@ -2130,6 +2131,12 @@ void PaintCodeBlock(
+ 			selection);
+ 	}
+ 	p.restore();
++	Tele::PaintRichCodeLineNumbers(
++		p,
++		block,
++		st,
++		clip,
++		p.textPalette().monoFg->c);
+ 	PaintHorizontalOverflowIndicators(
+ 		p,
+ 		block,
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d61a0da1741379e2526abe81c1b2520ea86a3a55..8349107aeb22da65e1b10139cbb444db81176a64 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1983,6 +1983,10 @@ void FillChats(SectionBuilder &builder) {
+ 		{ u"reply"_q, u"quote"_q, u"deleted"_q },
+ 		::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCodeLineNumbers,
++		{ u"pre"_q, u"monospace"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyProtected);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Bookmarks"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_code_lines.cpp b/Telegram/SourceFiles/tele/tele_code_lines.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b7592d3f030cd4702e8c09b24c8978898c161dda
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_code_lines.cpp
+@@ -0,0 +1,396 @@
++#include "tele/tele_code_lines.h"
++
++#include "base/weak_ptr.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/view/history_view_element.h"
++#include "iv/markdown/iv_markdown_article_layout_blocks.h"
++#include "tele/tele_options.h"
++#include "ui/text/text.h"
++#include "ui/text/text_entity.h"
++#include "styles/style_basic.h"
++#include "styles/style_chat.h"
++#include "styles/style_iv.h"
++
++#include <map>
++#include <unordered_map>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMinLines = 5;
++constexpr auto kCompactThreshold = 256;
++constexpr auto kOpacity = 0.4;
++
++struct Number {
++	int right = 0;
++	int baseline = 0;
++	int value = 0;
++};
++
++struct Entry {
++	base::weak_ptr<HistoryView::Element> weak;
++	const style::TextStyle *style = nullptr;
++	int width = -1;
++	std::vector<Number> numbers;
++};
++
++struct RichNumber {
++	int baseline = 0;
++	int value = 0;
++};
++
++struct RichEntry {
++	QString code;
++	int width = -1;
++	std::vector<RichNumber> numbers;
++};
++
++struct State {
++	State();
++
++	std::unordered_map<const HistoryView::Element*, Entry> views;
++	std::unordered_map<
++		const HistoryView::Element*,
++		base::weak_ptr<HistoryView::Element>> richViews;
++	std::unordered_map<const Ui::Text::String*, RichEntry> richNumbers;
++	std::map<int, style::TextStyle> styles;
++	size_t compactAt = kCompactThreshold;
++	rpl::lifetime lifetime;
++};
++
++State &Get() {
++	static State state;
++	return state;
++}
++
++void RefreshAll(State &state) {
++	auto items = base::flat_set<not_null<HistoryItem*>>();
++	for (const auto &[key, entry] : state.views) {
++		if (const auto view = entry.weak.get()) {
++			items.emplace(view->data());
++		}
++	}
++	for (const auto &[key, weak] : state.richViews) {
++		if (const auto view = weak.get()) {
++			items.emplace(view->data());
++		}
++	}
++	for (const auto &item : items) {
++		item->history()->owner().requestItemViewRefresh(item);
++	}
++}
++
++State::State() {
++	CodeLineNumbersChanges(
++	) | rpl::on_next([] {
++		RefreshAll(Get());
++	}, lifetime);
++}
++
++void Compact(State &state) {
++	if (state.views.size() + state.richViews.size() < state.compactAt) {
++		return;
++	}
++	std::erase_if(state.views, [](const auto &pair) {
++		return !pair.second.weak.get();
++	});
++	std::erase_if(state.richViews, [](const auto &pair) {
++		return !pair.second.get();
++	});
++	state.compactAt = std::max(
++		size_t(kCompactThreshold),
++		(state.views.size() + state.richViews.size()) * 2);
++}
++
++[[nodiscard]] int CountLines(QStringView code) {
++	while (!code.isEmpty() && code.front() == QChar::LineFeed) {
++		code = code.mid(1);
++	}
++	while (!code.isEmpty() && code.back() == QChar::LineFeed) {
++		code.chop(1);
++	}
++	return code.isEmpty() ? 0 : int(code.count(QChar::LineFeed)) + 1;
++}
++
++[[nodiscard]] int LongestCodeBlock(const TextWithEntities &text) {
++	auto result = 0;
++	for (const auto &entity : text.entities) {
++		if (entity.type() != EntityType::Pre) {
++			continue;
++		}
++		const auto lines = CountLines(QStringView(text.text).mid(
++			entity.offset(),
++			entity.length()));
++		if (lines >= kMinLines) {
++			result = std::max(result, lines);
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] int GutterGap() {
++	return style::ConvertScale(8);
++}
++
++[[nodiscard]] const style::TextStyle &StyleFor(int digits) {
++	auto &styles = Get().styles;
++	const auto [i, inserted] = styles.try_emplace(
++		digits,
++		st::messageTextStyle);
++	if (inserted) {
++		const auto font = st::messageTextStyle.font->monospace();
++		auto &padding = i->second.pre.padding;
++		padding.setLeft(padding.left()
++			+ font->width(QString(digits, QChar('0')))
++			+ GutterGap());
++	}
++	return i->second;
++}
++
++[[nodiscard]] std::vector<Number> CollectNumbers(
++		const Ui::Text::String &text,
++		int width) {
++	const auto full = text.toTextWithEntities();
++	const auto &pre = text.style()->pre;
++	const auto codeLeft = pre.padding.left();
++	const auto closingShift = pre.padding.bottom() + pre.verticalSkip;
++	const auto gap = GutterGap();
++	auto request = Ui::Text::StateRequest();
++	request.flags = Ui::Text::StateRequest::Flag::LookupSymbol;
++
++	const auto lines = text.countLinesGeometry(width);
++	const auto count = int(lines.size());
++	auto symbols = std::vector<int>(count, -1);
++	auto blocks = std::vector<int>(count, -1);
++	for (auto k = 0; k != count; ++k) {
++		if (lines[k].left != codeLeft) {
++			continue;
++		}
++		const auto symbol = text.getState(
++			QPoint(0, lines[k].baseline - closingShift),
++			width,
++			request).symbol;
++		symbols[k] = symbol;
++		const auto i = ranges::find_if(full.entities, [&](
++				const EntityInText &entity) {
++			return (entity.type() == EntityType::Pre)
++				&& (symbol >= entity.offset())
++				&& (symbol < entity.offset() + entity.length());
++		});
++		if (i != full.entities.end()) {
++			blocks[k] = int(i - full.entities.begin());
++		}
++	}
++
++	auto result = std::vector<Number>();
++	auto current = -1;
++	auto counter = 0;
++	auto blockStart = size_t(0);
++	const auto finish = [&] {
++		if (current >= 0 && counter < kMinLines) {
++			result.erase(result.begin() + blockStart, result.end());
++		}
++	};
++	for (auto k = 0; k != count; ++k) {
++		const auto block = blocks[k];
++		if (block < 0) {
++			continue;
++		}
++		if (block != current) {
++			finish();
++			current = block;
++			counter = 0;
++			blockStart = result.size();
++		}
++		const auto &entity = full.entities[block];
++		const auto symbol = symbols[k];
++		const auto starts = (symbol == entity.offset())
++			|| (symbol > 0
++				&& symbol <= full.text.size()
++				&& full.text[symbol - 1] == QChar::LineFeed);
++		if (!starts) {
++			continue;
++		}
++		const auto next = k + 1;
++		const auto closes = (next < count)
++			&& (symbols[next] < entity.offset()
++				|| symbols[next] > entity.offset() + entity.length());
++		result.push_back({
++			.right = lines[k].left - gap,
++			.baseline = lines[k].baseline - (closes ? closingShift : 0),
++			.value = ++counter,
++		});
++	}
++	finish();
++	return result;
++}
++
++[[nodiscard]] std::vector<RichNumber> CollectRichNumbers(
++		const Ui::Text::String &leaf,
++		int width) {
++	const auto text = leaf.toString();
++	auto request = Ui::Text::StateRequest();
++	request.flags = Ui::Text::StateRequest::Flag::LookupSymbol;
++
++	auto result = std::vector<RichNumber>();
++	auto counter = 0;
++	for (const auto &line : leaf.countLinesGeometry(width)) {
++		const auto symbol = leaf.getState(
++			QPoint(0, line.baseline),
++			width,
++			request).symbol;
++		const auto starts = (symbol <= 0)
++			|| (symbol <= text.size()
++				&& Ui::Text::IsNewline(text[symbol - 1]));
++		if (starts) {
++			result.push_back({
++				.baseline = line.baseline,
++				.value = ++counter,
++			});
++		}
++	}
++	return result;
++}
++
++} // namespace
++
++const style::TextStyle &CodeLinesTextStyle(
++		not_null<HistoryView::Element*> view,
++		const TextWithEntities &text) {
++	auto &state = Get();
++	const auto lines = LongestCodeBlock(text);
++	if (!lines) {
++		state.views.erase(view.get());
++		return st::messageTextStyle;
++	}
++	auto &entry = state.views[view.get()];
++	entry.weak = base::make_weak(view.get());
++	entry.width = -1;
++	entry.numbers.clear();
++	entry.style = CodeLineNumbers()
++		? &StyleFor(int(QString::number(lines).size()))
++		: nullptr;
++	const auto result = entry.style;
++	Compact(state);
++	return result ? *result : st::messageTextStyle;
++}
++
++void PaintCodeLineNumbers(
++		QPainter &p,
++		not_null<const HistoryView::Element*> view,
++		const Ui::Text::String &text,
++		QPoint position,
++		int width,
++		const QColor &color) {
++	auto &state = Get();
++	const auto i = state.views.find(view.get());
++	if (i == end(state.views)) {
++		return;
++	}
++	auto &entry = i->second;
++	if (!entry.style || text.style() != entry.style) {
++		return;
++	}
++	if (entry.width != width) {
++		entry.width = width;
++		entry.numbers = CollectNumbers(text, width);
++	}
++	if (entry.numbers.empty()) {
++		return;
++	}
++	const auto font = entry.style->font->monospace();
++	p.save();
++	p.setFont(font);
++	p.setPen(color);
++	p.setOpacity(p.opacity() * kOpacity);
++	for (const auto &number : entry.numbers) {
++		const auto label = QString::number(number.value);
++		p.drawText(
++			position.x() + number.right - font->width(label),
++			position.y() + number.baseline,
++			label);
++	}
++	p.restore();
++}
++
++QMargins RichCodeLinesPadding(
++		const QString &code,
++		const style::TextStyle &st) {
++	if (!CodeLineNumbers() || CountLines(code) < kMinLines) {
++		return QMargins();
++	}
++	const auto lines = int(ranges::count_if(code, Ui::Text::IsNewline)) + 1;
++	const auto digits = int(QString::number(lines).size());
++	const auto font = st.font->monospace();
++	return QMargins(
++		font->width(QString(digits, QChar('0'))) + GutterGap(),
++		0,
++		0,
++		0);
++}
++
++void TrackRichCodeLines(not_null<HistoryView::Element*> view) {
++	auto &state = Get();
++	state.richViews[view.get()] = base::make_weak(view.get());
++	Compact(state);
++}
++
++void PaintRichCodeLineNumbers(
++		QPainter &p,
++		const Iv::Markdown::LaidOutBlock &block,
++		const style::Markdown &st,
++		QRect clip,
++		const QColor &color) {
++	const auto &logical = block.logicalGeometry;
++	const auto gutter = logical.contentRect.x()
++		- logical.outer.x()
++		- Iv::Markdown::BlockquotePadding(st.code.pre).left();
++	if (gutter <= 0
++		|| clip.isEmpty()
++		|| block.leaf.isEmpty()
++		|| !CodeLineNumbers()) {
++		return;
++	}
++	auto &cache = Get().richNumbers;
++	auto i = cache.find(&block.leaf);
++	if (i == end(cache)) {
++		if (cache.size() >= kCompactThreshold) {
++			cache.clear();
++		}
++		i = cache.emplace(&block.leaf, RichEntry()).first;
++	}
++	auto &entry = i->second;
++	if (entry.width != block.textWidth || entry.code != block.codeText.text) {
++		entry.width = block.textWidth;
++		entry.code = block.codeText.text;
++		entry.numbers = CollectRichNumbers(block.leaf, block.textWidth);
++	}
++	if (entry.numbers.empty()) {
++		return;
++	}
++	const auto font = st.code.font->monospace();
++	const auto right = block.textRect.x()
++		+ block.horizontalScrollLeft
++		- GutterGap();
++	const auto top = block.textRect.y();
++	p.save();
++	p.setClipRect(clip);
++	p.setFont(font);
++	p.setPen(color);
++	p.setOpacity(p.opacity() * kOpacity);
++	for (const auto &number : entry.numbers) {
++		const auto baseline = top + number.baseline;
++		if (baseline + font->descent <= clip.y()) {
++			continue;
++		} else if (baseline - font->ascent >= clip.y() + clip.height()) {
++			break;
++		}
++		const auto label = QString::number(number.value);
++		p.drawText(right - font->width(label), baseline, label);
++	}
++	p.restore();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_code_lines.h b/Telegram/SourceFiles/tele/tele_code_lines.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..0e4ac6c90fc08dc519c23cb7cfc457b3b206a71e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_code_lines.h
+@@ -0,0 +1,46 @@
++#pragma once
++
++struct TextWithEntities;
++
++namespace HistoryView {
++class Element;
++} // namespace HistoryView
++
++namespace Iv::Markdown {
++struct LaidOutBlock;
++} // namespace Iv::Markdown
++
++namespace style {
++struct Markdown;
++struct TextStyle;
++} // namespace style
++
++namespace Ui::Text {
++class String;
++} // namespace Ui::Text
++
++namespace Tele {
++
++[[nodiscard]] const style::TextStyle &CodeLinesTextStyle(
++	not_null<HistoryView::Element*> view,
++	const TextWithEntities &text);
++void PaintCodeLineNumbers(
++	QPainter &p,
++	not_null<const HistoryView::Element*> view,
++	const Ui::Text::String &text,
++	QPoint position,
++	int width,
++	const QColor &color);
++
++[[nodiscard]] QMargins RichCodeLinesPadding(
++	const QString &code,
++	const style::TextStyle &st);
++void TrackRichCodeLines(not_null<HistoryView::Element*> view);
++void PaintRichCodeLineNumbers(
++	QPainter &p,
++	const Iv::Markdown::LaidOutBlock &block,
++	const style::Markdown &st,
++	QRect clip,
++	const QColor &color);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 754c9ece37e87225a6290956794d37c52f1157e9..bea3186f0edb7b00be13a65e68972b4cdeeadbed 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -67,6 +67,7 @@ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+ const char kOptionDeletedIcon[] = "tele-deleted-icon";
+ const char kOptionDeletedReply[] = "tele-deleted-reply";
+ const char kOptionRevealSpoilers[] = "tele-reveal-spoilers";
++const char kOptionCodeLineNumbers[] = "tele-code-line-numbers";
+ const char kOptionCopyProtected[] = "tele-copy-protected";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+@@ -507,6 +508,11 @@ base::options::toggle RevealSpoilersOption({
+ 	.name = "Reveal spoilers automatically",
+ });
+ 
++base::options::toggle CodeLineNumbersOption({
++	.id = kOptionCodeLineNumbers,
++	.name = "Line numbers in code blocks",
++});
++
+ base::options::toggle CopyProtectedOption({
+ 	.id = kOptionCopyProtected,
+ 	.name = "Forward protected messages as copies",
+@@ -1347,6 +1353,14 @@ rpl::producer<> RevealSpoilersChanges() {
+ 	return RevealSpoilersOption.changes();
+ }
+ 
++bool CodeLineNumbers() {
++	return CodeLineNumbersOption.value();
++}
++
++rpl::producer<> CodeLineNumbersChanges() {
++	return CodeLineNumbersOption.changes();
++}
++
+ bool CopyProtected() {
+ 	return CopyProtectedOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 96bc78be6dc0adf311b63263e3f149440d6fa727..5c3b07fbefd6ef705b673af62e50b200ff6ecb60 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -63,6 +63,7 @@ extern const char kOptionKeepDeleted[];
+ extern const char kOptionDeletedIcon[];
+ extern const char kOptionDeletedReply[];
+ extern const char kOptionRevealSpoilers[];
++extern const char kOptionCodeLineNumbers[];
+ extern const char kOptionCopyProtected[];
+ extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionScreenshotSecretMedia[];
+@@ -216,6 +217,8 @@ void SetDeletedReply(const QString &value);
+ [[nodiscard]] rpl::producer<QString> DeletedReplyValue();
+ [[nodiscard]] bool RevealSpoilers();
+ [[nodiscard]] rpl::producer<> RevealSpoilersChanges();
++[[nodiscard]] bool CodeLineNumbers();
++[[nodiscard]] rpl::producer<> CodeLineNumbersChanges();
+ [[nodiscard]] bool CopyProtected();
+ [[nodiscard]] bool KeepSecretMedia();
+ [[nodiscard]] bool ScreenshotSecretMedia();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 5b501542fb624af68726bae55adc9316be459214..a3d21251536020d3f1bc2ae67acc3d9928efe06f 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -143,6 +143,7 @@ struct Spec {
+ 		Toggle(kOptionKeepDeleted),
+ 		Toggle(kOptionDeletedIcon),
+ 		Toggle(kOptionRevealSpoilers),
++		Toggle(kOptionCodeLineNumbers),
+ 		Toggle(kOptionCopyProtected),
+ 		Toggle(kOptionBookmarks),
+ 		Toggle(kOptionReturnPoint),

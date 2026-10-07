@@ -306,7 +306,7 @@ index 0000000000000000000000000000000000000000..2ef453e1e7f91e889d7e1899f8a12ac8
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index ac179dcc5e41fdf61deda28d84b4235693e4ce2d..97020eddedbe0715ba0d17a0f4aea7269d063549 100644
+index e5468c25b9ac16e91c59790f5ef48dd09d13a29f..a96110cdd4dc5db2fc16931d3a1e154396b0c9bb 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -16,6 +16,8 @@ const char kOptionGhostStories[] = "tele-ghost-stories";
@@ -340,7 +340,7 @@ index ac179dcc5e41fdf61deda28d84b4235693e4ce2d..97020eddedbe0715ba0d17a0f4aea726
  base::options::toggle GroupQuickRepliesOption({
  	.id = kOptionGroupQuickReplies,
  	.name = "Quick replies in groups and channels",
-@@ -443,6 +460,18 @@ rpl::producer<bool> AutoUpdateValue() {
+@@ -442,6 +459,18 @@ rpl::producer<bool> AutoUpdateValue() {
  	});
  }
  

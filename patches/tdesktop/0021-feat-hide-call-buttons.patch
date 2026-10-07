@@ -105,7 +105,7 @@ index 038494773a727251030814dfa4713ce30c90f754..056e97d9adf2b3f361b82a1b4ed57b8e
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index b023ce2d13d1699fa4bb409ae41b3bd47538e98f..19bcb8cfdd244247d11bf65fdc288e7565e5739b 100644
+index 2cacce9fd80aa5996866375a8d732e509ef83ccf..f109679ecd0219652b65ff7e7ac783fc4ee5a1c8 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -10,6 +10,7 @@ const char kOptionButtonPayloads[] = "tele-button-payloads";
@@ -130,7 +130,7 @@ index b023ce2d13d1699fa4bb409ae41b3bd47538e98f..19bcb8cfdd244247d11bf65fdc288e75
  base::options::toggle BubbleBadgesOption({
  	.id = kOptionBubbleBadges,
  	.name = "Badges next to names in messages",
-@@ -188,6 +196,14 @@ bool GroupQuickReplies() {
+@@ -187,6 +195,14 @@ bool GroupQuickReplies() {
  	return GroupQuickRepliesOption.value();
  }
  

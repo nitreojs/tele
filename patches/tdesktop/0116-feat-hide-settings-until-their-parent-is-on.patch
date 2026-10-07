@@ -1,0 +1,663 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 21:26:18 +0300
+Subject: [PATCH] feat: hide settings until their parent is on
+
+---
+ .../SourceFiles/settings/settings_tele.cpp    | 498 ++++++++++++++----
+ Telegram/SourceFiles/tele/tele_options.cpp    |   2 -
+ 2 files changed, 386 insertions(+), 114 deletions(-)
+
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c25c28967a5a43a880e754a504a7bf6a6690180d..27a6f57de65d56b8302249a1e8de2bc750993e40 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -249,6 +249,190 @@ void AddSkip(SectionBuilder &builder) {
+ 	}
+ }
+ 
++using OptionValue = Fn<rpl::producer<bool>(not_null<::Main::Session*>)>;
++
++struct Requirement {
++	Requirement(const char *id) : id(id) {
++	}
++	Requirement(const char *id, OptionValue value)
++	: id(id)
++	, value(std::move(value)) {
++	}
++
++	const char *id = nullptr;
++	bool off = false;
++	OptionValue value;
++};
++
++[[nodiscard]] Requirement Off(const char id[]) {
++	auto result = Requirement(id);
++	result.off = true;
++	return result;
++}
++
++struct Parent {
++	Parent() = default;
++	Parent(const char *id) {
++		if (id) {
++			list.emplace_back(id);
++		}
++	}
++	Parent(std::initializer_list<Requirement> requirements)
++	: list(requirements) {
++	}
++
++	std::vector<Requirement> list;
++};
++
++[[nodiscard]] base::flat_map<QString, Parent> &Parents() {
++	static auto result = base::flat_map<QString, Parent>();
++	return result;
++}
++
++[[nodiscard]] bool Current(rpl::producer<bool> value) {
++	auto result = false;
++	auto lifetime = rpl::lifetime();
++	std::move(value).start(
++		[&](bool now) { result = now; },
++		[](auto&&) {},
++		[] {},
++		lifetime);
++	return result;
++}
++
++[[nodiscard]] rpl::producer<bool> OptionOnValue(const char id[]) {
++	const auto option = &base::options::details::Lookup(id);
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		option->changes()
++	) | rpl::map([=] {
++		return v::match(option->value(), [](bool value) {
++			return value;
++		}, [](int value) {
++			return (value != 0);
++		}, [](const QString &value) {
++			return !value.isEmpty();
++		});
++	});
++}
++
++[[nodiscard]] rpl::producer<bool> RequirementValue(
++		not_null<::Main::Session*> session,
++		const Requirement &requirement) {
++	auto value = requirement.value
++		? requirement.value(session)
++		: OptionOnValue(requirement.id);
++	return std::move(value) | rpl::map([off = requirement.off](bool on) {
++		return (on != off);
++	});
++}
++
++[[nodiscard]] rpl::producer<bool> ShownValue(
++		not_null<::Main::Session*> session,
++		const QString &id) {
++	const auto i = Parents().find(id);
++	if (i == end(Parents())) {
++		return rpl::single(true);
++	}
++	auto list = std::vector<rpl::producer<bool>>();
++	for (const auto &requirement : i->second.list) {
++		list.push_back(RequirementValue(session, requirement));
++		list.push_back(ShownValue(
++			session,
++			QString::fromLatin1(requirement.id)));
++	}
++	return rpl::combine(
++		std::move(list)
++	) | rpl::map([](const std::vector<bool> &values) {
++		return ranges::all_of(values, [](bool value) { return value; });
++	}) | rpl::distinct_until_changed();
++}
++
++[[nodiscard]] const Requirement *HiddenBy(
++		not_null<::Main::Session*> session,
++		const QString &id) {
++	const auto i = Parents().find(id);
++	if (i == end(Parents())) {
++		return nullptr;
++	}
++	for (const auto &requirement : i->second.list) {
++		const auto parent = QString::fromLatin1(requirement.id);
++		if (const auto above = HiddenBy(session, parent)) {
++			return above;
++		} else if (!Current(RequirementValue(session, requirement))) {
++			return &requirement;
++		}
++	}
++	return nullptr;
++}
++
++void AddAncestors(base::flat_set<QString> &ids, const QString &id) {
++	const auto i = Parents().find(id);
++	if (i == end(Parents())) {
++		return;
++	}
++	for (const auto &requirement : i->second.list) {
++		const auto parent = QString::fromLatin1(requirement.id);
++		if (ids.emplace(parent).second) {
++			AddAncestors(ids, parent);
++		}
++	}
++}
++
++void RedirectHighlight(
++		not_null<Window::SessionController*> controller,
++		const QString &id,
++		const QString &name) {
++	if (controller->highlightControlId() != id) {
++		return;
++	}
++	const auto requirement = HiddenBy(&controller->session(), id);
++	if (!requirement) {
++		return;
++	}
++	const auto &option = base::options::details::Lookup(requirement->id);
++	controller->setHighlightControlId(option.id());
++	controller->showToast(::Tele::Lower((requirement->off
++		? u"Turn off \"%1\" to see \"%2\"."_q
++		: u"Turn on \"%1\" to see \"%2\"."_q).arg(option.name(), name)));
++}
++
++void WithParent(
++		SectionBuilder &builder,
++		const QString &id,
++		const QString &name,
++		Parent parent,
++		FnMut<void()> add,
++		const QString &owner = QString()) {
++	if (parent.list.empty()) {
++		add();
++		return;
++	}
++	Parents()[id] = std::move(parent);
++	if (!Shown(owner.isEmpty() ? id : owner)) {
++		return;
++	}
++	if (const auto controller = builder.controller()) {
++		RedirectHighlight(controller, id, name);
++	}
++	builder.scope(std::move(add), ShownValue(builder.session(), id));
++}
++
++[[nodiscard]] Requirement GhostSwitches() {
++	return Requirement(::Tele::kOptionGhost, [](
++			not_null<::Main::Session*> session) {
++		return rpl::combine(
++			::Tele::GhostValue(),
++			::Tele::GhostChatsCountValue(
++				session,
++				::Tele::GhostOverride::Always)
++		) | rpl::map([](bool ghost, int always) {
++			return ghost || (always > 0);
++		});
++	});
++}
++
+ struct OptionRow {
+ 	object_ptr<Ui::RpWidget> widget;
+ 	not_null<Button*> button;
+@@ -294,11 +478,10 @@ struct OptionRow {
+ 	return { std::move(result), button };
+ }
+ 
+-void AddOptionToggle(
++void AddOptionToggleRow(
+ 		SectionBuilder &builder,
+-		const char id[],
+-		QStringList keywords = {}) {
+-	auto &option = base::options::lookup<bool>(id);
++		base::options::toggle &option,
++		QStringList keywords) {
+ 	if (!Shown(option.id())) {
+ 		return;
+ 	}
+@@ -345,6 +528,18 @@ void AddOptionToggle(
+ 	});
+ }
+ 
++void AddOptionToggle(
++		SectionBuilder &builder,
++		const char id[],
++		QStringList keywords = {},
++		Parent parent = {}) {
++	auto &option = base::options::lookup<bool>(id);
++	const auto name = ::Tele::Lower(option.name());
++	WithParent(builder, option.id(), name, std::move(parent), [&] {
++		AddOptionToggleRow(builder, option, std::move(keywords));
++	});
++}
++
+ void AddAbout(
+ 		SectionBuilder &builder,
+ 		const QString &owner,
+@@ -527,20 +722,25 @@ void AddServer(SectionBuilder &builder) {
+ 	if (server) {
+ 		SetupLink(server, option.id());
+ 	}
+-	const auto refresh = AddButton(builder, {
+-		.id = u"tele-refresh-badges"_q,
+-		.title = rpl::single(::Tele::Lower(u"Refresh now"_q)),
+-		.st = &st::settingsButtonNoIcon,
+-		.onClick = [=] {
+-			::Tele::RefreshBadges(crl::guard(controller, [=](QString text) {
+-				controller->showToast(text);
+-			}));
+-		},
+-		.keywords = { u"verification"_q, u"checkmarks"_q, u"badges"_q },
++	const auto refreshId = u"tele-refresh-badges"_q;
++	const auto refreshTitle = ::Tele::Lower(u"Refresh now"_q);
++	WithParent(builder, refreshId, refreshTitle, ::Tele::kOptionServerUrl, [&] {
++		const auto refresh = AddButton(builder, {
++			.id = refreshId,
++			.title = rpl::single(refreshTitle),
++			.st = &st::settingsButtonNoIcon,
++			.onClick = [=] {
++				::Tele::RefreshBadges(crl::guard(controller, [=](
++						QString text) {
++					controller->showToast(text);
++				}));
++			},
++			.keywords = { u"verification"_q, u"checkmarks"_q, u"badges"_q },
++		}, option.id());
++		if (refresh) {
++			SetupLink(refresh, refreshId);
++		}
+ 	}, option.id());
+-	if (refresh) {
+-		SetupLink(refresh, u"tele-refresh-badges"_q);
+-	}
+ 	const auto clear = AddButton(builder, {
+ 		.id = u"tele-clear-badges"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Clear cached data"_q)),
+@@ -655,7 +855,8 @@ void AddButtonChoice(
+ 		void (*set)(const QString&),
+ 		rpl::producer<QString> (*value)(),
+ 		std::vector<ButtonChoice> choices,
+-		QStringList keywords) {
++		QStringList keywords,
++		Parent parent = {}) {
+ 	const auto &option = base::options::lookup<QString>(id);
+ 	const auto controller = builder.controller();
+ 	const auto name = ::Tele::Lower(option.name());
+@@ -671,35 +872,39 @@ void AddButtonChoice(
+ 			? choice.label
+ 			: choice.option));
+ 	}
+-	const auto button = AddButton(builder, {
+-		.id = option.id(),
+-		.title = rpl::single(name),
+-		.st = &st::settingsButtonNoIcon,
+-		.label = value() | rpl::map([=](const QString &now) {
+-			const auto i = ranges::find(values, now);
+-			return labels[(i != end(values)) ? int(i - begin(values)) : 0];
+-		}),
+-		.onClick = [=] {
+-			controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+-				const auto current = ranges::find(values, get());
+-				SingleChoiceBox(box, {
+-					.title = rpl::single(name),
+-					.options = options,
+-					.initialSelection = (current != end(values))
+-						? int(current - begin(values))
+-						: 0,
+-					.callback = [=](int index) {
+-						set(values[index]);
+-					},
+-				});
+-			}));
+-		},
+-		.keywords = std::move(keywords),
++	WithParent(builder, option.id(), name, std::move(parent), [&] {
++		const auto button = AddButton(builder, {
++			.id = option.id(),
++			.title = rpl::single(name),
++			.st = &st::settingsButtonNoIcon,
++			.label = value() | rpl::map([=](const QString &now) {
++				const auto i = ranges::find(values, now);
++				return labels[(i != end(values))
++					? int(i - begin(values))
++					: 0];
++			}),
++			.onClick = [=] {
++				controller->show(Box([=](not_null<Ui::GenericBox*> box) {
++					const auto current = ranges::find(values, get());
++					SingleChoiceBox(box, {
++						.title = rpl::single(name),
++						.options = options,
++						.initialSelection = (current != end(values))
++							? int(current - begin(values))
++							: 0,
++						.callback = [=](int index) {
++							set(values[index]);
++						},
++					});
++				}));
++			},
++			.keywords = std::move(keywords),
++		});
++		if (button) {
++			SetupLink(button, option.id());
++		}
++		AddAbout(builder, option.id(), description);
+ 	});
+-	if (button) {
+-		SetupLink(button, option.id());
+-	}
+-	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddCallButtons(SectionBuilder &builder) {
+@@ -952,31 +1157,40 @@ void AddGhostChats(SectionBuilder &builder) {
+ 	const auto add = [&](
+ 			const QString &id,
+ 			const QString &title,
+-			::Tele::GhostOverride mode) {
+-		const auto button = AddButton(builder, {
+-			.id = id,
+-			.title = rpl::single(::Tele::Lower(title)),
+-			.st = &st::settingsButtonNoIcon,
+-			.label = ::Tele::GhostChatsCountValue(
+-				builder.session(),
+-				mode
+-			) | rpl::map([](int count) {
+-				return count ? QString::number(count) : u"none"_q;
+-			}),
+-			.onClick = [=] {
+-				ShowGhostChatsBox(controller, mode);
+-			},
+-			.keywords = { description },
++			::Tele::GhostOverride mode,
++			Parent parent) {
++		const auto name = ::Tele::Lower(title);
++		WithParent(builder, id, name, std::move(parent), [&] {
++			const auto button = AddButton(builder, {
++				.id = id,
++				.title = rpl::single(name),
++				.st = &st::settingsButtonNoIcon,
++				.label = ::Tele::GhostChatsCountValue(
++					builder.session(),
++					mode
++				) | rpl::map([](int count) {
++					return count ? QString::number(count) : u"none"_q;
++				}),
++				.onClick = [=] {
++					ShowGhostChatsBox(controller, mode);
++				},
++				.keywords = { description },
++			}, option.id());
++			if (button) {
++				SetupLink(button, id);
++			}
+ 		}, option.id());
+-		if (button) {
+-			SetupLink(button, id);
+-		}
+ 	};
+-	add(option.id(), u"Always ghost in"_q, ::Tele::GhostOverride::Always);
++	add(
++		option.id(),
++		u"Always ghost in"_q,
++		::Tele::GhostOverride::Always,
++		{});
+ 	add(
+ 		option.id() + u"-never"_q,
+ 		u"Never ghost in"_q,
+-		::Tele::GhostOverride::Never);
++		::Tele::GhostOverride::Never,
++		::Tele::kOptionGhost);
+ 	AddAbout(builder, option.id(), description);
+ }
+ 
+@@ -988,38 +1202,42 @@ void AddLocalDrafts(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+ 	const auto session = builder.session();
+ 	const auto id = u"tele-clear-cloud-drafts"_q;
+-	const auto button = AddButton(builder, {
+-		.id = id,
+-		.title = rpl::single(::Tele::Lower(u"Clear drafts in the cloud"_q)),
+-		.st = &st::settingsButtonNoIcon,
+-		.onClick = [=] {
+-			controller->show(Ui::MakeConfirmBox({
+-				.text = ::Tele::Lower(u"Delete all drafts saved in the "
+-					"cloud? Other devices lose them, drafts on this device "
+-					"are kept."_q),
+-				.confirmed = [=](Fn<void()> close) {
+-					::Tele::ClearCloudDrafts(session, crl::guard(controller, [=](
+-							QString text) {
+-						controller->showToast(text);
+-					}));
+-					close();
+-				},
+-				.confirmText = ::Tele::Lower(u"Clear"_q),
+-				.confirmStyle = &st::attentionBoxButton,
+-			}));
+-		},
+-		.keywords = { u"cloud"_q, u"drafts"_q, u"delete"_q },
+-		.shown = ::Tele::LocalDraftsValue(),
+-	}, QString::fromLatin1(::Tele::kOptionLocalDrafts));
+-	if (button) {
+-		SetupLink(button, id);
+-		::Tele::LocalDraftsValue(
+-		) | rpl::skip(1) | rpl::filter([](bool on) {
+-			return on;
+-		}) | rpl::on_next([] {
+-			::Tele::PersistLocalDrafts();
+-		}, button->lifetime());
+-	}
++	const auto title = ::Tele::Lower(u"Clear drafts in the cloud"_q);
++	const auto owner = QString::fromLatin1(::Tele::kOptionLocalDrafts);
++	WithParent(builder, id, title, ::Tele::kOptionLocalDrafts, [&] {
++		const auto button = AddButton(builder, {
++			.id = id,
++			.title = rpl::single(title),
++			.st = &st::settingsButtonNoIcon,
++			.onClick = [=] {
++				controller->show(Ui::MakeConfirmBox({
++					.text = ::Tele::Lower(u"Delete all drafts saved in the "
++						"cloud? Other devices lose them, drafts on this "
++						"device are kept."_q),
++					.confirmed = [=](Fn<void()> close) {
++						::Tele::ClearCloudDrafts(session, crl::guard(
++								controller,
++								[=](QString text) {
++							controller->showToast(text);
++						}));
++						close();
++					},
++					.confirmText = ::Tele::Lower(u"Clear"_q),
++					.confirmStyle = &st::attentionBoxButton,
++				}));
++			},
++			.keywords = { u"cloud"_q, u"drafts"_q, u"delete"_q },
++		}, owner);
++		if (button) {
++			SetupLink(button, id);
++			::Tele::LocalDraftsValue(
++			) | rpl::skip(1) | rpl::filter([](bool on) {
++				return on;
++			}) | rpl::on_next([] {
++				::Tele::PersistLocalDrafts();
++			}, button->lifetime());
++		}
++	}, owner);
+ }
+ 
+ class ChatBackgroundsController final : public PeerListController {
+@@ -1681,7 +1899,11 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageSeconds);
+ 	AddOptionToggle(builder, ::Tele::kOptionEditHistory);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepDeleted);
+-	AddOptionToggle(builder, ::Tele::kOptionDeletedIcon);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionDeletedIcon,
++		{},
++		::Tele::kOptionKeepDeleted);
+ 	AddButtonChoice(
+ 		builder,
+ 		::Tele::kOptionDeletedReply,
+@@ -1692,7 +1914,8 @@ void FillChats(SectionBuilder &builder) {
+ 			{ QString(), u"Skip them"_q },
+ 			{ u"quote"_q, u"Quote them"_q },
+ 		},
+-		{ u"reply"_q, u"quote"_q, u"deleted"_q });
++		{ u"reply"_q, u"quote"_q, u"deleted"_q },
++		::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyProtected);
+ 	AddGroupDivider(builder);
+@@ -1718,7 +1941,6 @@ void FillChats(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+-	AddOptionToggle(builder, ::Tele::kOptionScreenshotSecretMedia);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Menus"_q);
+ 	AddMessageMenu(builder);
+@@ -1760,13 +1982,37 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Ghost mode"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhost);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionGhostRead,
++		{},
++		{ GhostSwitches() });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionGhostReadOnReply,
++		{},
++		::Tele::kOptionGhostRead);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionGhostTyping,
++		{},
++		{ GhostSwitches() });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionGhostOnline,
++		{},
++		::Tele::kOptionGhost);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionGhostSchedule,
++		{},
++		{ GhostSwitches() });
++	AddOptionToggle(builder, ::Tele::kOptionGhostStories, {}, {
++		::Tele::kOptionGhost,
++		Off(::Tele::kOptionHideStories),
++		Off(::Tele::kOptionInvisibleStories),
++	});
+ 	AddOptionToggle(builder, ::Tele::kOptionGhostInMenu);
+-	AddOptionToggle(builder, ::Tele::kOptionGhostRead);
+-	AddOptionToggle(builder, ::Tele::kOptionGhostReadOnReply);
+-	AddOptionToggle(builder, ::Tele::kOptionGhostTyping);
+-	AddOptionToggle(builder, ::Tele::kOptionGhostOnline);
+-	AddOptionToggle(builder, ::Tele::kOptionGhostSchedule);
+-	AddOptionToggle(builder, ::Tele::kOptionGhostStories);
+ 	AddGhostChats(builder);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Stories"_q);
+@@ -1774,7 +2020,11 @@ void FillPrivacy(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionHideStories,
+ 		{ u"rings"_q, u"userpics"_q });
+-	AddOptionToggle(builder, ::Tele::kOptionInvisibleStories);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionInvisibleStories,
++		{},
++		{ Off(::Tele::kOptionHideStories) });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Drafts"_q);
+ 	AddLocalDrafts(builder);
+@@ -1788,6 +2038,11 @@ void FillPrivacy(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionAllowScreenCapture,
+ 		{ u"screenshot"_q, u"recording"_q, u"sharing"_q, u"obs"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionScreenshotSecretMedia,
++		{},
++		{ Off(::Tele::kOptionAllowScreenCapture) });
+ 	AddSkip(builder);
+ }
+ 
+@@ -1795,12 +2050,23 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Peer IDs"_q);
+ 	AddOptionToggle(builder, ::Info::Profile::kOptionShowPeerIdBelowAbout);
+-	AddOptionToggle(builder, ::Tele::kOptionPeerIdsWithoutSpaces);
+-	AddOptionToggle(builder, ::Tele::kOptionBotApiPeerIds);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionPeerIdsWithoutSpaces,
++		{},
++		::Info::Profile::kOptionShowPeerIdBelowAbout);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionBotApiPeerIds,
++		{},
++		::Info::Profile::kOptionShowPeerIdBelowAbout);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowDc, { u"dc"_q });
+-	AddOptionToggle(builder, ::Tele::kOptionMergeIdDc);
++	AddOptionToggle(builder, ::Tele::kOptionMergeIdDc, {}, {
++		::Tele::kOptionShowDc,
++		::Info::Profile::kOptionShowPeerIdBelowAbout,
++	});
+ 	AddOptionToggle(builder, ::Tele::kOptionNoPhoneInHeader);
+ 	AddOptionToggle(builder, ::Tele::kOptionNftPurchasePrice);
+ 	AddLocalNames(builder);
+@@ -2106,7 +2372,11 @@ void FillRoot(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Server"_q);
+ 	AddServer(builder);
+-	AddOptionToggle(builder, ::Tele::kOptionServerUsernames);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionServerUsernames,
++		{},
++		::Tele::kOptionServerUrl);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Backup"_q);
+ 	AddBackup(builder);
+@@ -2282,6 +2552,10 @@ void FillNew(SectionBuilder &builder) {
+ 		if (picked.empty()) {
+ 			return;
+ 		}
++		const auto children = std::vector<QString>(begin(picked), end(picked));
++		for (const auto &id : children) {
++			AddAncestors(picked, id);
++		}
+ 		AddNewGroupDivider(builder, first);
+ 		builder.addSubsectionTitle(rpl::single(::Tele::Lower(title)));
+ 		Picked = &picked;
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 12e88514843df0b5a2615aba3cea5cdf31e6cf13..35929f43e3ccdb0167c37e4407ad1dba69fa07f6 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -112,7 +112,6 @@ base::options::toggle InvisibleStoriesOption({
+ base::options::toggle GhostOption({
+ 	.id = kOptionGhost,
+ 	.name = "Ghost mode",
+-	.description = "Applies the switches below.",
+ });
+ 
+ base::options::toggle GhostInMenuOption({
+@@ -487,7 +486,6 @@ base::options::toggle CalcmulaOption({
+ base::options::toggle CalcmulaPreviewOption({
+ 	.id = kOptionCalcmulaPreview,
+ 	.name = "Preview calcmula results while typing",
+-	.description = "Needs \"Calculate with calcmula.app\" on.",
+ });
+ 
+ base::options::toggle CopyEmojiIdOption({

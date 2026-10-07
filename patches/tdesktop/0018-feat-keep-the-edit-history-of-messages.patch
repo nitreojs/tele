@@ -502,7 +502,7 @@ index 0000000000000000000000000000000000000000..9240c6a0f458a1a29a465b94a4e7094f
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 67d3bd386647abab556894201b74de3bf774e049..d5978504dfb55a38f701ecb39f35bc1aa8b78503 100644
+index 67cbb84d79e85c0f8554ae75c47a849154f347fa..9cef8b470636b2b4b3152c28e7c5ac37b04ebb23 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -16,6 +16,7 @@ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
@@ -513,8 +513,8 @@ index 67d3bd386647abab556894201b74de3bf774e049..d5978504dfb55a38f701ecb39f35bc1a
  const char kOptionServerUrl[] = "tele-server-url";
  const char kOptionTitleTemplate[] = "tele-title";
  
-@@ -113,6 +114,14 @@ base::options::toggle MessageSecondsOption({
- 		"like 14:03:21.",
+@@ -112,6 +113,14 @@ base::options::toggle MessageSecondsOption({
+ 	.description = "Service messages like joins and pins also show their time.",
  });
  
 +base::options::toggle EditHistoryOption({
@@ -528,7 +528,7 @@ index 67d3bd386647abab556894201b74de3bf774e049..d5978504dfb55a38f701ecb39f35bc1a
  base::options::option<QString> ServerUrlOption({
  	.id = kOptionServerUrl,
  	.name = "tele server",
-@@ -226,6 +235,20 @@ rpl::producer<bool> MessageSecondsValue() {
+@@ -225,6 +234,20 @@ rpl::producer<bool> MessageSecondsValue() {
  	});
  }
  

@@ -1,0 +1,1125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 15:30:06 +0300
+Subject: [PATCH] feat: captioned stickers go to the docked media
+
+---
+ .../chat_helpers/gifs_list_widget.cpp         |  13 +
+ .../chat_helpers/stickers_list_widget.cpp     |   9 +-
+ .../chat_helpers/tabbed_selector.h            |   1 +
+ .../SourceFiles/history/history_widget.cpp    |  17 +-
+ .../history_view_compose_controls.cpp         |  16 +
+ .../view/history_view_scheduled_section.cpp   |   4 +
+ .../SourceFiles/tele/tele_docked_media.cpp    | 437 +++++++++++++++---
+ Telegram/SourceFiles/tele/tele_docked_media.h |  17 +
+ .../SourceFiles/tele/tele_menu_registry.cpp   |   9 +-
+ .../tele/tele_sticker_captions.cpp            |  29 +-
+ .../SourceFiles/tele/tele_sticker_captions.h  |   3 +
+ 11 files changed, 480 insertions(+), 75 deletions(-)
+
+diff --git a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
+index aecec67cad869733a06dc38a8f4430bd17af8eaf..b3ee3ac2a95de064b4ecb8cf213e788c8194cd82 100644
+--- a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
+@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/view/history_view_cursor_state.h"
+ #include "storage/storage_account.h" // Account::writeSavedGifs
+ #include "tele/tele_confirm_send.h"
++#include "tele/tele_docked_media.h"
+ #include "tele/tele_gif_video.h"
+ #include "tele/tele_past_limit.h"
+ #include "styles/style_chat_helpers.h"
+@@ -412,6 +413,18 @@ base::unique_qptr<Ui::PopupMenu> GifsListWidget::fillContextMenu(
+ 		// inline results don't have effects
+ 		copyDetails.effectAllowed = false;
+ 	}
++	if (const auto document = item->getDocument(); document
++		&& document->isGifv()) {
++		copyDetails = Tele::DockedAttachMenu(
++			copyDetails,
++			crl::guard(this, [=] {
++				_fileChosen.fire({
++					.document = document,
++					.needsCaption = true,
++					.teleAttach = true,
++				});
++			}));
++	}
+ 
+ 	// In case we're adding items after FillSendMenu we have
+ 	// to pass nullptr for showForEffect and attach selector later.
+diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
+index 0d582a53e1bd7e6e8e5bd8aca8c7b78648b670c0..67d558808730384f92afb57c79e98e9922bcb704 100644
+--- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
+@@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "api/api_premium.h"
+ #include "tele/tele_pin_sets.h"
+ #include "tele/tele_confirm_send.h"
++#include "tele/tele_docked_media.h"
+ #include "tele/tele_view_tl.h"
+ #include "tele/tele_past_limit.h"
+ #include "tele/tele_sticker_captions.h"
+@@ -2671,7 +2672,13 @@ base::unique_qptr<Ui::PopupMenu> StickersListWidget::fillContextMenu(
+ 	SendMenu::FillSendMenu(
+ 		menu,
+ 		nullptr, // showForEffect
+-		details,
++		Tele::DockedAttachMenu(details, crl::guard(this, [=] {
++			_chosen.fire({
++				.document = document,
++				.needsCaption = true,
++				.teleAttach = true,
++			});
++		})),
+ 		SendMenu::DefaultCallback(_show, send),
+ 		icons);
+ 	Tele::AddStickerCaptionAction(
+diff --git a/Telegram/SourceFiles/chat_helpers/tabbed_selector.h b/Telegram/SourceFiles/chat_helpers/tabbed_selector.h
+index 91d286c6b4745931b1d65610b133194ea913fb1a..95c5608c76767ab6f863c85aa78063d0e682ec50 100644
+--- a/Telegram/SourceFiles/chat_helpers/tabbed_selector.h
++++ b/Telegram/SourceFiles/chat_helpers/tabbed_selector.h
+@@ -66,6 +66,7 @@ struct FileChosen {
+ 	std::shared_ptr<Data::EmojiStatusCollectible> collectible;
+ 	TextWithTags caption;
+ 	bool needsCaption = false;
++	bool teleAttach = false;
+ };
+ 
+ struct PhotoChosen {
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index c91ae6ae446ab834224c38b096f73ecd26921b6b..6aeb6a81fdb023060ad35bfdda70f28294cb05e8 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -606,6 +606,15 @@ HistoryWidget::HistoryWidget(
+ 					Api::SendOptions options) {
+ 				sendingFilesConfirmed(std::move(bundle), options);
+ 			},
++			.sendSticker = [=](
++					not_null<DocumentData*> document,
++					Api::SendOptions options,
++					TextWithTags caption) {
++				auto messageToSend = Api::MessageToSend(
++					prepareSendAction(options));
++				messageToSend.textWithTags = std::move(caption);
++				sendExistingDocument(document, std::move(messageToSend));
++			},
+ 			.sendMenuDetails = [=] { return sendMenuDetails(); },
+ 		});
+ 	_teleFieldResize = std::make_unique<Tele::FieldResize>(
+@@ -2618,7 +2627,13 @@ void HistoryWidget::fileChosen(ChatHelpers::FileChosen &&data) {
+ 			Data::InsertCustomEmoji(_field.data(), data.document);
+ 		}
+ 	} else if (_history) {
+-		if (data.needsCaption) {
++		if (data.needsCaption
++			&& (data.document->sticker() || data.teleAttach)
++			&& Tele::ComposeDockedAddSticker(
++				_teleDocked.get(),
++				data.document)) {
++			return;
++		} else if (data.needsCaption) {
+ 			const auto document = data.document;
+ 			const auto from = data.messageSendingFrom;
+ 			Ui::SendGifWithCaption(
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 1cd9503119989668809e3796f1a9d5d0efaef3ad..248f82fc032c3d297bd239685d089486b099b590 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -1639,6 +1639,16 @@ void ComposeControls::setupTeleDocked() {
+ 					_sendAsFileConfirmed(std::move(bundle), options);
+ 				}
+ 			},
++			.sendSticker = [=](
++					not_null<DocumentData*> document,
++					Api::SendOptions options,
++					TextWithTags caption) {
++				_fileChosen.fire({
++					.document = document,
++					.options = options,
++					.caption = std::move(caption),
++				});
++			},
+ 			.sendMenuDetails = [=] { return sendMenuDetails(); },
+ 			.scheduled = (_mode == Mode::Scheduled),
+ 		});
+@@ -4063,6 +4073,12 @@ void ComposeControls::initTabbedSelector() {
+ 				Data::InsertCustomEmoji(_field, data.document);
+ 			}
+ 		} else if (data.needsCaption && _history) {
++			if ((data.document->sticker() || data.teleAttach)
++				&& Tele::ComposeDockedAddSticker(
++					_teleDocked.get(),
++					data.document)) {
++				return;
++			}
+ 			const auto document = data.document;
+ 			const auto from = data.messageSendingFrom;
+ 			Ui::SendGifWithCaption(
+diff --git a/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp b/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
+index 358c7be1c539f95fe8fb0aae94372c682831c613..8866abec3e72aadbeea630a848d5a5c38ba3587a 100644
+--- a/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
+@@ -446,6 +446,10 @@ void ScheduledWidget::setupComposeControls() {
+ 			messageToSend.textWithTags = data.caption;
+ 			sendExistingDocument(document, std::move(messageToSend));
+ 		});
++		if (data.options.scheduled) {
++			callback(data.options);
++			return;
++		}
+ 		controller()->show(
+ 			PrepareScheduleBox(this, _show, sendMenuDetails(), callback));
+ 	}, lifetime());
+diff --git a/Telegram/SourceFiles/tele/tele_docked_media.cpp b/Telegram/SourceFiles/tele/tele_docked_media.cpp
+index 13ef03e26e57f13b22a4576beb76f4d994ac6d14..3c61e29d1ae7e46e1f40c5ffdb0ef076db4d1f05 100644
+--- a/Telegram/SourceFiles/tele/tele_docked_media.cpp
++++ b/Telegram/SourceFiles/tele/tele_docked_media.cpp
+@@ -12,7 +12,11 @@
+ #include "chat_helpers/message_field.h"
+ #include "core/application.h"
+ #include "core/core_settings.h"
++#include "core/mime_type.h"
+ #include "data/data_channel.h"
++#include "data/data_document.h"
++#include "data/data_document_media.h"
++#include "data/data_file_origin.h"
+ #include "data/data_media_types.h"
+ #include "data/data_user.h"
+ #include "main/main_app_config.h"
+@@ -28,8 +32,11 @@
+ #include "editor/photo_editor_layer_widget.h"
+ #include "editor/video/video_editor_common.h"
+ #include "editor/video/video_editor_layer.h"
++#include "ffmpeg/ffmpeg_frame_generator.h"
+ #include "history/view/history_view_schedule_box.h"
+ #include "lang/lang_keys.h"
++#include "lottie/lottie_common.h"
++#include "lottie/lottie_frame_generator.h"
+ #include "main/main_session.h"
+ #include "media/media_video_encode.h"
+ #include "media/media_video_frames.h"
+@@ -44,10 +51,13 @@
+ #include "tele/tele_notices.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_send_files.h"
++#include "tele/tele_sticker_captions.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/chat/attach/attach_send_files_way.h"
++#include "ui/effects/frame_generator.h"
+ #include "ui/effects/spoiler_mess.h"
+ #include "ui/grouped_layout.h"
++#include "ui/image/image.h"
+ #include "ui/image/image_prepare.h"
+ #include "ui/layers/generic_box.h"
+ #include "ui/painter.h"
+@@ -123,9 +133,18 @@ struct Item {
+ 	bool coverDirty = false;
+ };
+ 
++struct DockedSticker {
++	not_null<DocumentData*> document;
++	std::shared_ptr<Data::DocumentMedia> media;
++	QImage image;
++	uint64 id = 0;
++	bool ready = false;
++};
++
+ struct Tray {
+ 	Ui::PreparedList list;
+ 	std::vector<Item> items;
++	std::optional<DockedSticker> sticker;
+ 	Ui::SendFilesWay way;
+ 	bool collapsed = false;
+ 	bool exporting = false;
+@@ -396,12 +415,31 @@ void AttachSavedCover(
+ 	return (count == 1) ? one : many.arg(count);
+ }
+ 
+-[[nodiscard]] QString TitleText(const Ui::PreparedList &list) {
++[[nodiscard]] bool StickerFile(const Ui::PreparedFile &file, bool compress) {
++	if (!file.information) {
++		return false;
++	}
++	using Video = Ui::PreparedFileInformation::Video;
++	const auto &mime = file.information->filemime;
++	if (const auto video = std::get_if<Video>(&file.information->media)) {
++		return video->isWebmSticker && (mime == u"video/webm"_q);
++	}
++	return Core::IsMimeStickerAnimated(mime)
++		|| (Core::IsMimeSticker(mime)
++			&& !(compress && file.type == FileType::Photo));
++}
++
++[[nodiscard]] QString TitleText(const Tray &tray) {
++	const auto compress = tray.way.sendImagesAsPhotos();
++	const auto gif = tray.sticker && tray.sticker->document->isGifv();
++	auto stickers = (tray.sticker && !gif) ? 1 : 0;
+ 	auto photos = 0;
+ 	auto videos = 0;
+ 	auto files = 0;
+-	for (const auto &file : list.files) {
+-		if (file.type == FileType::Photo) {
++	for (const auto &file : tray.list.files) {
++		if (StickerFile(file, compress)) {
++			++stickers;
++		} else if (file.type == FileType::Photo) {
+ 			++photos;
+ 		} else if (file.type == FileType::Video) {
+ 			++videos;
+@@ -410,6 +448,12 @@ void AttachSavedCover(
+ 		}
+ 	}
+ 	auto parts = QStringList();
++	if (gif) {
++		parts.push_back(u"1 GIF"_q);
++	}
++	if (stickers) {
++		parts.push_back(CountText(stickers, u"1 sticker"_q, u"%1 stickers"_q));
++	}
+ 	if (photos) {
+ 		parts.push_back(CountText(photos, u"1 photo"_q, u"%1 photos"_q));
+ 	}
+@@ -438,6 +482,65 @@ void AttachSavedCover(
+ 	return QImage();
+ }
+ 
++[[nodiscard]] bool Empty(const Tray &tray) {
++	return tray.items.empty() && !tray.sticker;
++}
++
++[[nodiscard]] QImage StickerFrame(
++		not_null<DocumentData*> document,
++		not_null<Data::DocumentMedia*> media) {
++	const auto sticker = document->sticker();
++	if (!sticker || !media->loaded()) {
++		return QImage();
++	}
++	const auto bytes = Lottie::ReadContent(
++		media->bytes(),
++		document->filepath());
++	if (bytes.isEmpty()) {
++		return QImage();
++	}
++	auto generator = std::unique_ptr<Ui::FrameGenerator>();
++	switch (sticker->type) {
++	case StickerType::Tgs:
++		generator = std::make_unique<Lottie::FrameGenerator>(bytes);
++		break;
++	case StickerType::Webm:
++		generator = std::make_unique<FFmpeg::FrameGenerator>(bytes);
++		break;
++	case StickerType::Webp:
++		generator = std::make_unique<Ui::ImageFrameGenerator>(bytes);
++		break;
++	}
++	if (!generator) {
++		return QImage();
++	}
++	const auto side = Scaled(72) * style::DevicePixelRatio();
++	return generator->renderNext(
++		QImage(),
++		QSize(side, side),
++		Qt::KeepAspectRatio).image;
++}
++
++bool RefreshSticker(Tray &tray) {
++	if (!tray.sticker || tray.sticker->ready) {
++		return false;
++	}
++	auto &sticker = *tray.sticker;
++	auto frame = StickerFrame(sticker.document, sticker.media.get());
++	if (!frame.isNull()) {
++		sticker.image = std::move(frame);
++		sticker.ready = true;
++		return true;
++	} else if (!sticker.image.isNull()) {
++		return false;
++	} else if (const auto thumbnail = sticker.media->thumbnail()) {
++		sticker.image = thumbnail->original();
++		sticker.ready = !sticker.document->sticker();
++		return !sticker.image.isNull();
++	}
++	return false;
++}
++
+ class DockedStore final : public base::has_weak_ptr {
+ public:
+ 	explicit DockedStore(not_null<Main::Session*> session);
+@@ -450,6 +553,13 @@ public:
+ 		DockedKey key,
+ 		std::shared_ptr<ChatHelpers::Show> show,
+ 		Ui::PreparedList &&list);
++	void addSticker(
++		DockedKey key,
++		std::shared_ptr<ChatHelpers::Show> show,
++		not_null<DocumentData*> document);
++	void removeSticker(DockedKey key);
++	[[nodiscard]] DocumentData *sticker(DockedKey key) const;
++	[[nodiscard]] bool hasItems(DockedKey key) const;
+ 	void remove(DockedKey key, uint64 id);
+ 	void move(DockedKey key, int from, int to);
+ 	void toggleSpoiler(DockedKey key, uint64 id);
+@@ -569,6 +679,7 @@ private:
+ 	void notify(DockedKey key);
+ 	bool refreshListDraft(DockedKey key);
+ 	void repaintListRow(DockedKey key);
++	void refreshStickers();
+ 
+ 	const not_null<Main::Session*> _session;
+ 	std::map<DockedKey, Tray> _trays;
+@@ -611,6 +722,10 @@ DockedStore::DockedStore(not_null<Main::Session*> session)
+ 	) | rpl::on_next([=] {
+ 		reconcileDrafting();
+ 	}, _lifetime);
++	session->downloaderTaskFinished(
++	) | rpl::on_next([=] {
++		refreshStickers();
++	}, _lifetime);
+ 	crl::on_main(this, [=] {
+ 		reconcileDrafting();
+ 	});
+@@ -749,7 +864,7 @@ bool DockedStore::restoreDraft(const SavedDraft &draft) {
+ 	}
+ 	tray.collapsed = false;
+ 	appendSaved(tray, draft.files);
+-	if (tray.items.empty()) {
++	if (Empty(tray)) {
+ 		_trays.erase(key);
+ 		return false;
+ 	}
+@@ -920,7 +1035,7 @@ rpl::producer<DockedKey> DockedStore::changes() const {
+ bool DockedStore::ready(DockedKey key) const {
+ 	const auto tray = find(key);
+ 	return tray
+-		&& !tray->items.empty()
++		&& !Empty(*tray)
+ 		&& ranges::all_of(tray->items, [](const Item &item) {
+ 			return (item.stage == Stage::Ready);
+ 		});
+@@ -1035,7 +1150,7 @@ void DockedStore::add(
+ 		tray.items.push_back({ .id = ++_autoId, .stage = Stage::Pending });
+ 	}
+ 	refreshPrepared(key, tray);
+-	if (tray.items.empty()) {
++	if (Empty(tray)) {
+ 		_trays.erase(key);
+ 		notify(key);
+ 		return;
+@@ -1046,14 +1161,76 @@ void DockedStore::add(
+ 	notify(key);
+ }
+ 
++void DockedStore::addSticker(
++		DockedKey key,
++		std::shared_ptr<ChatHelpers::Show> show,
++		not_null<DocumentData*> document) {
++	auto &tray = _trays[key];
++	tray.show = std::move(show);
++	tray.collapsed = false;
++	if (!tray.sticker || tray.sticker->document != document) {
++		auto media = document->createMediaView();
++		media->checkStickerLarge();
++		if (!document->sticker()) {
++			document->loadThumbnail(document->stickerOrGifOrigin());
++		}
++		tray.sticker = DockedSticker{
++			.document = document,
++			.media = std::move(media),
++			.id = ++_autoId,
++		};
++		RefreshSticker(tray);
++	}
++	notify(key);
++}
++
++void DockedStore::removeSticker(DockedKey key) {
++	const auto tray = lookup(key);
++	if (!tray || !tray->sticker) {
++		return;
++	}
++	tray->sticker = std::nullopt;
++	if (Empty(*tray)) {
++		_trays.erase(key);
++	}
++	notify(key);
++}
++
++DocumentData *DockedStore::sticker(DockedKey key) const {
++	const auto tray = find(key);
++	return (tray && tray->sticker) ? tray->sticker->document.get() : nullptr;
++}
++
++bool DockedStore::hasItems(DockedKey key) const {
++	const auto tray = find(key);
++	return tray && !tray->items.empty();
++}
++
++void DockedStore::refreshStickers() {
++	auto changed = std::vector<DockedKey>();
++	for (auto &[key, tray] : _trays) {
++		if (RefreshSticker(tray)) {
++			changed.push_back(key);
++		}
++	}
++	for (const auto &key : changed) {
++		notify(key);
++	}
++}
++
+ void DockedStore::remove(DockedKey key, uint64 id) {
++	if (const auto tray = lookup(key)
++		; tray && tray->sticker && tray->sticker->id == id) {
++		removeSticker(key);
++		return;
++	}
+ 	const auto tray = lookup(key);
+ 	const auto index = tray ? IndexOf(*tray, id) : -1;
+ 	if (index < 0) {
+ 		return;
+ 	}
+ 	RemoveIndex(*tray, index);
+-	if (tray->items.empty()) {
++	if (Empty(*tray)) {
+ 		_trays.erase(key);
+ 	} else {
+ 		finish(key);
+@@ -1163,7 +1340,7 @@ void DockedStore::sent(DockedKey key, const std::vector<uint64> &ids) {
+ 			RemoveIndex(*tray, index);
+ 		}
+ 	}
+-	if (tray->items.empty()) {
++	if (Empty(*tray)) {
+ 		_trays.erase(key);
+ 	} else {
+ 		finish(key);
+@@ -1350,7 +1527,7 @@ void DockedStore::setAllSpoilers(DockedKey key, bool enabled) {
+ 
+ bool DockedStore::canMoveCaption(DockedKey key) const {
+ 	const auto tray = find(key);
+-	if (!tray || !Prepared(tray->list)) {
++	if (!tray || tray->sticker || !Prepared(tray->list)) {
+ 		return false;
+ 	}
+ 	const auto &way = tray->way;
+@@ -1575,10 +1752,10 @@ void DockedStore::attachShow(
+ 
+ bool DockedStore::refreshListDraft(DockedKey key) {
+ 	const auto tray = (key.scheduled || key.stashed) ? nullptr : find(key);
+-	if (!tray || tray->items.empty()) {
++	if (!tray || Empty(*tray)) {
+ 		return _listDrafts.remove(key);
+ 	}
+-	const auto text = TitleText(tray->list);
++	const auto text = TitleText(*tray);
+ 	auto &draft = _listDrafts[key];
+ 	if (draft && draft->textWithTags.text == text) {
+ 		return false;
+@@ -1652,7 +1829,7 @@ void DockedStore::materialize(DockedKey key) {
+ 		}
+ 		++i;
+ 	}
+-	if (tray->items.empty()) {
++	if (Empty(*tray)) {
+ 		_trays.erase(key);
+ 		persist(key);
+ 		notify(key);
+@@ -1721,7 +1898,7 @@ void DockedStore::exported(
+ 			tray->show,
+ 			Lower(u"Couldn't restore the attached files."_q));
+ 	}
+-	if (tray->items.empty()) {
++	if (Empty(*tray)) {
+ 		_trays.erase(key);
+ 	} else {
+ 		processNext(key);
+@@ -1792,7 +1969,7 @@ void DockedStore::processed(
+ 		}
+ 		refreshPrepared(key, *tray);
+ 	}
+-	if (tray->items.empty()) {
++	if (Empty(*tray)) {
+ 		_trays.erase(key);
+ 		persist(key);
+ 		notify(key);
+@@ -2136,6 +2313,7 @@ struct DockedTile {
+ 	crl::time ttl = 0;
+ 	int quality = 0;
+ 	bool large = false;
++	bool sticker = false;
+ };
+ 
+ struct DockedSegment {
+@@ -2217,6 +2395,20 @@ struct DockedCallbacks {
+ 	auto result = DockedContent();
+ 	const auto compress = tray.way.sendImagesAsPhotos();
+ 	auto size = int64();
++	if (const auto &sticker = tray.sticker) {
++		result.tiles.push_back({
++			.id = sticker->id,
++			.type = FileType::None,
++			.name = Lower(sticker->document->isGifv()
++				? u"GIF"_q
++				: u"Sticker"_q),
++			.image = sticker->image,
++			.dimensions = sticker->document->dimensions,
++			.loading = sticker->image.isNull(),
++			.sticker = true,
++		});
++	}
++	const auto shift = int(result.tiles.size());
+ 	for (auto i = 0; i != int(tray.items.size()); ++i) {
+ 		const auto &file = tray.list.files[i];
+ 		const auto &item = tray.items[i];
+@@ -2246,7 +2438,7 @@ struct DockedCallbacks {
+ 				&& file.canUseHighQualityPhoto()),
+ 		});
+ 	}
+-	result.title = TitleText(tray.list);
++	result.title = TitleText(tray);
+ 	result.price = tray.price;
+ 	result.size = (size > 0) ? Ui::FormatSizeText(size) : QString();
+ 	result.group = tray.way.groupFiles();
+@@ -2269,6 +2461,15 @@ struct DockedCallbacks {
+ 	result.asFile = !compress;
+ 	result.collapsed = tray.collapsed;
+ 	result.segments = Segments(tray, slowmode);
++	if (shift) {
++		for (auto &segment : result.segments) {
++			segment.from += shift;
++			segment.till += shift;
++		}
++		result.segments.insert(
++			begin(result.segments),
++			DockedSegment{ .from = 0, .till = shift });
++	}
+ 	result.grid = DockedGrid();
+ 	result.gridAvailable = ranges::any_of(
+ 		result.segments,
+@@ -2346,6 +2547,7 @@ private:
+ 	[[nodiscard]] QRect moreRect(QRect tile) const;
+ 	[[nodiscard]] QRect captionRect(QRect tile) const;
+ 	[[nodiscard]] int maxScroll() const;
++	[[nodiscard]] int fixedCount() const;
+ 	[[nodiscard]] int dragIndex() const;
+ 	[[nodiscard]] int dragTarget() const;
+ 	[[nodiscard]] QRect dragRect(int index) const;
+@@ -2553,6 +2755,9 @@ bool DockedTray::tooltipWindowActive() const {
+ 
+ void DockedTray::setContent(DockedContent &&content, bool reset) {
+ 	const auto was = int(_content.tiles.size());
++	const auto wasFirst = _content.tiles.empty()
++		? uint64()
++		: _content.tiles.front().id;
+ 	const auto wasGrid = grid();
+ 	_content = std::move(content);
+ 	const auto spoilers = ranges::any_of(_content.tiles, &DockedTile::spoiler);
+@@ -2581,7 +2786,12 @@ void DockedTray::setContent(DockedContent &&content, bool reset) {
+ 	}
+ 	layout();
+ 	layoutRow();
+-	if (!reset && int(_content.tiles.size()) > was) {
++	if (!reset
++		&& int(_content.tiles.size()) > was
++		&& fixedCount() > 0
++		&& _content.tiles.front().id != wasFirst) {
++		setScroll(0);
++	} else if (!reset && int(_content.tiles.size()) > was) {
+ 		setScroll(maxScroll());
+ 	} else {
+ 		setScroll(_scroll);
+@@ -2784,6 +2994,12 @@ void DockedTray::setScroll(int value) {
+ 	}
+ }
+ 
++int DockedTray::fixedCount() const {
++	return (!_content.tiles.empty() && _content.tiles.front().sticker)
++		? 1
++		: 0;
++}
++
+ int DockedTray::dragIndex() const {
+ 	if (!_dragId) {
+ 		return -1;
+@@ -2796,8 +3012,10 @@ int DockedTray::dragTarget() const {
+ 	const auto count = int(_content.tiles.size());
+ 	if (count < 1) {
+ 		return 0;
+-	} else if (grid()) {
+-		for (auto i = 0; i != count; ++i) {
++	}
++	const auto fixed = std::min(fixedCount(), count - 1);
++	if (grid()) {
++		for (auto i = fixed; i != count; ++i) {
+ 			if (tileRect(i).contains(_dragPoint)) {
+ 				return i;
+ 			}
+@@ -2807,7 +3025,7 @@ int DockedTray::dragTarget() const {
+ 	const auto left = _dragPoint.x() - _dragOffset.x();
+ 	const auto position = left + _scroll - Padding() + step() / 2;
+ 	const auto slot = (position < 0) ? 0 : (position / step());
+-	return std::clamp(slot, 0, count - 1);
++	return std::clamp(slot, fixed, count - 1);
+ }
+ 
+ QRect DockedTray::dragRect(int index) const {
+@@ -2849,6 +3067,7 @@ DockedTray::Hit DockedTray::hitTest(QPoint point) const {
+ 			&& spoilerRect(rect).contains(point)) {
+ 			return { Part::Spoiler, i };
+ 		} else if (!_content.tiles[i].loading
++			&& !_content.tiles[i].sticker
+ 			&& moreRect(rect).contains(point)) {
+ 			return { Part::More, i };
+ 		}
+@@ -2885,6 +3104,7 @@ void DockedTray::mouseMoveEvent(QMouseEvent *e) {
+ 	if (!_dragId
+ 		&& _pressed.part == Part::Tile
+ 		&& _pressed.index < int(_content.tiles.size())
++		&& !_content.tiles[_pressed.index].sticker
+ 		&& ((point - _pressPoint).manhattanLength()
+ 			>= QApplication::startDragDistance())) {
+ 		_dragId = _content.tiles[_pressed.index].id;
+@@ -2962,7 +3182,8 @@ void DockedTray::contextMenuEvent(QContextMenuEvent *e) {
+ 	const auto hit = hitTest(e->pos());
+ 	if (_dragId
+ 		|| hit.index < 0
+-		|| hit.index >= int(_content.tiles.size())) {
++		|| hit.index >= int(_content.tiles.size())
++		|| _content.tiles[hit.index].sticker) {
+ 		return;
+ 	}
+ 	_pressed = Hit();
+@@ -3001,14 +3222,29 @@ const QImage &DockedTray::prepared(const DockedTile &tile, QSize size) {
+ 		const auto target = size * ratio;
+ 		auto scaled = tile.image.scaled(
+ 			target,
+-			Qt::KeepAspectRatioByExpanding,
++			(tile.sticker
++				? Qt::KeepAspectRatio
++				: Qt::KeepAspectRatioByExpanding),
+ 			Qt::SmoothTransformation);
+-		scaled = scaled.copy(
+-			(scaled.width() - target.width()) / 2,
+-			(scaled.height() - target.height()) / 2,
+-			target.width(),
+-			target.height()
+-		).convertToFormat(QImage::Format_ARGB32_Premultiplied);
++		if (tile.sticker) {
++			auto canvas = QImage(target, QImage::Format_ARGB32_Premultiplied);
++			canvas.fill(Qt::transparent);
++			{
++				auto q = QPainter(&canvas);
++				q.drawImage(
++					(target.width() - scaled.width()) / 2,
++					(target.height() - scaled.height()) / 2,
++					scaled);
++			}
++			scaled = std::move(canvas);
++		} else {
++			scaled = scaled.copy(
++				(scaled.width() - target.width()) / 2,
++				(scaled.height() - target.height()) / 2,
++				target.width(),
++				target.height()
++			).convertToFormat(QImage::Format_ARGB32_Premultiplied);
++		}
+ 		scaled.setDevicePixelRatio(ratio);
+ 		cached = Cached{
+ 			.key = key,
+@@ -3254,6 +3490,8 @@ void DockedTray::paintTile(
+ 		p.drawPixmap(rect, blurred(tile, rect.size()));
+ 	} else if (!tile.image.isNull()) {
+ 		p.drawImage(rect, prepared(tile, rect.size()));
++	} else if (tile.sticker) {
++		p.fillRect(rect, st::windowBgOver);
+ 	} else {
+ 		p.fillRect(rect, st::windowBgOver);
+ 		const auto extension = QFileInfo(tile.name).suffix().toUpper();
+@@ -3330,7 +3568,7 @@ void DockedTray::paintTile(
+ 			badge,
+ 			st::msgDateImgFg->c);
+ 	}
+-	if (overTile && !tile.loading) {
++	if (overTile && !tile.loading && !tile.sticker) {
+ 		const auto more = moreRect(rect);
+ 		p.setPen(Qt::NoPen);
+ 		p.setBrush((_over.part == Part::More)
+@@ -3404,6 +3642,7 @@ ComposeDocked::ComposeDocked(ComposeDockedDescriptor &&descriptor)
+ , _changed(std::move(descriptor.changed))
+ , _attach(std::move(descriptor.attach))
+ , _send(std::move(descriptor.send))
++, _sendSticker(std::move(descriptor.sendSticker))
+ , _sendMenuDetails(std::move(descriptor.sendMenuDetails))
+ , _scheduled(descriptor.scheduled)
+ , _tray(base::make_unique_q<DockedTray>(
+@@ -3416,7 +3655,10 @@ ComposeDocked::ComposeDocked(ComposeDockedDescriptor &&descriptor)
+ 			Docked(_session).toggleSpoiler(currentKey(), id);
+ 		},
+ 		.move = [=](int from, int to) {
+-			Docked(_session).move(currentKey(), from, to);
++			const auto key = currentKey();
++			auto &store = Docked(_session);
++			const auto shift = store.sticker(key) ? 1 : 0;
++			store.move(key, from - shift, std::max(to - shift, 0));
+ 		},
+ 		.add = [=] {
+ 			if (_attach) {
+@@ -3505,7 +3747,7 @@ bool ComposeDocked::shown() const {
+ 	}
+ 	const auto key = currentKey();
+ 	const auto tray = key ? Docked(_session).find(key) : nullptr;
+-	return tray && !tray->items.empty();
++	return tray && !Empty(*tray);
+ }
+ 
+ bool ComposeDocked::hasFiles() const {
+@@ -3924,7 +4166,7 @@ void ComposeDocked::changePrice() {
+ }
+ 
+ void ComposeDocked::fillMenuDetails(SendMenu::Details &details) const {
+-	if (!shown()) {
++	if (!shown() || !Docked(_session).hasItems(currentKey())) {
+ 		return;
+ 	}
+ 	using namespace SendMenu;
+@@ -3957,7 +4199,7 @@ void ComposeDocked::fillMenuDetails(SendMenu::Details &details) const {
+ }
+ 
+ bool ComposeDocked::menuAction(const SendMenu::Action &action) {
+-	if (!shown()) {
++	if (!shown() || !Docked(_session).hasItems(currentKey())) {
+ 		return false;
+ 	}
+ 	using Type = SendMenu::ActionType;
+@@ -4018,6 +4260,23 @@ bool ComposeDocked::add(Ui::PreparedList &list) {
+ 	return true;
+ }
+ 
++bool ComposeDocked::addSticker(not_null<DocumentData*> document) {
++	if (!DockedAttachments()
++		|| !_sendSticker
++		|| _editing()
++		|| _field->isHidden()
++		|| !(document->sticker() || document->isGifv())) {
++		return false;
++	}
++	const auto key = currentKey();
++	if (!key) {
++		return false;
++	}
++	Docked(_session).addSticker(key, _show, document);
++	_field->setFocus();
++	return true;
++}
++
+ bool ComposeDocked::send(Api::SendOptions options) {
+ 	if (!shown() || !_send) {
+ 		return false;
+@@ -4049,34 +4308,64 @@ bool ComposeDocked::send(Api::SendOptions options) {
+ 			callback));
+ 		return true;
+ 	}
+-	auto caption = _field->getTextWithAppliedMarkdown();
+-	const auto sentCaption = caption;
+-	const auto limit = Data::PremiumLimits(_session).captionLengthCurrent();
+-	const auto remove = std::max(
+-		int(caption.text.size()) - limit,
+-		store.captionOverflow(key));
+-	if (remove > 0) {
+-		_show->showBox(Box(CaptionLimitReachedBox, _session, remove, nullptr));
++	const auto sticker = _sendSticker ? store.sticker(key) : nullptr;
++	const auto files = store.hasItems(key);
++	if (!sticker && !files) {
+ 		return true;
+ 	}
+-	const auto bundle = store.prepareBundle(key, _show, std::move(caption));
+ 	const auto peer = _session->data().peerLoaded(key.thread.peer);
+-	if (!bundle
+-		|| !peer
+-		|| Data::ShowSendError(
+-			_show,
+-			peer,
+-			*bundle,
+-			(options.scheduled != 0))) {
+-		return true;
+-	}
+-	if (options.scheduled && store.hasTtl(key)) {
+-		ShowTeleToast(_show, tr::lng_ttl_no_schedule(tr::now));
+-		return true;
++	auto caption = _field->getTextWithAppliedMarkdown();
++	const auto sentCaption = caption;
++	if (sticker) {
++		const auto remove = store.captionOverflow(key);
++		if (StickerCaptionTooLong(_field, _show)) {
++			return true;
++		} else if (remove > 0) {
++			_show->showBox(
++				Box(CaptionLimitReachedBox, _session, remove, nullptr));
++			return true;
++		} else if (files && Slowmode(peer)) {
++			Data::ShowSendErrorToast(
++				_show,
++				peer,
++				tr::lng_slowmode_no_many(tr::now));
++			return true;
++		}
++	} else {
++		const auto limit = Data::PremiumLimits(
++			_session).captionLengthCurrent();
++		const auto remove = std::max(
++			int(caption.text.size()) - limit,
++			store.captionOverflow(key));
++		if (remove > 0) {
++			_show->showBox(
++				Box(CaptionLimitReachedBox, _session, remove, nullptr));
++			return true;
++		}
+ 	}
+-	options.invertCaption = store.canMoveCaption(key) && store.invert(key);
+-	options.price = store.price(key);
+-	{
++	const auto stickerOptions = options;
++	auto bundle = std::shared_ptr<Ui::PreparedBundle>();
++	if (files) {
++		bundle = store.prepareBundle(
++			key,
++			_show,
++			sticker ? TextWithTags() : std::move(caption));
++		if (!bundle
++			|| !peer
++			|| Data::ShowSendError(
++				_show,
++				peer,
++				*bundle,
++				(options.scheduled != 0))) {
++			return true;
++		}
++		if (options.scheduled && store.hasTtl(key)) {
++			ShowTeleToast(_show, tr::lng_ttl_no_schedule(tr::now));
++			return true;
++		}
++		options.invertCaption = store.canMoveCaption(key)
++			&& store.invert(key);
++		options.price = store.price(key);
+ 		auto way = Core::App().settings().sendFilesWay();
+ 		if (way.sendLargePhotos() != store.largePhotos(key)
+ 			&& store.hasLargePhotosOption(key)) {
+@@ -4094,6 +4383,17 @@ bool ComposeDocked::send(Api::SendOptions options) {
+ 			_field->setTextWithTags({}, Ui::InputField::HistoryAction::Clear);
+ 		}
+ 	});
++	if (sticker) {
++		store.removeSticker(key);
++		clearField();
++		_sendSticker(sticker, stickerOptions, sentCaption);
++		if (!files) {
++			if (after) {
++				after();
++			}
++			return true;
++		}
++	}
+ 	const auto finished = [=](bool consumed) {
+ 		if (!consumed) {
+ 			return;
+@@ -4276,7 +4576,7 @@ bool DockedHasFiles(
+ 		return false;
+ 	}
+ 	const auto tray = Docked(session).find({ .thread = thread });
+-	return tray && !tray->items.empty();
++	return tray && !Empty(*tray);
+ }
+ 
+ void DockedAfterSend(
+@@ -4306,6 +4606,29 @@ bool ComposeDockedAdd(ComposeDocked *docked, Ui::PreparedList &list) {
+ 	return docked && docked->add(list);
+ }
+ 
++bool ComposeDockedAddSticker(
++		ComposeDocked *docked,
++		not_null<DocumentData*> document) {
++	return docked && docked->addSticker(document);
++}
++
++SendMenu::Details DockedAttachMenu(
++		SendMenu::Details details,
++		Fn<void()> attach) {
++	if (!DockedAttachments()
++		|| (details.type == SendMenu::Type::Disabled)) {
++		return details;
++	}
++	const auto previous = details.teleMenu;
++	details.teleMenu = [=](not_null<Ui::PopupMenu*> menu) {
++		if (previous) {
++			previous(menu);
++		}
++		menu->addAction(Lower(u"Attach"_q), attach, &st::menuIconAdd);
++	};
++	return details;
++}
++
+ bool ComposeDockedSend(ComposeDocked *docked, Api::SendOptions options) {
+ 	return docked && docked->send(options);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_docked_media.h b/Telegram/SourceFiles/tele/tele_docked_media.h
+index f850a547573f1ad03b8aa57e02f0c9b471592259..e752ea538d5adb6d98567075f4284555760a4821 100644
+--- a/Telegram/SourceFiles/tele/tele_docked_media.h
++++ b/Telegram/SourceFiles/tele/tele_docked_media.h
+@@ -3,6 +3,8 @@
+ #include "base/unique_qptr.h"
+ #include "tele/tele_drafts.h"
+ 
++class DocumentData;
++
+ namespace Api {
+ struct SendOptions;
+ } // namespace Api
+@@ -56,6 +58,10 @@ struct ComposeDockedDescriptor {
+ 	Fn<void()> changed;
+ 	Fn<void()> attach;
+ 	Fn<void(std::shared_ptr<Ui::PreparedBundle>, Api::SendOptions)> send;
++	Fn<void(
++		not_null<DocumentData*>,
++		Api::SendOptions,
++		TextWithTags)> sendSticker;
+ 	Fn<SendMenu::Details()> sendMenuDetails;
+ 	bool scheduled = false;
+ };
+@@ -66,6 +72,7 @@ public:
+ 	~ComposeDocked();
+ 
+ 	bool add(Ui::PreparedList &list);
++	bool addSticker(not_null<DocumentData*> document);
+ 	bool send(Api::SendOptions options);
+ 	[[nodiscard]] bool hasFiles() const;
+ 	[[nodiscard]] int height();
+@@ -102,6 +109,10 @@ private:
+ 	const Fn<void(
+ 		std::shared_ptr<Ui::PreparedBundle>,
+ 		Api::SendOptions)> _send;
++	const Fn<void(
++		not_null<DocumentData*>,
++		Api::SendOptions,
++		TextWithTags)> _sendSticker;
+ 	const Fn<SendMenu::Details()> _sendMenuDetails;
+ 	const bool _scheduled = false;
+ 	const base::unique_qptr<DockedTray> _tray;
+@@ -164,6 +175,12 @@ bool DockedAdd(
+ 	Ui::PreparedList &list);
+ 
+ bool ComposeDockedAdd(ComposeDocked *docked, Ui::PreparedList &list);
++bool ComposeDockedAddSticker(
++	ComposeDocked *docked,
++	not_null<DocumentData*> document);
++[[nodiscard]] SendMenu::Details DockedAttachMenu(
++	SendMenu::Details details,
++	Fn<void()> attach);
+ bool ComposeDockedSend(ComposeDocked *docked, Api::SendOptions options);
+ [[nodiscard]] bool ComposeDockedHasFiles(const ComposeDocked *docked);
+ [[nodiscard]] int ComposeDockedHeight(ComposeDocked *docked);
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index 8d87bdd8eaa9d94ce05cb16f4c2f88ee493a4e7b..f6352da939eed47c5b4e8669d782ee8d3c566743 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -1299,6 +1299,9 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			P([](int) { return Lower(u"Send without calculating"_q); },
+ 				st::menuIconSend),
+ 		}, .contexts = kSendText, .gate = kOptionCalcmula },
++		{ .key = u"attach"_q, .phrases = {
++			P([](int) { return Lower(u"Attach"_q); }, st::menuIconAdd),
++		}, .contexts = kSendText, .gate = kOptionDockedAttachments },
+ 		{ .key = u"hd"_q, .phrases = {
+ 			Compose([](int) { return tr::lng_send_high_quality(tr::now); },
+ 				[](const style::ComposeIcons &i) {
+@@ -1373,7 +1376,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		}, .contexts = all, .gate = kOptionDraftsMenu },
+ 	};
+ 	result.defaults = u""
+-		"silent,schedule,when_online,no_calc,|,"
++		"silent,schedule,when_online,no_calc,attach,|,"
+ 		"hd,spoiler,caption,cover,clear_cover,price,|,"
+ 		"translate,|,"
+ 		"[Drafts#drafts:save_draft,saved_drafts,discarded,draft_send,"
+@@ -1382,12 +1385,12 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"silent,schedule,when_online,|,"
+ 		"hd,spoiler,caption,cover,clear_cover,price,|,"
+ 		"draft_send,draft_silent,draft_schedule,save_draft,saved_drafts,"
+-		"discarded,no_calc,translate"_q;
++		"discarded,no_calc,translate,attach"_q;
+ 	result.minimal = u""
+ 		"silent,schedule,when_online,|,"
+ 		"hd,spoiler,caption,cover,clear_cover,price"_q;
+ 	result.power = u""
+-		"silent,schedule,when_online,no_calc,|,"
++		"silent,schedule,when_online,no_calc,attach,|,"
+ 		"hd,spoiler,caption,cover,clear_cover,price,|,"
+ 		"translate,|,"
+ 		"draft_send,draft_silent,draft_schedule,save_draft,saved_drafts,"
+diff --git a/Telegram/SourceFiles/tele/tele_sticker_captions.cpp b/Telegram/SourceFiles/tele/tele_sticker_captions.cpp
+index 0c0ab12786839894b537fce9a767c3178f489a37..e78e2da4cb26d7382ca274dc813e1b5396f77927 100644
+--- a/Telegram/SourceFiles/tele/tele_sticker_captions.cpp
++++ b/Telegram/SourceFiles/tele/tele_sticker_captions.cpp
+@@ -360,6 +360,20 @@ bool StickerCaptionEditable(not_null<const DocumentData*> document) {
+ 	return StickerCaptionsSend() && document->sticker();
+ }
+ 
++bool StickerCaptionTooLong(
++		not_null<Ui::InputField*> field,
++		const std::shared_ptr<ChatHelpers::Show> &show) {
++	const auto remove = Ui::ComputeFieldCharacterCount(field)
++		- Data::PremiumLimits(&show->session()).captionLengthCurrent();
++	if (remove <= 0) {
++		return false;
++	}
++	ShowTeleToast(
++		show,
++		tr::lng_edit_limit_reached(tr::now, lt_count, remove));
++	return true;
++}
++
+ StickerCaptionTake TakeStickerCaption(
+ 		Api::MessageToSend &message,
+ 		not_null<DocumentData*> document,
+@@ -380,13 +394,7 @@ StickerCaptionTake TakeStickerCaption(
+ 	auto text = field->getTextWithAppliedMarkdown();
+ 	if (text.text.trimmed().isEmpty()) {
+ 		return StickerCaptionTake::None;
+-	}
+-	const auto remove = Ui::ComputeFieldCharacterCount(field)
+-		- Data::PremiumLimits(&show->session()).captionLengthCurrent();
+-	if (remove > 0) {
+-		ShowTeleToast(
+-			show,
+-			tr::lng_edit_limit_reached(tr::now, lt_count, remove));
++	} else if (StickerCaptionTooLong(field, show)) {
+ 		return StickerCaptionTake::TooLong;
+ 	}
+ 	message.textWithTags = std::move(text);
+@@ -451,12 +459,7 @@ void SendStickerWithCaptionBox(
+ 
+ 	const auto confirmed = box->lifetime().make_state<bool>(false);
+ 	const auto send = [=](Api::SendOptions options) {
+-		const auto remove = Ui::ComputeFieldCharacterCount(input)
+-			- Data::PremiumLimits(&show->session()).captionLengthCurrent();
+-		if (remove > 0) {
+-			ShowTeleToast(
+-				show,
+-				tr::lng_edit_limit_reached(tr::now, lt_count, remove));
++		if (StickerCaptionTooLong(input, show)) {
+ 			return;
+ 		}
+ 		*confirmed = true;
+diff --git a/Telegram/SourceFiles/tele/tele_sticker_captions.h b/Telegram/SourceFiles/tele/tele_sticker_captions.h
+index ef23c114aec50b906cb1316f621694549ddb2e9e..964fc50000653cc7f3ef6d46c32f3c9e16aa9314 100644
+--- a/Telegram/SourceFiles/tele/tele_sticker_captions.h
++++ b/Telegram/SourceFiles/tele/tele_sticker_captions.h
+@@ -115,6 +115,9 @@ enum class StickerCaptionTake {
+ 	Taken,
+ 	TooLong,
+ };
++[[nodiscard]] bool StickerCaptionTooLong(
++	not_null<Ui::InputField*> field,
++	const std::shared_ptr<ChatHelpers::Show> &show);
+ [[nodiscard]] StickerCaptionTake TakeStickerCaption(
+ 	Api::MessageToSend &message,
+ 	not_null<DocumentData*> document,

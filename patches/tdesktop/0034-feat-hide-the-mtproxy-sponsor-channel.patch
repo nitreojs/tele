@@ -47,7 +47,7 @@ index 0dd98b00dd48236e85bf72bf66f09df62ff31d86..0aba283d6766ec3e9dc6870018933624
  	AddOptionToggle(content, controller(), ::Tele::kOptionHideAllChats);
  	AddOptionToggle(content, controller(), ::Tele::kOptionJumpToFirst);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index ffa9b5449c864ec2c88b0ab2ea8db69937000fed..ab170d4adc6cfd45635a61f19a0d34b78c5e5236 100644
+index 66702ca44588d953af9b375afa71119bbfa80697..8f0dba04e7649271c518ccbebf15266ae1c1455c 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -21,6 +21,7 @@ const char kOptionBubbleBadges[] = "tele-bubble-badges";
@@ -76,7 +76,7 @@ index ffa9b5449c864ec2c88b0ab2ea8db69937000fed..ab170d4adc6cfd45635a61f19a0d34b7
  });
  
  base::options::toggle NoLinkWarningOption({
-@@ -452,6 +460,14 @@ rpl::producer<bool> HideSponsoredValue() {
+@@ -451,6 +459,14 @@ rpl::producer<bool> HideSponsoredValue() {
  	});
  }
  

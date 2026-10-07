@@ -1,0 +1,739 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 07:51:04 +0300
+Subject: [PATCH] feat: unsorted folder
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/boxes/choose_filter_box.cpp   |  12 +-
+ .../boxes/filters/edit_filter_box.cpp         |   4 +
+ .../SourceFiles/data/data_chat_filters.cpp    |   6 +
+ .../dialogs/dialogs_inner_widget.cpp          |   4 +-
+ .../settings/sections/settings_folders.cpp    |   3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ .../SourceFiles/tele/tele_local_folders.cpp   |  77 ++++++--
+ Telegram/SourceFiles/tele/tele_options.cpp    |  22 +++
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../SourceFiles/tele/tele_unsorted_folder.cpp | 178 ++++++++++++++++++
+ .../SourceFiles/tele/tele_unsorted_folder.h   |  35 ++++
+ Telegram/SourceFiles/tele/tele_view_tl.cpp    |   3 +-
+ .../ui/widgets/chat_filters_tabs_strip.cpp    |   5 +-
+ .../window/window_filters_menu.cpp            |   5 +-
+ .../SourceFiles/window/window_peer_menu.cpp   |   3 +
+ 17 files changed, 342 insertions(+), 22 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_unsorted_folder.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_unsorted_folder.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index f563c80f8bdd7db9ac4756089140b8118a201fc1..0d288ed4e02e9b26061c4b0520e7ad4f21835397 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2421,6 +2421,8 @@ PRIVATE
+     tele/tele_title_template.h
+     tele/tele_translate_out.cpp
+     tele/tele_translate_out.h
++    tele/tele_unsorted_folder.cpp
++    tele/tele_unsorted_folder.h
+     tele/tele_updater.cpp
+     tele/tele_updater.h
+     tele/tele_uploads.h
+diff --git a/Telegram/SourceFiles/boxes/choose_filter_box.cpp b/Telegram/SourceFiles/boxes/choose_filter_box.cpp
+index 24f01cf53cd56a0f6476132ec016563ef62c901e..4cad85b25d2f8c61dc8f7dc18da7d966df04eb37 100644
+--- a/Telegram/SourceFiles/boxes/choose_filter_box.cpp
++++ b/Telegram/SourceFiles/boxes/choose_filter_box.cpp
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_session_controller.h"
+ #include "main/main_session_settings.h"
+ #include "tele/tele_local_folders.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "styles/style_media_player.h" // mediaPlayerMenuCheck
+ #include "styles/style_menu_icons.h"
+ 
+@@ -224,7 +225,9 @@ bool ChooseFilterValidator::canAdd() const {
+ 		return false;
+ 	}
+ 	for (const auto &filter : _history->owner().chatsFilters().list()) {
+-		if (filter.id() && !filter.contains(_history)) {
++		if (filter.id()
++			&& !Tele::IsUnsortedFolder(filter.id())
++			&& !filter.contains(_history)) {
+ 			return true;
+ 		}
+ 	}
+@@ -240,7 +243,7 @@ bool ChooseFilterValidator::canAdd(FilterId filterId) const {
+ 	const auto list = _history->owner().chatsFilters().list();
+ 	const auto i = ranges::find(list, filterId, &Data::ChatFilter::id);
+ 	if (i != end(list)) {
+-		return !i->contains(_history);
++		return !Tele::IsUnsortedFolder(filterId) && !i->contains(_history);
+ 	}
+ 	return false;
+ }
+@@ -292,7 +295,7 @@ void FillChooseFilterMenu(
+ 	const auto suppressClose = menu->lifetime().make_state<bool>(false);
+ 	for (const auto &filter : list) {
+ 		const auto id = filter.id();
+-		if (!id) {
++		if (!id || Tele::IsUnsortedFolder(id)) {
+ 			continue;
+ 		}
+ 
+@@ -358,7 +361,8 @@ void FillChooseFilterMenu(
+ 
+ 	const auto limit = [session = &controller->session()] {
+ 		return Tele::FolderCountLimit(
+-			Data::PremiumLimits(session).dialogFiltersCurrent());
++			Data::PremiumLimits(session).dialogFiltersCurrent())
++			+ Tele::LocalFolderTabs(session);
+ 	};
+ 	if ((list.size() - 1) < limit()) {
+ 		menu->addAction(tr::lng_filters_create(tr::now), [=] {
+diff --git a/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp b/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp
+index 4032764da9fd3adf70d64ee830bcce8545817365..e08c7fa9abef8caf41859dbe8c92b152f8b99dd0 100644
+--- a/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp
++++ b/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp
+@@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+ #include "tele/tele_local_folders.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "styles/style_settings.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_window.h"
+@@ -1145,6 +1146,9 @@ void EditExistingFilter(
+ 		FilterId id) {
+ 	Expects(id != 0);
+ 
++	if (Tele::IsUnsortedFolder(id)) {
++		return;
++	}
+ 	const auto session = &window->session();
+ 	const auto &list = session->data().chatsFilters().list();
+ 	const auto i = ranges::find(list, id, &Data::ChatFilter::id);
+diff --git a/Telegram/SourceFiles/data/data_chat_filters.cpp b/Telegram/SourceFiles/data/data_chat_filters.cpp
+index 294e6eaeec48901b977d75a4efc5f2af0e12ebd3..2a8ff52576354c20079eccf8b76cb681675a26ac 100644
+--- a/Telegram/SourceFiles/data/data_chat_filters.cpp
++++ b/Telegram/SourceFiles/data/data_chat_filters.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_app_config.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "apiwrap.h"
+ 
+ namespace Data {
+@@ -343,6 +344,11 @@ const base::flat_set<not_null<History*>> &ChatFilter::never() const {
+ bool ChatFilter::contains(
+ 		not_null<History*> history,
+ 		bool ignoreFakeUnread) const {
++	if (const auto unsorted = Tele::UnsortedFolderContains(
++			*this,
++			history)) {
++		return *unsorted;
++	}
+ 	const auto flag = [&] {
+ 		const auto peer = history->peer;
+ 		if (const auto user = peer->asUser()) {
+diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
+index b0557c938db557fa83fa3043614da1dba8b1d713..e49773e0d9a416818245a083360704bdb97942c7 100644
+--- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
++++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
+@@ -91,6 +91,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_list_previews.h"
+ #include "tele/tele_local_pins.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "tele/tele_username_aliases.h"
+ #include "api/api_chat_filters.h"
+ #include "base/qt/qt_common_adapters.h"
+@@ -5061,7 +5062,8 @@ void InnerWidget::refreshEmpty() {
+ 		: tr::lng_contacts_loading();
+ 	auto link = (state == EmptyState::NoContacts)
+ 		? tr::lng_add_contact_button()
+-		: (state == EmptyState::EmptyFolder)
++		: (state == EmptyState::EmptyFolder
++			&& !Tele::IsUnsortedFolder(_filterId))
+ 		? tr::lng_filters_context_edit()
+ 		: (state == EmptyState::EmptyForum)
+ 		? tr::lng_forum_create_topic()
+diff --git a/Telegram/SourceFiles/settings/sections/settings_folders.cpp b/Telegram/SourceFiles/settings/sections/settings_folders.cpp
+index 52c07598e03cfcc88bc331d5985ab1e59860c65e..b8242ff8e8a77e8a1e7406fd209e342b1f27be8a 100644
+--- a/Telegram/SourceFiles/settings/sections/settings_folders.cpp
++++ b/Telegram/SourceFiles/settings/sections/settings_folders.cpp
+@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+ #include "tele/tele_local_folders.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "styles/style_boxes.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_layers.h"
+@@ -544,7 +545,7 @@ not_null<Ui::VerticalLayout*> SetupFoldersList(
+ 	};
+ 	const auto &list = session->data().chatsFilters().list();
+ 	for (const auto &filter : list) {
+-		if (filter.id()) {
++		if (filter.id() && !Tele::IsUnsortedFolder(filter.id())) {
+ 			addFilter(filter);
+ 		}
+ 	}
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 0b0cf2afa3993d78378623139bc265c9a689647e..53b7b7c372b75d778731b7f715d513380cee1235 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1933,6 +1933,7 @@ void FillInterface(SectionBuilder &builder) {
+ 		{ u"compact"_q, u"dense"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionChatListNoReorderAnimation);
+ 	AddOptionToggle(builder, ::Tele::kOptionLocalFolders);
++	AddOptionToggle(builder, ::Tele::kOptionUnsortedFolder, { u"tab"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Unread counters"_q);
+ 	AddOptionToggle(
+diff --git a/Telegram/SourceFiles/tele/tele_local_folders.cpp b/Telegram/SourceFiles/tele/tele_local_folders.cpp
+index 68081d20c8884f9f406943b469b178e853dae95e..b095af590d6970719d8b9e0461833d12cd8cfba2 100644
+--- a/Telegram/SourceFiles/tele/tele_local_folders.cpp
++++ b/Telegram/SourceFiles/tele/tele_local_folders.cpp
+@@ -13,6 +13,7 @@
+ #include "storage/storage_account.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "ui/text/text.h"
+ #include "ui/wrap/slide_wrap.h"
+ #include "ui/wrap/vertical_layout.h"
+@@ -94,6 +95,7 @@ private:
+ 	[[nodiscard]] QString folder() const;
+ 	void read();
+ 	void write();
++	void toggleUnsorted(bool enabled);
+ 
+ 	const not_null<Main::Session*> _session;
+ 	std::vector<StoredFolder> _folders;
+@@ -430,6 +432,14 @@ Store::Store(not_null<Main::Session*> session)
+ 	) | rpl::skip(1) | rpl::on_next([=] {
+ 		_session->data().chatsFilters().reload();
+ 	}, _lifetime);
++	UnsortedFolderValue(
++	) | rpl::skip(1) | rpl::on_next([=](bool enabled) {
++		toggleUnsorted(enabled);
++	}, _lifetime);
++	_session->data().chatsFilters().changed(
++	) | rpl::on_next([=] {
++		RefreshUnsortedFolder(_session);
++	}, _lifetime);
+ }
+ 
+ not_null<Main::Session*> Store::session() const {
+@@ -533,7 +543,7 @@ FilterId Store::nextId(const std::vector<Data::ChatFilter> &list) {
+ 		_lastId = std::max(_lastId, folder.id);
+ 	}
+ 	for (const auto &filter : list) {
+-		if (IsLocalFolder(filter.id())) {
++		if (IsLocalFolder(filter.id()) && !IsUnsortedFolder(filter.id())) {
+ 			_lastId = std::max(_lastId, filter.id());
+ 		}
+ 	}
+@@ -657,6 +667,34 @@ void Store::write() {
+ 	file.writeEncrypted(data, key);
+ }
+ 
++void Store::toggleUnsorted(bool enabled) {
++	const auto filters = &_session->data().chatsFilters();
++	if (!filters->loaded()) {
++		return;
++	} else if (!enabled) {
++		filters->remove(kUnsortedFolderId);
++		return;
++	}
++	filters->set(UnsortedFolderFilter());
++	auto ids = std::vector<FilterId>();
++	auto locals = std::vector<FilterId>();
++	for (const auto &filter : filters->list()) {
++		const auto id = filter.id();
++		if (IsLocalFolder(id)) {
++			locals.push_back(id);
++		}
++		if (!IsUnsortedFolder(id)) {
++			ids.push_back(id);
++		}
++	}
++	auto order = QVector<MTPint>();
++	for (const auto id : MergeOrder(std::move(ids), locals, _order)) {
++		order.push_back(MTP_int(id));
++	}
++	filters->apply(MTP_updateDialogFilterOrder(
++		MTP_vector<MTPint>(std::move(order))));
++}
++
+ } // namespace
+ 
+ bool IsLocalFolder(FilterId id) {
+@@ -818,19 +856,21 @@ std::vector<Data::ChatFilter> WithLocalFolders(
+ 		result.push_back(std::move(parsed));
+ 	}
+ 	store.prune(ids);
+-	if (!LocalFolders()) {
+-		return result;
++	auto locals = std::vector<FilterId>();
++	if (LocalFolders()) {
++		for (auto &filter : result) {
++			filter = Merge(store, filter);
++		}
++		for (const auto &folder : store.folders()) {
++			locals.push_back(folder.id);
++		}
+ 	}
+-	for (auto &filter : result) {
+-		filter = Merge(store, filter);
++	if (UnsortedFolder()) {
++		locals.push_back(kUnsortedFolderId);
+ 	}
+-	if (store.folders().empty()) {
++	if (locals.empty()) {
+ 		return result;
+ 	}
+-	auto locals = std::vector<FilterId>();
+-	for (const auto &folder : store.folders()) {
+-		locals.push_back(folder.id);
+-	}
+ 	const auto order = MergeOrder(
+ 		ranges::views::all(
+ 			result
+@@ -845,6 +885,8 @@ std::vector<Data::ChatFilter> WithLocalFolders(
+ 		const auto i = ranges::find(result, id, &Data::ChatFilter::id);
+ 		if (i != end(result)) {
+ 			merged.push_back(std::move(*i));
++		} else if (IsUnsortedFolder(id)) {
++			merged.push_back(UnsortedFolderFilter());
+ 		} else {
+ 			const auto j = ranges::find(
+ 				store.folders(),
+@@ -874,7 +916,7 @@ Data::ChatFilter WithLocalPart(
+ QVector<MTPint> WithLocalOrder(
+ 		not_null<Data::Session*> owner,
+ 		const QVector<MTPint> &order) {
+-	if (!LocalFolders()) {
++	if (!LocalFolders() && !UnsortedFolder()) {
+ 		return order;
+ 	}
+ 	auto locals = std::vector<FilterId>();
+@@ -898,14 +940,23 @@ QVector<MTPint> WithLocalOrder(
+ 	for (const auto id : merged) {
+ 		result.push_back(MTP_int(id));
+ 	}
+-	store.setOrder(std::move(merged));
++	for (const auto &folder : store.folders()) {
++		if (!ranges::contains(locals, folder.id)) {
++			locals.push_back(folder.id);
++		}
++	}
++	if (ranges::contains(store.order(), kUnsortedFolderId)
++		&& !ranges::contains(locals, kUnsortedFolderId)) {
++		locals.push_back(kUnsortedFolderId);
++	}
++	store.setOrder(MergeOrder(std::move(merged), locals, store.order()));
+ 	return result;
+ }
+ 
+ void KeepFolder(
+ 		not_null<Data::Session*> owner,
+ 		const Data::ChatFilter &filter) {
+-	if (IsLocalFolder(filter.id())) {
++	if (IsLocalFolder(filter.id()) && !IsUnsortedFolder(filter.id())) {
+ 		Lookup(&owner->session()).setFolder(ToStored(filter));
+ 	}
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 23a58ca6ce56d9ca0f45f4c78914a3beb99803be..da79d6ab9bd3e517764f13437e825705d9a4f022 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -131,6 +131,7 @@ const char kOptionDockedGrid[] = "tele-docked-grid";
+ const char kOptionResizableField[] = "tele-resizable-field";
+ const char kOptionFieldHeight[] = "tele-field-height";
+ const char kOptionLocalFolders[] = "tele-local-folders";
++const char kOptionUnsortedFolder[] = "tele-unsorted-folder";
+ const char kOptionBookmarks[] = "tele-bookmarks";
+ const char kOptionReturnPoint[] = "tele-return-point";
+ const char kOptionNoGestures[] = "tele-no-gestures";
+@@ -903,6 +904,13 @@ base::options::toggle LocalFoldersOption({
+ 		"device.",
+ });
+ 
++base::options::toggle UnsortedFolderOption({
++	.id = kOptionUnsortedFolder,
++	.name = "Unsorted folder",
++	.description = "Every chat that isn't in another folder, except "
++		"archived ones.",
++});
++
+ base::options::toggle BookmarksOption({
+ 	.id = kOptionBookmarks,
+ 	.name = "Message bookmarks",
+@@ -1990,6 +1998,20 @@ rpl::producer<bool> LocalFoldersValue() {
+ 	});
+ }
+ 
++bool UnsortedFolder() {
++	return UnsortedFolderOption.value();
++}
++
++rpl::producer<bool> UnsortedFolderValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		UnsortedFolderOption.changes()
++	) | rpl::map([] {
++		return UnsortedFolderOption.value();
++	});
++}
++
+ bool MessageBookmarks() {
+ 	return BookmarksOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 0daf7fe8a75544cab0a107fd1692dd27ebbc9951..25ca3f2fa290fd4ae820b5d979de31741410a023 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -126,6 +126,7 @@ extern const char kOptionDockedGrid[];
+ extern const char kOptionResizableField[];
+ extern const char kOptionFieldHeight[];
+ extern const char kOptionLocalFolders[];
++extern const char kOptionUnsortedFolder[];
+ extern const char kOptionBookmarks[];
+ extern const char kOptionReturnPoint[];
+ extern const char kOptionNoGestures[];
+@@ -336,6 +337,8 @@ void SetFieldHeight(int height);
+ [[nodiscard]] rpl::producer<> FieldHeightChanges();
+ [[nodiscard]] bool LocalFolders();
+ [[nodiscard]] rpl::producer<bool> LocalFoldersValue();
++[[nodiscard]] bool UnsortedFolder();
++[[nodiscard]] rpl::producer<bool> UnsortedFolderValue();
+ [[nodiscard]] bool MessageBookmarks();
+ [[nodiscard]] rpl::producer<> MessageBookmarksChanges();
+ [[nodiscard]] bool ReturnPoint();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index df6c6d0e60fd598ea997490ab4215f6c30f2db23..db00336262c058ae7df92afeb30d08c3869c2a70 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -124,6 +124,7 @@ struct Spec {
+ 		Toggle(kOptionChatListNoReorderAnimation),
+ 		Toggle(kOptionReduceMotion),
+ 		Toggle(kOptionLocalFolders),
++		Toggle(kOptionUnsortedFolder),
+ 		Toggle(kOptionStaticUserpicsChats),
+ 		Toggle(kOptionHideMentionsButton),
+ 		Toggle(kOptionHideReactionsButton),
+diff --git a/Telegram/SourceFiles/tele/tele_unsorted_folder.cpp b/Telegram/SourceFiles/tele/tele_unsorted_folder.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ca87d5a7754a62966203279c6cad5e39c5c3cd3a
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_unsorted_folder.cpp
+@@ -0,0 +1,178 @@
++#include "tele/tele_unsorted_folder.h"
++
++#include "data/data_channel.h"
++#include "data/data_chat_filters.h"
++#include "data/data_folder.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "dialogs/dialogs_indexed_list.h"
++#include "dialogs/dialogs_main_list.h"
++#include "history/history.h"
++#include "main/main_session.h"
++#include "menu/menu_mark_as_read.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_mute.h"
++#include "window/window_session_controller.h"
++
++namespace Tele {
++namespace {
++
++using Flag = Data::ChatFilter::Flag;
++
++struct Covered {
++	Flag type = Flag();
++	bool covered = false;
++};
++
++using CoveredCache = std::unordered_map<not_null<History*>, Covered>;
++
++[[nodiscard]] std::map<
++		not_null<Main::Session*>,
++		CoveredCache> &Caches() {
++	static auto result = std::map<
++		not_null<Main::Session*>,
++		CoveredCache>();
++	return result;
++}
++
++[[nodiscard]] CoveredCache &CacheFor(not_null<Main::Session*> session) {
++	auto &caches = Caches();
++	const auto i = caches.find(session);
++	if (i != end(caches)) {
++		return i->second;
++	}
++	session->lifetime().add([=] {
++		Caches().erase(session);
++	});
++	return caches[session];
++}
++
++[[nodiscard]] Flag TypeFlag(not_null<History*> history) {
++	const auto peer = history->peer;
++	if (const auto user = peer->asUser()) {
++		return user->isBot()
++			? Flag::Bots
++			: user->isContact()
++			? Flag::Contacts
++			: Flag::NonContacts;
++	} else if (const auto channel = peer->asChannel()) {
++		return channel->isBroadcast() ? Flag::Channels : Flag::Groups;
++	}
++	return Flag::Groups;
++}
++
++[[nodiscard]] bool CoveredByOther(
++		not_null<History*> history,
++		Flag type) {
++	for (const auto &other : history->owner().chatsFilters().list()) {
++		const auto id = other.id();
++		if (!id
++			|| IsUnsortedFolder(id)
++			|| other.never().contains(history)) {
++			continue;
++		} else if ((other.flags() & type)
++			|| other.always().contains(history)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++} // namespace
++
++bool IsUnsortedFolder(FilterId id) {
++	return (id == kUnsortedFolderId);
++}
++
++Data::ChatFilter UnsortedFolderFilter() {
++	return Data::ChatFilter(
++		kUnsortedFolderId,
++		{ TextWithEntities{ Lower(u"Unsorted"_q) } },
++		QString(),
++		std::nullopt,
++		Data::ChatFilter::Flag::NoArchived,
++		{},
++		{},
++		{});
++}
++
++std::optional<bool> UnsortedFolderContains(
++		const Data::ChatFilter &filter,
++		not_null<History*> history) {
++	if (!IsUnsortedFolder(filter.id())) {
++		return std::nullopt;
++	} else if (!(filter.flags() & Data::ChatFilter::Flag::NoArchived)
++		|| !history->folderKnown()
++		|| history->folder()) {
++		return false;
++	}
++	const auto channel = history->peer->asChannel();
++	if (channel && channel->isCommunity()) {
++		return false;
++	}
++	const auto type = TypeFlag(history);
++	auto &cache = CacheFor(&history->session());
++	const auto i = cache.find(history);
++	if (i != end(cache) && i->second.type == type) {
++		return !i->second.covered;
++	}
++	const auto covered = CoveredByOther(history, type);
++	cache[history] = Covered{ .type = type, .covered = covered };
++	return !covered;
++}
++
++void RefreshUnsortedFolder(not_null<Main::Session*> session) {
++	CacheFor(session).clear();
++	const auto owner = &session->data();
++	const auto filters = &owner->chatsFilters();
++	const auto &list = filters->list();
++	const auto i = ranges::find(
++		list,
++		kUnsortedFolderId,
++		&Data::ChatFilter::id);
++	const auto filter = (i != end(list)) ? &*i : nullptr;
++	auto changed = false;
++	const auto feed = [&](not_null<Dialogs::MainList*> source) {
++		for (const auto &row : *source->indexed()) {
++			const auto history = row->history();
++			if (!history) {
++				continue;
++			}
++			const auto now = filter && filter->contains(history);
++			if (now == history->inChatList(kUnsortedFolderId)) {
++				continue;
++			}
++			const auto chats = filters->chatsList(kUnsortedFolderId);
++			if (now) {
++				history->addToChatList(kUnsortedFolderId, chats);
++			} else {
++				history->removeFromChatList(kUnsortedFolderId, chats);
++			}
++			changed = true;
++		}
++	};
++	feed(owner->chatsList());
++	if (const auto folder = owner->folderLoaded(Data::Folder::kId)) {
++		feed(folder->chatsList());
++	}
++	if (changed) {
++		owner->chatsListChanged(nullptr);
++	}
++}
++
++void AddUnsortedFolderActions(
++		not_null<Window::SessionController*> controller,
++		const Ui::Menu::MenuCallback &addAction) {
++	const auto session = &controller->session();
++	MarkAsReadMenu::AddChatListAction(
++		controller,
++		MarkAsReadMenu::ChatListKind::Folder,
++		[=] {
++			return session->data().chatsFilters().chatsList(
++				kUnsortedFolderId);
++		},
++		addAction);
++	AddMuteFolderAction(session, kUnsortedFolderId, addAction);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_unsorted_folder.h b/Telegram/SourceFiles/tele/tele_unsorted_folder.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..03f28aff6a7711dcc39e4ef3cf121efd7abe9722
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_unsorted_folder.h
+@@ -0,0 +1,35 @@
++#pragma once
++
++class History;
++
++namespace Data {
++class ChatFilter;
++} // namespace Data
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++inline constexpr auto kUnsortedFolderId = FilterId(0x7FFFFF00);
++
++[[nodiscard]] bool IsUnsortedFolder(FilterId id);
++[[nodiscard]] Data::ChatFilter UnsortedFolderFilter();
++[[nodiscard]] std::optional<bool> UnsortedFolderContains(
++	const Data::ChatFilter &filter,
++	not_null<History*> history);
++void RefreshUnsortedFolder(not_null<Main::Session*> session);
++void AddUnsortedFolderActions(
++	not_null<Window::SessionController*> controller,
++	const Ui::Menu::MenuCallback &addAction);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_view_tl.cpp b/Telegram/SourceFiles/tele/tele_view_tl.cpp
+index e82fb44d6ef6764bc7a10750f864f2e1eff70ab5..34257d131d66d2bebcea81d25d9be97d1813c61e 100644
+--- a/Telegram/SourceFiles/tele/tele_view_tl.cpp
++++ b/Telegram/SourceFiles/tele/tele_view_tl.cpp
+@@ -24,6 +24,7 @@
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "tele/tele_view_tl_window.h"
+ #include "ui/basic_click_handlers.h"
+ #include "window/themes/window_theme.h"
+@@ -380,7 +381,7 @@ void AddViewFolderTlAction(
+ 		const Ui::Menu::MenuCallback &addAction,
+ 		std::shared_ptr<Main::SessionShow> show,
+ 		FilterId id) {
+-	if (!ViewAsTl()) {
++	if (!ViewAsTl() || IsUnsortedFolder(id)) {
+ 		return;
+ 	}
+ 	const auto extract = [=](const MTPmessages_DialogFilters &result) {
+diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+index 755a8c55e52f3a8fa46d87daf300a4d6f384e5d6..d64531b702833ff36985fb6374d8a7d3506a5d8a 100644
+--- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
++++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
+ #include "tele/tele_mute.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "tele/tele_view_tl.h"
+ #include "ui/widgets/menu/menu_action.h"
+ #include "ui/filter_icons.h"
+@@ -84,7 +85,9 @@ void ShowMenu(
+ 	const auto addAction = Ui::Menu::CreateAddActionCallback(
+ 		state->menu.get());
+ 
+-	if (id) {
++	if (Tele::IsUnsortedFolder(id)) {
++		Tele::AddUnsortedFolderActions(controller, addAction);
++	} else if (id) {
+ 		addAction(
+ 			tr::lng_filters_context_edit(tr::now),
+ 			[=] { EditExistingFilter(controller, id); },
+diff --git a/Telegram/SourceFiles/window/window_filters_menu.cpp b/Telegram/SourceFiles/window/window_filters_menu.cpp
+index 2e42bbbf5896f141d6ef6a1b074d45e440bd579c..e66f6010e8fcf30154e1654aa588245660a84cf5 100644
+--- a/Telegram/SourceFiles/window/window_filters_menu.cpp
++++ b/Telegram/SourceFiles/window/window_filters_menu.cpp
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
+ #include "tele/tele_mute.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "tele/tele_view_tl.h"
+ #include "api/api_chat_filters.h"
+ #include "apiwrap.h"
+@@ -763,7 +764,9 @@ void FiltersMenu::showMenu(QPoint position, FilterId id) {
+ 		i->second.get(),
+ 		st::popupMenuWithIcons);
+ 	const auto addAction = Ui::Menu::CreateAddActionCallback(_popupMenu);
+-	if (id) {
++	if (Tele::IsUnsortedFolder(id)) {
++		Tele::AddUnsortedFolderActions(_session, addAction);
++	} else if (id) {
+ 		addAction(
+ 			tr::lng_filters_context_edit(tr::now),
+ 			crl::guard(&_outer, [=] { EditExistingFilter(_session, id); }),
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index e88677264837011d7ddef98390ef30186b5d7d07..e99241ba05d27d42af7eac8216436ed91e3a8f30 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -140,6 +140,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_online_notify.h"
+ #include "tele/tele_show_pinned.h"
+ #include "tele/tele_silent.h"
++#include "tele/tele_unsorted_folder.h"
+ #include "tele/tele_username_aliases.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat.h"
+@@ -572,6 +573,8 @@ void Filler::addTogglePin() {
+ 	const auto entry = _thread ? (Dialogs::Entry*)_thread : _sublist;
+ 	if (!entry || entry->fixedOnTopIndex()) {
+ 		return;
++	} else if (Tele::IsUnsortedFolder(filterId)) {
++		return;
+ 	}
+ 	const auto community = _peer ? _peer->asChannel() : nullptr;
+ 	if (community

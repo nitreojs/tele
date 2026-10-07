@@ -1,0 +1,603 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 05:07:49 +0300
+Subject: [PATCH] feat: send scheduled messages on time
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../data/components/scheduled_messages.cpp    |   4 +
+ .../data/components/scheduled_messages.h      |   1 +
+ Telegram/SourceFiles/main/main_session.cpp    |   3 +
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  17 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../tele/tele_punctual_scheduled.cpp          | 425 ++++++++++++++++++
+ .../tele/tele_punctual_scheduled.h            |  11 +
+ 9 files changed, 467 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_punctual_scheduled.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_punctual_scheduled.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index eb5aacbba2bf5ae94e8e0343281cb9a4c9b82b74..1385a7b756e98f29a87ae1a9fbe4df5e435aa90a 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2313,6 +2313,8 @@ PRIVATE
+     tele/tele_peer_id.h
+     tele/tele_phones.cpp
+     tele/tele_phones.h
++    tele/tele_punctual_scheduled.cpp
++    tele/tele_punctual_scheduled.h
+     tele/tele_rich_timestamps.cpp
+     tele/tele_rich_timestamps.h
+     tele/tele_secret_media.cpp
+diff --git a/Telegram/SourceFiles/data/components/scheduled_messages.cpp b/Telegram/SourceFiles/data/components/scheduled_messages.cpp
+index 52c7158ab0d7723b3c23c3acaec6c1215693f196..282ac4b3952bf79ca59f94be40fe6269486ef23c 100644
+--- a/Telegram/SourceFiles/data/components/scheduled_messages.cpp
++++ b/Telegram/SourceFiles/data/components/scheduled_messages.cpp
+@@ -437,6 +437,10 @@ rpl::producer<> ScheduledMessages::updates(not_null<History*> history) {
+ 	}) | rpl::to_empty;
+ }
+ 
++rpl::producer<not_null<History*>> ScheduledMessages::allUpdates() const {
++	return _updates.events();
++}
++
+ Data::MessagesSlice ScheduledMessages::list(
+ 		not_null<History*> history) const {
+ 	auto result = Data::MessagesSlice();
+diff --git a/Telegram/SourceFiles/data/components/scheduled_messages.h b/Telegram/SourceFiles/data/components/scheduled_messages.h
+index 90d5b04151157a81a4cfcbe41baf0634926e6aba..ebae6c7d564b23f76296d6b997c139521f741416 100644
+--- a/Telegram/SourceFiles/data/components/scheduled_messages.h
++++ b/Telegram/SourceFiles/data/components/scheduled_messages.h
+@@ -51,6 +51,7 @@ public:
+ 		not_null<HistoryItem*> local);
+ 
+ 	[[nodiscard]] rpl::producer<> updates(not_null<History*> history);
++	[[nodiscard]] rpl::producer<not_null<History*>> allUpdates() const;
+ 	[[nodiscard]] Data::MessagesSlice list(not_null<History*> history) const;
+ 	[[nodiscard]] Data::MessagesSlice list(
+ 		not_null<const Data::ForumTopic*> topic) const;
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index 25324f07df670e6875683819d943407742d079ad..5196d850a2bd6bd5c648b46bff0b451446a7e416 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -60,6 +60,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/application.h"
+ #include "ui/text/text_utilities.h"
+ #include "ui/layers/generic_box.h"
++#include "tele/tele_punctual_scheduled.h"
+ #include "styles/style_layers.h"
+ 
+ #ifndef TDESKTOP_DISABLE_SPELLCHECK
+@@ -272,6 +273,8 @@ Session::Session(
+ 	) | rpl::on_next([=] {
+ 		appConfigRefreshed();
+ 	}, _lifetime);
++
++	Tele::SetupPunctualScheduled(this);
+ }
+ 
+ void Session::appConfigRefreshed() {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index a1ddd01eb447bd457394aee2ec2636fd843f8981..17da4bd98a179278db82768384bfca83e4a9711e 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1653,6 +1653,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionCalcmulaPreview);
+ 	AddOptionToggle(builder, ::Tele::kOptionSentToBottom);
+ 	AddOptionToggle(builder, ::Tele::kOptionQueueBehindMedia);
++	AddOptionToggle(builder, ::Tele::kOptionPunctualScheduled);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoRichPastePrompt);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 2c9aa1da65146ea8a17df6b0635a8b42deef227e..c5cfe2ea8374bcfc111ada1b6da54741a11b32f0 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -74,6 +74,7 @@ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
+ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
++const char kOptionPunctualScheduled[] = "tele-punctual-scheduled";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+ const char kOptionUsernameAliases[] = "tele-username-aliases";
+ const char kOptionNoPhoneInHeader[] = "tele-no-phone-in-header";
+@@ -536,6 +537,14 @@ base::options::toggle NoRichPastePromptOption({
+ 		"message.",
+ });
+ 
++base::options::toggle PunctualScheduledOption({
++	.id = kOptionPunctualScheduled,
++	.name = "Send scheduled messages on time",
++	.description = "While tele is online, it sends them itself at the set "
++		"minute instead of waiting for Telegram, which can be a few "
++		"minutes late.",
++});
++
+ base::options::option<QString> ChatBackgroundsOption({
+ 	.id = kOptionChatBackgrounds,
+ 	.name = "Chat backgrounds",
+@@ -1145,6 +1154,14 @@ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+ 
++bool PunctualScheduled() {
++	return PunctualScheduledOption.value();
++}
++
++rpl::producer<> PunctualScheduledChanges() {
++	return PunctualScheduledOption.changes();
++}
++
+ void SetChatBackgrounds(const QString &value) {
+ 	ChatBackgroundsOption.set(value);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 1b89198d912b532bc5fc9c35133f1aff6a2308ec..995f336feaa3e9ce17e873f2f957d209cfe93ffc 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -71,6 +71,7 @@ extern const char kOptionSentToBottom[];
+ extern const char kOptionQueueBehindMedia[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionNoRichPastePrompt[];
++extern const char kOptionPunctualScheduled[];
+ extern const char kOptionChatBackgrounds[];
+ extern const char kOptionUsernameAliases[];
+ extern const char kOptionNoPhoneInHeader[];
+@@ -187,6 +188,8 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] rpl::producer<> QueueBehindMediaChanges();
+ [[nodiscard]] bool InlineWithoutVia();
+ [[nodiscard]] bool NoRichPastePrompt();
++[[nodiscard]] bool PunctualScheduled();
++[[nodiscard]] rpl::producer<> PunctualScheduledChanges();
+ void SetChatBackgrounds(const QString &value);
+ [[nodiscard]] rpl::producer<QString> ChatBackgroundsValue();
+ void SetUsernameAliases(const QString &value);
+diff --git a/Telegram/SourceFiles/tele/tele_punctual_scheduled.cpp b/Telegram/SourceFiles/tele/tele_punctual_scheduled.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..805fac285148a5b185f106370678148f4b8e031d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_punctual_scheduled.cpp
+@@ -0,0 +1,425 @@
++#include "tele/tele_punctual_scheduled.h"
++
++#include "api/api_common.h"
++#include "apiwrap.h"
++#include "base/timer.h"
++#include "base/unixtime.h"
++#include "data/components/scheduled_messages.h"
++#include "data/data_chat_participant_status.h"
++#include "data/data_folder.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "dialogs/dialogs_indexed_list.h"
++#include "dialogs/dialogs_main_list.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "main/main_session.h"
++#include "mtproto/sender.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_notices.h"
++#include "tele/tele_options.h"
++#include "window/window_session_controller.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxWait = crl::time(60000);
++constexpr auto kWakeGap = TimeId(30);
++constexpr auto kWakeHold = crl::time(5000);
++constexpr auto kResweepGap = TimeId(1800);
++constexpr auto kSweepDelay = crl::time(15000);
++constexpr auto kSweepFastCount = 100;
++constexpr auto kSweepFastInterval = crl::time(1000);
++constexpr auto kSweepSlowInterval = crl::time(3000);
++constexpr auto kMaxRetries = 5;
++constexpr auto kRetryDelays = std::array{
++	crl::time(5000),
++	crl::time(15000),
++	crl::time(60000),
++	crl::time(300000),
++	crl::time(900000),
++};
++
++[[nodiscard]] std::optional<crl::time> RetryDelay(
++		const MTP::Error &error,
++		int failures) {
++	const auto &type = error.type();
++	if (MTP::IsFloodError(type) || type.startsWith(u"SLOWMODE_WAIT_"_q)) {
++		const auto seconds = type.mid(type.lastIndexOf('_') + 1).toInt();
++		return crl::time(std::max(seconds, 1) + 1) * 1000;
++	} else if (error.code() < 0
++		|| error.code() >= 500
++		|| type == u"TIMEOUT"_q) {
++		const auto index = std::clamp(
++			failures - 1,
++			0,
++			int(kRetryDelays.size()) - 1);
++		return kRetryDelays[index];
++	}
++	return std::nullopt;
++}
++
++void Load(not_null<History*> history) {
++	(void)history->session().scheduledMessages().updates(history);
++}
++
++class Punctual final {
++public:
++	explicit Punctual(not_null<Main::Session*> session);
++
++private:
++	struct Attempt {
++		TimeId date = 0;
++		crl::time retryAt = 0;
++		int failures = 0;
++	};
++
++	void refresh();
++	void check();
++	void woke(TimeId gap);
++	void send(
++		not_null<History*> history,
++		std::vector<not_null<HistoryItem*>> items);
++	void request(
++		not_null<PeerData*> peer,
++		QVector<MTPint> ids,
++		std::vector<FullMsgId> items,
++		bool split);
++	void failed(
++		not_null<PeerData*> peer,
++		const std::vector<FullMsgId> &items,
++		const MTP::Error &error);
++	void notifyFailed(
++		not_null<PeerData*> peer,
++		FullMsgId id,
++		const QString &reason);
++	[[nodiscard]] History *pickToSweep(
++		not_null<Dialogs::MainList*> list);
++	void sweep();
++	void scheduleSweep(crl::time delay);
++	[[nodiscard]] History *nextToSweep();
++	[[nodiscard]] bool eligible(not_null<HistoryItem*> item) const;
++
++	const not_null<Main::Session*> _session;
++	MTP::Sender _api;
++	base::Timer _timer;
++	base::Timer _sweepTimer;
++	base::flat_set<PeerId> _tracked;
++	base::flat_set<PeerId> _swept;
++	base::flat_map<FullMsgId, Attempt> _attempted;
++	TimeId _expected = 0;
++	TimeId _sweepStarted = 0;
++	crl::time _holdUntil = 0;
++	bool _enabled = false;
++	rpl::lifetime _lifetime;
++
++};
++
++Punctual::Punctual(not_null<Main::Session*> session)
++: _session(session)
++, _api(&session->mtp())
++, _timer([=] { check(); })
++, _sweepTimer([=] { sweep(); }) {
++	_session->scheduledMessages().allUpdates(
++	) | rpl::on_next([=](not_null<History*> history) {
++		_tracked.emplace(history->peer->id);
++		if (_enabled) {
++			_timer.callOnce(0);
++		}
++	}, _lifetime);
++
++	rpl::merge(
++		_session->data().chatsListChanges() | rpl::to_empty,
++		_session->data().chatsListLoadedEvents() | rpl::to_empty
++	) | rpl::filter([=] {
++		return _enabled && _sweepStarted && !_sweepTimer.isActive();
++	}) | rpl::on_next([=] {
++		scheduleSweep(kSweepFastInterval);
++	}, _lifetime);
++
++	PunctualScheduledChanges(
++	) | rpl::on_next([=] {
++		refresh();
++	}, _lifetime);
++	refresh();
++}
++
++void Punctual::refresh() {
++	_enabled = PunctualScheduled();
++	_expected = 0;
++	if (!_enabled) {
++		_timer.cancel();
++		_sweepTimer.cancel();
++		return;
++	}
++	if (!_sweepStarted) {
++		_sweepStarted = base::unixtime::now();
++		scheduleSweep(kSweepDelay);
++	} else {
++		scheduleSweep(kSweepFastInterval);
++	}
++	check();
++}
++
++void Punctual::check() {
++	if (!_enabled) {
++		return;
++	}
++	const auto now = base::unixtime::now();
++	if (_expected && now - _expected > kWakeGap) {
++		woke(now - _expected);
++	}
++	const auto hold = _holdUntil - crl::now();
++	if (hold > 0) {
++		_expected = now + TimeId(hold / 1000) + 1;
++		_timer.callOnce(hold);
++		return;
++	}
++	auto &scheduled = _session->scheduledMessages();
++	auto &owner = _session->data();
++	auto due = base::flat_map<
++		not_null<History*>,
++		std::vector<not_null<HistoryItem*>>>();
++	auto earliest = TimeId(0);
++	for (auto i = begin(_tracked); i != end(_tracked);) {
++		const auto history = owner.historyLoaded(*i);
++		if (!history || !scheduled.count(history)) {
++			i = _tracked.erase(i);
++			continue;
++		}
++		for (const auto &id : scheduled.list(history).ids) {
++			const auto item = owner.message(id);
++			if (!item || !eligible(item)) {
++				continue;
++			}
++			const auto date = item->date();
++			if (date <= now) {
++				due[history].push_back(item);
++			} else if (!earliest || date < earliest) {
++				earliest = date;
++			}
++		}
++		++i;
++	}
++	const auto ms = crl::now();
++	auto retry = crl::time(0);
++	for (auto i = begin(_attempted); i != end(_attempted);) {
++		if (!owner.message(i->first)) {
++			i = _attempted.erase(i);
++			continue;
++		} else if (i->second.retryAt > ms
++			&& (!retry || i->second.retryAt < retry)) {
++			retry = i->second.retryAt;
++		}
++		++i;
++	}
++	for (auto &[history, items] : due) {
++		send(history, std::move(items));
++	}
++	auto wait = earliest
++		? std::min(crl::time(earliest - now) * 1000, kMaxWait)
++		: kMaxWait;
++	if (retry) {
++		wait = std::min(wait, retry - ms);
++	}
++	_expected = now + TimeId(wait / 1000);
++	_timer.callOnce(wait);
++}
++
++void Punctual::woke(TimeId gap) {
++	DEBUG_LOG(("Tele Punctual: woke after %1 seconds.").arg(gap));
++	for (const auto &peerId : _tracked) {
++		if (const auto history = _session->data().historyLoaded(peerId)) {
++			Load(history);
++		}
++	}
++	_holdUntil = crl::now() + kWakeHold;
++	const auto now = base::unixtime::now();
++	if (gap >= kResweepGap && now - _sweepStarted >= kResweepGap) {
++		_swept.clear();
++		_sweepStarted = now;
++		scheduleSweep(kWakeHold);
++	}
++}
++
++bool Punctual::eligible(not_null<HistoryItem*> item) const {
++	if (!item->allowsSendNow()
++		|| item->isUploading()
++		|| item->awaitingVideoProcessing()
++		|| item->scheduleRepeatPeriod()
++		|| item->Get<HistoryMessageSuggestion>()
++		|| item->date() == Api::kScheduledUntilOnlineTimestamp) {
++		return false;
++	}
++	const auto i = _attempted.find(item->fullId());
++	return (i == end(_attempted))
++		|| (i->second.date != item->date())
++		|| (i->second.retryAt && i->second.retryAt <= crl::now());
++}
++
++void Punctual::send(
++		not_null<History*> history,
++		std::vector<not_null<HistoryItem*>> items) {
++	ranges::sort(items, ranges::less(), &HistoryItem::date);
++	auto &scheduled = _session->scheduledMessages();
++	auto ids = QVector<MTPint>();
++	auto full = std::vector<FullMsgId>();
++	ids.reserve(items.size());
++	full.reserve(items.size());
++	for (const auto &item : items) {
++		auto &attempt = _attempted[item->fullId()];
++		if (attempt.date != item->date()) {
++			attempt = Attempt{ .date = item->date() };
++		}
++		attempt.retryAt = 0;
++		ids.push_back(MTP_int(scheduled.lookupId(item)));
++		full.push_back(item->fullId());
++	}
++	request(history->peer, std::move(ids), std::move(full), true);
++}
++
++void Punctual::request(
++		not_null<PeerData*> peer,
++		QVector<MTPint> ids,
++		std::vector<FullMsgId> items,
++		bool split) {
++	_api.request(MTPmessages_SendScheduledMessages(
++		peer->input(),
++		MTP_vector<MTPint>(ids)
++	)).done([=](const MTPUpdates &result) {
++		_session->api().applyUpdates(result);
++	}).fail([=](const MTP::Error &error) {
++		LOG(("Tele Punctual: could not send %1 scheduled to %2: %3."
++			).arg(ids.size()
++			).arg(peer->id.value
++			).arg(error.type()));
++		if (split
++			&& ids.size() > 1
++			&& !RetryDelay(error, 1).has_value()) {
++			for (auto i = 0; i != ids.size(); ++i) {
++				request(peer, { ids[i] }, { items[i] }, false);
++			}
++		} else {
++			failed(peer, items, error);
++		}
++	}).send();
++}
++
++void Punctual::failed(
++		not_null<PeerData*> peer,
++		const std::vector<FullMsgId> &items,
++		const MTP::Error &error) {
++	const auto ms = crl::now();
++	auto retry = crl::time(0);
++	for (const auto &id : items) {
++		const auto i = _attempted.find(id);
++		if (i == end(_attempted) || !_session->data().message(id)) {
++			continue;
++		}
++		const auto failures = ++i->second.failures;
++		const auto delay = RetryDelay(error, failures);
++		if (delay && failures <= kMaxRetries) {
++			i->second.retryAt = ms + *delay;
++			if (!retry || i->second.retryAt < retry) {
++				retry = i->second.retryAt;
++			}
++		} else {
++			i->second.retryAt = 0;
++			notifyFailed(peer, id, error.type());
++		}
++	}
++	if (retry && _enabled) {
++		const auto wait = retry - ms;
++		if (!_timer.isActive() || _timer.remainingTime() > wait) {
++			_expected = base::unixtime::now() + TimeId(wait / 1000);
++			_timer.callOnce(wait);
++		}
++	}
++}
++
++void Punctual::notifyFailed(
++		not_null<PeerData*> peer,
++		FullMsgId id,
++		const QString &reason) {
++	const auto text = Lower(u"Couldn't send a scheduled message on time: %1"_q
++	).arg(reason);
++	Notify(_session, {
++		.kind = NoticeKind::Tele,
++		.tone = NoticeTone::Warning,
++		.key = u"punctual:%1:%2"_q.arg(peer->id.value).arg(id.msg.bare),
++		.title = peer->name(),
++		.text = { text },
++		.peer = peer->id.value,
++	});
++	if (const auto window = _session->tryResolveWindow(peer)) {
++		window->showToast(Ui::Toast::Config{
++			.title = peer->name(),
++			.text = { text },
++		});
++	}
++}
++
++void Punctual::scheduleSweep(crl::time delay) {
++	if (!_sweepTimer.isActive() || _sweepTimer.remainingTime() > delay) {
++		_sweepTimer.callOnce(delay);
++	}
++}
++
++History *Punctual::nextToSweep() {
++	auto &owner = _session->data();
++	const auto self = owner.history(_session->userPeerId());
++	if (!_swept.contains(self->peer->id)) {
++		return self;
++	} else if (const auto result = pickToSweep(owner.chatsList())) {
++		return result;
++	}
++	const auto folder = owner.folderLoaded(Data::Folder::kId);
++	if (!folder) {
++		return nullptr;
++	} else if (const auto result = pickToSweep(folder->chatsList())) {
++		return result;
++	} else if (!folder->chatsList()->loaded()) {
++		_session->api().requestDialogs(folder);
++	}
++	return nullptr;
++}
++
++History *Punctual::pickToSweep(not_null<Dialogs::MainList*> list) {
++	const auto &scheduled = _session->scheduledMessages();
++	for (const auto &row : *list->indexed()) {
++		const auto history = row->history();
++		if (!history || _swept.contains(history->peer->id)) {
++			continue;
++		} else if (scheduled.count(history)
++			|| !Data::CanSendAnything(history->peer, false)) {
++			_swept.emplace(history->peer->id);
++			continue;
++		}
++		return history;
++	}
++	return nullptr;
++}
++
++void Punctual::sweep() {
++	if (!_enabled) {
++		return;
++	}
++	const auto history = nextToSweep();
++	if (!history) {
++		return;
++	}
++	_swept.emplace(history->peer->id);
++	Load(history);
++	_sweepTimer.callOnce((int(_swept.size()) < kSweepFastCount)
++		? kSweepFastInterval
++		: kSweepSlowInterval);
++}
++
++} // namespace
++
++void SetupPunctualScheduled(not_null<Main::Session*> session) {
++	session->lifetime().make_state<Punctual>(session);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_punctual_scheduled.h b/Telegram/SourceFiles/tele/tele_punctual_scheduled.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..6d4d90a6b95c0214d8e1ab56e617da5e7060de7d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_punctual_scheduled.h
+@@ -0,0 +1,11 @@
++#pragma once
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++void SetupPunctualScheduled(not_null<Main::Session*> session);
++
++} // namespace Tele

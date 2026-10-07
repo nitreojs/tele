@@ -1,0 +1,742 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 06:21:15 +0300
+Subject: [PATCH] feat: resize the message field
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/history/history_widget.cpp    |  53 +++-
+ Telegram/SourceFiles/history/history_widget.h |   2 +
+ .../history_view_compose_controls.cpp         |  26 +-
+ .../controls/history_view_compose_controls.h  |   2 +
+ .../view/history_view_chat_section.cpp        |   5 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ .../SourceFiles/tele/tele_field_resize.cpp    | 253 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_field_resize.h |  65 +++++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  38 +++
+ Telegram/SourceFiles/tele/tele_options.h      |   7 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   2 +
+ 12 files changed, 448 insertions(+), 11 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_field_resize.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_field_resize.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 3db37eb55a21bb051f26e3e9141cd0d21ec1120c..47349f83bb709f8a34d4c04d82ae3c41b1c1e789 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2299,6 +2299,8 @@ PRIVATE
+     tele/tele_emoji_panel.h
+     tele/tele_edit_history_section.cpp
+     tele/tele_edit_history_section.h
++    tele/tele_field_resize.cpp
++    tele/tele_field_resize.h
+     tele/tele_folders.cpp
+     tele/tele_folders.h
+     tele/tele_gif_video.cpp
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 154fb0aad9a24b02dccd92efa4d4bc297d5e520b..29801f7b88e3e20a9f2fed634c110570d8d496bc 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_drafts_compose.h"
+ #include "tele/tele_docked_media.h"
+ #include "tele/tele_audio_voice.h"
++#include "tele/tele_field_resize.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
+ #include "tele/tele_deleted_reply.h"
+@@ -595,6 +596,26 @@ HistoryWidget::HistoryWidget(
+ 			},
+ 			.sendMenuDetails = [=] { return sendMenuDetails(); },
+ 		});
++	_teleFieldResize = std::make_unique<Tele::FieldResize>(
++		Tele::FieldResizeDescriptor{
++			.parent = this,
++			.field = _field.data(),
++			.edge = _scroll->geometryValue() | rpl::map([](QRect r) {
++				return r.translated(0, r.height());
++			}),
++			.shown = _field->shownValue(),
++			.above = _scroll.data(),
++			.apply = [=] {
++				const auto max = computeMaxFieldHeight();
++				Tele::FieldResizeSetMax(
++					_teleFieldResize.get(),
++					_field.data(),
++					(_kbShown
++						? (max - std::min(_keyboard->height(), max - (max / 2)))
++						: max));
++				fieldResized();
++			},
++		});
+ 	Data::AmPremiumValue(&session()) | rpl::on_next([=] {
+ 		checkCharsLimitation();
+ 		updateAiButtonVisibility();
+@@ -7139,7 +7160,10 @@ void HistoryWidget::toggleKeyboard(bool manual) {
+ 			_kbScroll->hide();
+ 			_kbShown = false;
+ 
+-			_field->setMaxHeight(computeMaxFieldHeight());
++			Tele::FieldResizeSetMax(
++				_teleFieldResize.get(),
++				_field.data(),
++				computeMaxFieldHeight());
+ 
+ 			_kbReplyTo = nullptr;
+ 			if (!readyToForward()
+@@ -7166,7 +7190,10 @@ void HistoryWidget::toggleKeyboard(bool manual) {
+ 		_kbScroll->hide();
+ 		_kbShown = false;
+ 
+-		_field->setMaxHeight(computeMaxFieldHeight());
++		Tele::FieldResizeSetMax(
++			_teleFieldResize.get(),
++			_field.data(),
++			computeMaxFieldHeight());
+ 
+ 		_kbReplyTo = (false
+ 			|| _peer->isChat()
+@@ -7191,7 +7218,10 @@ void HistoryWidget::toggleKeyboard(bool manual) {
+ 		const auto kbheight = std::min(
+ 			_keyboard->height(),
+ 			maxheight - (maxheight / 2));
+-		_field->setMaxHeight(maxheight - kbheight);
++		Tele::FieldResizeSetMax(
++			_teleFieldResize.get(),
++			_field.data(),
++			maxheight - kbheight);
+ 
+ 		_kbReplyTo = (false
+ 			|| _peer->isChat()
+@@ -8968,7 +8998,10 @@ void HistoryWidget::updateBotKeyboard(History *h, bool force) {
+ 			const auto kbheight = hasMarkup
+ 				? std::min(_keyboard->height(), maxheight - (maxheight / 2))
+ 				: 0;
+-			_field->setMaxHeight(maxheight - kbheight);
++			Tele::FieldResizeSetMax(
++				_teleFieldResize.get(),
++				_field.data(),
++				maxheight - kbheight);
+ 			_kbShown = hasMarkup;
+ 			_kbReplyTo = (_peer->isChat()
+ 					|| _peer->isChannel()
+@@ -8987,7 +9020,10 @@ void HistoryWidget::updateBotKeyboard(History *h, bool force) {
+ 				_botKeyboardShow->show();
+ 				_botCommandStart->hide();
+ 			}
+-			_field->setMaxHeight(computeMaxFieldHeight());
++			Tele::FieldResizeSetMax(
++				_teleFieldResize.get(),
++				_field.data(),
++				computeMaxFieldHeight());
+ 			_kbShown = false;
+ 			_kbReplyTo = nullptr;
+ 			if (!readyToForward()
+@@ -9006,7 +9042,10 @@ void HistoryWidget::updateBotKeyboard(History *h, bool force) {
+ 			_botKeyboardShow->hide();
+ 			_botCommandStart->setVisible(!_editMsgId);
+ 		}
+-		_field->setMaxHeight(computeMaxFieldHeight());
++		Tele::FieldResizeSetMax(
++			_teleFieldResize.get(),
++			_field.data(),
++			computeMaxFieldHeight());
+ 		_kbShown = false;
+ 		_kbReplyTo = nullptr;
+ 		if (!readyToForward()
+@@ -9068,7 +9107,7 @@ int HistoryWidget::computeMaxFieldHeight() const {
+ 		- Tele::ComposeDockedHeight(_teleDocked.get())
+ 		- (2 * st::historySendPadding)
+ 		- st::historyReplyHeight; // at least this height for history.
+-	return std::min(st::historyComposeFieldMaxHeight, available);
++	return std::min(Tele::FieldMaxHeight(this), available);
+ }
+ 
+ bool HistoryWidget::cornerButtonsIgnoreVisibility() {
+diff --git a/Telegram/SourceFiles/history/history_widget.h b/Telegram/SourceFiles/history/history_widget.h
+index db25d6e5ec78300adba791fec8cc93156d7a0c27..6a5c340e5fcd75e6b7ff6fa56eaeaa43d692a20a 100644
+--- a/Telegram/SourceFiles/history/history_widget.h
++++ b/Telegram/SourceFiles/history/history_widget.h
+@@ -142,6 +142,7 @@ struct VoiceToSend;
+ namespace Tele {
+ class ComposeDrafts;
+ class ComposeDocked;
++class FieldResize;
+ } // namespace Tele
+ 
+ class BotKeyboard;
+@@ -1033,5 +1034,6 @@ private:
+ 
+ 	std::unique_ptr<Tele::ComposeDrafts> _teleDrafts;
+ 	std::unique_ptr<Tele::ComposeDocked> _teleDocked;
++	std::unique_ptr<Tele::FieldResize> _teleFieldResize;
+ 
+ };
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 6abd4a2330b2661dab53162fb5aaf68ef47ded3b..21c1f1c39b947d418d7bf8f9810a5985e33f2f16 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_docked_media.h"
+ #include "tele/tele_audio_voice.h"
+ #include "tele/tele_emoji_panel.h"
++#include "tele/tele_field_resize.h"
+ #include "tele/tele_inline_text.h"
+ #include "tele/tele_send_order.h"
+ #include "tele/tele_silent.h"
+@@ -1839,7 +1840,7 @@ bool ComposeControls::fieldHeaderShownCurrent() const {
+ 
+ void ComposeControls::setFieldMaxHeight(int height) {
+ 	const auto oldFieldHeight = _field->height();
+-	_field->setMaxHeight(height);
++	Tele::FieldResizeSetMax(_teleFieldResize.get(), _field, height);
+ 	updateControlsGeometry(_wrap->size());
+ 	if (_field->height() != oldFieldHeight) {
+ 		updateControlsGeometry(_wrap->size());
+@@ -2521,6 +2522,7 @@ void ComposeControls::showFinished() {
+ }
+ 
+ void ComposeControls::raisePanels() {
++	Tele::FieldResizeRaise(_teleFieldResize.get());
+ 	if (_autocomplete) {
+ 		_autocomplete->raise();
+ 	}
+@@ -2809,6 +2811,26 @@ void ComposeControls::init() {
+ 	_tabbedSelectorToggle->setAccessibleName(tr::lng_emoji_sticker_gif(tr::now));
+ 
+ 	initField();
++	if (_regularWindow) {
++		_teleFieldResize = std::make_unique<Tele::FieldResize>(
++			Tele::FieldResizeDescriptor{
++				.parent = _parent,
++				.field = _field,
++				.edge = _wrap->geometryValue(),
++				.shown = rpl::combine(
++					_wrap->shownValue(),
++					_field->shownValue()
++				) | rpl::map([](bool wrap, bool field) {
++					return wrap && field;
++				}),
++				.apply = [=] {
++					setFieldMaxHeight(
++						Tele::FieldResizeMaxHeight(_teleFieldResize.get()));
++					updateHeight();
++				},
++				.applyNow = true,
++			});
++	}
+ 	initTabbedSelector();
+ 	initSendButton();
+ 	initAiButton();
+@@ -5086,7 +5108,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+ 				= _richDraftPreview->resizeGetHeight(
+ 				fieldWidth,
+ 				_st.field.heightMin,
+-				st::historyComposeFieldMaxHeight);
++				Tele::FieldResizeMaxHeight(_teleFieldResize.get()));
+ 		}
+ 		const auto newComposeHeight = composeFieldHeight();
+ 		if (oldComposeHeight != newComposeHeight) {
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h
+index ecd99ea86449ed7a71812262702e09ac967dfa45..724bce185c6292893f0361bd325d5d207401f688 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h
+@@ -108,6 +108,7 @@ enum class SendProgressType;
+ namespace Tele {
+ class ComposeDrafts;
+ class ComposeDocked;
++class FieldResize;
+ } // namespace Tele
+ 
+ namespace HistoryView::Controls {
+@@ -686,6 +687,7 @@ private:
+ 
+ 	std::unique_ptr<Tele::ComposeDrafts> _teleDrafts;
+ 	std::unique_ptr<Tele::ComposeDocked> _teleDocked;
++	std::unique_ptr<Tele::FieldResize> _teleFieldResize;
+ 
+ };
+ 
+diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+index cc74983d87ebefe95f6de9727a12f62f82bf8f66..122821c39b87216d4cf3be6ce735e5b33bba30f7 100644
+--- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+@@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_field_resize.h"
+ #include "tele/tele_silent.h"
+ #include "tele/tele_options.h"
+ #include "inline_bots/inline_bot_result.h"
+@@ -3541,7 +3542,7 @@ int ChatWidget::computeMaxFieldHeightForKeyboard(
+ 		- (2 * st::historySendPadding)
+ 		- st::historyReplyHeight;
+ 	return std::min(
+-		st::historyComposeFieldMaxHeight,
++		Tele::FieldMaxHeight(this),
+ 		std::max(0, available));
+ }
+ 
+@@ -4429,7 +4430,7 @@ void ChatWidget::updateControlsGeometry() {
+ 			bottom -= kbHeight;
+ 		} else {
+ 			_composeControls->setFieldMaxHeight(
+-				st::historyComposeFieldMaxHeight);
++				Tele::FieldMaxHeight(this));
+ 		}
+ 		if (!bottomHeight) {
+ 			bottom -= _composeControls->heightCurrent();
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 2845dd7216774fbe76313cee92d5f59b006e6e79..90f267e598e63d2c3cddb61d8dee0dcf0995e357 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2112,6 +2112,10 @@ void FillChats(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionDockedAttachments,
+ 		{ u"docked"_q, u"tray"_q, u"attach"_q, u"send box"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionResizableField,
++		{ u"height"_q, u"size"_q, u"drag"_q, u"send box"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionNoRichPastePrompt,
+diff --git a/Telegram/SourceFiles/tele/tele_field_resize.cpp b/Telegram/SourceFiles/tele/tele_field_resize.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b903ee1f313081103481ba87a03c714368a7d7d3
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_field_resize.cpp
+@@ -0,0 +1,253 @@
++#include "tele/tele_field_resize.h"
++
++#include "tele/tele_options.h"
++#include "ui/painter.h"
++#include "ui/rp_widget.h"
++#include "ui/widgets/fields/input_field.h"
++#include "styles/style_chat_helpers.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kHandleHeight = 6;
++constexpr auto kLineWidth = 36;
++constexpr auto kLineHeight = 3;
++constexpr auto kLineOpacity = 0.5;
++
++[[nodiscard]] int OneLineHeight() {
++	return st::historySendSize.height() - 2 * st::historySendPadding;
++}
++
++[[nodiscard]] int ClampHeight(not_null<const QWidget*> widget, int height) {
++	return std::max(
++		std::min(height, widget->window()->height() / 2),
++		OneLineHeight());
++}
++
++[[nodiscard]] int Unscaled(int height) {
++	return std::max(int(std::round(height * 100. / style::Scale())), 1);
++}
++
++[[nodiscard]] int ChosenHeight(not_null<const QWidget*> widget) {
++	const auto stored = ResizableField() ? FieldHeight() : 0;
++	return (stored > 0)
++		? ClampHeight(widget, style::ConvertScale(stored))
++		: 0;
++}
++
++} // namespace
++
++FieldResize::FieldResize(FieldResizeDescriptor &&descriptor)
++: _parent(descriptor.parent)
++, _field(descriptor.field)
++, _apply(std::move(descriptor.apply))
++, _max(st::historyComposeFieldMaxHeight)
++, _handle(base::make_unique_q<Ui::RpWidget>(_parent)) {
++	if (const auto above = descriptor.above) {
++		_handle->stackUnder(above);
++		above->stackUnder(_handle.get());
++	}
++	setupHandle(std::move(descriptor.edge), std::move(descriptor.shown));
++	setupApply(descriptor.applyNow);
++}
++
++FieldResize::~FieldResize() = default;
++
++void FieldResize::raise() {
++	_handle->raise();
++}
++
++void FieldResize::setMaxHeight(int height) {
++	_max = height;
++	_field->setMaxHeight(height);
++	applyMin();
++}
++
++void FieldResize::applyMin() {
++	const auto chosen = ChosenHeight(_parent);
++	if (chosen > 0) {
++		_minApplied = true;
++		_field->setMinHeight(std::min(chosen, _max));
++	} else if (_minApplied) {
++		_minApplied = false;
++		_field->setMinHeight(std::min(OneLineHeight(), _max));
++	}
++}
++
++int FieldResize::maxHeight() const {
++	return FieldMaxHeight(_parent);
++}
++
++void FieldResize::setupHandle(
++		rpl::producer<QRect> edge,
++		rpl::producer<bool> shown) {
++	const auto handle = _handle.get();
++	handle->setCursor(style::cur_sizever);
++
++	std::move(edge) | rpl::on_next([=](QRect rect) {
++		const auto height = style::ConvertScale(kHandleHeight);
++		handle->setGeometry(
++			rect.x(),
++			rect.y() - height,
++			rect.width(),
++			height);
++	}, handle->lifetime());
++
++	rpl::combine(
++		std::move(shown),
++		ResizableFieldValue()
++	) | rpl::on_next([=](bool shown, bool enabled) {
++		handle->setVisible(shown && enabled);
++	}, handle->lifetime());
++
++	handle->paintRequest() | rpl::on_next([=] {
++		if (!_hovered && !_dragging) {
++			return;
++		}
++		auto p = QPainter(handle);
++		auto hq = PainterHighQualityEnabler(p);
++		const auto width = style::ConvertScale(kLineWidth);
++		const auto height = style::ConvertScale(kLineHeight);
++		const auto radius = height / 2.;
++		p.setOpacity(kLineOpacity);
++		p.setPen(Qt::NoPen);
++		p.setBrush(st::windowSubTextFg);
++		p.drawRoundedRect(
++			QRect(
++				(handle->width() - width) / 2,
++				(handle->height() - height) / 2,
++				width,
++				height),
++			radius,
++			radius);
++	}, handle->lifetime());
++
++	handle->events() | rpl::on_next([=](not_null<QEvent*> e) {
++		handleEvent(e);
++	}, handle->lifetime());
++}
++
++void FieldResize::setupApply(bool applyNow) {
++	_appliedChosen = ChosenHeight(_parent);
++	rpl::merge(
++		ResizableFieldValue() | rpl::skip(1) | rpl::to_empty,
++		FieldHeightChanges()
++	) | rpl::on_next([=] {
++		if (!_dragging) {
++			apply();
++		}
++	}, _handle->lifetime());
++
++	_parent->heightValue() | rpl::on_next([=] {
++		if (!_dragging && ChosenHeight(_parent) != _appliedChosen) {
++			apply();
++		}
++	}, _handle->lifetime());
++
++	if (applyNow && ResizableField() && FieldHeight() > 0) {
++		apply();
++	}
++}
++
++void FieldResize::handleEvent(not_null<QEvent*> e) {
++	const auto type = e->type();
++	if (type == QEvent::Enter || type == QEvent::Leave) {
++		_hovered = (type == QEvent::Enter);
++		_handle->update();
++		return;
++	} else if (type != QEvent::MouseButtonPress
++		&& type != QEvent::MouseMove
++		&& type != QEvent::MouseButtonRelease
++		&& type != QEvent::MouseButtonDblClick) {
++		return;
++	}
++	const auto mouse = static_cast<QMouseEvent*>(e.get());
++	if (type == QEvent::MouseMove) {
++		if (_pressed) {
++			drag(mouse->globalPos().y());
++		}
++		return;
++	} else if (mouse->button() != Qt::LeftButton) {
++		return;
++	} else if (type == QEvent::MouseButtonPress) {
++		_pressed = true;
++		_dragStartY = _dragLastY = mouse->globalPos().y();
++		_dragStartHeight = _field->height();
++	} else if (type == QEvent::MouseButtonRelease) {
++		_pressed = false;
++		finishDrag();
++	} else {
++		_pressed = false;
++		SetFieldHeight(0);
++	}
++}
++
++void FieldResize::drag(int globalY) {
++	if (globalY == _dragLastY || _applying) {
++		return;
++	}
++	_dragLastY = globalY;
++	const auto height = ClampHeight(
++		_parent,
++		_dragStartHeight + _dragStartY - globalY);
++	if (!_dragging && height == _dragStartHeight) {
++		return;
++	}
++	_dragging = true;
++	SetFieldHeight(Unscaled(height));
++	apply();
++	_handle->update();
++}
++
++void FieldResize::finishDrag() {
++	if (!_dragging) {
++		return;
++	}
++	_dragging = false;
++	apply();
++	_handle->update();
++}
++
++void FieldResize::apply() {
++	if (_applying) {
++		return;
++	} else if (_parent->height() <= 0) {
++		_appliedChosen = -1;
++		return;
++	}
++	_applying = true;
++	_appliedChosen = ChosenHeight(_parent);
++	_apply();
++	_applying = false;
++}
++
++int FieldMaxHeight(not_null<const QWidget*> widget) {
++	return std::max(
++		st::historyComposeFieldMaxHeight,
++		ChosenHeight(widget));
++}
++
++int FieldResizeMaxHeight(const FieldResize *resize) {
++	return resize
++		? resize->maxHeight()
++		: st::historyComposeFieldMaxHeight;
++}
++
++void FieldResizeSetMax(
++		FieldResize *resize,
++		not_null<Ui::InputField*> field,
++		int height) {
++	if (resize) {
++		resize->setMaxHeight(height);
++	} else {
++		field->setMaxHeight(height);
++	}
++}
++
++void FieldResizeRaise(FieldResize *resize) {
++	if (resize) {
++		resize->raise();
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_field_resize.h b/Telegram/SourceFiles/tele/tele_field_resize.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..b9fbe96c38341f87dc6d4f29214cf21c8447c0cc
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_field_resize.h
+@@ -0,0 +1,65 @@
++#pragma once
++
++#include "base/unique_qptr.h"
++
++namespace Ui {
++class InputField;
++class RpWidget;
++} // namespace Ui
++
++namespace Tele {
++
++struct FieldResizeDescriptor {
++	not_null<Ui::RpWidget*> parent;
++	not_null<Ui::InputField*> field;
++	rpl::producer<QRect> edge;
++	rpl::producer<bool> shown;
++	QWidget *above = nullptr;
++	Fn<void()> apply;
++	bool applyNow = false;
++};
++
++class FieldResize final {
++public:
++	explicit FieldResize(FieldResizeDescriptor &&descriptor);
++	~FieldResize();
++
++	void raise();
++	void setMaxHeight(int height);
++	[[nodiscard]] int maxHeight() const;
++
++private:
++	void setupHandle(rpl::producer<QRect> edge, rpl::producer<bool> shown);
++	void setupApply(bool applyNow);
++	void handleEvent(not_null<QEvent*> e);
++	void drag(int globalY);
++	void finishDrag();
++	void apply();
++	void applyMin();
++
++	const not_null<Ui::RpWidget*> _parent;
++	const not_null<Ui::InputField*> _field;
++	const Fn<void()> _apply;
++	base::unique_qptr<Ui::RpWidget> _handle;
++	int _max = 0;
++	int _appliedChosen = 0;
++	int _dragStartY = 0;
++	int _dragStartHeight = 0;
++	int _dragLastY = 0;
++	bool _hovered = false;
++	bool _pressed = false;
++	bool _dragging = false;
++	bool _applying = false;
++	bool _minApplied = false;
++
++};
++
++[[nodiscard]] int FieldMaxHeight(not_null<const QWidget*> widget);
++[[nodiscard]] int FieldResizeMaxHeight(const FieldResize *resize);
++void FieldResizeSetMax(
++	FieldResize *resize,
++	not_null<Ui::InputField*> field,
++	int height);
++void FieldResizeRaise(FieldResize *resize);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 5d3ebacc2577359187804529a3d96144923699ed..a52cd9d6a3c7f00da43e4701c1fe8e940adb86f1 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -126,6 +126,8 @@ const char kOptionLocalDrafts[] = "tele-local-drafts";
+ const char kOptionLocalPins[] = "tele-local-pins";
+ const char kOptionDockedAttachments[] = "tele-docked-attachments";
+ const char kOptionDockedGrid[] = "tele-docked-grid";
++const char kOptionResizableField[] = "tele-resizable-field";
++const char kOptionFieldHeight[] = "tele-field-height";
+ const char kOptionLocalFolders[] = "tele-local-folders";
+ const char kOptionBookmarks[] = "tele-bookmarks";
+ const char kOptionReturnPoint[] = "tele-return-point";
+@@ -869,6 +871,16 @@ base::options::toggle DockedGridOption({
+ 	.name = "Docked media as album grid",
+ });
+ 
++base::options::toggle ResizableFieldOption({
++	.id = kOptionResizableField,
++	.name = "Resizable message field",
++});
++
++base::options::option<int> FieldHeightOption({
++	.id = kOptionFieldHeight,
++	.name = "Message field height",
++});
++
+ base::options::toggle LocalFoldersOption({
+ 	.id = kOptionLocalFolders,
+ 	.name = "Folders past the limit",
+@@ -1896,6 +1908,32 @@ rpl::producer<> DockedGridChanges() {
+ 	return DockedGridOption.changes();
+ }
+ 
++bool ResizableField() {
++	return ResizableFieldOption.value();
++}
++
++rpl::producer<bool> ResizableFieldValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ResizableFieldOption.changes()
++	) | rpl::map([] {
++		return ResizableFieldOption.value();
++	});
++}
++
++int FieldHeight() {
++	return FieldHeightOption.value();
++}
++
++void SetFieldHeight(int height) {
++	FieldHeightOption.set(height);
++}
++
++rpl::producer<> FieldHeightChanges() {
++	return FieldHeightOption.changes();
++}
++
+ bool LocalFolders() {
+ 	return LocalFoldersOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 23684ad27bb07be300dc095d166a11f1bf5025c7..88c7a77015e6243fbf2659184fce44443d3b1c8b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -121,6 +121,8 @@ extern const char kOptionLocalDrafts[];
+ extern const char kOptionLocalPins[];
+ extern const char kOptionDockedAttachments[];
+ extern const char kOptionDockedGrid[];
++extern const char kOptionResizableField[];
++extern const char kOptionFieldHeight[];
+ extern const char kOptionLocalFolders[];
+ extern const char kOptionBookmarks[];
+ extern const char kOptionReturnPoint[];
+@@ -320,6 +322,11 @@ void SetTrayIcon(const QString &value);
+ [[nodiscard]] bool DockedGrid();
+ void SetDockedGrid(bool enabled);
+ [[nodiscard]] rpl::producer<> DockedGridChanges();
++[[nodiscard]] bool ResizableField();
++[[nodiscard]] rpl::producer<bool> ResizableFieldValue();
++[[nodiscard]] int FieldHeight();
++void SetFieldHeight(int height);
++[[nodiscard]] rpl::producer<> FieldHeightChanges();
+ [[nodiscard]] bool LocalFolders();
+ [[nodiscard]] rpl::producer<bool> LocalFoldersValue();
+ [[nodiscard]] bool MessageBookmarks();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index ef75640bde4e8d5ffc49026752b46eef71ca2745..fe6b2d68eccf10bf7e4a992fc1a062eff243c415 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -189,6 +189,7 @@ struct Spec {
+ 		Toggle(kOptionDownloadsPerChat),
+ 		Toggle(kOptionDockedAttachments),
+ 		Toggle(kOptionDockedGrid),
++		Toggle(kOptionResizableField),
+ 		Toggle(kOptionNoPhoneInHeader),
+ 		Toggle(kOptionNftPurchasePrice),
+ 		Toggle(kOptionLocalDrafts),
+@@ -228,6 +229,7 @@ struct Spec {
+ 		Internal(kOptionChangelogAccounts),
+ 		Internal(kOptionKnownSettings),
+ 		Internal(kOptionUncountedAccounts),
++		Internal(kOptionFieldHeight),
+ 		Internal("tele-hide-calls"),
+ 		Internal("tele-open-links-in-apps"),
+ 		Internal(kOptionShotView),

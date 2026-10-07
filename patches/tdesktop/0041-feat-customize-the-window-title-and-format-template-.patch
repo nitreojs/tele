@@ -166,7 +166,7 @@ index b7a715850b278878e7e50200a6c1c255c1908375..964ec99163beb94f477f97afcd5b1e4a
  
  class IgnoredRow final : public PeerListRowWithLink {
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 97020eddedbe0715ba0d17a0f4aea7269d063549..22d865d1590a766b395912c84403148b90697bda 100644
+index a96110cdd4dc5db2fc16931d3a1e154396b0c9bb..e2983cb5b04bd9deca406665480dcdee5455c541 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -45,6 +45,7 @@ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
@@ -177,7 +177,7 @@ index 97020eddedbe0715ba0d17a0f4aea7269d063549..22d865d1590a766b395912c84403148b
  
  namespace {
  
-@@ -373,6 +374,15 @@ base::options::option<QString> TitleTemplateOption({
+@@ -372,6 +373,15 @@ base::options::option<QString> TitleTemplateOption({
  	.defaultValue = u"TELE {build}"_q,
  });
  
@@ -193,7 +193,7 @@ index 97020eddedbe0715ba0d17a0f4aea7269d063549..22d865d1590a766b395912c84403148b
  } // namespace
  
  bool HideStories() {
-@@ -694,4 +704,22 @@ rpl::producer<QString> TitleTemplateValue() {
+@@ -693,4 +703,22 @@ rpl::producer<QString> TitleTemplateValue() {
  	});
  }
  

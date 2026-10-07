@@ -1,0 +1,1771 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 15:02:29 +0300
+Subject: [PATCH] feat: your own reaction strip
+
+---
+ Telegram/CMakeLists.txt                       |   6 +
+ .../history_view_reactions_selector.cpp       |  75 +-
+ .../history_view_reactions_selector.h         |  14 +-
+ .../history_view_reactions_strip.cpp          | 111 ++-
+ .../reactions/history_view_reactions_strip.h  |   9 +
+ .../SourceFiles/settings/settings_tele.cpp    |  35 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  52 +
+ Telegram/SourceFiles/tele/tele_options.h      |   8 +
+ .../SourceFiles/tele/tele_reaction_editor.cpp | 908 ++++++++++++++++++
+ .../SourceFiles/tele/tele_reaction_editor.h   |  18 +
+ .../SourceFiles/tele/tele_reaction_order.cpp  | 147 +++
+ .../SourceFiles/tele/tele_reaction_order.h    |  30 +
+ .../SourceFiles/tele/tele_reaction_strip.cpp  |  22 +
+ .../SourceFiles/tele/tele_reaction_strip.h    |  17 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |  20 +
+ 15 files changed, 1447 insertions(+), 25 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_reaction_editor.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_reaction_editor.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_reaction_order.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_reaction_order.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_reaction_strip.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_reaction_strip.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 0334444ad272195f68497d584df59905096e6b30..e3e50ba4749dda773fac5f3c352a6ed3910d6e47 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2476,6 +2476,12 @@ PRIVATE
+     tele/tele_punctual_scheduled.h
+     tele/tele_rate_limits.cpp
+     tele/tele_rate_limits.h
++    tele/tele_reaction_editor.cpp
++    tele/tele_reaction_editor.h
++    tele/tele_reaction_order.cpp
++    tele/tele_reaction_order.h
++    tele/tele_reaction_strip.cpp
++    tele/tele_reaction_strip.h
+     tele/tele_read_log.cpp
+     tele/tele_read_log.h
+     tele/tele_recent_emoji.cpp
+diff --git a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.cpp b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.cpp
+index e82903a5952260280c5eb03b11284def2daabaa0..8a61dcd323ad62ee0b9be1bdc391f19c70eb8174 100644
+--- a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.cpp
++++ b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.cpp
+@@ -37,6 +37,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "mainwidget.h"
+ #include "apiwrap.h"
+ #include "base/call_delayed.h"
++#include "tele/tele_reaction_order.h"
++#include "tele/tele_reaction_strip.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_chat.h"
+ 
+@@ -269,7 +271,7 @@ Selector::Selector(
+ : RpWidget(parent)
+ , _st(st)
+ , _show(std::move(show))
+-, _reactions(reactions)
++, _reactions(Tele::ReactionStripOrder(&_show->session(), reactions))
+ , _recent(std::move(recent))
+ , _listMode(mode)
+ , _paused(std::move(paused))
+@@ -333,31 +335,70 @@ int Selector::countWidth(int desiredWidth, int maxWidth) {
+ 	const auto possibleColumns = std::min(
+ 		desiredColumns,
+ 		(maxWidth - 2 * _skipx) / _size);
+-	_columns = _strip ? std::min(possibleColumns, max) : kDefaultColumns;
++	_columns = _strip
++		? Tele::ReactionStripColumns(
++			_reactions,
++			std::min(possibleColumns, max),
++			max)
++		: kDefaultColumns;
+ 	_small = (possibleColumns - _columns > 1);
+ 	_recentRows = (recentCount() + _columns - 1) / _columns;
++	if (_strip) {
++		applyStripList(false);
++	}
++	return std::max(2 * _skipx + _columns * _size, desiredWidth);
++}
++
++void Selector::applyStripList(bool keepState) {
++	Expects(_strip != nullptr);
++
++	const auto addedToMax = _reactions.customAllowed;
++	const auto max = recentCount() + (addedToMax ? 1 : 0);
+ 	const auto added = (_columns < max || _reactions.customAllowed)
+ 		? Strip::AddedButton::Expand
+ 		: Strip::AddedButton::None;
+-	if (_strip) {
+-		const auto &real = _reactions.recent;
+-		auto list = std::vector<not_null<const Data::Reaction*>>();
+-		list.reserve(_columns);
+-		if (const auto cut = max - _columns) {
+-			const auto from = begin(real);
+-			const auto till = end(real) - (cut + (addedToMax ? 0 : 1));
+-			for (auto i = from; i != till; ++i) {
+-				list.push_back(&*i);
+-			}
+-		} else {
+-			for (const auto &reaction : real) {
+-				list.push_back(&reaction);
+-			}
++	const auto &real = _reactions.recent;
++	auto list = std::vector<not_null<const Data::Reaction*>>();
++	list.reserve(_columns);
++	if (const auto cut = std::max(max - _columns, 0)) {
++		const auto from = begin(real);
++		const auto till = end(real) - (cut + (addedToMax ? 0 : 1));
++		for (auto i = from; i != till; ++i) {
++			list.push_back(&*i);
++		}
++	} else {
++		for (const auto &reaction : real) {
++			list.push_back(&reaction);
+ 		}
++	}
++	if (keepState) {
++		_strip->applyListKeepingState(list, added);
++	} else {
+ 		_strip->applyList(list, added);
+ 		_strip->clearAppearAnimations(false);
+ 	}
+-	return std::max(2 * _skipx + _columns * _size, desiredWidth);
++}
++
++not_null<Strip*> Selector::strip() const {
++	Expects(_strip != nullptr);
++
++	return _strip.get();
++}
++
++QRect Selector::stripSlot(int index) const {
++	return QRect(
++		_inner.x() + _skipx + index * _size,
++		_inner.y() + _skipy - skipYBubbleUpShift(),
++		_size,
++		_size);
++}
++
++void Selector::applyStripReactions(
++		const Data::PossibleItemReactionsRef &reactions) {
++	Expects(_strip != nullptr);
++
++	_reactions = Data::PossibleItemReactions(reactions);
++	applyStripList(true);
+ }
+ 
+ int Selector::effectPreviewHeight() const {
+diff --git a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.h b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.h
+index 47e8c59b8ab8334303f88f2a92454c68d44abdc8..341918e1c8282625354d94c3f605ba7288c6a60f 100644
+--- a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.h
++++ b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_selector.h
+@@ -132,6 +132,14 @@ public:
+ 		bool appearing,
+ 		bool toggling);
+ 
++	[[nodiscard]] not_null<Strip*> strip() const;
++	[[nodiscard]] QRect stripSlot(int index) const;
++	[[nodiscard]] int lookupSelectedIndex(QPoint position) const;
++	void setSelected(int index);
++	void applyStripReactions(
++		const Data::PossibleItemReactionsRef &reactions);
++	void expand();
++
+ private:
+ 	static constexpr int kFramesCount = 32;
+ 
+@@ -181,10 +189,8 @@ private:
+ 	[[nodiscard]] int recentCount() const;
+ 	[[nodiscard]] int countSkipLeft() const;
+ 	[[nodiscard]] bool inVisibleArea(QPoint position) const;
+-	[[nodiscard]] int lookupSelectedIndex(QPoint position) const;
+-	void setSelected(int index);
++	void applyStripList(bool keepState);
+ 
+-	void expand();
+ 	void cacheExpandIcon();
+ 	void createList();
+ 	void finishExpand();
+@@ -195,7 +201,7 @@ private:
+ 
+ 	const style::EmojiPan &_st;
+ 	const std::shared_ptr<ChatHelpers::Show> _show;
+-	const Data::PossibleItemReactions _reactions;
++	Data::PossibleItemReactions _reactions;
+ 	const std::vector<DocumentId> _recent;
+ 	const ChatHelpers::EmojiListMode _listMode;
+ 	const Fn<bool()> _paused;
+diff --git a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.cpp b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.cpp
+index 721eb55a34bd37b9ef3115dee2cec6ecc5c87562..e44b7b361325ec7d1640e7407dde4442bfe7ee9e 100644
+--- a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.cpp
++++ b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.cpp
+@@ -25,6 +25,7 @@ constexpr auto kSizeForDownscale = 96;
+ constexpr auto kEmojiCacheIndex = 0;
+ constexpr auto kHoverScaleDuration = crl::time(200);
+ constexpr auto kHoverScale = 1.24;
++constexpr auto kSlideDuration = crl::time(200);
+ 
+ [[nodiscard]] int MainReactionSize() {
+ 	return style::ConvertScale(kSizeForDownscale);
+@@ -108,6 +109,87 @@ void Strip::applyList(
+ 	resolveMainReactionIcon();
+ }
+ 
++void Strip::applyListKeepingState(
++		const std::vector<not_null<const Data::Reaction*>> &list,
++		AddedButton button) {
++	auto was = base::take(_icons);
++	auto used = std::vector<bool>(was.size());
++	const auto selected = std::exchange(_selectedIcon, -1);
++	const auto hidden = std::exchange(_hiddenIcon, -1);
++	const auto find = [&](const ReactionId &id, AddedButton added) {
++		for (auto i = 0, count = int(was.size()); i != count; ++i) {
++			if (!used[i] && was[i].added == added && was[i].id == id) {
++				used[i] = true;
++				return i;
++			}
++		}
++		return -1;
++	};
++	const auto push = [&](int from, ReactionIcons &&fresh) {
++		const auto index = int(_icons.size());
++		if (from < 0) {
++			_icons.push_back(std::move(fresh));
++			return;
++		}
++		_icons.push_back(std::move(was[from]));
++		auto &icon = _icons.back();
++		const auto shift = from + icon.slide.value(0.) - index;
++		if (shift != 0.) {
++			icon.slide.start(
++				_update,
++				shift,
++				0.,
++				kSlideDuration,
++				anim::easeOutCubic);
++		}
++		if (from == selected) {
++			_selectedIcon = index;
++		}
++		if (from == hidden) {
++			_hiddenIcon = index;
++		}
++	};
++	_icons.reserve(list.size() + 1);
++	for (const auto &reaction : list) {
++		push(find(reaction->id, AddedButton::None), {
++			.id = reaction->id,
++			.appearAnimation = reaction->appearAnimation,
++			.selectAnimation = reaction->selectAnimation,
++		});
++	}
++	_button = button;
++	if (_button != AddedButton::None) {
++		push(find(ReactionId(), _button), { .added = _button });
++	}
++	const auto frontAppeared = !_icons.empty()
++		&& _icons.front().appearAnimated;
++	resolveMainReactionIcon();
++	if (!_icons.empty()) {
++		_icons.front().appearAnimated = frontAppeared;
++	}
++	if (_update) {
++		_update();
++	}
++}
++
++void Strip::setHiddenIndex(int index) {
++	if (_hiddenIcon != index) {
++		_hiddenIcon = index;
++		if (_update) {
++			_update();
++		}
++	}
++}
++
++void Strip::setMarked(base::flat_set<ReactionId> marked) {
++	if (_marked != marked) {
++		_marked = std::move(marked);
++		if (_update) {
++			_update();
++		}
++	}
++}
++
+ void Strip::paint(
+ 		QPainter &p,
+ 		QPoint position,
+@@ -120,16 +202,33 @@ void Strip::paint(
+ 
+ 	PainterHighQualityEnabler hq(p);
+ 	const auto countTarget = resolveCountTargetMethod(scale);
+-	for (auto &icon : _icons) {
+-		const auto target = countTarget(icon).translated(position);
++	for (auto i = 0, count = int(_icons.size()); i != count; ++i) {
++		auto &icon = _icons[i];
++		const auto slide = icon.slide.value(0.);
++		const auto at = position + QPoint(
++			int(base::SafeRound(shift.x() * slide)),
++			int(base::SafeRound(shift.y() * slide)));
++		const auto target = countTarget(icon).translated(at);
+ 		position += shift;
+-		if (target.intersects(clip)) {
++		if (i != _hiddenIcon && target.intersects(clip)) {
+ 			paintOne(
+ 				p,
+ 				icon,
+-				position - shift,
++				at,
+ 				target,
+ 				!hiding && target.intersects(animationRect));
++			if (icon.added == AddedButton::None
++				&& _marked.contains(icon.id)) {
++				const auto radius = st::lineWidth * 1.5;
++				p.setPen(Qt::NoPen);
++				p.setBrush(st::windowBgActive);
++				p.drawEllipse(
++					QPointF(
++						at.x() + _inner.x() + _inner.width() / 2.,
++						at.y() + _inner.y() + _inner.height() + radius),
++					radius,
++					radius);
++			}
+ 		} else if (!hiding) {
+ 			clearStateForHidden(icon);
+ 		}
+@@ -229,6 +328,10 @@ int Strip::count() const {
+ 	return _icons.size();
+ }
+ 
++bool Strip::hasButton() const {
++	return (_button != AddedButton::None);
++}
++
+ bool Strip::onlyAddedButton() const {
+ 	return (_icons.size() == 1)
+ 		&& (_icons.front().added != AddedButton::None);
+diff --git a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.h b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.h
+index 2e539f4ad791be7c23b89739cbbf09072f2a8942..11d664097deaab64de4a12c511e4d0489c1c7a85 100644
+--- a/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.h
++++ b/Telegram/SourceFiles/history/view/reactions/history_view_reactions_strip.h
+@@ -62,6 +62,11 @@ public:
+ 	void applyList(
+ 		const std::vector<not_null<const Data::Reaction*>> &list,
+ 		AddedButton button);
++	void applyListKeepingState(
++		const std::vector<not_null<const Data::Reaction*>> &list,
++		AddedButton button);
++	void setHiddenIndex(int index);
++	void setMarked(base::flat_set<ReactionId> marked);
+ 
+ 	void paint(
+ 		QPainter &p,
+@@ -75,6 +80,7 @@ public:
+ 
+ 	[[nodiscard]] bool empty() const;
+ 	[[nodiscard]] int count() const;
++	[[nodiscard]] bool hasButton() const;
+ 	void setSelected(int index) const;
+ 	[[nodiscard]] std::variant<AddedButton, ReactionId> selected() const;
+ 	[[nodiscard]] int computeOverSize() const;
+@@ -102,6 +108,7 @@ private:
+ 		std::shared_ptr<Ui::AnimatedIcon> appear;
+ 		std::shared_ptr<Ui::AnimatedIcon> select;
+ 		mutable Ui::Animations::Simple selectedScale;
++		Ui::Animations::Simple slide;
+ 		AddedButton added = AddedButton::None;
+ 		bool appearAnimated = false;
+ 		mutable bool selected = false;
+@@ -142,6 +149,8 @@ private:
+ 	rpl::lifetime _loadCacheLifetime;
+ 
+ 	mutable int _selectedIcon = -1;
++	int _hiddenIcon = -1;
++	base::flat_set<ReactionId> _marked;
+ 
+ 	std::shared_ptr<Data::DocumentMedia> _mainReactionMedia;
+ 	std::shared_ptr<Ui::AnimatedIcon> _mainReactionIcon;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 55cf377295e8bd20e87448a208b222eacbe4c20f..4169fc9dd4ea945a546f01e64f54fdc99a92b5fa 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -51,6 +51,7 @@
+ #include "tele/tele_mtp_log.h"
+ #include "tele/tele_new_settings.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_reaction_editor.h"
+ #include "tele/tele_server_notices.h"
+ #include "tele/tele_settings_io_box.h"
+ #include "tele/tele_title_box.h"
+@@ -1443,6 +1444,37 @@ void AddButtonChoice(
+ 	});
+ }
+ 
++void AddReactionsMenu(SectionBuilder &builder) {
++	const auto &option = base::options::lookup<QString>(
++		::Tele::kOptionReactionsStripCount);
++	const auto controller = builder.controller();
++	const auto description = ::Tele::Lower(option.description());
++	const auto button = AddButton(builder, {
++		.id = option.id(),
++		.title = rpl::single(::Tele::Lower(option.name())),
++		.st = &st::settingsButtonNoIcon,
++		.label = ::Tele::ReactionMenuLabelValue(),
++		.onClick = [=] {
++			controller->show(Box(::Tele::ReactionMenuBox, controller));
++		},
++		.keywords = {
++			description,
++			u"strip"_q,
++			u"order"_q,
++			u"pin"_q,
++			u"favorite"_q,
++			u"quick"_q,
++			u"context menu"_q,
++			u"stories"_q,
++			u"media viewer"_q,
++		},
++	});
++	if (button) {
++		SetupLink(button, option.id());
++	}
++	AddAbout(builder, option.id(), description);
++}
++
+ void AddCallButtons(SectionBuilder &builder) {
+ 	AddButtonChoice(
+ 		builder,
+@@ -2709,6 +2741,9 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionMediaPastLimit,
+ 		{ u"favorites"_q, u"faved"_q });
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Reactions"_q);
++	AddReactionsMenu(builder);
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Gestures"_q);
+ 	AddOptionToggle(
+ 		builder,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index cfbd1fac65fc5ac2142b5850b20f7000c6059074..4f7c50ed2ce914557ab67b7d3966cf1a765dc1d2 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -56,6 +56,8 @@ const char kOptionListKeys[] = "tele-list-keys";
+ const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
+ const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
+ const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
++const char kOptionReactionsStripCount[] = "tele-reactions-strip-count";
++const char kOptionReactionsOrder[] = "tele-reactions-order";
+ const char kOptionNoAi[] = "tele-no-ai";
+ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
+ const char kOptionAttachMenuClick[] = "tele-attach-menu-click";
+@@ -530,6 +532,20 @@ base::options::toggle HideReactionsButtonOption({
+ 	.name = "Hide unread reaction markers",
+ });
+ 
++base::options::option<QString> ReactionsStripCountOption({
++	.id = kOptionReactionsStripCount,
++	.name = "Reactions in the menu",
++	.description = "How many reactions sit above the message menu and "
++		"which come first.",
++});
++
++base::options::option<QString> ReactionsOrderOption({
++	.id = kOptionReactionsOrder,
++	.name = "Reaction order",
++	.description = "These come first in reaction menus, the rest keep the "
++		"chat's order.",
++});
++
+ base::options::toggle NoAiOption({
+ 	.id = kOptionNoAi,
+ 	.name = "Turn off AI features",
+@@ -1886,6 +1902,42 @@ rpl::producer<> HideReactionsButtonChanges() {
+ 	return HideReactionsButtonOption.changes();
+ }
+ 
++QString ReactionsStripCount() {
++	return ReactionsStripCountOption.value();
++}
++
++void SetReactionsStripCount(const QString &value) {
++	ReactionsStripCountOption.set(value);
++}
++
++rpl::producer<QString> ReactionsStripCountValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ReactionsStripCountOption.changes()
++	) | rpl::map([] {
++		return ReactionsStripCountOption.value();
++	});
++}
++
++QString ReactionsOrder() {
++	return ReactionsOrderOption.value();
++}
++
++void SetReactionsOrder(const QString &value) {
++	ReactionsOrderOption.set(value);
++}
++
++rpl::producer<QString> ReactionsOrderValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ReactionsOrderOption.changes()
++	) | rpl::map([] {
++		return ReactionsOrderOption.value();
++	});
++}
++
+ bool NoAi() {
+ 	return NoAiOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 53e02633281aa07467eaaca2febe3ed98134dda6..7964358fb8767ec7df2969b247df2520827a37fc 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -51,6 +51,8 @@ extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionHideMentionsButton[];
+ extern const char kOptionHideReactionsButton[];
++extern const char kOptionReactionsStripCount[];
++extern const char kOptionReactionsOrder[];
+ extern const char kOptionNoAi[];
+ extern const char kOptionEmojiPanelClick[];
+ extern const char kOptionAttachMenuClick[];
+@@ -286,6 +288,12 @@ void SetReduceMotionSaved(const QString &value);
+ [[nodiscard]] rpl::producer<> HideMentionsButtonChanges();
+ [[nodiscard]] bool HideReactionsButton();
+ [[nodiscard]] rpl::producer<> HideReactionsButtonChanges();
++[[nodiscard]] QString ReactionsStripCount();
++void SetReactionsStripCount(const QString &value);
++[[nodiscard]] rpl::producer<QString> ReactionsStripCountValue();
++[[nodiscard]] QString ReactionsOrder();
++void SetReactionsOrder(const QString &value);
++[[nodiscard]] rpl::producer<QString> ReactionsOrderValue();
+ [[nodiscard]] bool NoAi();
+ [[nodiscard]] rpl::producer<> NoAiChanges();
+ [[nodiscard]] bool EmojiPanelClick();
+diff --git a/Telegram/SourceFiles/tele/tele_reaction_editor.cpp b/Telegram/SourceFiles/tele/tele_reaction_editor.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..6cf543214650d175f2197ca341a6f9bc303d1ff5
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reaction_editor.cpp
+@@ -0,0 +1,908 @@
++#include "tele/tele_reaction_editor.h"
++
++#include "base/event_filter.h"
++#include "base/unixtime.h"
++#include "base/unique_qptr.h"
++#include "data/data_document.h"
++#include "data/data_message_reactions.h"
++#include "data/data_session.h"
++#include "data/stickers/data_custom_emoji.h"
++#include "history/admin_log/history_admin_log_item.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/view/history_view_element.h"
++#include "history/view/reactions/history_view_reactions_selector.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "settings/settings_common.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "tele/tele_reaction_order.h"
++#include "tele/tele_reaction_strip.h"
++#include "ui/chat/chat_style.h"
++#include "ui/chat/chat_theme.h"
++#include "ui/layers/generic_box.h"
++#include "ui/painter.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/continuous_sliders.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/widgets/shadow.h"
++#include "window/section_widget.h"
++#include "window/window_session_controller.h"
++#include "styles/style_chat.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++#include "styles/style_widgets.h"
++
++#include <QtWidgets/QApplication>
++
++namespace Tele {
++namespace {
++
++constexpr auto kRemovingOpacity = 0.4;
++
++using Ids = std::vector<Data::ReactionId>;
++using Selector = HistoryView::Reactions::Selector;
++
++[[nodiscard]] Data::PossibleItemReactionsRef Ordered(
++		not_null<Main::Session*> session,
++		const Ids &pinned) {
++	return ApplyReactionOrder(
++		session,
++		Data::LookupPossibleReactions(session),
++		pinned);
++}
++
++[[nodiscard]] Ids CollectIds(const Data::PossibleItemReactionsRef &list) {
++	auto result = Ids();
++	result.reserve(list.recent.size());
++	for (const auto &reaction : list.recent) {
++		result.push_back(reaction->id);
++	}
++	return result;
++}
++
++[[nodiscard]] Ids Trimmed(Ids list) {
++	while (!list.empty() && list.back().empty()) {
++		list.pop_back();
++	}
++	return list;
++}
++
++void Put(Ids &list, int slot, const Data::ReactionId &id) {
++	if (int(list.size()) <= slot) {
++		list.resize(slot + 1);
++	}
++	list[slot] = id;
++}
++
++[[nodiscard]] Ids Unpinned(Ids list, const Data::ReactionId &id) {
++	for (auto &value : list) {
++		if (value == id) {
++			value = Data::ReactionId();
++		}
++	}
++	return Trimmed(std::move(list));
++}
++
++[[nodiscard]] Ids PinnedAt(
++		const Ids &pinned,
++		const Data::ReactionId &id,
++		int slot) {
++	auto result = Unpinned(pinned, id);
++	Put(result, slot, id);
++	return result;
++}
++
++[[nodiscard]] Ids Appended(const Ids &pinned, const Data::ReactionId &id) {
++	const auto without = Unpinned(pinned, id);
++	return PinnedAt(without, id, int(without.size()));
++}
++
++[[nodiscard]] Ids Replaced(
++		not_null<Main::Session*> session,
++		const Ids &pinned,
++		int slot,
++		const Data::ReactionId &id) {
++	const auto shown = CollectIds(Ordered(session, pinned));
++	return PinnedAt(
++		(slot < int(shown.size())) ? Unpinned(pinned, shown[slot]) : pinned,
++		id,
++		slot);
++}
++
++[[nodiscard]] Ids Moved(
++		not_null<Main::Session*> session,
++		const Ids &pinned,
++		const Data::ReactionId &id,
++		int slot) {
++	auto shown = CollectIds(Ordered(session, pinned));
++	const auto from = ranges::find(shown, id);
++	if (from == end(shown)) {
++		return pinned;
++	}
++	shown.erase(from);
++	slot = std::clamp(slot, 0, int(shown.size()));
++	shown.insert(begin(shown) + slot, id);
++	auto result = Ids();
++	for (auto i = 0, count = int(shown.size()); i != count; ++i) {
++		const auto &value = shown[i];
++		if (value == id || ranges::contains(pinned, value)) {
++			Put(result, i, value);
++		}
++	}
++	for (auto i = 0, count = int(pinned.size()); i != count; ++i) {
++		const auto &value = pinned[i];
++		if (value.empty() || ranges::contains(shown, value)) {
++			continue;
++		}
++		auto free = i;
++		while (free < int(result.size()) && !result[free].empty()) {
++			++free;
++		}
++		Put(result, free, value);
++	}
++	return Trimmed(std::move(result));
++}
++
++[[nodiscard]] base::flat_set<Data::ReactionId> Marked(const Ids &pinned) {
++	auto result = base::flat_set<Data::ReactionId>();
++	for (const auto &id : pinned) {
++		if (!id.empty()) {
++			result.emplace(id);
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] int ValidCount(const QString &value) {
++	const auto count = value.toInt();
++	return (count >= kReactionStripMinCount
++		&& count <= kReactionStripMaxCount)
++		? count
++		: 0;
++}
++
++[[nodiscard]] QString CountText(int count) {
++	return count ? QString::number(count) : Lower(u"Auto"_q);
++}
++
++[[nodiscard]] AdminLog::OwnedItem GenerateItem(
++		not_null<HistoryView::ElementDelegate*> delegate,
++		not_null<History*> history) {
++	const auto item = history->makeMessage({
++		.id = history->nextNonHistoryEntryId(),
++		.flags = MessageFlag::FakeHistoryItem,
++		.from = history->peer->id,
++		.date = base::unixtime::now(),
++	}, TextWithEntities{ Lower(u"Pinned reactions keep their place in "
++		"every message menu."_q) }, MTP_messageMediaEmpty());
++	return AdminLog::OwnedItem(delegate, item);
++}
++
++class PreviewDelegate final : public HistoryView::SimpleElementDelegate {
++public:
++	using SimpleElementDelegate::SimpleElementDelegate;
++
++	HistoryView::Context elementContext() override {
++		return HistoryView::Context::ContactPreview;
++	}
++
++};
++
++class Editor final : public Ui::RpWidget {
++public:
++	Editor(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller);
++
++	[[nodiscard]] static int MinimalWidth();
++	void reset();
++	void rebuild();
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++	void mousePressEvent(QMouseEvent *e) override;
++
++private:
++	struct Drag {
++		Data::ReactionId id;
++		Ids start;
++		Ids shown;
++		QImage image;
++		QPoint grab;
++		QPoint position;
++		bool removing = false;
++	};
++
++	void setupMenu();
++	void setupArea();
++	void setupLayer();
++	void collapseLater();
++	void setPinned(Ids pinned);
++	void showPinned(const Ids &pinned);
++	void applyPinned();
++	void setAreaHeight(int height);
++	void resolveMissing();
++	[[nodiscard]] bool idle() const;
++	[[nodiscard]] int visibleReactions() const;
++	[[nodiscard]] bool isButton(int index) const;
++	[[nodiscard]] base::EventFilterResult handleSelectorEvent(
++		not_null<QEvent*> e);
++	void startDrag();
++	void updateDrag(QPoint position);
++	void finishDrag(QPoint position);
++	void cancelDrag();
++	void showContextMenu(int index);
++	void paintLayer(QPainter &p);
++
++	const not_null<Window::SessionController*> _controller;
++	const not_null<Main::Session*> _session;
++	const std::unique_ptr<Ui::ChatStyle> _chatStyle;
++	const std::unique_ptr<PreviewDelegate> _delegate;
++	const Ui::BoxShadow _shadow;
++	AdminLog::OwnedItem _item;
++	const not_null<Ui::RpWidget*> _area;
++	const not_null<Ui::Menu::Menu*> _menu;
++	const not_null<Ui::RpWidget*> _layer;
++	base::unique_qptr<Selector> _selector;
++	base::unique_qptr<Ui::PopupMenu> _contextMenu;
++	Ids _pinned;
++	std::optional<Drag> _drag;
++	QPoint _pressPosition;
++	QRect _body;
++	int _menuWidth = 0;
++	int _stripTop = 0;
++	int _collapsedHeight = 0;
++	int _expandedHeight = 0;
++	int _shownCount = 0;
++	int _messageLeft = 0;
++	int _messageTop = 0;
++	int _pressIndex = -1;
++	int _replaceAt = -1;
++	bool _expanded = false;
++	rpl::lifetime _resolveLifetime;
++
++};
++
++Editor::Editor(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller)
++: RpWidget(parent)
++, _controller(controller)
++, _session(&controller->session())
++, _chatStyle(std::make_unique<Ui::ChatStyle>(
++	_session->colorIndicesValue()))
++, _delegate(std::make_unique<PreviewDelegate>(controller, [=] {
++	update();
++}))
++, _shadow(st::popupMenuWithIcons.shadow)
++, _item(GenerateItem(
++	_delegate.get(),
++	_session->data().history(PeerData::kServiceNotificationsId)))
++, _area(Ui::CreateChild<Ui::RpWidget>(this))
++, _menu(Ui::CreateChild<Ui::Menu::Menu>(
++	_area.get(),
++	st::popupMenuWithIcons.menu))
++, _layer(Ui::CreateChild<Ui::RpWidget>(this))
++, _pinned(ParseReactionOrder(ReactionsOrder())) {
++	_chatStyle->apply(controller->defaultChatTheme().get());
++	_item.get()->initDimensions();
++
++	setupMenu();
++	setupArea();
++	setupLayer();
++
++	_session->data().viewRepaintRequest(
++	) | rpl::on_next([=](Data::RequestViewRepaint data) {
++		if (data.view == _item.get()) {
++			update();
++		}
++	}, lifetime());
++
++	const auto reactions = &_session->data().reactions();
++	rpl::merge(
++		reactions->topUpdates(),
++		reactions->recentUpdates(),
++		reactions->defaultUpdates()
++	) | rpl::on_next([=] {
++		if (idle()) {
++			rebuild();
++		}
++	}, lifetime());
++
++	resolveMissing();
++	rebuild();
++}
++
++int Editor::MinimalWidth() {
++	const auto strip = 2 * st::reactStripSkip
++		+ (kReactionStripMaxCount + 1) * st::reactStripSize;
++	const auto &shadow = st::reactionCornerShadow;
++	return 2 * st::msgMargin.left()
++		+ shadow.left()
++		+ strip
++		+ shadow.right();
++}
++
++void Editor::setupMenu() {
++	const auto add = [&](const QString &text, const style::icon &icon) {
++		_menu->addAction(text, [] {}, &icon);
++	};
++	add(tr::lng_context_reply_msg(tr::now), st::menuIconReply);
++	add(tr::lng_context_copy_text(tr::now), st::menuIconCopy);
++	add(tr::lng_context_forward_msg(tr::now), st::menuIconForward);
++	add(tr::lng_context_select_msg(tr::now), st::menuIconSelect);
++	_menuWidth = _menu->width();
++}
++
++void Editor::setupArea() {
++	_area->paintRequest(
++	) | rpl::on_next([=] {
++		if (_body.isEmpty()) {
++			return;
++		}
++		const auto &st = st::popupMenuWithIcons;
++		auto p = QPainter(_area);
++		auto hq = PainterHighQualityEnabler(p);
++		_shadow.paint(p, _body, st.radius);
++		p.setPen(Qt::NoPen);
++		p.setBrush(st.menu.itemBg);
++		p.drawRoundedRect(_body, st.radius, st.radius);
++	}, _area->lifetime());
++}
++
++void Editor::setupLayer() {
++	_layer->setAttribute(Qt::WA_TransparentForMouseEvents);
++	_layer->hide();
++	sizeValue(
++	) | rpl::on_next([=](QSize size) {
++		_layer->setGeometry(QRect(QPoint(), size));
++	}, _layer->lifetime());
++	_layer->paintRequest(
++	) | rpl::on_next([=] {
++		auto p = QPainter(_layer);
++		paintLayer(p);
++	}, _layer->lifetime());
++}
++
++bool Editor::idle() const {
++	return !_drag && !_expanded && (_pressIndex < 0);
++}
++
++void Editor::rebuild() {
++	cancelDrag();
++	_expanded = false;
++	_replaceAt = -1;
++	if (_selector) {
++		_selector->beforeDestroy();
++		_selector = nullptr;
++	}
++	const auto reactions = Ordered(_session, _pinned);
++	_shownCount = int(reactions.recent.size());
++	if (reactions.recent.empty()) {
++		_body = QRect();
++		_area->hide();
++		resizeToWidth(width());
++		update();
++		return;
++	}
++	_selector = base::make_unique_q<Selector>(
++		_area,
++		st::reactPanelEmojiPan,
++		_controller->uiShow(),
++		reactions,
++		TextWithEntities(),
++		crl::guard(this, [=](bool) { collapseLater(); }),
++		nullptr,
++		[=] {
++			return _controller->isGifPausedAtLeastFor(
++				Window::GifPauseReason::Layer);
++		},
++		true);
++	const auto selector = _selector.get();
++	const auto &st = st::popupMenuWithIcons;
++	const auto &extend = st::reactStripExtend;
++	const auto added = extend.left() + extend.right();
++	const auto outer = selector->countWidth(
++		_menuWidth + added,
++		st.menu.widthMax + added);
++	const auto margins = selector->marginsForShadow();
++	_stripTop = margins.top()
++		+ selector->extendTopForCategoriesAndAbout(outer);
++	_menu->setForceWidth(outer - added);
++	_body = QRect(
++		margins.left() + extend.left(),
++		_stripTop + extend.top(),
++		outer - added,
++		st.scrollPadding.top() + _menu->height() + st.scrollPadding.bottom());
++	_menu->move(_body.x(), _body.y() + st.scrollPadding.top());
++	_area->resize(outer + margins.left() + margins.right(), _area->height());
++	selector->initGeometry(_stripTop);
++	selector->strip()->setMarked(Marked(_pinned));
++	_collapsedHeight = std::max(
++		_body.y() + _body.height() + _shadow.extend().bottom(),
++		selector->y() + selector->height());
++	_expandedHeight = std::max(
++		_collapsedHeight,
++		_stripTop + st::emojiPanMinHeight + margins.bottom());
++	_area->resize(_area->width(), _collapsedHeight);
++	_area->show();
++	selector->show();
++
++	selector->willExpand(
++	) | rpl::on_next([=] {
++		cancelDrag();
++		_expanded = true;
++		setAreaHeight(_expandedHeight);
++	}, selector->lifetime());
++
++	selector->chosen(
++	) | rpl::on_next([=](HistoryView::Reactions::ChosenReaction chosen) {
++		if (!_expanded || chosen.id.empty()) {
++			return;
++		}
++		setPinned((_replaceAt >= 0)
++			? Replaced(_session, _pinned, _replaceAt, chosen.id)
++			: Appended(_pinned, chosen.id));
++		collapseLater();
++	}, selector->lifetime());
++
++	selector->escapes(
++	) | rpl::on_next([=] {
++		collapseLater();
++	}, selector->lifetime());
++
++	base::install_event_filter(selector, [=](not_null<QEvent*> e) {
++		return handleSelectorEvent(e);
++	});
++
++	resizeToWidth(width());
++	_layer->raise();
++	update();
++}
++
++void Editor::collapseLater() {
++	crl::on_main(this, [=] {
++		if (_expanded) {
++			rebuild();
++		}
++	});
++}
++
++void Editor::reset() {
++	if (_pinned.empty()) {
++		return;
++	}
++	cancelDrag();
++	setPinned({});
++	applyPinned();
++}
++
++void Editor::applyPinned() {
++	if (!_selector
++		|| _expanded
++		|| (int(Ordered(_session, _pinned).recent.size()) != _shownCount)) {
++		rebuild();
++	} else {
++		showPinned(_pinned);
++	}
++}
++
++void Editor::setAreaHeight(int height) {
++	if (_area->height() != height) {
++		_area->resize(_area->width(), height);
++		resizeToWidth(width());
++	}
++}
++
++void Editor::setPinned(Ids pinned) {
++	_pinned = std::move(pinned);
++	SetReactionsOrder(SerializeReactionOrder(_pinned));
++	resolveMissing();
++}
++
++void Editor::showPinned(const Ids &pinned) {
++	const auto reactions = Ordered(_session, pinned);
++	_selector->applyStripReactions(reactions);
++	_selector->strip()->setMarked(Marked(pinned));
++	if (!_drag) {
++		return;
++	}
++	const auto ids = CollectIds(reactions);
++	const auto i = ranges::find(ids, _drag->id);
++	const auto index = int(i - begin(ids));
++	_selector->strip()->setHiddenIndex(
++		(i != end(ids) && index < visibleReactions()) ? index : -1);
++}
++
++void Editor::resolveMissing() {
++	_resolveLifetime.destroy();
++	const auto owner = &_session->data();
++	for (const auto &id : _pinned) {
++		const auto custom = id.custom();
++		if (!custom || owner->document(custom)->sticker()) {
++			continue;
++		}
++		owner->customEmojiManager().resolve(
++			custom
++		) | rpl::on_next_error([=](not_null<DocumentData*>) {
++			crl::on_main(this, [=] {
++				if (idle()) {
++					rebuild();
++				}
++			});
++		}, [] {}, _resolveLifetime);
++	}
++}
++
++int Editor::visibleReactions() const {
++	const auto strip = _selector->strip();
++	return strip->count() - (strip->hasButton() ? 1 : 0);
++}
++
++bool Editor::isButton(int index) const {
++	const auto strip = _selector->strip();
++	return strip->hasButton() && (index == strip->count() - 1);
++}
++
++base::EventFilterResult Editor::handleSelectorEvent(not_null<QEvent*> e) {
++	using Result = base::EventFilterResult;
++	if (_expanded || !_selector) {
++		return Result::Continue;
++	}
++	const auto type = e->type();
++	if (type == QEvent::MouseButtonPress
++		|| type == QEvent::MouseButtonDblClick) {
++		const auto mouse = static_cast<QMouseEvent*>(e.get());
++		const auto index = _selector->lookupSelectedIndex(mouse->pos());
++		if (mouse->button() == Qt::LeftButton) {
++			_pressIndex = index;
++			_pressPosition = mouse->pos();
++			return Result::Continue;
++		}
++		return (index >= 0 && !isButton(index))
++			? Result::Cancel
++			: Result::Continue;
++	} else if (type == QEvent::MouseMove) {
++		const auto mouse = static_cast<QMouseEvent*>(e.get());
++		if (_drag) {
++			updateDrag(mouse->pos());
++			return Result::Cancel;
++		} else if (_pressIndex >= 0
++			&& (mouse->buttons() & Qt::LeftButton)
++			&& ((mouse->pos() - _pressPosition).manhattanLength()
++				>= QApplication::startDragDistance())) {
++			startDrag();
++			if (_drag) {
++				updateDrag(mouse->pos());
++				return Result::Cancel;
++			}
++		}
++		return Result::Continue;
++	} else if (type == QEvent::MouseButtonRelease) {
++		const auto mouse = static_cast<QMouseEvent*>(e.get());
++		const auto index = _selector->lookupSelectedIndex(mouse->pos());
++		if (mouse->button() != Qt::LeftButton) {
++			return (index >= 0 && !isButton(index))
++				? Result::Cancel
++				: Result::Continue;
++		}
++		const auto pressed = std::exchange(_pressIndex, -1);
++		if (_drag) {
++			finishDrag(mouse->pos());
++			return Result::Cancel;
++		} else if (pressed < 0 || isButton(pressed)) {
++			return Result::Continue;
++		} else if (pressed == index) {
++			_replaceAt = index;
++			_selector->expand();
++		}
++		return Result::Cancel;
++	} else if (type == QEvent::ContextMenu) {
++		const auto menu = static_cast<QContextMenuEvent*>(e.get());
++		const auto index = _selector->lookupSelectedIndex(menu->pos());
++		if (index < 0 || isButton(index)) {
++			return Result::Continue;
++		}
++		showContextMenu(index);
++		return Result::Cancel;
++	}
++	return Result::Continue;
++}
++
++void Editor::startDrag() {
++	const auto index = std::exchange(_pressIndex, -1);
++	const auto strip = _selector->strip();
++	if (index < 0 || index >= strip->count() || isButton(index)) {
++		return;
++	}
++	const auto ids = CollectIds(Ordered(_session, _pinned));
++	if (index >= int(ids.size())) {
++		return;
++	}
++	auto drag = Drag{
++		.id = ids[index],
++		.start = _pinned,
++		.shown = _pinned,
++	};
++	const auto slot = _selector->stripSlot(index);
++	drag.grab = _pressPosition - slot.center();
++	_selector->setSelected(-1);
++
++	const auto ratio = style::DevicePixelRatio();
++	drag.image = QImage(
++		slot.size() * 2 * ratio,
++		QImage::Format_ARGB32_Premultiplied);
++	drag.image.setDevicePixelRatio(ratio);
++	drag.image.fill(Qt::transparent);
++	{
++		auto p = QPainter(&drag.image);
++		strip->paintOne(
++			p,
++			index,
++			QPoint(slot.width() / 2, slot.height() / 2),
++			1.);
++	}
++	strip->setHiddenIndex(index);
++	_drag = std::move(drag);
++	_selector->setCursor(style::cur_sizeall);
++	_layer->show();
++	_layer->raise();
++}
++
++void Editor::updateDrag(QPoint position) {
++	auto &drag = *_drag;
++	drag.position = _selector->mapTo(this, position);
++	const auto strip = _selector->strip();
++	const auto first = _selector->stripSlot(0);
++	const auto size = first.width();
++	const auto reactions = visibleReactions();
++	const auto band = QRect(
++		first.x(),
++		first.y(),
++		size * strip->count(),
++		first.height()
++	).marginsAdded({ size, first.height(), size, first.height() });
++	const auto center = position - drag.grab;
++	const auto inside = band.contains(center);
++	const auto offset = (center.x() - first.x()) / float64(size);
++	drag.removing = !inside && ranges::contains(drag.start, drag.id);
++	auto shown = drag.removing
++		? Unpinned(drag.start, drag.id)
++		: drag.start;
++	if (inside) {
++		shown = Moved(
++			_session,
++			drag.start,
++			drag.id,
++			std::clamp(
++				int(std::floor(offset)),
++				0,
++				std::max(reactions - 1, 0)));
++		const auto same = (shown != drag.start)
++			&& (CollectIds(Ordered(_session, shown))
++				== CollectIds(Ordered(_session, drag.start)));
++		if (same) {
++			shown = drag.start;
++		}
++	}
++	if (shown != drag.shown) {
++		drag.shown = std::move(shown);
++		showPinned(drag.shown);
++	}
++	_layer->update();
++}
++
++void Editor::finishDrag(QPoint position) {
++	const auto drag = base::take(_drag);
++	_layer->hide();
++	_selector->strip()->setHiddenIndex(-1);
++	_selector->setCursor(style::cur_default);
++	if (drag->shown != _pinned) {
++		setPinned(drag->shown);
++		if (int(Ordered(_session, _pinned).recent.size()) != _shownCount) {
++			rebuild();
++			return;
++		}
++	}
++	_selector->setSelected(_selector->lookupSelectedIndex(position));
++}
++
++void Editor::cancelDrag() {
++	_pressIndex = -1;
++	if (base::take(_drag)) {
++		_layer->hide();
++	}
++}
++
++void Editor::showContextMenu(int index) {
++	const auto ids = CollectIds(Ordered(_session, _pinned));
++	if (index >= int(ids.size()) || !ranges::contains(_pinned, ids[index])) {
++		return;
++	}
++	const auto id = ids[index];
++	_contextMenu = base::make_unique_q<Ui::PopupMenu>(
++		this,
++		st::popupMenuWithIcons);
++	_contextMenu->addAction(Lower(u"Unpin"_q), [=] {
++		if (_drag || _expanded || !_selector) {
++			return;
++		}
++		setPinned(Unpinned(_pinned, id));
++		applyPinned();
++	}, &st::menuIconUnpin);
++	_contextMenu->popup(QCursor::pos());
++}
++
++void Editor::paintLayer(QPainter &p) {
++	if (!_drag || !_selector) {
++		return;
++	}
++	const auto &drag = *_drag;
++	const auto ratio = drag.image.devicePixelRatio();
++	const auto size = QSize(
++		int(drag.image.width() / ratio),
++		int(drag.image.height() / ratio));
++	const auto center = drag.position - drag.grab;
++	p.setOpacity(drag.removing ? kRemovingOpacity : 1.);
++	p.drawImage(
++		QRect(
++			center - QPoint(size.width() / 2, size.height() / 2),
++			size),
++		drag.image);
++}
++
++int Editor::resizeGetHeight(int newWidth) {
++	if (newWidth < st::msgMinWidth) {
++		return height();
++	}
++	const auto view = _item.get();
++	const auto height = view->resizeGetHeight(newWidth);
++	const auto skip = st::msgMargin.bottom();
++	const auto bubble = view->innerGeometry();
++	if (!_selector) {
++		_messageLeft = (newWidth - bubble.width()) / 2 - bubble.x();
++		_messageTop = skip;
++		return _messageTop + height + st::normalFont->height + 2 * skip;
++	}
++	const auto below = bubble.y() + bubble.height() + st::reactStripSkip;
++	_messageTop = std::max(skip, _stripTop - below);
++	const auto areaTop = _messageTop + below - _stripTop;
++	const auto margins = _selector->marginsForShadow();
++	const auto anchor = bubble.x() - margins.left();
++	const auto left = std::min(bubble.x(), anchor + margins.left());
++	const auto right = std::max(
++		bubble.x() + bubble.width(),
++		anchor + _area->width() - margins.right());
++	const auto centered = (newWidth - (right - left)) / 2 - left;
++	const auto lowest = -anchor;
++	const auto highest = newWidth - _area->width() - anchor;
++	_messageLeft = (highest < lowest)
++		? lowest
++		: std::clamp(centered, lowest, highest);
++	_area->move(anchor + _messageLeft, areaTop);
++	return areaTop + _area->height() + skip;
++}
++
++void Editor::paintEvent(QPaintEvent *e) {
++	const auto clip = e->rect();
++	const auto theme = _controller->defaultChatTheme().get();
++	Window::SectionWidget::PaintBackground(_controller, theme, this, clip);
++
++	auto p = Painter(this);
++	const auto view = _item.get();
++	auto context = theme->preparePaintContext(
++		_chatStyle.get(),
++		rect(),
++		rect(),
++		rect(),
++		_controller->isGifPausedAtLeastFor(Window::GifPauseReason::Layer));
++	context.outbg = view->hasOutLayout();
++	p.translate(_messageLeft, _messageTop);
++	view->draw(p, context);
++	p.translate(-_messageLeft, -_messageTop);
++
++	if (!_selector) {
++		p.setFont(st::normalFont);
++		p.setPen(st::msgServiceFg);
++		p.drawText(
++			QRect(
++				0,
++				_messageTop + view->height(),
++				width(),
++				height() - _messageTop - view->height()),
++			Lower(u"Loading reactions\u2026"_q),
++			style::al_center);
++	}
++}
++
++void Editor::mousePressEvent(QMouseEvent *e) {
++	if (_expanded) {
++		collapseLater();
++	}
++}
++
++} // namespace
++
++void ReactionMenuBox(
++		not_null<Ui::GenericBox*> box,
++		not_null<Window::SessionController*> controller) {
++	box->setTitle(rpl::single(Lower(u"Reactions in the menu"_q)));
++	box->setWidth(std::max(st::boxWideWidth, Editor::MinimalWidth()));
++
++	const auto editor = box->addRow(
++		object_ptr<Editor>(box, controller),
++		style::margins());
++
++	box->addRow(
++		object_ptr<Ui::FlatLabel>(
++			box,
++			Lower(u"Click a reaction to change it, drag to reorder."_q),
++			st::boxDividerLabel),
++		st::boxRowPadding + QMargins(0, st::defaultVerticalListSkip, 0, 0));
++
++	Ui::AddSkip(box->verticalLayout());
++	Ui::AddSubsectionTitle(
++		box->verticalLayout(),
++		rpl::single(Lower(u"Shown in the strip"_q)));
++
++	const auto &labelSt = st::settingsScaleLabel;
++	auto slider = Settings::MakeSliderWithLabel(
++		box,
++		st::settingsScale,
++		labelSt,
++		st::normalFont->spacew * 2,
++		std::max(
++			labelSt.style.font->width(CountText(0)),
++			labelSt.style.font->width(
++				QString::number(kReactionStripMaxCount))),
++		true);
++	const auto label = slider.label;
++	const auto current = box->lifetime().make_state<int>(
++		ValidCount(ReactionsStripCount()));
++	label->setText(CountText(*current));
++	slider.slider->setPseudoDiscrete(
++		kReactionStripMaxCount - kReactionStripMinCount + 2,
++		[](int index) {
++			return index ? (kReactionStripMinCount + index - 1) : 0;
++		},
++		*current,
++		[=](int count) {
++			label->setText(CountText(count));
++			if (*current == count) {
++				return;
++			}
++			*current = count;
++			SetReactionsStripCount(count ? QString::number(count) : QString());
++			editor->rebuild();
++		});
++	box->addRow(std::move(slider.widget));
++
++	box->addLeftButton(rpl::single(Lower(u"Reset"_q)), [=] {
++		editor->reset();
++	});
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++}
++
++rpl::producer<QString> ReactionMenuLabelValue() {
++	return rpl::combine(
++		ReactionsStripCountValue(),
++		ReactionsOrderValue()
++	) | rpl::map([](const QString &count, const QString &order) {
++		const auto shown = CountText(ValidCount(count));
++		const auto pinned = PinnedReactionsCount(ParseReactionOrder(order));
++		return pinned
++			? Lower(u"%1, %2 pinned"_q).arg(shown).arg(pinned)
++			: shown;
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_reaction_editor.h b/Telegram/SourceFiles/tele/tele_reaction_editor.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..0b5dabacc422dea3230477d850b6941133c8ca5f
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reaction_editor.h
+@@ -0,0 +1,18 @@
++#pragma once
++
++namespace Ui {
++class GenericBox;
++} // namespace Ui
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++void ReactionMenuBox(
++	not_null<Ui::GenericBox*> box,
++	not_null<Window::SessionController*> controller);
++[[nodiscard]] rpl::producer<QString> ReactionMenuLabelValue();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_reaction_order.cpp b/Telegram/SourceFiles/tele/tele_reaction_order.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..90ef8f6227ee032658debdbc0024203523b38588
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reaction_order.cpp
+@@ -0,0 +1,147 @@
++#include "tele/tele_reaction_order.h"
++
++#include "data/data_message_reactions.h"
++#include "data/data_session.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxEmojiLength = 32;
++
++using Ids = std::vector<Data::ReactionId>;
++
++[[nodiscard]] std::optional<Data::ReactionId> ParseOne(QString part) {
++	part = part.trimmed();
++	if (part.isEmpty()
++		|| part.size() > kMaxEmojiLength
++		|| part == QString(Data::ReactionId::PaidTag())) {
++		return std::nullopt;
++	}
++	const auto digits = ranges::all_of(part, [](QChar ch) {
++		return ch.isDigit();
++	});
++	if (digits) {
++		auto ok = false;
++		const auto id = part.toULongLong(&ok);
++		return (ok && id)
++			? std::make_optional(Data::ReactionId{ DocumentId(id) })
++			: std::nullopt;
++	} else if (ranges::any_of(part, [](QChar ch) { return ch.isSpace(); })) {
++		return std::nullopt;
++	}
++	return Data::ReactionId{ part };
++}
++
++} // namespace
++
++Ids ParseReactionOrder(const QString &value) {
++	auto result = Ids();
++	for (const auto &part : value.split(QChar(','))) {
++		const auto id = ParseOne(part);
++		result.push_back((id && !ranges::contains(result, *id))
++			? *id
++			: Data::ReactionId());
++	}
++	while (!result.empty() && result.back().empty()) {
++		result.pop_back();
++	}
++	return result;
++}
++
++QString SerializeReactionOrder(const Ids &list) {
++	auto parts = QStringList();
++	for (const auto &id : list) {
++		parts.push_back(id.custom()
++			? QString::number(id.custom())
++			: id.emoji());
++	}
++	while (!parts.isEmpty() && parts.back().isEmpty()) {
++		parts.pop_back();
++	}
++	return parts.join(QChar(','));
++}
++
++int PinnedReactionsCount(const Ids &list) {
++	return int(ranges::count_if(list, [](const Data::ReactionId &id) {
++		return !id.empty();
++	}));
++}
++
++Data::PossibleItemReactionsRef ApplyReactionOrder(
++		not_null<Main::Session*> session,
++		const Data::PossibleItemReactionsRef &reactions,
++		const Ids &order) {
++	if (!PinnedReactionsCount(order)
++		|| reactions.tags
++		|| !reactions.stickers.empty()
++		|| ranges::any_of(reactions.recent, [](const auto &reaction) {
++			return reaction->effect;
++		})) {
++		return reactions;
++	}
++	auto result = reactions;
++	auto &list = result.recent;
++	const auto paid = ranges::find(
++		list,
++		Data::ReactionId::Paid(),
++		&Data::Reaction::id);
++	const auto paidIndex = (paid != end(list))
++		? int(paid - begin(list))
++		: -1;
++	const Data::Reaction *paidReaction = (paidIndex >= 0)
++		? paid->get()
++		: nullptr;
++	if (paidReaction) {
++		list.erase(paid);
++	}
++	const auto owner = &session->data().reactions();
++	auto placed = std::vector<const Data::Reaction*>(order.size());
++	for (auto i = 0, count = int(order.size()); i != count; ++i) {
++		const auto &id = order[i];
++		if (id.empty()) {
++			continue;
++		}
++		const auto j = ranges::find(list, id, &Data::Reaction::id);
++		if (j != end(list)) {
++			placed[i] = j->get();
++			list.erase(j);
++		} else if (id.custom() && result.customAllowed) {
++			placed[i] = owner->lookupTemporary(id);
++		}
++	}
++	auto merged = std::vector<not_null<const Data::Reaction*>>();
++	merged.reserve(list.size() + placed.size());
++	auto rest = begin(list);
++	for (const auto reaction : placed) {
++		if (reaction) {
++			merged.push_back(reaction);
++		} else if (rest != end(list)) {
++			merged.push_back(*rest++);
++		}
++	}
++	merged.insert(end(merged), rest, end(list));
++	list = std::move(merged);
++	if (paidReaction) {
++		list.insert(
++			begin(list) + std::min(paidIndex, int(list.size())),
++			not_null(paidReaction));
++	}
++	return result;
++}
++
++Data::PossibleItemReactionsRef ReactionStripOrder(
++		not_null<Main::Session*> session,
++		const Data::PossibleItemReactionsRef &reactions) {
++	return ApplyReactionOrder(
++		session,
++		reactions,
++		ParseReactionOrder(ReactionsOrder()));
++}
++
++QString NormalizeReactionOrder(const QString &value) {
++	return SerializeReactionOrder(ParseReactionOrder(value));
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_reaction_order.h b/Telegram/SourceFiles/tele/tele_reaction_order.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..65cace1e75b4568d5c3760c81d0cb1332f9fa996
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reaction_order.h
+@@ -0,0 +1,30 @@
++#pragma once
++
++#include "data/data_message_reaction_id.h"
++
++namespace Data {
++struct PossibleItemReactionsRef;
++} // namespace Data
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++[[nodiscard]] Data::PossibleItemReactionsRef ReactionStripOrder(
++	not_null<Main::Session*> session,
++	const Data::PossibleItemReactionsRef &reactions);
++[[nodiscard]] Data::PossibleItemReactionsRef ApplyReactionOrder(
++	not_null<Main::Session*> session,
++	const Data::PossibleItemReactionsRef &reactions,
++	const std::vector<Data::ReactionId> &order);
++[[nodiscard]] std::vector<Data::ReactionId> ParseReactionOrder(
++	const QString &value);
++[[nodiscard]] QString SerializeReactionOrder(
++	const std::vector<Data::ReactionId> &list);
++[[nodiscard]] int PinnedReactionsCount(
++	const std::vector<Data::ReactionId> &list);
++[[nodiscard]] QString NormalizeReactionOrder(const QString &value);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_reaction_strip.cpp b/Telegram/SourceFiles/tele/tele_reaction_strip.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..c11b7c3f21f283380afdc68f919c554ceba7747d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reaction_strip.cpp
+@@ -0,0 +1,22 @@
++#include "tele/tele_reaction_strip.h"
++
++#include "data/data_message_reactions.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++
++int ReactionStripColumns(
++		const Data::PossibleItemReactions &reactions,
++		int columns,
++		int max) {
++	const auto count = ReactionsStripCount().toInt();
++	if (count < kReactionStripMinCount
++		|| count > kReactionStripMaxCount
++		|| !reactions.stickers.empty()
++		|| ranges::any_of(reactions.recent, &Data::Reaction::effect)) {
++		return columns;
++	}
++	return std::min(count + 1, max);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_reaction_strip.h b/Telegram/SourceFiles/tele/tele_reaction_strip.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..df7620f03725166dacf39f8b3f3198bca806d16c
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reaction_strip.h
+@@ -0,0 +1,17 @@
++#pragma once
++
++namespace Data {
++struct PossibleItemReactions;
++} // namespace Data
++
++namespace Tele {
++
++inline constexpr auto kReactionStripMinCount = 4;
++inline constexpr auto kReactionStripMaxCount = 12;
++
++[[nodiscard]] int ReactionStripColumns(
++	const Data::PossibleItemReactions &reactions,
++	int columns,
++	int max);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 2b507be67ed9945896483fd2df2e90c99405a29d..11abc568b465f7b514af739c55310d9fadad491c 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -18,6 +18,7 @@
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_menu_layout.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_reaction_order.h"
+ #include "tele/tele_title_template.h"
+ #include "tele/tele_username_aliases.h"
+ 
+@@ -251,6 +252,11 @@ struct Spec {
+ 			.kind = Kind::Plain,
+ 			.normalize = NormalizeInvisibleNamesPhrase,
+ 		},
++		Spec{
++			.id = kOptionReactionsOrder,
++			.kind = Kind::Plain,
++			.normalize = NormalizeReactionOrder,
++		},
+ 		Toggle(kOptionShowHiddenChars),
+ 		Toggle(kOptionLinkPreviewMenu),
+ 		Toggle(kOptionLocalDrafts),
+@@ -272,6 +278,20 @@ struct Spec {
+ 			kOptionGroupCallButton,
+ 			{ QString(), u"hide"_q, u"confirm"_q }),
+ 		Choice(kOptionDeletedReply, { QString(), u"quote"_q }),
++		Choice(
++			kOptionReactionsStripCount,
++			{
++				QString(),
++				u"4"_q,
++				u"5"_q,
++				u"6"_q,
++				u"7"_q,
++				u"8"_q,
++				u"9"_q,
++				u"10"_q,
++				u"11"_q,
++				u"12"_q,
++			}),
+ 		Choice(
+ 			kOptionDeletedQuoteName,
+ 			{ QString(), u"link"_q, u"mention"_q }),

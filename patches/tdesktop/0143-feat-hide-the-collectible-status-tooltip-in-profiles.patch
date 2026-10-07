@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 04:02:48 +0300
+Subject: [PATCH] feat: hide the collectible status tooltip in profiles
+
+---
+ .../SourceFiles/info/profile/info_profile_top_bar.cpp  |  4 +++-
+ Telegram/SourceFiles/settings/settings_tele.cpp        |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp             | 10 ++++++++++
+ Telegram/SourceFiles/tele/tele_options.h               |  2 ++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp         |  1 +
+ 5 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
+index 91a964cd985f82c79f1b01400b75e3266497c241..a9d1303170731ab16d9721dfbfa9f71c81d8a9af 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
+@@ -1686,7 +1686,9 @@ void TopBar::startUploadOverlay() {
+ }
+ 
+ void TopBar::setupUniqueBadgeTooltip() {
+-	if (!_badge || _source == Source::Preview) {
++	if (!_badge
++		|| _source == Source::Preview
++		|| Tele::NoCollectibleTooltip()) {
+ 		return;
+ 	}
+ 	base::timer_once(kWaitBeforeGiftBadge) | rpl::then(
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 8349107aeb22da65e1b10139cbb444db81176a64..d0df640eca19fa7e50ff6bc1592ee9afc7b99b82 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2216,6 +2216,10 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowRegularGiftIds);
+ 	AddOptionToggle(builder, ::Tele::kOptionSeeTgButton);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionNoCollectibleTooltip,
++		{ u"gift"_q, u"emoji status"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index bea3186f0edb7b00be13a65e68972b4cdeeadbed..ca1cc3bf8be0b6414758b323b182948d3f230ef2 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -54,6 +54,7 @@ const char kOptionPinSets[] = "tele-pin-sets";
+ const char kOptionShowGiftIds[] = "tele-show-gift-ids";
+ const char kOptionShowRegularGiftIds[] = "tele-show-regular-gift-ids";
+ const char kOptionSeeTgButton[] = "tele-seetg-button";
++const char kOptionNoCollectibleTooltip[] = "tele-no-collectible-tooltip";
+ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
+ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
+ const char kOptionShowDc[] = "tele-show-dc";
+@@ -432,6 +433,11 @@ base::options::toggle SeeTgButtonOption({
+ 	.description = "Opens the gift in the see.tg mini app.",
+ });
+ 
++base::options::toggle NoCollectibleTooltipOption({
++	.id = kOptionNoCollectibleTooltip,
++	.name = "No tooltip for collectible statuses",
++});
++
+ base::options::toggle PeerIdsWithoutSpacesOption({
+ 	.id = kOptionPeerIdsWithoutSpaces,
+ 	.name = "IDs without spaces",
+@@ -1215,6 +1221,10 @@ bool SeeTgButton() {
+ 	return SeeTgButtonOption.value();
+ }
+ 
++bool NoCollectibleTooltip() {
++	return NoCollectibleTooltipOption.value();
++}
++
+ bool PeerIdsWithoutSpaces() {
+ 	return PeerIdsWithoutSpacesOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 5c3b07fbefd6ef705b673af62e50b200ff6ecb60..84396e62ed6df3516bd3499766314843b1414c40 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -50,6 +50,7 @@ extern const char kOptionPinSets[];
+ extern const char kOptionShowGiftIds[];
+ extern const char kOptionShowRegularGiftIds[];
+ extern const char kOptionSeeTgButton[];
++extern const char kOptionNoCollectibleTooltip[];
+ extern const char kOptionPeerIdsWithoutSpaces[];
+ extern const char kOptionBotApiPeerIds[];
+ extern const char kOptionShowDc[];
+@@ -195,6 +196,7 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] bool ShowGiftIds();
+ [[nodiscard]] bool ShowRegularGiftIds();
+ [[nodiscard]] bool SeeTgButton();
++[[nodiscard]] bool NoCollectibleTooltip();
+ [[nodiscard]] bool PeerIdsWithoutSpaces();
+ [[nodiscard]] bool BotApiPeerIds();
+ [[nodiscard]] rpl::producer<> PeerIdFormatChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index a3d21251536020d3f1bc2ae67acc3d9928efe06f..101b70b6dcb55b2859e93f1ffc0cf7eac263f7c2 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -131,6 +131,7 @@ struct Spec {
+ 		Toggle(kOptionShowGiftIds),
+ 		Toggle(kOptionShowRegularGiftIds),
+ 		Toggle(kOptionSeeTgButton),
++		Toggle(kOptionNoCollectibleTooltip),
+ 		Toggle(Info::Profile::kOptionShowPeerIdBelowAbout),
+ 		Toggle(kOptionPeerIdsWithoutSpaces),
+ 		Toggle(kOptionBotApiPeerIds),

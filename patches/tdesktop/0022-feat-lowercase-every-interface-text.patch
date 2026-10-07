@@ -176,7 +176,7 @@ index 0000000000000000000000000000000000000000..724f2e7b68e33194c6fd97b0439aaa54
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 19bcb8cfdd244247d11bf65fdc288e7565e5739b..6996ad1670e361cad8488b45a79137ffdfb5e185 100644
+index f109679ecd0219652b65ff7e7ac783fc4ee5a1c8..0d6a6cb71d30dfd7981c9d448e208916ccd30eea 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -11,6 +11,7 @@ const char kOptionAutoUpdate[] = "tele-auto-update";
@@ -203,7 +203,7 @@ index 19bcb8cfdd244247d11bf65fdc288e7565e5739b..6996ad1670e361cad8488b45a79137ff
  base::options::toggle HideCallsOption({
  	.id = kOptionHideCalls,
  	.name = "Hide call buttons",
-@@ -196,6 +206,10 @@ bool GroupQuickReplies() {
+@@ -195,6 +205,10 @@ bool GroupQuickReplies() {
  	return GroupQuickRepliesOption.value();
  }
  

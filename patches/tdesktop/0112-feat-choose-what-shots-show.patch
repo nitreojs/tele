@@ -1,0 +1,788 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 19:38:52 +0300
+Subject: [PATCH] feat: choose what shots show
+
+---
+ Telegram/SourceFiles/history/history_item.cpp |   5 +-
+ .../history/view/history_view_element.cpp     |  11 +-
+ .../history/view/history_view_message.cpp     |  10 +-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  15 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ Telegram/SourceFiles/tele/tele_shot.cpp       | 389 +++++++++++++++---
+ Telegram/SourceFiles/tele/tele_shot.h         |  17 +-
+ 8 files changed, 382 insertions(+), 69 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
+index e1aaf9f4c521c6772f4c15733b8d3d01fdec26ef..c03d53550e0fcd87ecfc742e7c52e10f1a12a1bd 100644
+--- a/Telegram/SourceFiles/history/history_item.cpp
++++ b/Telegram/SourceFiles/history/history_item.cpp
+@@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_shot.h"
+ #include "styles/style_dialogs.h"
+ 
+ namespace {
+@@ -1494,7 +1495,9 @@ void HistoryItem::updateStoryMentionText() {
+ }
+ 
+ HistoryMessageReplyMarkup *HistoryItem::inlineReplyMarkup() {
+-	if (const auto markup = Get<HistoryMessageReplyMarkup>()) {
++	if (Tele::ShotHidesInlineButtons()) {
++		return nullptr;
++	} else if (const auto markup = Get<HistoryMessageReplyMarkup>()) {
+ 		if (markup->data.flags & ReplyMarkupFlag::Inline) {
+ 			return markup;
+ 		}
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index e1fce2855d7e898c28a780d1db6b311146ff6f59..46ce80689eb6ee226d96deb7eba41e8a159b5725 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -1508,7 +1508,8 @@ bool Element::isTopicRootReply() const {
+ }
+ 
+ bool Element::hidesBottomInfo() const {
+-	return data()->isWelcomeTemplate() || Tele::ShotHidesBottomInfo(this);
++	return data()->isWelcomeTemplate()
++		|| Tele::ShotHides(this, Tele::ShotPart::Info);
+ }
+ 
+ int Element::skipBlockWidth() const {
+@@ -1648,7 +1649,10 @@ void Element::refreshMedia(Element *replacing) {
+ 				return;
+ 			}
+ 		}
+-		_media = media->createView(this, replacing);
++		_media = (media->webpage()
++				&& Tele::ShotHides(this, Tele::ShotPart::Previews))
++			? nullptr
++			: media->createView(this, replacing);
+ 	} else if (item->showSimilarChannels()) {
+ 		_media = std::make_unique<SimilarChannels>(this);
+ 	} else if (isOnlyCustomEmoji()
+@@ -2863,7 +2867,8 @@ void Element::setupReactions(Element *replacing) {
+ void Element::refreshReactions() {
+ 	using namespace Reactions;
+ 	auto reactionsData = InlineListDataFromMessage(this);
+-	if (reactionsData.reactions.empty()) {
++	if (reactionsData.reactions.empty()
++		|| Tele::ShotHides(this, Tele::ShotPart::Reactions)) {
+ 		setReactions(nullptr);
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index a763ebb03d8a2b4458e7ef72613d0b5649134091..a0d0da6410de1cae40de1da1142cf691a053bf42 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -3862,7 +3862,7 @@ void Message::unloadHeavyPart() {
+ }
+ 
+ bool Message::hasFromPhoto() const {
+-	if (isHidden()) {
++	if (isHidden() || Tele::ShotHides(this, Tele::ShotPart::Userpics)) {
+ 		return false;
+ 	}
+ 	switch (context()) {
+@@ -5839,13 +5839,19 @@ bool Message::hasFromName() const {
+ }
+ 
+ bool Message::displayFromName() const {
+-	if (!hasFromName() || isAttachedToPrevious() || data()->isSponsored()) {
++	if (!hasFromName()
++		|| isAttachedToPrevious()
++		|| data()->isSponsored()
++		|| Tele::ShotHides(this, Tele::ShotPart::Names)) {
+ 		return false;
+ 	}
+ 	return !Has<PsaTooltipState>();
+ }
+ 
+ bool Message::displayForwardedFrom() const {
++	if (Tele::ShotHides(this, Tele::ShotPart::Forwards)) {
++		return false;
++	}
+ 	const auto item = data();
+ 	if (const auto forwarded = item->Get<HistoryMessageForwarded>()) {
+ 		if (forwarded->story) {
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0d0a59009d74fb4b54a809eb3e761f45f2ddc64e..265750fdad09b270bd72c8542a792da7a5cff331 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -69,6 +69,7 @@ const char kOptionCalcmula[] = "tele-calcmula";
+ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
+ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
+ const char kOptionShot[] = "tele-shot";
++const char kOptionShotView[] = "tele-shot-view";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionServerUsernames[] = "tele-server-usernames";
+ const char kOptionTitleTemplate[] = "tele-title";
+@@ -512,6 +513,12 @@ base::options::toggle ShotOption({
+ 		"picture.",
+ });
+ 
++base::options::option<QString> ShotViewOption({
++	.id = kOptionShotView,
++	.name = "Shot view",
++	.description = "What the last shot showed.",
++});
++
+ base::options::option<QString> ServerUrlOption({
+ 	.id = kOptionServerUrl,
+ 	.name = "tele server",
+@@ -1165,6 +1172,14 @@ bool ShotInMenu() {
+ 	return ShotOption.value();
+ }
+ 
++QString ShotView() {
++	return ShotViewOption.value();
++}
++
++void SetShotView(const QString &value) {
++	ShotViewOption.set(value);
++}
++
+ QString ServerUrl() {
+ 	return ServerUrlOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 329d67f76388dc73cf6d84c85b33b279a86774b1..710d665f218a3db8cdcd84b171b7dd94240f0b9b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -65,6 +65,7 @@ extern const char kOptionCalcmula[];
+ extern const char kOptionCalcmulaPreview[];
+ extern const char kOptionCopyEmojiId[];
+ extern const char kOptionShot[];
++extern const char kOptionShotView[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionServerUsernames[];
+ extern const char kOptionTitleTemplate[];
+@@ -183,6 +184,8 @@ void SetDeletedReply(const QString &value);
+ [[nodiscard]] bool CalcmulaPreview();
+ [[nodiscard]] bool CopyEmojiId();
+ [[nodiscard]] bool ShotInMenu();
++[[nodiscard]] QString ShotView();
++void SetShotView(const QString &value);
+ [[nodiscard]] QString ServerUrl();
+ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index d61c4f4de8d3323504a7768506e38d22069548a2..91b8b682dfa6912e92ccdd098ad5971c02fd4094 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -188,6 +188,7 @@ struct Spec {
+ 		Internal(kOptionKnownSettings),
+ 		Internal("tele-hide-calls"),
+ 		Internal("tele-open-links-in-apps"),
++		Internal(kOptionShotView),
+ 	};
+ 	return result;
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_shot.cpp b/Telegram/SourceFiles/tele/tele_shot.cpp
+index 96b7558af82dd600f223bd6ef9ea852e5dd4b584..14171f0d4b0ec690c6602858b91019cf574f1c5f 100644
+--- a/Telegram/SourceFiles/tele/tele_shot.cpp
++++ b/Telegram/SourceFiles/tele/tele_shot.cpp
+@@ -54,6 +54,7 @@
+ #include "ui/widgets/menu/menu_action.h"
+ #include "ui/widgets/menu/menu_common.h"
+ #include "ui/widgets/popup_menu.h"
++#include "ui/widgets/scroll_area.h"
+ #include "ui/wrap/slide_wrap.h"
+ #include "ui/wrap/vertical_layout.h"
+ #include "window/window_session_controller.h"
+@@ -66,6 +67,8 @@
+ #include "styles/style_settings.h"
+ 
+ #include <QtCore/QBuffer>
++#include <QtCore/QJsonDocument>
++#include <QtCore/QJsonObject>
+ #include <QtCore/QMimeData>
+ #include <QtGui/QClipboard>
+ #include <QtGui/QCursor>
+@@ -88,14 +91,93 @@ struct ShotOptions {
+ 	bool dates = false;
+ 	bool transparent = false;
+ 	bool incoming = false;
++	uint16 hidden = uint16(ShotPart::Info);
+ 	int scale = 1;
+ };
+ 
+ struct ShotFlags {
+-	bool hideBottomInfo = false;
++	uint16 hidden = 0;
+ 	bool incoming = false;
+ };
+ 
++struct PartKey {
++	ShotPart part;
++	const char *key;
++};
++
++constexpr auto kPartKeys = std::array{
++	PartKey{ ShotPart::Names, "names" },
++	PartKey{ ShotPart::Userpics, "userpics" },
++	PartKey{ ShotPart::Replies, "replies" },
++	PartKey{ ShotPart::Forwards, "forwards" },
++	PartKey{ ShotPart::Previews, "previews" },
++	PartKey{ ShotPart::Buttons, "buttons" },
++	PartKey{ ShotPart::Reactions, "reactions" },
++	PartKey{ ShotPart::Info, "info" },
++};
++
++[[nodiscard]] ShotOptions LoadOptions() {
++	auto result = ShotOptions();
++	const auto document = QJsonDocument::fromJson(ShotView().toUtf8());
++	if (!document.isObject()) {
++		return result;
++	}
++	const auto object = document.object();
++	const auto flag = [&](const char *key, bool &value) {
++		const auto i = object.find(QLatin1String(key));
++		if (i != object.end() && i->isBool()) {
++			value = i->toBool();
++		}
++	};
++	flag("background", result.background);
++	flag("dates", result.dates);
++	flag("transparent", result.transparent);
++	for (const auto &[part, key] : kPartKeys) {
++		auto shown = !(result.hidden & uint16(part));
++		flag(key, shown);
++		if (shown) {
++			result.hidden &= ~uint16(part);
++		} else {
++			result.hidden |= uint16(part);
++		}
++	}
++	const auto scale = object.value(u"scale"_q).toInt(result.scale);
++	result.scale = std::clamp(scale, 1, kMaxScale);
++	return result;
++}
++
++void SaveOptions(const ShotOptions &options) {
++	auto object = QJsonObject();
++	object.insert(u"background"_q, options.background);
++	object.insert(u"dates"_q, options.dates);
++	object.insert(u"transparent"_q, options.transparent);
++	for (const auto &[part, key] : kPartKeys) {
++		object.insert(QLatin1String(key), !(options.hidden & uint16(part)));
++	}
++	object.insert(u"scale"_q, options.scale);
++	SetShotView(QString::fromUtf8(
++		QJsonDocument(object).toJson(QJsonDocument::Compact)));
++}
++
++[[nodiscard]] bool &HidingButtons() {
++	static auto result = false;
++	return result;
++}
++
++class ButtonsScope final {
++public:
++	explicit ButtonsScope(bool hide) : _was(HidingButtons()) {
++		HidingButtons() = hide;
++	}
++	~ButtonsScope() {
++		HidingButtons() = _was;
++	}
++
++private:
++	const bool _was = false;
++
++};
++
+ [[nodiscard]] auto Registered()
+ -> base::flat_map<const HistoryView::ElementDelegate*, ShotFlags> & {
+ 	static auto result = base::flat_map<
+@@ -280,6 +362,7 @@ public:
+ 	void setFlags(ShotFlags flags);
+ 
+ 	Context elementContext() override;
++	bool elementHideReply(not_null<const Element*> view) override;
+ 	bool elementAnimationsPaused() override;
+ 	not_null<Ui::PathShiftGradient*> elementPathShiftGradient() override;
+ 
+@@ -302,7 +385,7 @@ ShotDelegate::~ShotDelegate() {
+ }
+ 
+ void ShotDelegate::setFlags(ShotFlags flags) {
+-	if (flags.hideBottomInfo || flags.incoming) {
++	if (flags.hidden || flags.incoming) {
+ 		Registered()[this] = flags;
+ 	} else {
+ 		Registered().remove(this);
+@@ -313,6 +396,14 @@ Context ShotDelegate::elementContext() {
+ 	return _context;
+ }
+ 
++bool ShotDelegate::elementHideReply(not_null<const Element*> view) {
++	const auto &registered = Registered();
++	const auto i = registered.find(this);
++	return ((i != end(registered))
++			&& (i->second.hidden & uint16(ShotPart::Replies)))
++		|| DefaultElementDelegate::elementHideReply(view);
++}
++
+ bool ShotDelegate::elementAnimationsPaused() {
+ 	return false;
+ }
+@@ -435,6 +526,7 @@ ShotRenderer::ShotRenderer(
+ 	_style.get(),
+ 	context,
+ 	[=] { _repaints.fire({}); })) {
++	_options = LoadOptions();
+ 	applyFlags();
+ 	subscribe();
+ 	rebuild();
+@@ -445,7 +537,7 @@ ShotRenderer::ShotRenderer(
+ 
+ void ShotRenderer::applyFlags() {
+ 	_delegate->setFlags({
+-		.hideBottomInfo = !_options.dates,
++		.hidden = _options.hidden,
+ 		.incoming = _options.incoming,
+ 	});
+ }
+@@ -562,9 +654,11 @@ const ShotOptions &ShotRenderer::options() const {
+ 
+ void ShotRenderer::setOptions(ShotOptions options) {
+ 	const auto rebuildNeeded = (_options.dates != options.dates)
+-		|| (_options.incoming != options.incoming);
++		|| (_options.incoming != options.incoming)
++		|| (_options.hidden != options.hidden);
+ 	const auto scaleChanged = (_options.scale != options.scale);
+ 	_options = options;
++	SaveOptions(_options);
+ 	if (rebuildNeeded) {
+ 		applyFlags();
+ 		rebuild();
+@@ -661,6 +755,8 @@ void ShotRenderer::subscribe() {
+ 	owner.itemDataChanges(
+ 	) | rpl::filter(ours) | rpl::on_next([=](not_null<HistoryItem*> item) {
+ 		const auto scope = ShotEmojiScope();
++		const auto buttons = ButtonsScope(
++			_options.hidden & uint16(ShotPart::Buttons));
+ 		for (const auto &view : _views) {
+ 			if (view->data() == item) {
+ 				view->itemDataChanged();
+@@ -705,6 +801,8 @@ void ShotRenderer::clear() {
+ 
+ void ShotRenderer::rebuild() {
+ 	const auto scope = ShotEmojiScope();
++	const auto buttons = ButtonsScope(
++		_options.hidden & uint16(ShotPart::Buttons));
+ 	clear();
+ 	loadPhotos();
+ 	for (const auto &item : _items) {
+@@ -761,6 +859,8 @@ void ShotRenderer::refreshAttachments(int till) {
+ 
+ void ShotRenderer::relayout() {
+ 	const auto scope = ShotEmojiScope();
++	const auto buttons = ButtonsScope(
++		_options.hidden & uint16(ShotPart::Buttons));
+ 	_layingOut = true;
+ 	for (const auto &view : base::take(_dirty)) {
+ 		view->initDimensions();
+@@ -917,6 +1017,8 @@ QImage ShotRenderer::render() {
+ 
+ void ShotRenderer::paintContent(Painter &p, QRect clip, int ratio) {
+ 	const auto scope = ShotEmojiScope();
++	const auto buttons = ButtonsScope(
++		_options.hidden & uint16(ShotPart::Buttons));
+ 	validateCorners(ratio);
+ 	ValidateShotTextQuotes(style());
+ 	const auto st = style();
+@@ -1209,6 +1311,56 @@ void SendShot(
+ 	ShowSendFilesBox(controller, thread, std::move(list), std::move(sent));
+ }
+ 
++class ShotGrid final : public Ui::RpWidget {
++public:
++	using RpWidget::RpWidget;
++
++	void add(not_null<Ui::RpWidget*> cell);
++
++private:
++	int resizeGetHeight(int newWidth) override;
++
++	std::vector<not_null<Ui::RpWidget*>> _cells;
++	bool _inResize = false;
++
++};
++
++void ShotGrid::add(not_null<Ui::RpWidget*> cell) {
++	_cells.push_back(cell);
++	cell->heightValue() | rpl::on_next([=] {
++		if (!_inResize) {
++			resizeToWidth(width());
++		}
++	}, cell->lifetime());
++}
++
++int ShotGrid::resizeGetHeight(int newWidth) {
++	if (newWidth <= 0) {
++		return 0;
++	}
++	_inResize = true;
++	const auto guard = gsl::finally([&] { _inResize = false; });
++
++	const auto columns = (newWidth >= 2 * st::boxWidth) ? 2 : 1;
++	const auto cellWidth = newWidth / columns;
++	const auto count = int(_cells.size());
++	auto top = 0;
++	for (auto i = 0; i < count; i += columns) {
++		auto rowHeight = 0;
++		for (auto j = 0; j != columns && i + j != count; ++j) {
++			const auto cell = _cells[i + j];
++			const auto left = j * cellWidth;
++			cell->resizeToWidth((j + 1 == columns)
++				? (newWidth - left)
++				: cellWidth);
++			cell->moveToLeft(left, top, newWidth);
++			rowHeight = std::max(rowHeight, cell->height());
++		}
++		top += rowHeight;
++	}
++	return top;
++}
++
+ void ShotBox(
+ 		not_null<Ui::GenericBox*> box,
+ 		not_null<Window::SessionController*> controller,
+@@ -1225,7 +1377,7 @@ void ShotBox(
+ 
+ 	box->setTitle(rpl::single(Lower(u"Shot"_q)));
+ 	box->setWidth(std::clamp(
+-		shot->size().width() + 2 * padding,
++		std::max(shot->size().width() + 2 * padding, 2 * st::boxWidth),
+ 		st::boxWideWidth,
+ 		std::max(st::boxWideWidth, controller->content()->width() * 9 / 10)));
+ 	box->addTopButton(st::boxTitleClose, [=] { box->closeBox(); });
+@@ -1234,21 +1386,76 @@ void ShotBox(
+ 		box->closeBox();
+ 	}, box->lifetime());
+ 
+-	const auto preview = box->addRow(
++	const auto body = box->addRow(
+ 		object_ptr<Ui::RpWidget>(box),
+ 		style::margins());
+-	const auto scale = [=] {
++	const auto previewScroll = Ui::CreateChild<Ui::ScrollArea>(
++		body,
++		st::boxScroll);
++	const auto preview = previewScroll->setOwnedWidget(
++		object_ptr<Ui::RpWidget>(previewScroll)).data();
++	const auto panelScroll = Ui::CreateChild<Ui::ScrollArea>(
++		body,
++		st::boxScroll);
++	const auto panel = panelScroll->setOwnedWidget(
++		object_ptr<Ui::VerticalLayout>(panelScroll)).data();
++	const auto maxHeight = std::max(
++		st::boxMaxListHeight,
++		controller->content()->height() * 3 / 4);
++
++	const auto previewShown = body->lifetime().make_state<int>(0);
++	const auto layout = [=] {
++		const auto width = body->width();
++		const auto top = *previewShown;
++		previewScroll->setGeometry(0, 0, width, top);
++		panelScroll->setGeometry(
++			0,
++			top + st::lineWidth,
++			width,
++			std::max(body->height() - top - st::lineWidth, 0));
++	};
++	body->sizeValue() | rpl::on_next([=](QSize size) {
++		panel->resizeToWidth(size.width());
++		layout();
++	}, body->lifetime());
++	body->paintRequest() | rpl::on_next([=] {
++		auto p = QPainter(body);
++		p.fillRect(
++			0,
++			*previewShown,
++			body->width(),
++			st::lineWidth,
++			st::shadowFg);
++	}, body->lifetime());
++	rpl::combine(
++		preview->heightValue(),
++		panel->heightValue()
++	) | rpl::on_next([=](int previewHeight, int panelHeight) {
++		const auto available = std::max(maxHeight - st::lineWidth, 0);
++		const auto panelShown = std::min(
++			panelHeight,
++			std::max(available - previewHeight, available / 3));
++		*previewShown = std::min(previewHeight, available - panelShown);
++		body->resize(
++			body->width(),
++			*previewShown + st::lineWidth + panelShown);
++		layout();
++		body->update();
++	}, body->lifetime());
++
++	const auto scaleFor = [=](int width) {
+ 		const auto size = shot->size();
+-		const auto available = preview->width() - 2 * padding;
++		const auto available = width - 2 * padding;
+ 		return (size.width() > available && available > 0)
+ 			? (available / float64(size.width()))
+ 			: 1.;
+ 	};
+ 	rpl::combine(
+-		preview->widthValue(),
++		previewScroll->widthValue(),
+ 		shot->layoutVersionValue()
+ 	) | rpl::on_next([=](int width, int) {
+-		const auto height = int(std::ceil(shot->size().height() * scale()));
++		const auto k = scaleFor(width);
++		const auto height = int(std::ceil(shot->size().height() * k));
+ 		preview->resize(width, height);
+ 		preview->update();
+ 	}, preview->lifetime());
+@@ -1260,7 +1467,7 @@ void ShotBox(
+ 		if (size.isEmpty()) {
+ 			return;
+ 		}
+-		const auto k = scale();
++		const auto k = scaleFor(preview->width());
+ 		const auto left = (k < 1.)
+ 			? ((preview->width() - size.width() * k) / 2.)
+ 			: float64((preview->width() - size.width()) / 2);
+@@ -1288,13 +1495,11 @@ void ShotBox(
+ 		shot->paint(p, inner, style::DevicePixelRatio());
+ 	}, preview->lifetime());
+ 
+-	const auto bottom = box->setPinnedToBottomContent(
+-		object_ptr<Ui::VerticalLayout>(box));
+-	const auto note = bottom->add(
++	const auto note = panel->add(
+ 		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
+-			bottom,
++			panel,
+ 			object_ptr<Ui::FlatLabel>(
+-				bottom,
++				panel,
+ 				shot->layoutVersionValue() | rpl::map([=](int) {
+ 					return Lower(u"Too tall for one picture: only the "
+ 						"first %1 of %2 messages fit."_q).arg(
+@@ -1306,42 +1511,116 @@ void ShotBox(
+ 		return shot->shownCount() < shot->totalCount();
+ 	}));
+ 	note->finishAnimating();
+-	Ui::AddSkip(bottom);
+ 
+-	const auto addToggle = [&](const QString &text, bool value) {
+-		auto result = object_ptr<Ui::SettingsButton>(
+-			bottom,
++	const auto change = [=](Fn<void(ShotOptions&)> apply) {
++		auto options = shot->options();
++		apply(options);
++		shot->setOptions(options);
++	};
++	const auto addToggle = [&](
++			not_null<ShotGrid*> grid,
++			const QString &text,
++			bool value) {
++		const auto result = Ui::CreateChild<Ui::SettingsButton>(
++			grid.get(),
+ 			rpl::single(Lower(text)),
+ 			st::settingsButtonNoIcon);
+ 		result->toggleOn(rpl::single(value));
++		grid->add(result);
+ 		return result;
+ 	};
+-	const auto background = bottom->add(
+-		addToggle(u"Show background"_q, shot->options().background));
+-	const auto dates = bottom->add(
+-		addToggle(u"Show dates"_q, shot->options().dates));
+-	const auto transparentWrap = bottom->add(
+-		object_ptr<Ui::SlideWrap<Ui::SettingsButton>>(
+-			bottom,
+-			addToggle(u"Transparent"_q, shot->options().transparent)));
++	const auto addTitle = [&](const QString &text) {
++		Ui::AddSkip(panel);
++		Ui::AddSubsectionTitle(panel, rpl::single(Lower(text)));
++	};
++	const auto addGroup = [&](const QString &text) {
++		addTitle(text);
++		return not_null<ShotGrid*>(panel->add(object_ptr<ShotGrid>(panel)));
++	};
++	const auto addDivider = [&] {
++		Ui::AddSkip(panel);
++		Ui::AddDivider(panel);
++	};
++
++	const auto messagesGroup = addGroup(u"Messages"_q);
++	if (shot->hasOutgoing()) {
++		addToggle(
++			messagesGroup,
++			u"My messages as incoming"_q,
++			shot->options().incoming
++		)->toggledChanges() | rpl::on_next([=](bool value) {
++			change([&](ShotOptions &options) { options.incoming = value; });
++		}, panel->lifetime());
++	}
++	addToggle(
++		messagesGroup,
++		u"Date badges"_q,
++		shot->options().dates
++	)->toggledChanges() | rpl::on_next([=](bool value) {
++		change([&](ShotOptions &options) { options.dates = value; });
++	}, panel->lifetime());
++	addDivider();
++
++	const auto showGroup = addGroup(u"Show"_q);
++	const auto parts = {
++		std::pair{ ShotPart::Names, u"Names and badges"_q },
++		std::pair{ ShotPart::Userpics, u"Userpics"_q },
++		std::pair{ ShotPart::Replies, u"Replies and quotes"_q },
++		std::pair{ ShotPart::Forwards, u"Forwarded from"_q },
++		std::pair{ ShotPart::Previews, u"Link previews"_q },
++		std::pair{ ShotPart::Buttons, u"Inline buttons"_q },
++		std::pair{ ShotPart::Reactions, u"Reactions"_q },
++		std::pair{ ShotPart::Info, u"Time and read checks"_q },
++	};
++	for (const auto &[part, text] : parts) {
++		const auto bit = uint16(part);
++		addToggle(
++			showGroup,
++			text,
++			!(shot->options().hidden & bit)
++		)->toggledChanges() | rpl::on_next([=](bool value) {
++			change([&](ShotOptions &options) {
++				if (value) {
++					options.hidden &= ~bit;
++				} else {
++					options.hidden |= bit;
++				}
++			});
++		}, panel->lifetime());
++	}
++	addDivider();
++
++	const auto backgroundGroup = addGroup(u"Background"_q);
++	const auto background = addToggle(
++		backgroundGroup,
++		u"Show background"_q,
++		shot->options().background);
++	const auto transparentWrap = Ui::CreateChild<
++		Ui::SlideWrap<Ui::SettingsButton>>(
++			backgroundGroup.get(),
++			object_ptr<Ui::SettingsButton>(
++				backgroundGroup,
++				rpl::single(Lower(u"Transparent"_q)),
++				st::settingsButtonNoIcon));
++	backgroundGroup->add(transparentWrap);
+ 	const auto transparent = transparentWrap->entity();
++	transparent->toggleOn(rpl::single(shot->options().transparent));
+ 	transparentWrap->toggleOn(background->toggledValue(
+ 	) | rpl::map([](bool shown) {
+ 		return !shown;
+ 	}));
+ 	transparentWrap->finishAnimating();
+-	if (shot->hasOutgoing()) {
+-		const auto incoming = bottom->add(addToggle(
+-			u"My messages as incoming"_q,
+-			shot->options().incoming));
+-		incoming->toggledChanges() | rpl::on_next([=](bool value) {
+-			auto options = shot->options();
+-			options.incoming = value;
+-			shot->setOptions(options);
+-		}, incoming->lifetime());
+-	}
++	background->toggledChanges() | rpl::on_next([=](bool value) {
++		change([&](ShotOptions &options) { options.background = value; });
++	}, background->lifetime());
++	transparent->toggledChanges() | rpl::on_next([=](bool value) {
++		change([&](ShotOptions &options) { options.transparent = value; });
++	}, transparent->lifetime());
++	addDivider();
++
++	addTitle(u"Export"_q);
+ 	const auto scaleButton = Settings::AddButtonWithLabel(
+-		bottom,
++		panel,
+ 		rpl::single(Lower(u"Scale"_q)),
+ 		shot->layoutVersionValue() | rpl::map([=](int) {
+ 			const auto size = shot->exportSize();
+@@ -1360,30 +1639,12 @@ void ShotBox(
+ 		for (auto scale = 1; scale <= kMaxScale; ++scale) {
+ 			const auto chosen = (scale == shot->options().scale);
+ 			(*scaleMenu)->addAction(QString::number(scale) + u"x"_q, [=] {
+-				auto options = shot->options();
+-				options.scale = scale;
+-				shot->setOptions(options);
++				change([&](ShotOptions &options) { options.scale = scale; });
+ 			}, chosen ? &st::mediaPlayerMenuCheck : nullptr);
+ 		}
+ 		(*scaleMenu)->popup(QCursor::pos());
+ 	});
+-	Ui::AddSkip(bottom);
+-
+-	background->toggledChanges() | rpl::on_next([=](bool value) {
+-		auto options = shot->options();
+-		options.background = value;
+-		shot->setOptions(options);
+-	}, background->lifetime());
+-	dates->toggledChanges() | rpl::on_next([=](bool value) {
+-		auto options = shot->options();
+-		options.dates = value;
+-		shot->setOptions(options);
+-	}, dates->lifetime());
+-	transparent->toggledChanges() | rpl::on_next([=](bool value) {
+-		auto options = shot->options();
+-		options.transparent = value;
+-		shot->setOptions(options);
+-	}, transparent->lifetime());
++	Ui::AddSkip(panel);
+ 
+ 	box->addButton(rpl::single(Lower(u"Copy"_q)), [=] {
+ 		CopyShot(shot, show);
+@@ -1476,8 +1737,14 @@ void AddShot(
+ 
+ } // namespace
+ 
+-bool ShotHidesBottomInfo(not_null<const HistoryView::Element*> view) {
+-	return FlagsFor(view).hideBottomInfo;
++bool ShotHides(
++		not_null<const HistoryView::Element*> view,
++		ShotPart part) {
++	return FlagsFor(view).hidden & uint16(part);
++}
++
++bool ShotHidesInlineButtons() {
++	return HidingButtons();
+ }
+ 
+ bool ShotShowsIncoming(not_null<const HistoryView::Element*> view) {
+diff --git a/Telegram/SourceFiles/tele/tele_shot.h b/Telegram/SourceFiles/tele/tele_shot.h
+index e1a6e6ce0b2ee13f8cdccd1fb25a9f47355044c9..2b698124b0556167188e1dea854d298f58575186 100644
+--- a/Telegram/SourceFiles/tele/tele_shot.h
++++ b/Telegram/SourceFiles/tele/tele_shot.h
+@@ -20,8 +20,21 @@ class SessionController;
+ 
+ namespace Tele {
+ 
+-[[nodiscard]] bool ShotHidesBottomInfo(
+-	not_null<const HistoryView::Element*> view);
++enum class ShotPart : uint16 {
++	Names = (1 << 0),
++	Userpics = (1 << 1),
++	Replies = (1 << 2),
++	Forwards = (1 << 3),
++	Previews = (1 << 4),
++	Buttons = (1 << 5),
++	Reactions = (1 << 6),
++	Info = (1 << 7),
++};
++
++[[nodiscard]] bool ShotHides(
++	not_null<const HistoryView::Element*> view,
++	ShotPart part);
++[[nodiscard]] bool ShotHidesInlineButtons();
+ [[nodiscard]] bool ShotShowsIncoming(
+ 	not_null<const HistoryView::Element*> view);
+ 

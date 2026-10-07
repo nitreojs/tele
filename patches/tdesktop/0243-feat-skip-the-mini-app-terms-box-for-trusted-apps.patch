@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 17:35:33 +0300
+Subject: [PATCH] feat: skip the mini app terms box for trusted apps
+
+---
+ .../SourceFiles/inline_bots/bot_attach_web_view.cpp   |  4 ++++
+ Telegram/SourceFiles/settings/settings_tele.cpp       |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp            | 11 +++++++++++
+ Telegram/SourceFiles/tele/tele_options.h              |  2 ++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp        |  1 +
+ 5 files changed, 22 insertions(+)
+
+diff --git a/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp b/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp
+index 3dadbc825bbc0600b5740ee3d186da8f85461eba..afdd68d07dc326ef4355bfadd586ae62152fd61a 100644
+--- a/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp
++++ b/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp
+@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "payments/payments_non_panel_process.h"
+ #include "settings/sections/settings_premium.h"
+ #include "storage/storage_account.h"
++#include "tele/tele_options.h"
+ #include "storage/storage_domain.h"
+ #include "ui/basic_click_handlers.h"
+ #include "ui/boxes/confirm_box.h"
+@@ -999,6 +1000,9 @@ void WebViewInstance::resolve() {
+ 			data.token,
+ 			(_context.maySkipConfirmation
+ 				? ConfirmType::None
++				: (Tele::TrustedAppLinks()
++					&& _session->local().isPeerTrustedOpenWebView(_bot->id))
++				? ConfirmType::Once
+ 				: ConfirmType::Always));
+ 	}, [&](WebViewSourceLinkBotProfile) {
+ 		confirmOpen([=] {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index ec464b1f0c2b7d3910fb80651e571d20af9f9daf..cf1234a0621f2ee11eb98e6cf875cf38ed3d4b2a 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3620,6 +3620,10 @@ void FillBots(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionHideBotEdited,
+ 		{ u"edited"_q, u"bot"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionTrustedAppLinks,
++		{ u"mini app"_q, u"terms"_q, u"confirm"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 449fcd5dbada636bb9e20dbb06f92a24575c1304..ec9dcc94a6d06c560bea5c248ad91f55fc647777 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -135,6 +135,7 @@ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionInlineAsText[] = "tele-inline-as-text";
+ const char kOptionStartParam[] = "tele-start-param";
+ const char kOptionHideBotEdited[] = "tele-hide-bot-edited";
++const char kOptionTrustedAppLinks[] = "tele-trusted-app-links";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+@@ -1006,6 +1007,12 @@ base::options::toggle StartParamOption({
+ 	.description = "On the start button of a bot opened by a link.",
+ });
+ 
++base::options::toggle TrustedAppLinksOption({
++	.id = kOptionTrustedAppLinks,
++	.name = "Don't ask again for trusted mini apps",
++	.description = "Links to a mini app you've opened before skip the terms box.",
++});
++
+ base::options::toggle HideBotEditedOption({
+ 	.id = kOptionHideBotEdited,
+ 	.name = "No edited mark on bot messages",
+@@ -2526,6 +2533,10 @@ rpl::producer<> ShowStartParamChanges() {
+ 	return StartParamOption.changes();
+ }
+ 
++bool TrustedAppLinks() {
++	return TrustedAppLinksOption.value();
++}
++
+ bool HideBotEdited() {
+ 	return HideBotEditedOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 3f9196f1d6f80664d47065bcadfaddcab9188891..e0af5e52a2680f669825d1aa1a79299621015e08 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -130,6 +130,7 @@ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionInlineAsText[];
+ extern const char kOptionStartParam[];
+ extern const char kOptionHideBotEdited[];
++extern const char kOptionTrustedAppLinks[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+@@ -413,6 +414,7 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] rpl::producer<> ShowStartParamChanges();
+ [[nodiscard]] bool HideBotEdited();
+ [[nodiscard]] rpl::producer<> HideBotEditedChanges();
++[[nodiscard]] bool TrustedAppLinks();
+ [[nodiscard]] bool NoRichPastePrompt();
+ [[nodiscard]] bool HideGiftButton();
+ [[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 1b1507ee7af4d8c35da11aa0781aad8abf45b855..8510ce14e296f2dce40558b6c0e8054e1f4b75d2 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -111,6 +111,7 @@ struct Spec {
+ 		Toggle(kOptionInlineAsText),
+ 		Toggle(kOptionStartParam),
+ 		Toggle(kOptionHideBotEdited),
++		Toggle(kOptionTrustedAppLinks),
+ 		Toggle(kOptionAutoUpdate),
+ 		Toggle(kOptionShowChangelog),
+ 		Toggle(kOptionGroupQuickReplies),

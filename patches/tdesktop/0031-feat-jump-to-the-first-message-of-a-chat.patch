@@ -130,7 +130,7 @@ index 0000000000000000000000000000000000000000..4840c2bf2f9333525c9deda53787ff85
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 0669631de73e1ccc02ce556fd3924c14fc90dc4f..594c123788c815d0ed728eba7b82371235ad8878 100644
+index 3a4eb6d5f95efed66d63d4af07073b496cb82fc7..1e8625f75f9d6d8cc269359922aeaed64478dfac 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -15,6 +15,7 @@ const char kOptionLowercase[] = "tele-lowercase";
@@ -155,7 +155,7 @@ index 0669631de73e1ccc02ce556fd3924c14fc90dc4f..594c123788c815d0ed728eba7b823712
  base::options::toggle ShowGiftIdsOption({
  	.id = kOptionShowGiftIds,
  	.name = "Show gift IDs",
-@@ -310,6 +318,10 @@ rpl::producer<> HideAllChatsChanges() {
+@@ -309,6 +317,10 @@ rpl::producer<> HideAllChatsChanges() {
  	return HideAllChatsOption.changes();
  }
  

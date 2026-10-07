@@ -1170,7 +1170,7 @@ index 0000000000000000000000000000000000000000..df4f394418bf70ffefa2dcd8035febd3
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 594c123788c815d0ed728eba7b82371235ad8878..d15f66869555b1b717d4af02acf9eba8d89d5927 100644
+index 1e8625f75f9d6d8cc269359922aeaed64478dfac..2d4583e768bfc2827f84bfd0e450f7f0eabdbd9b 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -6,6 +6,14 @@ namespace Tele {
@@ -1264,7 +1264,7 @@ index 594c123788c815d0ed728eba7b82371235ad8878..d15f66869555b1b717d4af02acf9eba8
  base::options::toggle ButtonPayloadsOption({
  	.id = kOptionButtonPayloads,
  	.name = "Show bot button payloads",
-@@ -251,7 +328,66 @@ bool HideStories() {
+@@ -250,7 +327,66 @@ bool HideStories() {
  }
  
  bool InvisibleStories() {

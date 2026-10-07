@@ -130,7 +130,7 @@ index c733161b91159d64248199f155f7cb210f539015..616db2d1d3bd37e9af2d6164e667b623
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 8fb70feef758c45bd5502e6d593d9c51252e3504..04099357edc4eadc9ffd4f7edb20e2e17f80aedb 100644
+index 95d34159a5bd562d32d72631a07b9e8e54eb856b..57fc16f29e79da0ece3dbb1ffaf745a3ee12a7c0 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -12,6 +12,7 @@ const char kOptionGroupQuickReplies[] = "tele-group-quick-replies";
@@ -156,7 +156,7 @@ index 8fb70feef758c45bd5502e6d593d9c51252e3504..04099357edc4eadc9ffd4f7edb20e2e1
  base::options::toggle ShowGiftIdsOption({
  	.id = kOptionShowGiftIds,
  	.name = "Show gift IDs",
-@@ -231,6 +240,20 @@ bool BubbleBadges() {
+@@ -230,6 +239,20 @@ bool BubbleBadges() {
  	return BubbleBadgesOption.value();
  }
  

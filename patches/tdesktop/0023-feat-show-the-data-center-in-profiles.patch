@@ -53,7 +53,7 @@ index c625b75e28427e71a7fae273190b2bc9c8548296..c733161b91159d64248199f155f7cb21
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 6996ad1670e361cad8488b45a79137ffdfb5e185..8fb70feef758c45bd5502e6d593d9c51252e3504 100644
+index 0d6a6cb71d30dfd7981c9d448e208916ccd30eea..95d34159a5bd562d32d72631a07b9e8e54eb856b 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -15,6 +15,7 @@ const char kOptionLowercase[] = "tele-lowercase";
@@ -79,7 +79,7 @@ index 6996ad1670e361cad8488b45a79137ffdfb5e185..8fb70feef758c45bd5502e6d593d9c51
  base::options::toggle HideIgnoredOption({
  	.id = kOptionHideIgnored,
  	.name = "Hide ignored messages completely",
-@@ -240,6 +249,10 @@ rpl::producer<> PeerIdFormatChanges() {
+@@ -239,6 +248,10 @@ rpl::producer<> PeerIdFormatChanges() {
  		BotApiPeerIdsOption.changes());
  }
  

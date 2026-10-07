@@ -1,0 +1,450 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 10:59:10 +0300
+Subject: [PATCH] feat: multiple quotes in one reply
+
+---
+ .../SourceFiles/history/history_widget.cpp    |  10 +
+ .../history_view_compose_controls.cpp         |  10 +
+ .../iv/editor/iv_editor_session.cpp           |   9 +
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  13 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ Telegram/SourceFiles/tele/tele_rich_quote.cpp | 180 ++++++++++++++++--
+ Telegram/SourceFiles/tele/tele_rich_quote.h   |  14 +-
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 9 files changed, 224 insertions(+), 19 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 222582701f2d5ebefcdd62b3e2c91a059c04fba1..5adf41d16e96c537ab4c6baafe040bac472abb84 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -10448,6 +10448,16 @@ void HistoryWidget::replyToMessage(FullReplyTo id) {
+ 	if (const auto item = session().data().message(id.messageId)) {
+ 		if (Tele::SkipReplyTo(item)) {
+ 			return;
++		} else if (_history && Tele::AppendQuote(_history, id, {
++				.current = _replyTo,
++				.editing = (_editMsgId != 0),
++				.editorOpen = isComposeBoxOpen(),
++				.rich = [=](std::shared_ptr<QMimeData> data) {
++					showRichEditorWithPaste(std::move(data));
++				},
++				.field = _field.data(),
++			})) {
++			return;
+ 		} else if (CanSendReply(item) && !base::IsCtrlPressed()) {
+ 			replyToMessage(item, id);
+ 		} else if (item->allowsForward()) {
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 4d13376b1d0761ea0223918edf36a917936b8d3d..9db0b57ceddaad91d1ac318eea3c7b032a08a556 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -6094,6 +6094,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
+ 	} else if (const auto item = _history->owner().message(id.messageId)
+ 		; item && Tele::SkipReplyTo(item)) {
+ 		return;
++	} else if (Tele::AppendQuote(_history, id, {
++			.current = draftReplyingToMessage(),
++			.editing = isEditingMessage(),
++			.editorOpen = isComposeBoxOpen(),
++			.rich = [=](std::shared_ptr<QMimeData> data) {
++				showRichEditorWithPaste(std::move(data));
++			},
++			.field = _field,
++		})) {
++		return;
+ 	}
+ 	id.topicRootId = _topicRootId;
+ 	id.monoforumPeerId = _monoforumPeerId;
+diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+index 0681f14edbd18de152b358791443b03a5a4facb5..c0ada673449faa060c15bae542fa591d8bd5d5bd 100644
+--- a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
++++ b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_account.h"
+ #include "storage/storage_media_prepare.h"
+ #include "tele/tele_drafts_compose.h"
++#include "tele/tele_options.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/controls/location_picker.h"
+@@ -619,6 +620,14 @@ public:
+ 				monoforumPeerId);
+ 			if (const auto entry = LookupComposeThreadEntry(composeKey)) {
+ 				if (const auto existing = entry->articleSession.lock()) {
++					if (options.initialPaste
++						&& existing->_editor
++						&& ::Tele::MultiQuote()) {
++						existing->_editor->activateInitialNodeAtEnd();
++						existing->_composeOptions.initialPaste
++							= std::move(options.initialPaste);
++						existing->applyInitialPaste();
++					}
+ 					existing->focusWindow();
+ 					return;
+ 				}
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index eb08acce7124a5ab2c6c73d031087dd01eb05dbd..32f695d87cdcfeed40fec202d905f943d9135ad5 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2922,6 +2922,10 @@ void FillMessages(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionRichQuote,
+ 		{ u"reply"_q, u"blockquote"_q, u"selection"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionMultiQuote,
++		{ u"reply"_q, u"blockquote"_q, u"several"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Bookmarks"_q);
+ 	AddOptionToggle(
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index f19036d48661874a1e6dc4549c488086ef0ae02b..7ec4c0e3255d9f0d8a544b8419d358722ecafd7f 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -98,6 +98,7 @@ const char kOptionRevealSpoilers[] = "tele-reveal-spoilers";
+ const char kOptionCodeLineNumbers[] = "tele-code-line-numbers";
+ const char kOptionCopyProtected[] = "tele-copy-protected";
+ const char kOptionRichQuote[] = "tele-rich-quote";
++const char kOptionMultiQuote[] = "tele-multi-quote";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionAllowScreenCapture[] = "tele-allow-screen-capture";
+@@ -770,6 +771,14 @@ base::options::toggle RichQuoteOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle MultiQuoteOption({
++	.id = kOptionMultiQuote,
++	.name = "Multiple quotes",
++	.description = "Quoting again while replying with a quote adds "
++		"a blockquote to your message instead of changing the reply.",
++	.defaultValue = true,
++});
++
+ base::options::toggle KeepSecretMediaOption({
+ 	.id = kOptionKeepSecretMedia,
+ 	.name = "Open disappearing media without burning it",
+@@ -2144,6 +2153,10 @@ bool RichQuote() {
+ 	return RichQuoteOption.value();
+ }
+ 
++bool MultiQuote() {
++	return MultiQuoteOption.value();
++}
++
+ bool KeepSecretMedia() {
+ 	return KeepSecretMediaOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 765b649880fc9eb383a48d4cf93775687baa2e1b..cff6c4b2c05556f52dd22e66aaffc5e5cc6b2698 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -93,6 +93,7 @@ extern const char kOptionRevealSpoilers[];
+ extern const char kOptionCodeLineNumbers[];
+ extern const char kOptionCopyProtected[];
+ extern const char kOptionRichQuote[];
++extern const char kOptionMultiQuote[];
+ extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionAllowScreenCapture[];
+@@ -338,6 +339,7 @@ void SetSavedHistoryPeriod(const QString &value);
+ [[nodiscard]] rpl::producer<> CodeLineNumbersChanges();
+ [[nodiscard]] bool CopyProtected();
+ [[nodiscard]] bool RichQuote();
++[[nodiscard]] bool MultiQuote();
+ [[nodiscard]] bool KeepSecretMedia();
+ [[nodiscard]] bool ScreenshotSecretMedia();
+ [[nodiscard]] bool AllowScreenCapture();
+diff --git a/Telegram/SourceFiles/tele/tele_rich_quote.cpp b/Telegram/SourceFiles/tele/tele_rich_quote.cpp
+index fc56e707fc18f10bb17c5642089c5642c3a351d5..5e630f656345c85ac3fd3239b6c9a2b6c2deed4a 100644
+--- a/Telegram/SourceFiles/tele/tele_rich_quote.cpp
++++ b/Telegram/SourceFiles/tele/tele_rich_quote.cpp
+@@ -1,6 +1,9 @@
+ #include "tele/tele_rich_quote.h"
+ 
++#include "base/qt/qt_key_modifiers.h"
++#include "data/data_peer.h"
+ #include "data/data_premium_limits.h"
++#include "data/data_session.h"
+ #include "data/stickers/data_custom_emoji.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
+@@ -39,6 +42,11 @@ struct Pending {
+ 	return result;
+ }
+ 
++[[nodiscard]] base::flat_map<not_null<History*>, FullMsgId> &QuoteReplies() {
++	static auto result = base::flat_map<not_null<History*>, FullMsgId>();
++	return result;
++}
++
+ void DropUneditable(std::vector<Block> &blocks, bool &dropped) {
+ 	for (auto &block : blocks) {
+ 		DropUneditable(block.blocks, dropped);
+@@ -145,16 +153,15 @@ void OpenFocused(
+ 	}
+ }
+ 
+-void InsertPlain(
+-		not_null<History*> history,
+-		const Iv::RichPageBlocksSlice &slice,
+-		not_null<Ui::InputField*> field) {
+-	const auto session = &history->session();
++[[nodiscard]] TextWithEntities Flatten(const Iv::RichPageBlocksSlice &slice) {
+ 	auto page = Iv::RichPage();
+ 	page.blocks = slice.blocks;
+ 	page.rtl = slice.rtl;
+-	auto quoted = Iv::FlattenRichPageToSimpleText(page);
+-	const auto customEmoji = session->premium()
++	return Iv::FlattenRichPageToSimpleText(page);
++}
++
++void StripEntities(not_null<History*> history, TextWithEntities &quoted) {
++	const auto customEmoji = history->session().premium()
+ 		|| Data::AllowEmojiWithoutPremium(history->peer);
+ 	quoted.entities.erase(ranges::remove_if(quoted.entities, [&](
+ 			const EntityInText &entity) {
+@@ -162,6 +169,32 @@ void InsertPlain(
+ 		return (type == EntityType::Blockquote)
+ 			|| (!customEmoji && type == EntityType::CustomEmoji);
+ 	}), quoted.entities.end());
++}
++
++[[nodiscard]] std::shared_ptr<QMimeData> QuoteMime(
++		std::vector<Block> blocks,
++		const QString &credit) {
++	auto quote = Block();
++	quote.kind = Iv::RichPage::BlockKind::Quote;
++	quote.blocks = std::move(blocks);
++	if (!credit.isEmpty()) {
++		quote.caption.text = TextWithEntities{ credit };
++	}
++	auto data = Iv::Editor::ClipboardBlockData();
++	data.blocks.push_back(std::move(quote));
++	data.blocks.push_back(Iv::Editor::MakeParagraphBlock());
++	auto mime = Iv::Editor::MimeDataFromClipboardData(
++		Iv::Editor::ClipboardData(std::move(data)));
++	return std::shared_ptr<QMimeData>(mime.release());
++}
++
++void InsertPlain(
++		not_null<History*> history,
++		const Iv::RichPageBlocksSlice &slice,
++		not_null<Ui::InputField*> field) {
++	const auto session = &history->session();
++	auto quoted = Flatten(slice);
++	StripEntities(history, quoted);
+ 	const auto own = field->getTextWithTags();
+ 	const auto limit = Data::PremiumLimits(session).messageLengthCurrent();
+ 	const auto available = limit
+@@ -188,6 +221,75 @@ void InsertPlain(
+ 	field->setFocus();
+ }
+ 
++void AppendToField(
++		not_null<History*> history,
++		not_null<Ui::InputField*> field,
++		TextWithEntities quoted,
++		const QString &credit) {
++	StripEntities(history, quoted);
++	if (quoted.empty()) {
++		return;
++	}
++	const auto own = field->getTextWithTags();
++	const auto separator = own.text.isEmpty() ? 0 : 2;
++	const auto prefix = credit.isEmpty() ? 0 : int(credit.size()) + 1;
++	const auto limit = Data::PremiumLimits(
++		&history->session()).messageLengthCurrent();
++	const auto available = limit
++		- int(own.text.size())
++		- separator
++		- prefix
++		- 1;
++	if (available < 2) {
++		return;
++	}
++	Truncate(quoted, available);
++	if (prefix) {
++		auto credited = TextWithEntities{ credit + QChar('\n') };
++		credited.entities.push_back(
++			EntityInText(EntityType::Bold, 0, int(credit.size())));
++		for (auto entity : quoted.entities) {
++			entity.shiftRight(prefix);
++			credited.entities.push_back(std::move(entity));
++		}
++		credited.text.append(quoted.text);
++		quoted = std::move(credited);
++	}
++	WrapInQuotes(quoted);
++	auto result = own;
++	if (separator) {
++		result.text.append(u"\n\n"_q);
++	}
++	const auto shift = int(result.text.size());
++	for (auto tag : TextUtilities::ConvertEntitiesToTextTags(
++			quoted.entities)) {
++		tag.offset += shift;
++		result.tags.push_back(std::move(tag));
++	}
++	result.text.append(quoted.text);
++	result.text.append(QChar('\n'));
++	field->setTextWithTags(result, Ui::InputField::HistoryAction::NewEntry);
++	field->setCursorPosition(int(result.text.size()));
++	field->ensureCursorVisible();
++	field->setFocus();
++}
++
++void AppendToEditor(
++		const MultiQuoteCompose &compose,
++		std::vector<Block> blocks,
++		const QString &credit) {
++	auto dropped = false;
++	DropUneditable(blocks, dropped);
++	if (dropped) {
++		ShowTeleToast(
++			compose.field->window(),
++			Lower(u"Some blocks can't be quoted and were left out"_q));
++	}
++	if (!blocks.empty()) {
++		OpenFocused(compose.rich, QuoteMime(std::move(blocks), credit));
++	}
++}
++
+ } // namespace
+ 
+ Iv::RichPageBlocksSlice RichQuoteBlocks(
+@@ -245,26 +347,68 @@ void ApplyRichQuote(
+ 		auto dropped = false;
+ 		DropUneditable(blocks, dropped);
+ 		if (!blocks.empty()) {
+-			auto quote = Block();
+-			quote.kind = Iv::RichPage::BlockKind::Quote;
+-			quote.blocks = std::move(blocks);
+-			auto data = Iv::Editor::ClipboardBlockData();
+-			data.blocks.push_back(std::move(quote));
+-			data.blocks.push_back(Iv::Editor::MakeParagraphBlock());
+-			auto mime = Iv::Editor::MimeDataFromClipboardData(
+-				Iv::Editor::ClipboardData(std::move(data)));
+ 			if (dropped) {
+ 				ShowTeleToast(
+ 					compose.field->window(),
+ 					Lower(u"Some blocks can't be quoted and were left out"_q));
+ 			}
+-			OpenFocused(
+-				compose.rich,
+-				std::shared_ptr<QMimeData>(mime.release()));
++			QuoteReplies()[history] = replyTo.messageId;
++			OpenFocused(compose.rich, QuoteMime(std::move(blocks), QString()));
+ 			return;
+ 		}
+ 	}
++	QuoteReplies()[history] = replyTo.messageId;
+ 	InsertPlain(history, slice, compose.field);
+ }
+ 
++bool AppendQuote(
++		not_null<History*> history,
++		const FullReplyTo &replyTo,
++		MultiQuoteCompose compose) {
++	if (!MultiQuote() || compose.editing || base::IsCtrlPressed()) {
++		return false;
++	}
++	auto &pending = PendingQuote();
++	const auto rich = replyTo.quote.empty()
++		&& pending
++		&& (pending->itemId == replyTo.messageId);
++	if (!rich && replyTo.quote.empty()) {
++		QuoteReplies().remove(history);
++		return false;
++	}
++	const auto &current = compose.current;
++	const auto &replies = QuoteReplies();
++	const auto i = replies.find(history);
++	const auto active = current.messageId
++		&& (!current.quote.empty()
++			|| (i != end(replies) && i->second == current.messageId));
++	const auto item = active
++		? history->owner().message(replyTo.messageId)
++		: nullptr;
++	if (!item) {
++		return false;
++	}
++	const auto slice = rich
++		? base::take(pending)->slice
++		: Iv::RichPageBlocksSlice();
++	const auto credit = (replyTo.messageId != current.messageId)
++		? item->author()->name()
++		: QString();
++	if (compose.editorOpen) {
++		AppendToEditor(
++			compose,
++			(rich
++				? slice.blocks
++				: Iv::SplitTextIntoRichPage(replyTo.quote).blocks),
++			credit);
++	} else {
++		AppendToField(
++			history,
++			compose.field,
++			rich ? Flatten(slice) : replyTo.quote,
++			credit);
++	}
++	return true;
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_rich_quote.h b/Telegram/SourceFiles/tele/tele_rich_quote.h
+index 86010f8ab87ded9806a8675ab0f74bfcb50d1d43..05711b00cc3646a1b50a2882bd9b61ad24fa902c 100644
+--- a/Telegram/SourceFiles/tele/tele_rich_quote.h
++++ b/Telegram/SourceFiles/tele/tele_rich_quote.h
+@@ -1,10 +1,10 @@
+ #pragma once
+ 
++#include "data/data_msg_id.h"
+ #include "iv/iv_rich_page.h"
+ 
+ class History;
+ class QMimeData;
+-struct FullReplyTo;
+ 
+ namespace HistoryView {
+ class Element;
+@@ -25,6 +25,14 @@ struct RichQuoteCompose {
+ 	not_null<Ui::InputField*> field;
+ };
+ 
++struct MultiQuoteCompose {
++	FullReplyTo current;
++	bool editing = false;
++	bool editorOpen = false;
++	Fn<void(std::shared_ptr<QMimeData>)> rich;
++	not_null<Ui::InputField*> field;
++};
++
+ [[nodiscard]] Iv::RichPageBlocksSlice RichQuoteBlocks(
+ 	const HistoryView::SelectedQuote &quote,
+ 	HistoryView::Element *view,
+@@ -38,5 +46,9 @@ void ApplyRichQuote(
+ 	const FullReplyTo &replyTo,
+ 	bool editing,
+ 	RichQuoteCompose compose);
++[[nodiscard]] bool AppendQuote(
++	not_null<History*> history,
++	const FullReplyTo &replyTo,
++	MultiQuoteCompose compose);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index d709e0e4001e1ea8282454e8a2d802deeb697509..7bed581283caac192057ca6c2efe7eb41f8f0643 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -178,6 +178,7 @@ struct Spec {
+ 		Toggle(kOptionCodeLineNumbers),
+ 		Toggle(kOptionCopyProtected),
+ 		Toggle(kOptionRichQuote),
++		Toggle(kOptionMultiQuote),
+ 		Toggle(kOptionBookmarks),
+ 		Toggle(kOptionReturnPoint),
+ 		Toggle(kOptionNoGestures),

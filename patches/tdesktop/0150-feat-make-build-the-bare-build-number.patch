@@ -1,0 +1,226 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 04:41:11 +0300
+Subject: [PATCH] feat: make {build} the bare build number
+
+---
+ Telegram/SourceFiles/tele/tele_options.cpp    | 35 ++++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_options.h      |  1 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ Telegram/SourceFiles/tele/tele_title.cpp      |  2 +-
+ Telegram/SourceFiles/tele/tele_title_box.cpp  |  6 ++--
+ .../SourceFiles/tele/tele_title_template.cpp  | 23 ++++++++++++
+ .../SourceFiles/tele/tele_title_template.h    |  1 +
+ 7 files changed, 64 insertions(+), 5 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0dc3f66dafb0167ab1ef696f78169bd3aa7bd4cf..a26a47d4a75207c9f2461aec7e814c2a0a08c0e8 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -1,6 +1,7 @@
+ #include "tele/tele_options.h"
+ 
+ #include "base/options.h"
++#include "tele/tele_title_template.h"
+ 
+ namespace Tele {
+ 
+@@ -86,6 +87,7 @@ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionServerUsernames[] = "tele-server-usernames";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
++const char kOptionTitleBuildHash[] = "tele-title-build-hash";
+ const char kOptionMessageMenuLayout[] = "tele-message-menu";
+ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
+ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+@@ -619,7 +621,7 @@ base::options::option<QString> TitleTemplateOption({
+ 	.id = kOptionTitleTemplate,
+ 	.name = "Title bar label",
+ 	.description = "A live template, empty hides the label.",
+-	.defaultValue = u"TELE {build}"_q,
++	.defaultValue = u"TELE #{build}"_q,
+ });
+ 
+ base::options::option<QString> WindowTitleTemplateOption({
+@@ -629,6 +631,11 @@ base::options::option<QString> WindowTitleTemplateOption({
+ 		"default title.",
+ });
+ 
++base::options::toggle TitleBuildHashOption({
++	.id = kOptionTitleBuildHash,
++	.name = "Title build hash",
++});
++
+ base::options::option<QString> MessageMenuLayoutOption({
+ 	.id = kOptionMessageMenuLayout,
+ 	.name = "Message menu",
+@@ -882,6 +889,26 @@ void MigrateHideCalls() {
+ 	}
+ }
+ 
++void HashTitleBuild(base::options::option<QString> &option) {
++	const auto value = option.value();
++	if (value == option.defaultValue()) {
++		return;
++	}
++	const auto hashed = Titles::HashBuilds(value);
++	if (hashed != value) {
++		option.set(hashed);
++	}
++}
++
++void MigrateTitleBuild() {
++	if (TitleBuildHashOption.value()) {
++		return;
++	}
++	TitleBuildHashOption.set(true);
++	HashTitleBuild(TitleTemplateOption);
++	HashTitleBuild(WindowTitleTemplateOption);
++}
++
+ } // namespace
+ 
+ bool HideStories() {
+@@ -1470,14 +1497,17 @@ rpl::producer<> ServerUsernamesChanges() {
+ }
+ 
+ QString TitleTemplate() {
++	MigrateTitleBuild();
+ 	return TitleTemplateOption.value();
+ }
+ 
+ void SetTitleTemplate(const QString &value) {
++	MigrateTitleBuild();
+ 	TitleTemplateOption.set(value);
+ }
+ 
+ rpl::producer<QString> TitleTemplateValue() {
++	MigrateTitleBuild();
+ 	return rpl::single(
+ 		rpl::empty
+ 	) | rpl::then(
+@@ -1488,14 +1518,17 @@ rpl::producer<QString> TitleTemplateValue() {
+ }
+ 
+ QString WindowTitleTemplate() {
++	MigrateTitleBuild();
+ 	return WindowTitleTemplateOption.value();
+ }
+ 
+ void SetWindowTitleTemplate(const QString &value) {
++	MigrateTitleBuild();
+ 	WindowTitleTemplateOption.set(value);
+ }
+ 
+ rpl::producer<QString> WindowTitleTemplateValue() {
++	MigrateTitleBuild();
+ 	return rpl::single(
+ 		rpl::empty
+ 	) | rpl::then(
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 7f882dc390a22e8c275ded99b4ff339667568d5e..c76131ffa24c5f68c9ea50a18f29506071c68078 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -82,6 +82,7 @@ extern const char kOptionServerUrl[];
+ extern const char kOptionServerUsernames[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
++extern const char kOptionTitleBuildHash[];
+ extern const char kOptionMessageMenuLayout[];
+ extern const char kOptionSentToBottom[];
+ extern const char kOptionQueueBehindMedia[];
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 0c71f002f2956c66b244a83dc115d56d637c31d9..5dd538f5e2e829b5bde6e84de3f14b3764e40e8e 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -225,6 +225,7 @@ struct Spec {
+ 		Internal("tele-open-links-in-apps"),
+ 		Internal(kOptionShotView),
+ 		Internal(kOptionViewerLoop),
++		Internal(kOptionTitleBuildHash),
+ 	};
+ 	return result;
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_title.cpp b/Telegram/SourceFiles/tele/tele_title.cpp
+index 674ac6b49bc34ff46339aa26dc0243a256130dd3..0970fc3791dda1365f9fdbe97d96bac014e839e7 100644
+--- a/Telegram/SourceFiles/tele/tele_title.cpp
++++ b/Telegram/SourceFiles/tele/tele_title.cpp
+@@ -92,7 +92,7 @@ struct Context {
+ 	const auto date = context.now.date();
+ 	if (name == u"build"_q) {
+ 		return (BuildNumber() > 0)
+-			? ((brief ? QString() : u"#"_q) + QString::number(BuildNumber()))
++			? QString::number(BuildNumber())
+ 			: Lower(u"DEV"_q);
+ 	} else if (name == u"version"_q) {
+ 		const auto version = QString::fromLatin1(AppVersionStr);
+diff --git a/Telegram/SourceFiles/tele/tele_title_box.cpp b/Telegram/SourceFiles/tele/tele_title_box.cpp
+index 5b7cc7d0d28c34a67afcd45a925c2b4df5b9a7f5..a7dffb734aa05ecb5e49cbe0636ee35e70d8cbfe 100644
+--- a/Telegram/SourceFiles/tele/tele_title_box.cpp
++++ b/Telegram/SourceFiles/tele/tele_title_box.cpp
+@@ -43,7 +43,7 @@ struct Group {
+ [[nodiscard]] std::vector<Group> Groups(bool window) {
+ 	auto result = std::vector<Group>{
+ 		{ u"App"_q, {
+-			{ u"build"_q, { QString(), u"|short"_q } },
++			{ u"build"_q, { QString() } },
+ 			{ u"version"_q, { QString(), u"|short"_q } },
+ 		} },
+ 		{ u"Time"_q, {
+@@ -104,11 +104,11 @@ struct Group {
+ 			u"{label}"_q,
+ 			u"{chat|max:40}[ ({chat_unread|k})] \u2013 tele"_q,
+ 			u"[({unread|k}) ]{name|short} \u2013 tele"_q,
+-			u"tele {build} \u00B7 {time:HH:mm}"_q,
++			u"tele #{build} \u00B7 {time:HH:mm}"_q,
+ 		}
+ 		: std::vector<QString>{
+ 			QString(),
+-			u"TELE {build}"_q,
++			u"TELE #{build}"_q,
+ 			u"{time:HH:mm} \u00B7 {weekday|short}"_q,
+ 			u"{name}[ \u00B7 {unread} unread]"_q,
+ 			u"{weekday|short|lower} {day} {month|short|lower} \u00B7 {time}"_q,
+diff --git a/Telegram/SourceFiles/tele/tele_title_template.cpp b/Telegram/SourceFiles/tele/tele_title_template.cpp
+index ed23deaa5a6c490a29bf984ef247a78ddbe473e0..04245f214838cd90687d38ec2e42789acfb38c6c 100644
+--- a/Telegram/SourceFiles/tele/tele_title_template.cpp
++++ b/Telegram/SourceFiles/tele/tele_title_template.cpp
+@@ -518,4 +518,27 @@ QString Compact(const QString &number) {
+ 		: format(1000000000, 'b');
+ }
+ 
++QString HashBuilds(const QString &source) {
++	auto result = source;
++	const auto spans = Parse(source, true).spans;
++	for (auto i = int(spans.size()); i != 0;) {
++		const auto &span = spans[--i];
++		if ((span.till - span.from < 2)
++			|| (span.from > 0 && source[span.from - 1] == '#')) {
++			continue;
++		}
++		const auto tokens = Parse(
++			source.mid(span.from, span.till - span.from),
++			true).tokens;
++		if (tokens.size() == 1
++			&& tokens.front().variable
++			&& !tokens.front().broken
++			&& !tokens.front().brief
++			&& tokens.front().name == u"build"_q) {
++			result.insert(span.from, QChar('#'));
++		}
++	}
++	return result;
++}
++
+ } // namespace Tele::Titles
+diff --git a/Telegram/SourceFiles/tele/tele_title_template.h b/Telegram/SourceFiles/tele/tele_title_template.h
+index b226ba5e1026ac14a8561a293e9ddbdbabf405e6..2e7de42a1d79070bd09b0363e3a925ca2892e6f6 100644
+--- a/Telegram/SourceFiles/tele/tele_title_template.h
++++ b/Telegram/SourceFiles/tele/tele_title_template.h
+@@ -54,5 +54,6 @@ using Resolver = Fn<std::optional<QString>(const Token &token)>;
+ 	const Resolver &resolve,
+ 	bool optional = false);
+ [[nodiscard]] QString Compact(const QString &number);
++[[nodiscard]] QString HashBuilds(const QString &source);
+ 
+ } // namespace Tele::Titles

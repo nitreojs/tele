@@ -1,0 +1,1632 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 22:55:59 +0300
+Subject: [PATCH] feat: folders past the limit
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/api/api_chat_filters.cpp |   4 +
+ .../api/api_chat_filters_remove_manager.cpp   |   5 +-
+ .../SourceFiles/boxes/choose_filter_box.cpp   |  15 +-
+ .../boxes/filters/edit_filter_box.cpp         |  21 +-
+ .../boxes/filters/edit_filter_chats_list.cpp  |   3 +-
+ .../boxes/filters/edit_filter_links.cpp       |   8 +-
+ .../boxes/moderate_messages_box.cpp           |   4 +
+ .../SourceFiles/data/data_chat_filters.cpp    |  26 +-
+ Telegram/SourceFiles/data/data_session.cpp    |   7 +-
+ .../settings/sections/settings_folders.cpp    |  13 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ .../SourceFiles/tele/tele_local_folders.cpp   | 919 ++++++++++++++++++
+ .../SourceFiles/tele/tele_local_folders.h     |  60 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  22 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../ui/widgets/chat_filters_tabs_strip.cpp    |   7 +-
+ .../window/window_filters_menu.cpp            |   4 +-
+ .../window/window_session_controller.cpp      |   2 +
+ 20 files changed, 1092 insertions(+), 35 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_local_folders.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_local_folders.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index c82d84b07caf3230781057648ee2c544aea8fc06..91b4311d02422e77f89ee28132d342f1c1fd553d 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2299,6 +2299,8 @@ PRIVATE
+     tele/tele_inline_via.h
+     tele/tele_local_drafts.cpp
+     tele/tele_local_drafts.h
++    tele/tele_local_folders.cpp
++    tele/tele_local_folders.h
+     tele/tele_local_names.cpp
+     tele/tele_local_names.h
+     tele/tele_local_pins.cpp
+diff --git a/Telegram/SourceFiles/api/api_chat_filters.cpp b/Telegram/SourceFiles/api/api_chat_filters.cpp
+index 3307027d160b6dc81e87aad9f4bb00b60aac9d23..c1c13dd8dab533eb5eadc39f65ca13b811eb5137 100644
+--- a/Telegram/SourceFiles/api/api_chat_filters.cpp
++++ b/Telegram/SourceFiles/api/api_chat_filters.cpp
+@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/ui_utility.h"
+ #include "window/window_session_controller.h"
+ #include "window/window_separate_id.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_info.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_menu_icons.h"
+@@ -873,6 +874,9 @@ void SaveNewFilterPinned(
+ 	const auto &order = session->data().pinnedChatsOrder(filterId);
+ 	auto &filters = session->data().chatsFilters();
+ 	const auto &filter = filters.applyUpdatedPinned(filterId, order);
++	if (Tele::IsLocalFolder(filterId)) {
++		return;
++	}
+ 	session->api().request(MTPmessages_UpdateDialogFilter(
+ 		MTP_flags(MTPmessages_UpdateDialogFilter::Flag::f_filter),
+ 		MTP_int(filterId),
+diff --git a/Telegram/SourceFiles/api/api_chat_filters_remove_manager.cpp b/Telegram/SourceFiles/api/api_chat_filters_remove_manager.cpp
+index 7839b59028f882b4b183a74310150176447cc790..72a707f1519909e09802383d7b24aaadd4d10685 100644
+--- a/Telegram/SourceFiles/api/api_chat_filters_remove_manager.cpp
++++ b/Telegram/SourceFiles/api/api_chat_filters_remove_manager.cpp
+@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/ui_utility.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_layers.h"
+ 
+ namespace Api {
+@@ -32,7 +33,9 @@ void RemoveChatFilter(
+ 		MTP_flags(MTPDupdateDialogFilter::Flag(0)),
+ 		MTP_int(filterId),
+ 		MTPDialogFilter()));
+-	if (leave.empty()) {
++	if (Tele::IsLocalFolder(filterId)) {
++		return;
++	} else if (leave.empty()) {
+ 		api->request(MTPmessages_UpdateDialogFilter(
+ 			MTP_flags(MTPmessages_UpdateDialogFilter::Flag(0)),
+ 			MTP_int(filterId),
+diff --git a/Telegram/SourceFiles/boxes/choose_filter_box.cpp b/Telegram/SourceFiles/boxes/choose_filter_box.cpp
+index 468215e0103a7ec72749969e3795030d9c87525c..24f01cf53cd56a0f6476132ec016563ef62c901e 100644
+--- a/Telegram/SourceFiles/boxes/choose_filter_box.cpp
++++ b/Telegram/SourceFiles/boxes/choose_filter_box.cpp
+@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+ #include "main/main_session_settings.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_media_player.h" // mediaPlayerMenuCheck
+ #include "styles/style_menu_icons.h"
+ 
+@@ -168,6 +169,9 @@ void ChangeFilterById(
+ 		const auto was = *i;
+ 		const auto filter = ChangedFilter(was, history, add);
+ 		history->owner().chatsFilters().set(filter);
++		if (Tele::IsLocalFolder(filter.id())) {
++			return;
++		}
+ 		history->session().api().request(MTPmessages_UpdateDialogFilter(
+ 			MTP_flags(MTPmessages_UpdateDialogFilter::Flag::f_filter),
+ 			MTP_int(filter.id()),
+@@ -353,7 +357,8 @@ void FillChooseFilterMenu(
+ 	}
+ 
+ 	const auto limit = [session = &controller->session()] {
+-		return Data::PremiumLimits(session).dialogFiltersCurrent();
++		return Tele::FolderCountLimit(
++			Data::PremiumLimits(session).dialogFiltersCurrent());
+ 	};
+ 	if ((list.size() - 1) < limit()) {
+ 		menu->addAction(tr::lng_filters_create(tr::now), [=] {
+@@ -373,9 +378,13 @@ void FillChooseFilterMenu(
+ 				}
+ 				return id;
+ 			};
+-			auto filter =
+-				Data::ChatFilter({}, {}, {}, {}, {}, { history }, {}, {});
++			auto filter = Data::ChatFilter(
++				Tele::NewFolderId(session),
++				{}, {}, {}, {}, { history }, {}, {});
+ 			const auto send = [=](const Data::ChatFilter &filter) {
++				if (Tele::SaveLocalFolder(session, filter)) {
++					return;
++				}
+ 				session->api().request(MTPmessages_UpdateDialogFilter(
+ 					MTP_flags(MTPmessages_UpdateDialogFilter::Flag::f_filter),
+ 					MTP_int(chooseNextId()),
+diff --git a/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp b/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp
+index b9cc03789cce50fd480393a0a7c8c823c1fc3d88..4032764da9fd3adf70d64ee830bcce8545817365 100644
+--- a/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp
++++ b/Telegram/SourceFiles/boxes/filters/edit_filter_box.cpp
+@@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/wrap/slide_wrap.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_settings.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_window.h"
+@@ -142,9 +143,9 @@ void EditExceptions(
+ 	const auto include = (options & Flag::Contacts) != Flags(0);
+ 	const auto rules = data->current();
+ 	const auto session = &window->session();
+-	const auto limit = Data::PremiumLimits(
++	const auto limit = Tele::FolderChatsLimit(Data::PremiumLimits(
+ 		session
+-	).dialogFiltersChatsCurrent();
++	).dialogFiltersChatsCurrent());
+ 	const auto showLimitReached = [=] {
+ 		window->show(Box(FilterChatsLimitBox, session, limit, include));
+ 	};
+@@ -1006,8 +1007,9 @@ void EditFilterBox(
+ 		).withColorIndex(colorIndex);
+ 	};
+ 
++	const auto links = Tele::FolderLinksContainer(content, filter.id());
+ 	Ui::AddSubsectionTitle(
+-		content,
++		links,
+ 		rpl::conditional(
+ 			state->hasLinks.value(),
+ 			tr::lng_filters_link_has(),
+@@ -1023,20 +1025,20 @@ void EditFilterBox(
+ 	}
+ 
+ 	const auto createLink = AddToggledButton(
+-		content,
++		links,
+ 		state->hasLinks.value() | rpl::map(!rpl::mappers::_1),
+ 		tr::lng_filters_link_create(),
+ 		st::settingsButtonActive,
+ 		{ &st::settingsFolderShareIcon, IconType::Simple });
+ 	const auto addLink = AddToggledButton(
+-		content,
++		links,
+ 		state->hasLinks.value(),
+ 		tr::lng_group_invite_add(),
+ 		st::settingsButtonActive,
+ 		{ &st::settingsIconAdd, IconType::Round, &st::windowBgActive });
+ 
+ 	SetupFilterLinks(
+-		content,
++		links,
+ 		window,
+ 		state->links.value(),
+ 		[=] { return collect().value_or(Data::ChatFilter()); });
+@@ -1086,9 +1088,9 @@ void EditFilterBox(
+ 			}));
+ 		}));
+ 	}, createLink->lifetime());
+-	Ui::AddSkip(content);
++	Ui::AddSkip(links);
+ 	Ui::AddDividerText(
+-		content,
++		links,
+ 		rpl::conditional(
+ 			state->hasLinks.value(),
+ 			tr::lng_filters_link_about_many(),
+@@ -1157,6 +1159,9 @@ void EditExistingFilter(
+ 			MTP_flags(MTPDupdateDialogFilter::Flag::f_filter),
+ 			MTP_int(id),
+ 			tl));
++		if (Tele::IsLocalFolder(id)) {
++			return;
++		}
+ 		session->api().request(MTPmessages_UpdateDialogFilter(
+ 			MTP_flags(MTPmessages_UpdateDialogFilter::Flag::f_filter),
+ 			MTP_int(id),
+diff --git a/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp b/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp
+index 1488aac33e7aa57081e1ac85235ac3d176cecee8..5cc17328b3d2a141756ce26efb55ee04b7cf2e76 100644
+--- a/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp
++++ b/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp
+@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "base/object_ptr.h"
+ #include "data/data_user.h"
+ #include "tele/tele_changelog_chat.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_window.h"
+ #include "styles/style_boxes.h"
+ 
+@@ -572,6 +573,6 @@ auto EditFilterChatsListController::createRow(not_null<History*> history)
+ void EditFilterChatsListController::updateTitle() {
+ 	const auto count = delegate()->peerListSelectedRowsCount()
+ 		- selectedTypesCount();
+-	const auto additional = u"%1 / %2"_q.arg(count).arg(_limit);
++	const auto additional = Tele::FolderChatsCount(count, _limit);
+ 	delegate()->peerListSetAdditionalTitle(rpl::single(additional));
+ }
+diff --git a/Telegram/SourceFiles/boxes/filters/edit_filter_links.cpp b/Telegram/SourceFiles/boxes/filters/edit_filter_links.cpp
+index 9d4dd91fcaa17336c99ed239fea8cd459f37eb83..25d87d1e55557815ee76f7b19cf0d3f998c795e4 100644
+--- a/Telegram/SourceFiles/boxes/filters/edit_filter_links.cpp
++++ b/Telegram/SourceFiles/boxes/filters/edit_filter_links.cpp
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/rect.h"
+ #include "ui/vertical_list.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_info.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_menu_icons.h"
+@@ -991,7 +992,7 @@ void LinksController::rowPaintIcon(
+ 
+ std::vector<not_null<PeerData*>> CollectFilterLinkChats(
+ 		const Data::ChatFilter &filter) {
+-	return filter.always() | ranges::views::filter([](
++	return Tele::ServerFolder(filter).always() | ranges::views::filter([](
+ 			not_null<History*> history) {
+ 		return !ErrorForSharing(history);
+ 	}) | ranges::views::transform(&History::peer) | ranges::to_vector;
+@@ -1071,7 +1072,10 @@ object_ptr<Ui::BoxContent> ShowLinkBox(
+ 		not_null<Window::SessionController*> window,
+ 		const Data::ChatFilter &filter,
+ 		const Data::ChatFilterLink &link) {
+-	auto controller = std::make_unique<LinkController>(window, filter, link);
++	auto controller = std::make_unique<LinkController>(
++		window,
++		Tele::ServerFolder(filter),
++		link);
+ 	controller->setStyleOverrides(&st::inviteLinkChatList);
+ 	const auto raw = controller.get();
+ 	auto initBox = [=](not_null<Ui::BoxContent*> box) {
+diff --git a/Telegram/SourceFiles/boxes/moderate_messages_box.cpp b/Telegram/SourceFiles/boxes/moderate_messages_box.cpp
+index e60c4ff22b719c28e8dbdf18acc3c2ab596f367b..22f3f54315cb1261a4e676007c455903ccd71a9c 100644
+--- a/Telegram/SourceFiles/boxes/moderate_messages_box.cpp
++++ b/Telegram/SourceFiles/boxes/moderate_messages_box.cpp
+@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/widgets/menu/menu_action.h"
+ #include "base/qt/qt_key_modifiers.h"
+ #include "tele/tele_communities.h"
++#include "tele/tele_local_folders.h"
+ #include "ui/effects/round_checkbox.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+@@ -1726,6 +1727,9 @@ void DeleteChatBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
+ 					MTP_flags(MTPDupdateDialogFilter::Flag::f_filter),
+ 					MTP_int(filter.id()),
+ 					tl));
++				if (Tele::IsLocalFolder(filter.id())) {
++					continue;
++				}
+ 				peer->session().api().request(MTPmessages_UpdateDialogFilter(
+ 					MTP_flags(MTPmessages_UpdateDialogFilter::Flag::f_filter),
+ 					MTP_int(filter.id()),
+diff --git a/Telegram/SourceFiles/data/data_chat_filters.cpp b/Telegram/SourceFiles/data/data_chat_filters.cpp
+index 7eba8addc7a361eee5e5e806d6836d25df75d269..294e6eaeec48901b977d75a4efc5f2af0e12ebd3 100644
+--- a/Telegram/SourceFiles/data/data_chat_filters.cpp
++++ b/Telegram/SourceFiles/data/data_chat_filters.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "main/main_app_config.h"
+ #include "tele/tele_folders.h"
++#include "tele/tele_local_folders.h"
+ #include "apiwrap.h"
+ 
+ namespace Data {
+@@ -227,10 +228,12 @@ ChatFilter ChatFilter::withoutAlways(not_null<History*> history) const {
+ }
+ 
+ MTPDialogFilter ChatFilter::tl(FilterId replaceId) const {
+-	auto always = _always;
++	const auto split = Tele::ServerFolderPart(*this, replaceId);
++	const auto &source = split ? *split : *this;
++	auto always = source._always;
+ 	auto pinned = QVector<MTPInputPeer>();
+-	pinned.reserve(_pinned.size());
+-	for (const auto &history : _pinned) {
++	pinned.reserve(source._pinned.size());
++	for (const auto &history : source._pinned) {
+ 		pinned.push_back(history->peer->input());
+ 		always.remove(history);
+ 	}
+@@ -274,8 +277,8 @@ MTPDialogFilter ChatFilter::tl(FilterId replaceId) const {
+ 			? TLFlag::f_exclude_archived
+ 			: TLFlag(0));
+ 	auto never = QVector<MTPInputPeer>();
+-	never.reserve(_never.size());
+-	for (const auto &history : _never) {
++	never.reserve(source._never.size());
++	for (const auto &history : source._never) {
+ 		never.push_back(history->peer->input());
+ 	}
+ 	return MTP_dialogFilter(
+@@ -492,8 +495,7 @@ void ChatFilters::requestToggleTags(bool value, Fn<void()> fail) {
+ void ChatFilters::received(const QVector<MTPDialogFilter> &list) {
+ 	auto position = 0;
+ 	auto changed = false;
+-	for (const auto &filter : list) {
+-		auto parsed = ChatFilter::FromTL(filter, _owner);
++	for (auto &parsed : Tele::WithLocalFolders(_owner, list)) {
+ 		const auto b = begin(_list) + position;
+ 		const auto e = end(_list);
+ 		const auto i = ranges::find(b, e, parsed.id(), &ChatFilter::id);
+@@ -528,14 +530,16 @@ void ChatFilters::received(const QVector<MTPDialogFilter> &list) {
+ void ChatFilters::apply(const MTPUpdate &update) {
+ 	update.match([&](const MTPDupdateDialogFilter &data) {
+ 		if (const auto filter = data.vfilter()) {
+-			set(ChatFilter::FromTL(*filter, _owner));
++			set(Tele::WithLocalPart(
++				_owner,
++				ChatFilter::FromTL(*filter, _owner)));
+ 		} else {
+ 			remove(data.vid().v);
+ 		}
+ 	}, [&](const MTPDupdateDialogFilters &data) {
+ 		load(true);
+ 	}, [&](const MTPDupdateDialogFilterOrder &data) {
+-		if (applyOrder(data.vorder().v)) {
++		if (applyOrder(Tele::WithLocalOrder(_owner, data.vorder().v))) {
+ 			_listChanged.fire({});
+ 		} else {
+ 			load(true);
+@@ -657,6 +661,7 @@ void ChatFilters::set(ChatFilter filter) {
+ 	if (!filter.id()) {
+ 		return;
+ 	}
++	Tele::KeepFolder(_owner, filter);
+ 	const auto i = ranges::find(_list, filter.id(), &ChatFilter::id);
+ 	if (i == end(_list)) {
+ 		applyInsert(std::move(filter), _list.size());
+@@ -676,6 +681,7 @@ void ChatFilters::applyInsert(ChatFilter filter, int position) {
+ }
+ 
+ void ChatFilters::remove(FilterId id) {
++	Tele::ForgetFolder(_owner, id);
+ 	const auto i = ranges::find(_list, id, &ChatFilter::id);
+ 	if (i == end(_list)) {
+ 		return;
+@@ -885,7 +891,7 @@ void ChatFilters::saveOrder(
+ 
+ 	apply(MTP_updateDialogFilterOrder(wrapped));
+ 	_saveOrderRequestId = api->request(MTPmessages_UpdateDialogFiltersOrder(
+-		wrapped
++		Tele::ServerFolderOrder(wrapped)
+ 	)).afterRequest(_saveOrderAfterId).send();
+ }
+ 
+diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
+index b98dc6ef7cd9d949d59a2514720705f09f5ef065..4303962993c97a24bf9e75582f01f52d8f954b37 100644
+--- a/Telegram/SourceFiles/data/data_session.cpp
++++ b/Telegram/SourceFiles/data/data_session.cpp
+@@ -94,6 +94,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "spellcheck/spellcheck_highlight_syntax.h"
+ #include "tele/tele_badges.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_local_folders.h"
+ #include "tele/tele_local_pins.h"
+ 
+ namespace Data {
+@@ -2937,7 +2938,7 @@ int Session::pinnedChatsLimit(Data::Folder *folder) const {
+ 
+ int Session::pinnedChatsLimit(FilterId filterId) const {
+ 	const auto limits = Data::PremiumLimits(_session);
+-	return limits.dialogFiltersChatsCurrent();
++	return Tele::FolderChatsLimit(limits.dialogFiltersChatsCurrent());
+ }
+ 
+ int Session::pinnedChatsLimit(not_null<Data::Forum*> forum) const {
+@@ -2973,10 +2974,10 @@ rpl::producer<int> Session::maxPinnedChatsLimitValue(
+ 	// We always use premium limit in the MainList limit producer,
+ 	// because it slices the list to that limit. We don't want to slice
+ 	// premium-ly added chats from the pinned list because of sync issues.
+-	return _session->appConfig().value(
++	return Tele::FolderChatsLimitValue(_session->appConfig().value(
+ 	) | rpl::map([limits = Data::PremiumLimits(_session)] {
+ 		return limits.dialogFiltersChatsPremium();
+-	});
++	}));
+ }
+ 
+ rpl::producer<int> Session::maxPinnedChatsLimitValue(
+diff --git a/Telegram/SourceFiles/settings/sections/settings_folders.cpp b/Telegram/SourceFiles/settings/sections/settings_folders.cpp
+index 8c5b9b4d6b7a5b3166c12ac8e20c50775a84e9dd..52c07598e03cfcc88bc331d5985ab1e59860c65e 100644
+--- a/Telegram/SourceFiles/settings/sections/settings_folders.cpp
++++ b/Telegram/SourceFiles/settings/sections/settings_folders.cpp
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/wrap/slide_wrap.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_local_folders.h"
+ #include "styles/style_boxes.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_layers.h"
+@@ -170,7 +171,7 @@ struct FilterRow {
+ 		? (result
+ 			+ (' ' + Ui::kQBullet + ' ')
+ 			+ tr::lng_filters_shareable_status(tr::now))
+-		: result;
++		: Tele::FolderStatus(session, filter, result);
+ }
+ 
+ FilterRowButton::FilterRowButton(
+@@ -372,7 +373,8 @@ not_null<Ui::VerticalLayout*> SetupFoldersList(
+ 	const auto weak = base::make_weak(container);
+ 	const auto session = &controller->session();
+ 	const auto limit = [=] {
+-		return Data::PremiumLimits(session).dialogFiltersCurrent();
++		return Tele::FolderCountLimit(
++			Data::PremiumLimits(session).dialogFiltersCurrent());
+ 	};
+ 
+ 	const auto find = [=](not_null<FilterRowButton*> button) {
+@@ -592,7 +594,8 @@ not_null<Ui::VerticalLayout*> SetupFoldersList(
+ 		controller->window().show(Box(
+ 			EditFilterBox,
+ 			controller,
+-			Data::ChatFilter(),
++			Data::ChatFilter().withId(
++				Tele::NewFolderId(session, int(state->rows.size()))),
+ 			crl::guard(container, doneCallback),
+ 			crl::guard(container, saveAnd)));
+ 	});
+@@ -611,7 +614,7 @@ not_null<Ui::VerticalLayout*> SetupFoldersList(
+ 		auto result = base::flat_map<not_null<FilterRowButton*>, FilterId>();
+ 		for (auto &row : state->rows) {
+ 			const auto id = row.filter.id();
+-			if (row.removed) {
++			if (row.removed || Tele::IsLocalFolder(id)) {
+ 				continue;
+ 			} else if (!id
+ 				|| !ranges::contains(list, id, &Data::ChatFilter::id)) {
+@@ -674,6 +677,8 @@ not_null<Ui::VerticalLayout*> SetupFoldersList(
+ 					MTPchatlists_LeaveChatlist(
+ 						MTP_inputChatlistDialogFilter(MTP_int(newId)),
+ 						MTP_vector<MTPInputPeer>(std::move(inputs))));
++			} else if (Tele::IsLocalFolder(newId)) {
++				order.push_back(newId);
+ 			} else {
+ 				const auto request = MTPmessages_UpdateDialogFilter(
+ 					MTP_flags(removed
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d224a1ddc4938fbd3160494e67f070fae309217b..29ea26a63e6f3b4f5d3f1781ea2e739b55d1e93d 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1871,6 +1871,7 @@ void FillInterface(SectionBuilder &builder) {
+ 		{ u"pinned"_q, u"limit"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionStaticUserpicsList);
+ 	AddOptionToggle(builder, ::Tele::kOptionChatListNoReorderAnimation);
++	AddOptionToggle(builder, ::Tele::kOptionLocalFolders);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats and profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionBubbleBadges);
+diff --git a/Telegram/SourceFiles/tele/tele_local_folders.cpp b/Telegram/SourceFiles/tele/tele_local_folders.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..68081d20c8884f9f406943b469b178e853dae95e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_local_folders.cpp
+@@ -0,0 +1,919 @@
++#include "tele/tele_local_folders.h"
++
++#include "core/application.h"
++#include "data/data_chat_filters.h"
++#include "data/data_peer.h"
++#include "data/data_premium_limits.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/storage_account.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/text/text.h"
++#include "ui/wrap/slide_wrap.h"
++#include "ui/wrap/vertical_layout.h"
++
++#include <QtCore/QFileInfo>
++
++namespace Tele {
++namespace {
++
++constexpr auto kLocalFolderBase = FilterId(0x40000000);
++constexpr auto kNoLimit = 0x00FFFFFF;
++constexpr auto kMagic = quint32(0x444C4654);
++constexpr auto kVersion = qint32(1);
++constexpr auto kMaxStored = quint32(1 << 20);
++
++using namespace Storage::details;
++using Histories = base::flat_set<not_null<History*>>;
++using HistoryList = std::vector<not_null<History*>>;
++using Flags = Data::ChatFilter::Flags;
++
++struct StoredFolder {
++	FilterId id = 0;
++	TextWithEntities title;
++	QString emoji;
++	qint32 color = -1;
++	quint32 flags = 0;
++	std::vector<PeerId> always;
++	std::vector<PeerId> pinned;
++	std::vector<PeerId> never;
++
++	friend inline bool operator==(
++		const StoredFolder &a,
++		const StoredFolder &b) = default;
++};
++
++struct Overflow {
++	std::vector<PeerId> always;
++	std::vector<PeerId> pinned;
++	std::vector<PeerId> never;
++
++	[[nodiscard]] bool empty() const {
++		return always.empty() && never.empty();
++	}
++
++	friend inline bool operator==(
++		const Overflow &a,
++		const Overflow &b) = default;
++};
++
++struct ServerPart {
++	Histories always;
++	Histories never;
++};
++
++struct Split {
++	Data::ChatFilter server;
++	Overflow local;
++};
++
++class Store final {
++public:
++	explicit Store(not_null<Main::Session*> session);
++
++	[[nodiscard]] not_null<Main::Session*> session() const;
++	[[nodiscard]] const std::vector<StoredFolder> &folders() const;
++	[[nodiscard]] const Overflow *overflow(FilterId id) const;
++	[[nodiscard]] const std::vector<FilterId> &order() const;
++	[[nodiscard]] const ServerPart *server(FilterId id) const;
++
++	void setFolder(StoredFolder folder);
++	void setOverflow(FilterId id, Overflow overflow);
++	void setOrder(std::vector<FilterId> order);
++	void setServer(FilterId id, ServerPart part);
++	void forget(FilterId id);
++	void prune(const base::flat_set<FilterId> &server);
++	[[nodiscard]] FilterId nextId(const std::vector<Data::ChatFilter> &list);
++
++private:
++	[[nodiscard]] QString folder() const;
++	void read();
++	void write();
++
++	const not_null<Main::Session*> _session;
++	std::vector<StoredFolder> _folders;
++	base::flat_map<FilterId, Overflow> _overflow;
++	std::vector<FilterId> _order;
++	base::flat_map<FilterId, ServerPart> _server;
++	FilterId _lastId = kLocalFolderBase - 1;
++	rpl::lifetime _lifetime;
++
++};
++
++[[nodiscard]] std::map<
++		not_null<Main::Session*>,
++		std::unique_ptr<Store>> &Stores() {
++	static auto result = std::map<
++		not_null<Main::Session*>,
++		std::unique_ptr<Store>>();
++	return result;
++}
++
++[[nodiscard]] Store &Lookup(not_null<Main::Session*> session) {
++	auto &stores = Stores();
++	const auto i = stores.find(session);
++	if (i != end(stores)) {
++		return *i->second;
++	}
++	session->lifetime().add([=] {
++		Stores().erase(session);
++	});
++	return *stores.emplace(
++		session,
++		std::make_unique<Store>(session)).first->second;
++}
++
++template <typename Range>
++[[nodiscard]] std::vector<PeerId> Ids(const Range &histories) {
++	auto result = std::vector<PeerId>();
++	result.reserve(histories.size());
++	for (const auto &history : histories) {
++		result.push_back(history->peer->id);
++	}
++	return result;
++}
++
++[[nodiscard]] HistoryList ToList(
++		not_null<Main::Session*> session,
++		const std::vector<PeerId> &ids) {
++	auto result = HistoryList();
++	result.reserve(ids.size());
++	for (const auto id : ids) {
++		if (id) {
++			result.push_back(session->data().history(id));
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] Histories ToSet(
++		not_null<Main::Session*> session,
++		const std::vector<PeerId> &ids) {
++	const auto list = ToList(session, ids);
++	return { list.begin(), list.end() };
++}
++
++void WriteIds(QDataStream &stream, const std::vector<PeerId> &ids) {
++	stream << quint32(ids.size());
++	for (const auto id : ids) {
++		stream << SerializePeerId(id);
++	}
++}
++
++[[nodiscard]] bool ReadIds(QDataStream &stream, std::vector<PeerId> &ids) {
++	auto count = quint32();
++	stream >> count;
++	if (!CheckStreamStatus(stream) || count > kMaxStored) {
++		return false;
++	}
++	ids.reserve(count);
++	for (auto i = quint32(); i != count; ++i) {
++		auto id = quint64();
++		stream >> id;
++		ids.push_back(DeserializePeerId(id));
++	}
++	return CheckStreamStatus(stream);
++}
++
++void WriteFolder(QDataStream &stream, const StoredFolder &folder) {
++	stream
++		<< qint32(folder.id)
++		<< folder.title.text
++		<< quint32(folder.title.entities.size());
++	for (const auto &entity : folder.title.entities) {
++		stream
++			<< qint32(entity.type())
++			<< qint32(entity.offset())
++			<< qint32(entity.length())
++			<< entity.data();
++	}
++	stream << folder.emoji << folder.color << folder.flags;
++	WriteIds(stream, folder.always);
++	WriteIds(stream, folder.pinned);
++	WriteIds(stream, folder.never);
++}
++
++[[nodiscard]] std::optional<StoredFolder> ReadFolder(QDataStream &stream) {
++	auto result = StoredFolder();
++	auto id = qint32();
++	auto entities = quint32();
++	stream >> id >> result.title.text >> entities;
++	if (!CheckStreamStatus(stream) || entities > kMaxStored) {
++		return std::nullopt;
++	}
++	result.id = id;
++	for (auto i = quint32(); i != entities; ++i) {
++		auto type = qint32();
++		auto offset = qint32();
++		auto length = qint32();
++		auto data = QString();
++		stream >> type >> offset >> length >> data;
++		result.title.entities.push_back(EntityInText(
++			EntityType(type),
++			offset,
++			length,
++			data));
++	}
++	stream >> result.emoji >> result.color >> result.flags;
++	if (!CheckStreamStatus(stream)
++		|| !ReadIds(stream, result.always)
++		|| !ReadIds(stream, result.pinned)
++		|| !ReadIds(stream, result.never)) {
++		return std::nullopt;
++	}
++	return result;
++}
++
++[[nodiscard]] StoredFolder ToStored(const Data::ChatFilter &filter) {
++	const auto color = filter.colorIndex();
++	return {
++		.id = filter.id(),
++		.title = filter.titleText(),
++		.emoji = filter.iconEmoji(),
++		.color = color ? qint32(*color) : qint32(-1),
++		.flags = quint32(filter.flags().value()),
++		.always = Ids(filter.always()),
++		.pinned = Ids(filter.pinned()),
++		.never = Ids(filter.never()),
++	};
++}
++
++[[nodiscard]] Data::ChatFilter ToFilter(
++		not_null<Main::Session*> session,
++		const StoredFolder &folder) {
++	using Flag = Data::ChatFilter::Flag;
++	const auto flags = Flags::from_raw(ushort(folder.flags));
++	auto pinned = ToList(session, folder.pinned);
++	auto always = ToSet(session, folder.always);
++	for (const auto history : pinned) {
++		always.emplace(history);
++	}
++	return Data::ChatFilter(
++		folder.id,
++		{ folder.title, bool(flags & Flag::StaticTitle) },
++		folder.emoji,
++		((folder.color >= 0)
++			? std::make_optional(uint8(folder.color))
++			: std::nullopt),
++		flags & ~(Flag::Chatlist | Flag::HasMyLinks),
++		std::move(always),
++		std::move(pinned),
++		ToSet(session, folder.never));
++}
++
++[[nodiscard]] Data::ChatFilter Merge(
++		const Store &store,
++		const Data::ChatFilter &filter) {
++	const auto local = store.overflow(filter.id());
++	if (!local) {
++		return filter;
++	}
++	const auto session = store.session();
++	const auto localAlways = ToSet(session, local->always);
++	auto always = filter.always();
++	for (const auto history : localAlways) {
++		always.emplace(history);
++	}
++	auto never = filter.never();
++	for (const auto history : ToList(session, local->never)) {
++		never.emplace(history);
++	}
++	auto pinned = HistoryList();
++	for (const auto history : ToList(session, local->pinned)) {
++		if ((ranges::contains(filter.pinned(), history)
++				|| localAlways.contains(history))
++			&& !ranges::contains(pinned, history)) {
++			pinned.push_back(history);
++		}
++	}
++	for (const auto history : filter.pinned()) {
++		if (!ranges::contains(pinned, history)) {
++			pinned.push_back(history);
++		}
++	}
++	return Data::ChatFilter(
++		filter.id(),
++		filter.title(),
++		filter.iconEmoji(),
++		filter.colorIndex(),
++		filter.flags(),
++		std::move(always),
++		std::move(pinned),
++		std::move(never));
++}
++
++[[nodiscard]] Split ComputeSplit(
++		const Store &store,
++		const Data::ChatFilter &filter,
++		FilterId id) {
++	const auto session = store.session();
++	const auto limit = Data::PremiumLimits(
++		session
++	).dialogFiltersChatsCurrent();
++	const auto stored = store.overflow(id);
++	const auto known = store.server(id);
++	const auto &pinned = filter.pinned();
++	const auto pick = [&](
++			HistoryList list,
++			const Histories *server,
++			const std::vector<PeerId> *local) {
++		const auto isLocal = [&](not_null<History*> history) {
++			return local && ranges::contains(*local, history->peer->id);
++		};
++		const auto rank = [&](not_null<History*> history) {
++			const auto onServer = server
++				? server->contains(history)
++				: !isLocal(history);
++			return onServer ? 0 : isLocal(history) ? 1 : 2;
++		};
++		const auto key = [&](not_null<History*> history) {
++			const auto i = ranges::find(pinned, history);
++			return std::make_pair(rank(history), int(i - begin(pinned)));
++		};
++		ranges::stable_sort(list, [&](
++				not_null<History*> a,
++				not_null<History*> b) {
++			return key(a) < key(b);
++		});
++		const auto count = std::min(int(list.size()), limit);
++		return std::make_pair(
++			Histories(list.begin(), list.begin() + count),
++			HistoryList(list.begin() + count, list.end()));
++	};
++	auto [serverAlways, localAlways] = pick(
++		HistoryList(filter.always().begin(), filter.always().end()),
++		known ? &known->always : nullptr,
++		stored ? &stored->always : nullptr);
++	auto [serverNever, localNever] = pick(
++		HistoryList(filter.never().begin(), filter.never().end()),
++		known ? &known->never : nullptr,
++		stored ? &stored->never : nullptr);
++	auto serverPinned = pinned | ranges::views::filter([&](
++			not_null<History*> history) {
++		return serverAlways.contains(history);
++	}) | ranges::to_vector;
++	auto local = Overflow{
++		.always = Ids(localAlways),
++		.never = Ids(localNever),
++	};
++	if (serverPinned.size() != pinned.size()) {
++		local.pinned = Ids(pinned);
++	}
++	return {
++		.server = Data::ChatFilter(
++			filter.id(),
++			filter.title(),
++			filter.iconEmoji(),
++			filter.colorIndex(),
++			filter.flags(),
++			std::move(serverAlways),
++			std::move(serverPinned),
++			std::move(serverNever)),
++		.local = std::move(local),
++	};
++}
++
++[[nodiscard]] Main::Session *SessionFor(const Data::ChatFilter &filter) {
++	if (!filter.always().empty()) {
++		return &(*filter.always().begin())->session();
++	} else if (!filter.never().empty()) {
++		return &(*filter.never().begin())->session();
++	}
++	return Core::App().domain().active().maybeSession();
++}
++
++[[nodiscard]] std::vector<FilterId> MergeOrder(
++		std::vector<FilterId> result,
++		const std::vector<FilterId> &locals,
++		const std::vector<FilterId> &stored) {
++	result.erase(ranges::remove_if(result, [&](FilterId id) {
++		return IsLocalFolder(id) && !ranges::contains(locals, id);
++	}), end(result));
++	auto pending = stored | ranges::views::filter([&](FilterId id) {
++		return ranges::contains(locals, id);
++	}) | ranges::to_vector;
++	for (const auto id : locals) {
++		if (!ranges::contains(pending, id)) {
++			pending.push_back(id);
++		}
++	}
++	for (const auto id : pending) {
++		if (ranges::contains(result, id)) {
++			continue;
++		}
++		auto position = int(result.size());
++		const auto s = ranges::find(stored, id);
++		if (s != end(stored)) {
++			position = 0;
++			for (auto k = s; k != begin(stored);) {
++				const auto r = ranges::find(result, *--k);
++				if (r != end(result)) {
++					position = int(r - begin(result)) + 1;
++					break;
++				}
++			}
++		}
++		result.insert(begin(result) + position, id);
++	}
++	return result;
++}
++
++Store::Store(not_null<Main::Session*> session)
++: _session(session) {
++	read();
++	LocalFoldersValue(
++	) | rpl::skip(1) | rpl::on_next([=] {
++		_session->data().chatsFilters().reload();
++	}, _lifetime);
++}
++
++not_null<Main::Session*> Store::session() const {
++	return _session;
++}
++
++const std::vector<StoredFolder> &Store::folders() const {
++	return _folders;
++}
++
++const Overflow *Store::overflow(FilterId id) const {
++	const auto i = _overflow.find(id);
++	return (i != end(_overflow)) ? &i->second : nullptr;
++}
++
++const std::vector<FilterId> &Store::order() const {
++	return _order;
++}
++
++const ServerPart *Store::server(FilterId id) const {
++	const auto i = _server.find(id);
++	return (i != end(_server)) ? &i->second : nullptr;
++}
++
++void Store::setFolder(StoredFolder folder) {
++	const auto i = ranges::find(_folders, folder.id, &StoredFolder::id);
++	if (i == end(_folders)) {
++		_folders.push_back(std::move(folder));
++	} else if (*i != folder) {
++		*i = std::move(folder);
++	} else {
++		return;
++	}
++	write();
++}
++
++void Store::setOverflow(FilterId id, Overflow overflow) {
++	const auto i = _overflow.find(id);
++	if (overflow.empty()) {
++		if (i == end(_overflow)) {
++			return;
++		}
++		_overflow.erase(i);
++	} else if (i == end(_overflow)) {
++		_overflow.emplace(id, std::move(overflow));
++	} else if (i->second != overflow) {
++		i->second = std::move(overflow);
++	} else {
++		return;
++	}
++	write();
++}
++
++void Store::setOrder(std::vector<FilterId> order) {
++	if (_order != order) {
++		_order = std::move(order);
++		write();
++	}
++}
++
++void Store::setServer(FilterId id, ServerPart part) {
++	_server[id] = std::move(part);
++}
++
++void Store::forget(FilterId id) {
++	_server.remove(id);
++	const auto i = ranges::find(_folders, id, &StoredFolder::id);
++	if (i != end(_folders)) {
++		_folders.erase(i);
++		_order.erase(ranges::remove(_order, id), end(_order));
++		write();
++	} else if (_overflow.remove(id)) {
++		write();
++	}
++}
++
++void Store::prune(const base::flat_set<FilterId> &server) {
++	for (auto i = begin(_server); i != end(_server);) {
++		if (server.contains(i->first)) {
++			++i;
++		} else {
++			i = _server.erase(i);
++		}
++	}
++	auto changed = false;
++	for (auto i = begin(_overflow); i != end(_overflow);) {
++		if (server.contains(i->first)) {
++			++i;
++		} else {
++			i = _overflow.erase(i);
++			changed = true;
++		}
++	}
++	if (changed) {
++		write();
++	}
++}
++
++FilterId Store::nextId(const std::vector<Data::ChatFilter> &list) {
++	for (const auto &folder : _folders) {
++		_lastId = std::max(_lastId, folder.id);
++	}
++	for (const auto &filter : list) {
++		if (IsLocalFolder(filter.id())) {
++			_lastId = std::max(_lastId, filter.id());
++		}
++	}
++	return ++_lastId;
++}
++
++QString Store::folder() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + u"/tele_folders/"_q;
++}
++
++void Store::read() {
++	auto file = FileReadDescriptor();
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || !ReadEncryptedFile(file, u"index"_q, folder(), key)) {
++		return;
++	}
++	auto magic = quint32();
++	auto version = qint32();
++	auto owner = quint64();
++	auto count = quint32();
++	file.stream >> magic >> version >> owner >> count;
++	if (!CheckStreamStatus(file.stream)
++		|| magic != kMagic
++		|| version != kVersion
++		|| owner != _session->uniqueId()
++		|| count > kMaxStored) {
++		return;
++	}
++	auto folders = std::vector<StoredFolder>();
++	for (auto i = quint32(); i != count; ++i) {
++		auto folder = ReadFolder(file.stream);
++		if (!folder) {
++			return;
++		} else if (IsLocalFolder(folder->id)) {
++			folders.push_back(std::move(*folder));
++		}
++	}
++	file.stream >> count;
++	if (!CheckStreamStatus(file.stream) || count > kMaxStored) {
++		return;
++	}
++	auto overflow = base::flat_map<FilterId, Overflow>();
++	for (auto i = quint32(); i != count; ++i) {
++		auto id = qint32();
++		auto entry = Overflow();
++		file.stream >> id;
++		if (!CheckStreamStatus(file.stream)
++			|| !ReadIds(file.stream, entry.always)
++			|| !ReadIds(file.stream, entry.pinned)
++			|| !ReadIds(file.stream, entry.never)) {
++			return;
++		} else if (id && !IsLocalFolder(id) && !entry.empty()) {
++			overflow.emplace(id, std::move(entry));
++		}
++	}
++	file.stream >> count;
++	if (!CheckStreamStatus(file.stream) || count > kMaxStored) {
++		return;
++	}
++	auto order = std::vector<FilterId>();
++	for (auto i = quint32(); i != count; ++i) {
++		auto id = qint32();
++		file.stream >> id;
++		order.push_back(id);
++	}
++	if (!CheckStreamStatus(file.stream)) {
++		return;
++	}
++	_folders = std::move(folders);
++	_overflow = std::move(overflow);
++	_order = std::move(order);
++}
++
++void Store::write() {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		return;
++	}
++	auto size = sizeof(quint32) * 5 + sizeof(quint64);
++	const auto ids = [](const std::vector<PeerId> &list) {
++		return sizeof(quint32) + list.size() * sizeof(quint64);
++	};
++	for (const auto &folder : _folders) {
++		size += 64
++			+ (folder.title.text.size() + folder.emoji.size())
++				* sizeof(QChar)
++			+ folder.title.entities.size() * 64
++			+ ids(folder.always)
++			+ ids(folder.pinned)
++			+ ids(folder.never);
++	}
++	for (const auto &[id, entry] : _overflow) {
++		size += sizeof(qint32)
++			+ ids(entry.always)
++			+ ids(entry.pinned)
++			+ ids(entry.never);
++	}
++	size += _order.size() * sizeof(qint32);
++	auto data = EncryptedDescriptor(size);
++	data.stream
++		<< kMagic
++		<< kVersion
++		<< quint64(_session->uniqueId())
++		<< quint32(_folders.size());
++	for (const auto &folder : _folders) {
++		WriteFolder(data.stream, folder);
++	}
++	data.stream << quint32(_overflow.size());
++	for (const auto &[id, entry] : _overflow) {
++		data.stream << qint32(id);
++		WriteIds(data.stream, entry.always);
++		WriteIds(data.stream, entry.pinned);
++		WriteIds(data.stream, entry.never);
++	}
++	data.stream << quint32(_order.size());
++	for (const auto id : _order) {
++		data.stream << qint32(id);
++	}
++	auto file = FileWriteDescriptor(u"index"_q, folder());
++	file.writeEncrypted(data, key);
++}
++
++} // namespace
++
++bool IsLocalFolder(FilterId id) {
++	return (id >= kLocalFolderBase);
++}
++
++int LocalFolderTabs(not_null<Main::Session*> session) {
++	return int(ranges::count_if(
++		session->data().chatsFilters().list(),
++		IsLocalFolder,
++		&Data::ChatFilter::id));
++}
++
++int FolderCountLimit(int serverLimit) {
++	return LocalFolders() ? kNoLimit : serverLimit;
++}
++
++int FolderChatsLimit(int serverLimit) {
++	return LocalFolders() ? kNoLimit : serverLimit;
++}
++
++rpl::producer<int> FolderChatsLimitValue(rpl::producer<int> serverLimit) {
++	return rpl::combine(
++		std::move(serverLimit),
++		LocalFoldersValue()
++	) | rpl::map([](int limit, bool local) {
++		return local ? kNoLimit : limit;
++	});
++}
++
++QString FolderChatsCount(int count, int limit) {
++	return (limit >= kNoLimit)
++		? QString::number(count)
++		: u"%1 / %2"_q.arg(count).arg(limit);
++}
++
++FilterId NewFolderId(not_null<Main::Session*> session, int rows) {
++	if (!LocalFolders()) {
++		return 0;
++	}
++	const auto &list = session->data().chatsFilters().list();
++	auto server = 0;
++	auto listed = 0;
++	for (const auto &filter : list) {
++		if (const auto id = filter.id()) {
++			++listed;
++			if (!IsLocalFolder(id)) {
++				++server;
++			}
++		}
++	}
++	const auto pending = std::max(rows - listed, 0);
++	const auto limit = Data::PremiumLimits(session).dialogFiltersCurrent();
++	return (server + pending < limit) ? 0 : Lookup(session).nextId(list);
++}
++
++bool SaveLocalFolder(
++		not_null<Main::Session*> session,
++		const Data::ChatFilter &filter) {
++	if (!IsLocalFolder(filter.id())) {
++		return false;
++	}
++	session->data().chatsFilters().set(filter);
++	return true;
++}
++
++QString FolderStatus(
++		not_null<Main::Session*> session,
++		const Data::ChatFilter &filter,
++		QString status) {
++	const auto separator = ' ' + Ui::kQBullet + ' ';
++	if (IsLocalFolder(filter.id())) {
++		return status + separator + Lower(u"Local"_q);
++	} else if (!LocalFolders() || !filter.id()) {
++		return status;
++	}
++	const auto local = Lookup(session).overflow(filter.id());
++	const auto count = local
++		? int(local->always.size() + local->never.size())
++		: 0;
++	return count
++		? (status + separator + Lower(u"%1 on this device"_q).arg(count))
++		: status;
++}
++
++not_null<Ui::VerticalLayout*> FolderLinksContainer(
++		not_null<Ui::VerticalLayout*> content,
++		FilterId id) {
++	if (!IsLocalFolder(id)) {
++		return content;
++	}
++	const auto wrap = content->add(
++		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
++			content,
++			object_ptr<Ui::VerticalLayout>(content)));
++	wrap->hide(anim::type::instant);
++	return wrap->entity();
++}
++
++Data::ChatFilter ServerFolder(const Data::ChatFilter &filter) {
++	const auto id = filter.id();
++	const auto session = SessionFor(filter);
++	if (!id || IsLocalFolder(id) || !LocalFolders() || !session) {
++		return filter;
++	}
++	return ComputeSplit(Lookup(session), filter, id).server;
++}
++
++std::optional<Data::ChatFilter> ServerFolderPart(
++		const Data::ChatFilter &filter,
++		FilterId replaceId) {
++	const auto id = replaceId ? replaceId : filter.id();
++	if (!id || IsLocalFolder(id) || !LocalFolders()) {
++		return std::nullopt;
++	}
++	const auto session = SessionFor(filter);
++	if (!session) {
++		return std::nullopt;
++	}
++	auto &store = Lookup(session);
++	auto split = ComputeSplit(store, filter, id);
++	store.setServer(id, {
++		.always = split.server.always(),
++		.never = split.server.never(),
++	});
++	const auto local = !split.local.empty();
++	store.setOverflow(id, std::move(split.local));
++	return local ? std::make_optional(std::move(split.server)) : std::nullopt;
++}
++
++MTPVector<MTPint> ServerFolderOrder(const MTPVector<MTPint> &order) {
++	auto result = QVector<MTPint>();
++	result.reserve(order.v.size());
++	for (const auto &id : order.v) {
++		if (!IsLocalFolder(id.v)) {
++			result.push_back(id);
++		}
++	}
++	return MTP_vector<MTPint>(std::move(result));
++}
++
++std::vector<Data::ChatFilter> WithLocalFolders(
++		not_null<Data::Session*> owner,
++		const QVector<MTPDialogFilter> &list) {
++	const auto session = &owner->session();
++	auto &store = Lookup(session);
++	auto result = std::vector<Data::ChatFilter>();
++	result.reserve(list.size());
++	auto ids = base::flat_set<FilterId>();
++	for (const auto &data : list) {
++		auto parsed = Data::ChatFilter::FromTL(data, owner);
++		if (const auto id = parsed.id()) {
++			ids.emplace(id);
++			store.setServer(id, {
++				.always = parsed.always(),
++				.never = parsed.never(),
++			});
++		}
++		result.push_back(std::move(parsed));
++	}
++	store.prune(ids);
++	if (!LocalFolders()) {
++		return result;
++	}
++	for (auto &filter : result) {
++		filter = Merge(store, filter);
++	}
++	if (store.folders().empty()) {
++		return result;
++	}
++	auto locals = std::vector<FilterId>();
++	for (const auto &folder : store.folders()) {
++		locals.push_back(folder.id);
++	}
++	const auto order = MergeOrder(
++		ranges::views::all(
++			result
++		) | ranges::views::transform(
++			&Data::ChatFilter::id
++		) | ranges::to_vector,
++		locals,
++		store.order());
++	auto merged = std::vector<Data::ChatFilter>();
++	merged.reserve(order.size());
++	for (const auto id : order) {
++		const auto i = ranges::find(result, id, &Data::ChatFilter::id);
++		if (i != end(result)) {
++			merged.push_back(std::move(*i));
++		} else {
++			const auto j = ranges::find(
++				store.folders(),
++				id,
++				&StoredFolder::id);
++			merged.push_back(ToFilter(session, *j));
++		}
++	}
++	return merged;
++}
++
++Data::ChatFilter WithLocalPart(
++		not_null<Data::Session*> owner,
++		Data::ChatFilter filter) {
++	const auto id = filter.id();
++	if (!id || IsLocalFolder(id)) {
++		return filter;
++	}
++	auto &store = Lookup(&owner->session());
++	store.setServer(id, {
++		.always = filter.always(),
++		.never = filter.never(),
++	});
++	return LocalFolders() ? Merge(store, filter) : filter;
++}
++
++QVector<MTPint> WithLocalOrder(
++		not_null<Data::Session*> owner,
++		const QVector<MTPint> &order) {
++	if (!LocalFolders()) {
++		return order;
++	}
++	auto locals = std::vector<FilterId>();
++	for (const auto &filter : owner->chatsFilters().list()) {
++		if (IsLocalFolder(filter.id())) {
++			locals.push_back(filter.id());
++		}
++	}
++	auto ids = std::vector<FilterId>();
++	ids.reserve(order.size());
++	for (const auto &id : order) {
++		ids.push_back(id.v);
++	}
++	if (locals.empty() && !ranges::any_of(ids, IsLocalFolder)) {
++		return order;
++	}
++	auto &store = Lookup(&owner->session());
++	auto merged = MergeOrder(std::move(ids), locals, store.order());
++	auto result = QVector<MTPint>();
++	result.reserve(merged.size());
++	for (const auto id : merged) {
++		result.push_back(MTP_int(id));
++	}
++	store.setOrder(std::move(merged));
++	return result;
++}
++
++void KeepFolder(
++		not_null<Data::Session*> owner,
++		const Data::ChatFilter &filter) {
++	if (IsLocalFolder(filter.id())) {
++		Lookup(&owner->session()).setFolder(ToStored(filter));
++	}
++}
++
++void ForgetFolder(not_null<Data::Session*> owner, FilterId id) {
++	if (id) {
++		Lookup(&owner->session()).forget(id);
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_local_folders.h b/Telegram/SourceFiles/tele/tele_local_folders.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..9d0f05c05c307987374eb12e2d5038b4315e6952
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_local_folders.h
+@@ -0,0 +1,60 @@
++#pragma once
++
++namespace Data {
++class ChatFilter;
++class Session;
++} // namespace Data
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class VerticalLayout;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] bool IsLocalFolder(FilterId id);
++[[nodiscard]] int LocalFolderTabs(not_null<Main::Session*> session);
++[[nodiscard]] int FolderCountLimit(int serverLimit);
++[[nodiscard]] int FolderChatsLimit(int serverLimit);
++[[nodiscard]] rpl::producer<int> FolderChatsLimitValue(
++	rpl::producer<int> serverLimit);
++[[nodiscard]] QString FolderChatsCount(int count, int limit);
++[[nodiscard]] FilterId NewFolderId(
++	not_null<Main::Session*> session,
++	int rows = 0);
++bool SaveLocalFolder(
++	not_null<Main::Session*> session,
++	const Data::ChatFilter &filter);
++[[nodiscard]] QString FolderStatus(
++	not_null<Main::Session*> session,
++	const Data::ChatFilter &filter,
++	QString status);
++[[nodiscard]] not_null<Ui::VerticalLayout*> FolderLinksContainer(
++	not_null<Ui::VerticalLayout*> content,
++	FilterId id);
++
++[[nodiscard]] Data::ChatFilter ServerFolder(const Data::ChatFilter &filter);
++[[nodiscard]] std::optional<Data::ChatFilter> ServerFolderPart(
++	const Data::ChatFilter &filter,
++	FilterId replaceId);
++[[nodiscard]] MTPVector<MTPint> ServerFolderOrder(
++	const MTPVector<MTPint> &order);
++
++[[nodiscard]] std::vector<Data::ChatFilter> WithLocalFolders(
++	not_null<Data::Session*> owner,
++	const QVector<MTPDialogFilter> &list);
++[[nodiscard]] Data::ChatFilter WithLocalPart(
++	not_null<Data::Session*> owner,
++	Data::ChatFilter filter);
++[[nodiscard]] QVector<MTPint> WithLocalOrder(
++	not_null<Data::Session*> owner,
++	const QVector<MTPint> &order);
++void KeepFolder(
++	not_null<Data::Session*> owner,
++	const Data::ChatFilter &filter);
++void ForgetFolder(not_null<Data::Session*> owner, FilterId id);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index d8fd2ce255c7d83ece7d0e6df824bf4031a10569..a7b088e7b3aaaac26482a806b835e9e531213f9c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -97,6 +97,7 @@ const char kOptionLocalDrafts[] = "tele-local-drafts";
+ const char kOptionLocalPins[] = "tele-local-pins";
+ const char kOptionDockedAttachments[] = "tele-docked-attachments";
+ const char kOptionDockedGrid[] = "tele-docked-grid";
++const char kOptionLocalFolders[] = "tele-local-folders";
+ 
+ namespace {
+ 
+@@ -674,6 +675,13 @@ base::options::toggle DockedGridOption({
+ 	.name = "Docked media as album grid",
+ });
+ 
++base::options::toggle LocalFoldersOption({
++	.id = kOptionLocalFolders,
++	.name = "Folders past the limit",
++	.description = "What doesn't fit the server limit stays on this "
++		"device.",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -1473,4 +1481,18 @@ rpl::producer<> DockedGridChanges() {
+ 	return DockedGridOption.changes();
+ }
+ 
++bool LocalFolders() {
++	return LocalFoldersOption.value();
++}
++
++rpl::producer<bool> LocalFoldersValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		LocalFoldersOption.changes()
++	) | rpl::map([] {
++		return LocalFoldersOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 9f53887314b36ae23da49cc5f71fc9e4beb57746..88d868851d17127e3ee5329d921933695b068eb6 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -93,6 +93,7 @@ extern const char kOptionLocalDrafts[];
+ extern const char kOptionLocalPins[];
+ extern const char kOptionDockedAttachments[];
+ extern const char kOptionDockedGrid[];
++extern const char kOptionLocalFolders[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -246,5 +247,7 @@ void SetTrayIcon(const QString &value);
+ [[nodiscard]] bool DockedGrid();
+ void SetDockedGrid(bool enabled);
+ [[nodiscard]] rpl::producer<> DockedGridChanges();
++[[nodiscard]] bool LocalFolders();
++[[nodiscard]] rpl::producer<bool> LocalFoldersValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 32a6b46cc1e024f6446affe579e4414c36ce3489..691eec09becb7e4a77a578fdf78b7b821fd0b46b 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -116,6 +116,7 @@ struct Spec {
+ 		Toggle(kOptionJumpToFirst),
+ 		Toggle(kOptionStaticUserpicsList),
+ 		Toggle(kOptionChatListNoReorderAnimation),
++		Toggle(kOptionLocalFolders),
+ 		Toggle(kOptionStaticUserpicsChats),
+ 		Toggle(kOptionHideMentionsButton),
+ 		Toggle(kOptionHideReactionsButton),
+diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+index bad85707eb644aa7c43aca3ac85b484c44590055..d9cd2f91405ae0b22833f6f7dad1c7c0a32e83fd 100644
+--- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
++++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "settings/sections/settings_folders.h"
+ #include "tele/tele_folders.h"
++#include "tele/tele_local_folders.h"
+ #include "tele/tele_view_tl.h"
+ #include "ui/widgets/menu/menu_action.h"
+ #include "ui/filter_icons.h"
+@@ -150,7 +151,8 @@ void ShowFiltersListMenu(
+ 
+ 	const auto reorderAll = session->user()->isPremium();
+ 	const auto maxLimit = (reorderAll ? 1 : 0)
+-		+ Data::PremiumLimits(session).dialogFiltersCurrent();
++		+ Data::PremiumLimits(session).dialogFiltersCurrent()
++		+ Tele::LocalFolderTabs(session);
+ 	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit
+ 		- Tele::HiddenFolderTabs(session);
+ 
+@@ -416,7 +418,8 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 		{
+ 			const auto reorderAll = session->user()->isPremium();
+ 			const auto maxLimit = (reorderAll ? 1 : 0)
+-				+ Data::PremiumLimits(session).dialogFiltersCurrent();
++				+ Data::PremiumLimits(session).dialogFiltersCurrent()
++				+ Tele::LocalFolderTabs(session);
+ 			const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit
+ 				- Tele::HiddenFolderTabs(session);
+ 			slider->setLockedFrom((premiumFrom >= list.size())
+diff --git a/Telegram/SourceFiles/window/window_filters_menu.cpp b/Telegram/SourceFiles/window/window_filters_menu.cpp
+index f831d2e7ca7d9b267a38f3f45ae2a177545bc643..43bf1a5e0487701595fc3fdf10206bf78fe27193 100644
+--- a/Telegram/SourceFiles/window/window_filters_menu.cpp
++++ b/Telegram/SourceFiles/window/window_filters_menu.cpp
+@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_folders.h"
+ #include "storage/storage_media_prepare.h"
+ #include "tele/tele_folders.h"
++#include "tele/tele_local_folders.h"
+ #include "tele/tele_view_tl.h"
+ #include "api/api_chat_filters.h"
+ #include "apiwrap.h"
+@@ -361,7 +362,8 @@ void FiltersMenu::refresh() {
+ 
+ 	_reorder->clearPinnedIntervals();
+ 	const auto maxLimit = (reorderAll ? 1 : 0)
+-		+ Data::PremiumLimits(&_session->session()).dialogFiltersCurrent();
++		+ Data::PremiumLimits(&_session->session()).dialogFiltersCurrent()
++		+ Tele::LocalFolderTabs(&_session->session());
+ 	const auto hidden = Tele::HiddenFolderTabs(&_session->session());
+ 	const auto &list = Tele::FolderTabs(&_session->session());
+ 	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit - hidden;
+diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
+index c2f3641d68ac602093ebb55b64a009437120d157..d00f6093a99e1363513e216d4977816c403ffaaa 100644
+--- a/Telegram/SourceFiles/window/window_session_controller.cpp
++++ b/Telegram/SourceFiles/window/window_session_controller.cpp
+@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_changelog_chat.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_folders.h"
++#include "tele/tele_local_folders.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_username_aliases.h"
+ #include "styles/style_chat_helpers.h"
+@@ -4170,6 +4171,7 @@ bool CheckAndJumpToNearChatsFilter(
+ 		return false;
+ 	}
+ 	if (changed > Data::PremiumLimits(session).dialogFiltersCurrent()
++			+ Tele::LocalFolderTabs(session)
+ 			- Tele::HiddenFolderTabs(session)) {
+ 		return false;
+ 	}

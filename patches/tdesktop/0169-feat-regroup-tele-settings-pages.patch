@@ -1,0 +1,492 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 08:44:39 +0300
+Subject: [PATCH] feat: regroup tele settings pages
+
+---
+ .../SourceFiles/settings/settings_tele.cpp    | 331 +++++++++++-------
+ 1 file changed, 214 insertions(+), 117 deletions(-)
+
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 670dccca6300b599797f85900f27e39db508fcf6..f6f981597f87d48b04492d2bf2f0acc08c47fe5c 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -156,9 +156,11 @@ public:
+ 
+ 	[[nodiscard]] Type id() const override;
+ 	[[nodiscard]] rpl::producer<QString> title() override;
++	void showFinished() override;
+ 
+ private:
+ 	const int _index = 0;
++	Type _redirect;
+ 
+ };
+ 
+@@ -1940,6 +1942,21 @@ void FillInterface(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"App icon"_q);
+ 	AddAppIcons(builder);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Scale"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionScaleOnePercent,
++		{ u"zoom"_q, u"size"_q, u"interface"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Animations"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionReduceMotion,
++		{ u"effects"_q, u"reactions"_q, u"power"_q, u"battery"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Text"_q);
++	AddOptionToggle(builder, ::Tele::kOptionLowercase);
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chat list"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideAllChats);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideCommunities);
+@@ -1959,32 +1976,11 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionSelectChats,
+ 		{ u"multiple"_q, u"bulk"_q, u"archive"_q, u"mute"_q });
+-	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Unread counters"_q);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionHideCounters,
+-		{ u"badge"_q, u"unread"_q });
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionHideFolderCounters,
+-		{ u"filters"_q },
+-		::Tele::kOptionHideCounters);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionHideAppCounter,
+-		{ u"dock"_q, u"icon"_q },
+-		::Tele::kOptionHideCounters);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionCounterSkipArchive,
+-		{ u"archived"_q },
+-		::Tele::kOptionHideCounters);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionCounterAccounts,
+-		{ u"unread"_q, u"badge"_q, u"multiple accounts"_q });
+-	AddGroupDivider(builder);
++	AddSkip(builder);
++}
++
++void FillChats(SectionBuilder &builder) {
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Chats and profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionBubbleBadges);
+ 	AddOptionToggle(builder, ::Tele::kOptionStaticUserpicsChats);
+@@ -1996,23 +1992,23 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionHideReactionsButton,
+ 		{ u"unread"_q });
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionNoAi,
+-		{ u"cocoon"_q, u"summary"_q, u"compose"_q, u"style"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Panels"_q);
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionEmojiPanelClick,
+ 		{ u"hover"_q, u"stickers"_q, u"gifs"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionAttachMenuClick,
++		{ u"hover"_q, u"paperclip"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionPinSets, { u"sticker"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionMediaPastLimit,
+ 		{ u"favorites"_q, u"faved"_q });
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionAttachMenuClick,
+-		{ u"hover"_q, u"paperclip"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Gestures"_q);
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionNoGestures,
+@@ -2027,7 +2023,11 @@ void FillInterface(SectionBuilder &builder) {
+ 		::Tele::kOptionNoSwipeBack,
+ 		{ u"gesture"_q, u"navigation"_q },
+ 		::Tele::kOptionNoGestures);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Call buttons"_q);
+ 	AddCallButtons(builder);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Similar channels"_q);
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionHideSimilar,
+@@ -2043,24 +2043,42 @@ void FillInterface(SectionBuilder &builder) {
+ 		{},
+ 		::Tele::kOptionHideSimilar);
+ 	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Scale"_q);
++	AddGroupTitle(builder, u"Chat features"_q);
+ 	AddOptionToggle(
+ 		builder,
+-		::Tele::kOptionScaleOnePercent,
+-		{ u"zoom"_q, u"size"_q, u"interface"_q });
++		::Tele::kOptionNoAi,
++		{ u"cocoon"_q, u"summary"_q, u"compose"_q, u"style"_q });
++	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionRegexSearch,
++		{ u"regular expression"_q, u"pattern"_q, u"find"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionPinnedBarMenu,
++		{ u"pinned messages"_q });
+ 	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Animations"_q);
++	AddGroupTitle(builder, u"Sponsored"_q);
++	AddOptionToggle(builder, ::Tele::kOptionHideSponsored);
++	AddOptionToggle(builder, ::Tele::kOptionHideProxySponsor);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Chat backgrounds"_q);
++	AddChatBackgrounds(builder);
+ 	AddOptionToggle(
+ 		builder,
+-		::Tele::kOptionReduceMotion,
+-		{ u"effects"_q, u"reactions"_q, u"power"_q, u"battery"_q });
++		::Tele::kOptionBackgroundMenu,
++		{ u"wallpaper"_q });
+ 	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Text"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionLowercase);
++	AddGroupTitle(builder, u"Username aliases"_q);
++	AddUsernameAliases(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionAliasMenu,
++		{ u"username"_q });
+ 	AddSkip(builder);
+ }
+ 
+-void FillChats(SectionBuilder &builder) {
++void FillMessages(SectionBuilder &builder) {
+ 	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Messages"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageSeconds);
+@@ -2102,11 +2120,6 @@ void FillChats(SectionBuilder &builder) {
+ 		},
+ 		{ u"reply"_q, u"quote"_q, u"deleted"_q },
+ 		::Tele::kOptionKeepDeleted);
+-	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionCodeLineNumbers,
+-		{ u"pre"_q, u"monospace"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyProtected);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Bookmarks"_q);
+@@ -2119,6 +2132,45 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionReturnPoint,
+ 		{ u"jump"_q, u"scroll"_q });
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Code blocks"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCodeLineNumbers,
++		{ u"pre"_q, u"monospace"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Spoilers"_q);
++	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Disappearing media"_q);
++	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Links"_q);
++	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
++	AddOptionToggle(builder, ::Tele::kOptionCleanOpenedLinks);
++	AddOptionToggle(builder, ::Tele::kOptionCleanSentLinks);
++	AddButtonChoice(
++		builder,
++		::Tele::kOptionLinkPreviews,
++		::Tele::LinkPreviews,
++		::Tele::SetLinkPreviews,
++		::Tele::LinkPreviewsValue,
++		{
++			{ QString(), u"For all links"_q },
++			{ u"pasted"_q, u"Not for pasted links"_q },
++			{ u"added"_q, u"Only ones you add"_q },
++		},
++		{ u"preview"_q, u"paste"_q, u"webpage"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionLinkPreviewMenu,
++		{ u"webpage"_q, u"right click"_q });
++	AddAppLinks(builder);
++	AddLinkRewrites(builder);
++	AddSkip(builder);
++}
++
++void FillSending(SectionBuilder &builder) {
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Sending order"_q);
+ 	AddOptionToggle(
+ 		builder,
+@@ -2148,12 +2200,6 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionAudioVoice,
+ 		{ u"voice message"_q, u"music"_q, u"mp3"_q });
+ 	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Downloads"_q);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionDownloadsPerChat,
+-		{ u"directory"_q, u"path"_q, u"files"_q });
+-	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Message field"_q);
+ 	AddOptionToggle(
+ 		builder,
+@@ -2171,14 +2217,6 @@ void FillChats(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionHideGiftButton,
+ 		{ u"gift"_q, u"premium"_q });
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionSilentByDefault,
+-		{ u"sound"_q, u"notification"_q, u"silent"_q });
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionSilentPerChat,
+-		{ u"sound"_q, u"notification"_q, u"silent"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionVoiceNoFade,
+@@ -2225,8 +2263,45 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionDraftsMenu,
+ 		{ u"save"_q, u"discarded"_q });
+ 	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Notifications"_q);
++	AddGroupTitle(builder, u"Downloads"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionDownloadsPerChat,
++		{ u"directory"_q, u"path"_q, u"files"_q });
++	AddSkip(builder);
++}
++
++void FillNotifications(SectionBuilder &builder) {
++	AddSkip(builder);
++	AddGroupTitle(builder, u"Unread counters"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideCounters,
++		{ u"badge"_q, u"unread"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideFolderCounters,
++		{ u"filters"_q },
++		::Tele::kOptionHideCounters);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideAppCounter,
++		{ u"dock"_q, u"icon"_q },
++		::Tele::kOptionHideCounters);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCounterSkipArchive,
++		{ u"archived"_q },
++		::Tele::kOptionHideCounters);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCounterAccounts,
++		{ u"unread"_q, u"badge"_q, u"multiple accounts"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Online notifications"_q);
+ 	AddOnlineNotify(builder);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Muting"_q);
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionSilenceChats,
+@@ -2236,11 +2311,24 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionMuteFolders,
+ 		{ u"filters"_q, u"notifications"_q });
+ 	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Disappearing media"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+-	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Silent messages"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionSilentByDefault,
++		{ u"sound"_q, u"notification"_q, u"silent"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionSilentPerChat,
++		{ u"sound"_q, u"notification"_q, u"silent"_q });
++	AddSkip(builder);
++}
++
++void FillMenus(SectionBuilder &builder) {
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Menus"_q);
+ 	AddMessageMenu(builder);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Menu items"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionJumpToFirst);
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+@@ -2251,52 +2339,6 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionRmbBesideBubble,
+ 		{ u"right click"_q, u"context"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionShot);
+-	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Chats"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionRegexSearch,
+-		{ u"regular expression"_q, u"pattern"_q, u"find"_q });
+-	AddOptionToggle(builder, ::Tele::kOptionHideSponsored);
+-	AddOptionToggle(builder, ::Tele::kOptionHideProxySponsor);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionPinnedBarMenu,
+-		{ u"pinned messages"_q });
+-	AddChatBackgrounds(builder);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionBackgroundMenu,
+-		{ u"wallpaper"_q });
+-	AddUsernameAliases(builder);
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionAliasMenu,
+-		{ u"username"_q });
+-	AddGroupDivider(builder);
+-	AddGroupTitle(builder, u"Links"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
+-	AddOptionToggle(builder, ::Tele::kOptionCleanOpenedLinks);
+-	AddOptionToggle(builder, ::Tele::kOptionCleanSentLinks);
+-	AddButtonChoice(
+-		builder,
+-		::Tele::kOptionLinkPreviews,
+-		::Tele::LinkPreviews,
+-		::Tele::SetLinkPreviews,
+-		::Tele::LinkPreviewsValue,
+-		{
+-			{ QString(), u"For all links"_q },
+-			{ u"pasted"_q, u"Not for pasted links"_q },
+-			{ u"added"_q, u"Only ones you add"_q },
+-		},
+-		{ u"preview"_q, u"paste"_q, u"webpage"_q });
+-	AddOptionToggle(
+-		builder,
+-		::Tele::kOptionLinkPreviewMenu,
+-		{ u"webpage"_q, u"right click"_q });
+-	AddAppLinks(builder);
+-	AddLinkRewrites(builder);
+ 	AddSkip(builder);
+ }
+ 
+@@ -2770,14 +2812,38 @@ void FillRoot(SectionBuilder &builder) {
+ 		u"interface"_q,
+ 		u"Interface"_q,
+ 		st::menuIconPalette,
+-		{ u"title"_q, u"lowercase"_q, u"badges"_q, u"userpics"_q },
++		{ u"title"_q, u"lowercase"_q, u"scale"_q, u"chat list"_q },
+ 		FillInterface);
+ 	add(
+ 		u"chats"_q,
+-		u"Chats and messages"_q,
+-		st::menuIconChatBubble,
+-		{ u"deleted"_q, u"edited"_q, u"links"_q, u"sponsored"_q },
++		u"Chats"_q,
++		st::menuIconChats,
++		{ u"badges"_q, u"userpics"_q, u"sponsored"_q, u"gestures"_q },
+ 		FillChats);
++	add(
++		u"messages"_q,
++		u"Messages"_q,
++		st::menuIconChatBubble,
++		{ u"deleted"_q, u"edited"_q, u"bookmarks"_q, u"links"_q },
++		FillMessages);
++	add(
++		u"sending"_q,
++		u"Sending"_q,
++		st::menuIconSend,
++		{ u"uploads"_q, u"drafts"_q, u"scheduled"_q, u"confirm"_q },
++		FillSending);
++	add(
++		u"notifications"_q,
++		u"Notifications"_q,
++		st::menuIconNotifications,
++		{ u"unread"_q, u"counters"_q, u"online"_q, u"mute"_q },
++		FillNotifications);
++	add(
++		u"menus"_q,
++		u"Menus"_q,
++		st::menuIconReorder,
++		{ u"context"_q, u"right click"_q, u"message menu"_q },
++		FillMenus);
+ 	add(
+ 		u"privacy"_q,
+ 		u"Privacy"_q,
+@@ -2868,6 +2934,22 @@ void FillNew(SectionBuilder &builder) {
+ 		return;
+ 	}
+ 	auto first = true;
++	if (ids.contains(u"tele/messages"_q)) {
++		AddNewGroupDivider(builder, first);
++		builder.addSubsectionTitle(rpl::single(::Tele::Lower(u"Moved"_q)));
++		builder.add([&](const WidgetContext &ctx) {
++			return SectionBuilder::WidgetToAdd{
++				.widget = object_ptr<Ui::FlatLabel>(
++					ctx.container,
++					::Tele::Lower(u"Chats and messages is now Chats, "
++						"Messages, Sending, Notifications and Menus. Chat "
++						"and profile options moved from Interface to Chats, "
++						"unread counters to Notifications."_q),
++					st::settingsExperimentalAbout),
++				.margin = st::settingsExperimentalAboutPadding,
++			};
++		}, nullptr);
++	}
+ 	auto pages = std::vector<not_null<const Category*>>();
+ 	for (const auto &category : Categories()) {
+ 		if (ids.contains(CategoryId(category))) {
+@@ -2986,7 +3068,13 @@ CategorySection::CategorySection(
+ 	not_null<Window::SessionController*> controller,
+ 	int index)
+ : AbstractSection(parent, controller)
+-, _index(index) {
++, _index(index)
++, _redirect(CategoryOf(
++	&controller->session(),
++	controller->highlightControlId())) {
++	if (_redirect == Categories()[_index].id) {
++		_redirect = nullptr;
++	}
+ 	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+ 	build(content, Categories()[_index].helper->build);
+ 	Ui::ResizeFitChild(this, content);
+@@ -3000,6 +3088,15 @@ rpl::producer<QString> CategorySection::title() {
+ 	return rpl::single(::Tele::Lower(Categories()[_index].title));
+ }
+ 
++void CategorySection::showFinished() {
++	AbstractSection::showFinished();
++	if (const auto target = base::take(_redirect)) {
++		crl::on_main(this, [=] {
++			showOther(target);
++		});
++	}
++}
++
+ TeleSection::TeleSection(
+ 	QWidget *parent,
+ 	not_null<Window::SessionController*> controller)

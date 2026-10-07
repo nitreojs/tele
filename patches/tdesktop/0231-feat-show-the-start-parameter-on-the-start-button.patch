@@ -1,0 +1,349 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 13:22:04 +0300
+Subject: [PATCH] feat: show the start parameter on the start button
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/history/history_widget.cpp    |   3 +
+ .../controls/history_view_bottom_controls.cpp |   3 +
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  15 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../SourceFiles/tele/tele_start_param.cpp     | 148 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_start_param.h  |  14 ++
+ 9 files changed, 193 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_start_param.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_start_param.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index d3e18ee418b15e12297aab871a917c12f9aadee1..d3b7685a8002fbe6dedb13c71fa2ebdaac65374e 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2514,6 +2514,8 @@ PRIVATE
+     tele/tele_spoilers.h
+     tele/tele_stars_tools.cpp
+     tele/tele_stars_tools.h
++    tele/tele_start_param.cpp
++    tele/tele_start_param.h
+     tele/tele_sticker_captions.cpp
+     tele/tele_sticker_captions.h
+     tele/tele_sticker_truth.cpp
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 5adf41d16e96c537ab4c6baafe040bac472abb84..c91ae6ae446ab834224c38b096f73ecd26921b6b 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -172,6 +172,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_link_previews.h"
+ #include "tele/tele_translate_out.h"
+ #include "tele/tele_calls.h"
++#include "tele/tele_start_param.h"
+ #include "tele/tele_confirm_send.h"
+ #include "tele/tele_drafts_compose.h"
+ #include "tele/tele_docked_media.h"
+@@ -4269,12 +4270,14 @@ void HistoryWidget::updateControlsVisibility() {
+ 		} else if (isReportMessages()) {
+ 			toggle(_reportMessages);
+ 		} else if (isBlocked()) {
++			Tele::RefreshBotRestartParam(_unblock.data(), _peer);
+ 			toggle(_unblock);
+ 		} else if (isJoinChannel()) {
+ 			toggle(_joinChannel);
+ 		} else if (isMuteUnmute()) {
+ 			toggle(_muteUnmute);
+ 		} else if (isBotStart()) {
++			Tele::RefreshBotStartParam(_botStart.data(), _peer);
+ 			toggle(_botStart);
+ 		}
+ 		_kbShown = false;
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp
+index a56a4d5d45cce63fb44d2f08dd4595b491e41083..5fe8764c02f4f47d5498f238a4822faa38b7af93 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp
+@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_start_param.h"
+ #include "ui/painter.h"
+ #include "ui/ui_utility.h"
+ #include "ui/widgets/buttons.h"
+@@ -160,6 +161,7 @@ void BottomControls::updateControlsVisibility() {
+ 		if (isReportMessages()) {
+ 			toggle(_reportMessages.get());
+ 		} else if (isBlocked()) {
++			Tele::RefreshBotRestartParam(_unblock.get(), _peer);
+ 			toggle(_unblock.get());
+ 		} else if (isJoinChannel()) {
+ 			toggle(_joinChannel.get());
+@@ -168,6 +170,7 @@ void BottomControls::updateControlsVisibility() {
+ 		} else if (isMuteUnmute()) {
+ 			toggle(_muteUnmute.get());
+ 		} else if (isBotStart()) {
++			Tele::RefreshBotStartParam(_botStart.get(), _peer);
+ 			toggle(_botStart.get());
+ 		} else {
+ 			toggle(nullptr);
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c403386d96f7740da5c800e2f091b855a8ee1428..4df10e3541fc7831a463f0589f87f35beb8fb5b2 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3512,6 +3512,10 @@ void FillBots(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionInlineAsText,
+ 		{ u"inline bot"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionStartParam,
++		{ u"deep link"_q, u"payload"_q, u"referral"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 62be42cd4b7f431caa15da3f836d54ac644a20a1..489138ad2256a24b776f7ed3b417feb5fd3e888b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -131,6 +131,7 @@ const char kOptionSendOlderReplies[] = "tele-send-older-replies";
+ const char kOptionDoubleEnterSend[] = "tele-double-enter-send";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionInlineAsText[] = "tele-inline-as-text";
++const char kOptionStartParam[] = "tele-start-param";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+@@ -979,6 +980,12 @@ base::options::toggle InlineAsTextOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle StartParamOption({
++	.id = kOptionStartParam,
++	.name = "Show the start parameter",
++	.description = "On the start button of a bot opened by a link.",
++});
++
+ base::options::toggle NoRichPastePromptOption({
+ 	.id = kOptionNoRichPastePrompt,
+ 	.name = "No rich message prompt on paste",
+@@ -2429,6 +2436,14 @@ bool InlineAsText() {
+ 	return InlineAsTextOption.value();
+ }
+ 
++bool ShowStartParam() {
++	return StartParamOption.value();
++}
++
++rpl::producer<> ShowStartParamChanges() {
++	return StartParamOption.changes();
++}
++
+ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index e88de2a94315c87a93f4df08432a7c4009322a97..c19ed05f6ed2542884d06baab26af1f1a5e9f071 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -126,6 +126,7 @@ extern const char kOptionSendOlderReplies[];
+ extern const char kOptionDoubleEnterSend[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionInlineAsText[];
++extern const char kOptionStartParam[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+@@ -396,6 +397,8 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool DoubleEnterSend();
+ [[nodiscard]] bool InlineWithoutVia();
+ [[nodiscard]] bool InlineAsText();
++[[nodiscard]] bool ShowStartParam();
++[[nodiscard]] rpl::producer<> ShowStartParamChanges();
+ [[nodiscard]] bool NoRichPastePrompt();
+ [[nodiscard]] bool HideGiftButton();
+ [[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 86319e81023e19e1d2b82b6de8696a1c07af9a65..b42426df148735ade4d747c56c462b91ab8b6848 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -108,6 +108,7 @@ struct Spec {
+ 		Toggle(kOptionButtonPayloads),
+ 		Toggle(kOptionCopyButtonData),
+ 		Toggle(kOptionInlineAsText),
++		Toggle(kOptionStartParam),
+ 		Toggle(kOptionAutoUpdate),
+ 		Toggle(kOptionShowChangelog),
+ 		Toggle(kOptionGroupQuickReplies),
+diff --git a/Telegram/SourceFiles/tele/tele_start_param.cpp b/Telegram/SourceFiles/tele/tele_start_param.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..f378a138c0603771848766acffe1ccb79ce58db7
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_start_param.cpp
+@@ -0,0 +1,148 @@
++#include "tele/tele_start_param.h"
++
++#include "base/event_filter.h"
++#include "data/data_user.h"
++#include "tele/tele_options.h"
++#include "ui/text/text_entity.h"
++#include "ui/ui_utility.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/tooltip.h"
++#include "styles/style_chat_helpers.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kTooltipDelay = crl::time(500);
++
++class ParamWatcher final
++	: public QObject
++	, public Ui::AbstractTooltipShower {
++public:
++	explicit ParamWatcher(not_null<Ui::FlatButton*> button);
++
++	void apply(const QString &param);
++
++	QString tooltipText() const override;
++	QPoint tooltipPos() const override;
++	bool tooltipWindowActive() const override;
++
++private:
++	[[nodiscard]] bool shown() const;
++	void refresh();
++
++	const not_null<Ui::FlatButton*> _button;
++	QString _param;
++	QString _base;
++	QString _set;
++	bool _applied = false;
++	rpl::lifetime _lifetime;
++
++};
++
++ParamWatcher::ParamWatcher(not_null<Ui::FlatButton*> button)
++: QObject(button.get())
++, _button(button) {
++	base::install_event_filter(this, _button, [=](not_null<QEvent*> e) {
++		switch (e->type()) {
++		case QEvent::Resize:
++			refresh();
++			break;
++		case QEvent::Enter:
++			if (shown()) {
++				Ui::Tooltip::Show(kTooltipDelay, this);
++			}
++			break;
++		case QEvent::Leave:
++		case QEvent::Hide:
++		case QEvent::MouseButtonPress:
++			if (shown()) {
++				Ui::Tooltip::Hide();
++			}
++			break;
++		default:
++			break;
++		}
++		return base::EventFilterResult::Continue;
++	});
++	ShowStartParamChanges(
++	) | rpl::on_next([=] {
++		refresh();
++	}, _lifetime);
++}
++
++void ParamWatcher::apply(const QString &param) {
++	_param = param;
++	refresh();
++}
++
++bool ParamWatcher::shown() const {
++	return ShowStartParam() && !_param.isEmpty();
++}
++
++void ParamWatcher::refresh() {
++	const auto current = _button->accessibilityName();
++	if (!_applied || current != _set) {
++		_base = current;
++	}
++	_applied = shown();
++	if (!_applied) {
++		_set = QString();
++		if (current != _base) {
++			_button->setText(_base);
++		}
++		return;
++	}
++	const auto &st = st::historyComposeButton;
++	const auto available = std::max(_button->width() - std::abs(st.width), 0);
++	_set = st.font->elided(
++		_base + u" \u00B7 "_q + TextUtilities::SingleLine(_param),
++		available);
++	if (current != _set) {
++		_button->setText(_set);
++	}
++}
++
++QString ParamWatcher::tooltipText() const {
++	return shown() ? _param : QString();
++}
++
++QPoint ParamWatcher::tooltipPos() const {
++	return QCursor::pos();
++}
++
++bool ParamWatcher::tooltipWindowActive() const {
++	return Ui::AppInFocus() && Ui::InFocusChain(_button->window());
++}
++
++[[nodiscard]] not_null<ParamWatcher*> Watcher(
++		not_null<Ui::FlatButton*> button) {
++	for (const auto child : button->children()) {
++		if (const auto watcher = dynamic_cast<ParamWatcher*>(child)) {
++			return watcher;
++		}
++	}
++	return new ParamWatcher(button);
++}
++
++[[nodiscard]] QString StartToken(PeerData *peer) {
++	const auto user = peer ? peer->asUser() : nullptr;
++	const auto info = user ? user->botInfo.get() : nullptr;
++	return info ? info->startToken : QString();
++}
++
++} // namespace
++
++void RefreshBotStartParam(not_null<Ui::FlatButton*> button, PeerData *peer) {
++	Watcher(button)->apply(StartToken(peer));
++}
++
++void RefreshBotRestartParam(
++		not_null<Ui::FlatButton*> button,
++		PeerData *peer) {
++	const auto user = peer ? peer->asUser() : nullptr;
++	Watcher(button)->apply((user && !user->isSupport())
++		? StartToken(peer)
++		: QString());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_start_param.h b/Telegram/SourceFiles/tele/tele_start_param.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..a76e25cca5385f4ba27dd9f1083c46c001844996
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_start_param.h
+@@ -0,0 +1,14 @@
++#pragma once
++
++class PeerData;
++
++namespace Ui {
++class FlatButton;
++} // namespace Ui
++
++namespace Tele {
++
++void RefreshBotStartParam(not_null<Ui::FlatButton*> button, PeerData *peer);
++void RefreshBotRestartParam(not_null<Ui::FlatButton*> button, PeerData *peer);
++
++} // namespace Tele

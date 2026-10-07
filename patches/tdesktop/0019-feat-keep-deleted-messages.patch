@@ -2507,7 +2507,7 @@ index 0000000000000000000000000000000000000000..b0b0a838ea4bccb09be3b094533eb001
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index d5978504dfb55a38f701ecb39f35bc1aa8b78503..b023ce2d13d1699fa4bb409ae41b3bd47538e98f 100644
+index 9cef8b470636b2b4b3152c28e7c5ac37b04ebb23..2cacce9fd80aa5996866375a8d732e509ef83ccf 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -17,6 +17,8 @@ const char kOptionHideIgnored[] = "tele-hide-ignored";
@@ -2519,7 +2519,7 @@ index d5978504dfb55a38f701ecb39f35bc1aa8b78503..b023ce2d13d1699fa4bb409ae41b3bd4
  const char kOptionServerUrl[] = "tele-server-url";
  const char kOptionTitleTemplate[] = "tele-title";
  
-@@ -122,6 +124,21 @@ base::options::toggle EditHistoryOption({
+@@ -121,6 +123,21 @@ base::options::toggle EditHistoryOption({
  		"to see every version. Kept in memory only.",
  });
  
@@ -2541,7 +2541,7 @@ index d5978504dfb55a38f701ecb39f35bc1aa8b78503..b023ce2d13d1699fa4bb409ae41b3bd4
  base::options::option<QString> ServerUrlOption({
  	.id = kOptionServerUrl,
  	.name = "tele server",
-@@ -249,6 +266,24 @@ rpl::producer<bool> EditHistoryValue() {
+@@ -248,6 +265,24 @@ rpl::producer<bool> EditHistoryValue() {
  	});
  }
  

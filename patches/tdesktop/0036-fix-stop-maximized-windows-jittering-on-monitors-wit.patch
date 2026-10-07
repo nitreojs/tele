@@ -5,32 +5,31 @@ Subject: [PATCH] fix: stop maximized windows jittering on monitors without a
  taskbar
 
 ---
- Telegram/SourceFiles/platform/win/integration_win.cpp | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
+ Telegram/SourceFiles/platform/win/main_window_win.cpp | 7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/Telegram/SourceFiles/platform/win/integration_win.cpp b/Telegram/SourceFiles/platform/win/integration_win.cpp
-index 5e2e57d53bbbb61e903be26c77a57bcea9e00875..665181a967f14f2b36c8ab8b7dc7e22c976539e5 100644
---- a/Telegram/SourceFiles/platform/win/integration_win.cpp
-+++ b/Telegram/SourceFiles/platform/win/integration_win.cpp
-@@ -25,6 +25,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include <QtCore/QAbstractNativeEventFilter>
- #include <private/qguiapplication_p.h>
+diff --git a/Telegram/SourceFiles/platform/win/main_window_win.cpp b/Telegram/SourceFiles/platform/win/main_window_win.cpp
+index baceb0e57d55c434997b77e9c0472c5e86641631..758b1303b8683ef416080a9de19b189d7228bdc8 100644
+--- a/Telegram/SourceFiles/platform/win/main_window_win.cpp
++++ b/Telegram/SourceFiles/platform/win/main_window_win.cpp
+@@ -46,6 +46,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include <Windowsx.h>
+ #include <VersionHelpers.h>
  
 +#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 +#include <QtPlatformHeaders/QWindowsWindowFunctions>
 +#endif // Qt < 6.0.0
 +
- #include <propvarutil.h>
- #include <propkey.h>
- 
-@@ -37,7 +41,9 @@ void WindowsIntegration::init() {
- 	if (native) {
- 		native->setHasBorderInFullScreenDefault(true);
+ // Taken from qtbase/src/gui/image/qpixmap_win.cpp
+ HICON qt_pixmapToWinHICON(const QPixmap &);
+ HBITMAP qt_imageToWinHBITMAP(const QImage &, int hbitmapFormat);
+@@ -666,6 +670,9 @@ void MainWindow::initHook() {
+ 	if (!_hWnd) {
+ 		return;
  	}
--#endif // Qt >= 6.5.0
-+#elif QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-+	QWindowsWindowFunctions::setHasBorderInFullScreenDefault(true);
-+#endif // Qt >= 6.5.0 || Qt < 6.0.0
- 	QCoreApplication::instance()->installNativeEventFilter(this);
- 	_taskbarCreatedMsgId = RegisterWindowMessage(L"TaskbarButtonCreated");
- }
++#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
++	QWindowsWindowFunctions::setHasBorderInFullScreen(windowHandle(), true);
++#endif // Qt < 6.0.0
+ 
+ 	WTSRegisterSessionNotification(_hWnd, NOTIFY_FOR_THIS_SESSION);
+ 

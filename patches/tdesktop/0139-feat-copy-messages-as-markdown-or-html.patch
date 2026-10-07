@@ -1,0 +1,751 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 03:30:51 +0300
+Subject: [PATCH] feat: copy messages as markdown or html
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../history/history_inner_widget.cpp          |   4 +
+ .../view/history_view_context_menu.cpp        |   3 +
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ .../SourceFiles/tele/tele_copy_markdown.cpp   | 521 ++++++++++++++++++
+ .../SourceFiles/tele/tele_copy_markdown.h     |  23 +
+ Telegram/SourceFiles/tele/tele_menu_order.cpp |   8 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  10 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 10 files changed, 575 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_copy_markdown.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_copy_markdown.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index f15c52fddc0a053aa92c29db5feaeb0fcae86d86..27baf08184183dffebeffcdae524faedde8ede93 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2255,6 +2255,8 @@ PRIVATE
+     tele/tele_confirm_send.h
+     tele/tele_communities.cpp
+     tele/tele_communities.h
++    tele/tele_copy_markdown.cpp
++    tele/tele_copy_markdown.h
+     tele/tele_corner_buttons.cpp
+     tele/tele_corner_buttons.h
+     tele/tele_counters.cpp
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index df8b27e21e81424eb910f89bdebc0e2e99cb2fa0..d37ebe05019565d907b8e598e57566da3bf89582 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "dialogs/ui/dialogs_video_userpic.h"
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_button_payload.h"
++#include "tele/tele_copy_markdown.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_ghost.h"
+@@ -3414,6 +3415,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 						: tr::lng_context_copy_selected(tr::now)),
+ 					[=] { copySelectedText(); },
+ 					&st::menuIconCopy);
++				Tele::AddCopyMarkupActions(_menu.get(), selectedText.rich);
+ 			}
+ 			if (item && !Ui::SkipTranslate(selectedText.rich)) {
+ 				const auto peer = item->history()->peer;
+@@ -3576,6 +3578,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 						: tr::lng_context_copy_selected(tr::now)),
+ 					[=] { copySelectedText(); },
+ 					&st::menuIconCopy);
++				Tele::AddCopyMarkupActions(_menu.get(), selectedText.rich);
+ 			}
+ 			if (item && !Ui::SkipTranslate(selectedText.rich)) {
+ 				const auto peer = item->history()->peer;
+@@ -3692,6 +3695,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 							tr::lng_context_copy_text(tr::now),
+ 							[=] { copyContextText(itemId); },
+ 							&st::menuIconCopy);
++						Tele::AddCopyMarkupActions(_menu.get(), item);
+ 					}
+ 					if ((!item->translation() || !_history->translatedTo())
+ 						&& (view->hasVisibleText() || mediaHasTextForCopy)) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index da8ad0246c808b9907a5278db1882ac8687c1eee..184b625f021bdbe3a1a952445d1038aba0a4b57a 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_button_payload.h"
++#include "tele/tele_copy_markdown.h"
+ #include "tele/tele_custom_emoji.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_drafts_section.h"
+@@ -1839,6 +1840,7 @@ void FillContextMenuItems(
+ 		result->addAction(text, [=] {
+ 			list->copySelectedText();
+ 		}, &st::menuIconCopy);
++		Tele::AddCopyMarkupActions(result, list->getSelectedText().rich);
+ 	}
+ 	if (request.overSelection
+ 		&& view
+@@ -1930,6 +1932,7 @@ void FillContextMenuItems(
+ 						}
+ 					}
+ 				}, &st::menuIconCopy);
++				Tele::AddCopyMarkupActions(result, item, asGroup);
+ 			}
+ 
+ 			const auto translate = mediaHasTextForCopy
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index a0159082efbda3582ad0d4f6da0703f11986d832..d61a0da1741379e2526abe81c1b2520ea86a3a55 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2084,6 +2084,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyEmojiId);
++	AddOptionToggle(builder, ::Tele::kOptionCopyMarkdown);
+ 	AddOptionToggle(builder, ::Tele::kOptionShot);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_copy_markdown.cpp b/Telegram/SourceFiles/tele/tele_copy_markdown.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..21c3a2ddfb14d82a1d9dd62122c5cb6405d1f9bf
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_copy_markdown.cpp
+@@ -0,0 +1,521 @@
++#include "tele/tele_copy_markdown.h"
++
++#include "data/data_groups.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_text.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/widgets/popup_menu.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtGui/QClipboard>
++#include <QtGui/QGuiApplication>
++
++namespace Tele {
++namespace {
++
++enum class Format {
++	Markdown,
++	Html,
++};
++
++enum class Kind {
++	Quote,
++	Pre,
++	Inline,
++	Code,
++};
++
++struct Span {
++	EntityType type = EntityType::Invalid;
++	Kind kind = Kind::Inline;
++	int from = 0;
++	int till = 0;
++	QString data;
++	QString open;
++	QString close;
++};
++
++class Writer final {
++public:
++	explicit Writer(Format format) : _format(format) {
++	}
++
++	void text(QChar ch) {
++		if (_format == Format::Html) {
++			_result += Escape(QStringView(&ch, 1), false);
++			return;
++		}
++		flushBreak(ch);
++		put(ch);
++	}
++	void markup(const QString &value) {
++		if (value.isEmpty()) {
++			return;
++		} else if (_format == Format::Html) {
++			_result += value;
++			return;
++		}
++		flushBreak(value[0]);
++		for (const auto ch : value) {
++			put(ch);
++		}
++	}
++	void ensureLine() {
++		_breakPending = false;
++		if (!_result.isEmpty() && !_lineStart) {
++			put('\n');
++		}
++	}
++	void requestBreak() {
++		_breakPending = true;
++	}
++	void enterQuote() {
++		++_quote;
++	}
++	void leaveQuote() {
++		--_quote;
++	}
++
++	[[nodiscard]] static QString Escape(QStringView text, bool attribute) {
++		auto result = QString();
++		result.reserve(text.size());
++		for (const auto ch : text) {
++			if (ch == '&') {
++				result += u"&amp;"_q;
++			} else if (ch == '<') {
++				result += u"&lt;"_q;
++			} else if (ch == '>') {
++				result += u"&gt;"_q;
++			} else if (attribute && ch == '"') {
++				result += u"&quot;"_q;
++			} else {
++				result += ch;
++			}
++		}
++		return result;
++	}
++
++	[[nodiscard]] QString result() && {
++		return std::move(_result);
++	}
++
++private:
++	void flushBreak(QChar next) {
++		if (!_breakPending) {
++			return;
++		}
++		_breakPending = false;
++		if (next != '\n' && !_lineStart) {
++			put('\n');
++		}
++	}
++	void put(QChar ch) {
++		if (_lineStart && _quote > 0) {
++			_result += (ch == '\n') ? u">"_q : u"> "_q;
++		}
++		_result += ch;
++		_lineStart = (ch == '\n');
++	}
++
++	const Format _format;
++	QString _result;
++	int _quote = 0;
++	bool _lineStart = true;
++	bool _breakPending = false;
++
++};
++
++[[nodiscard]] Kind KindOf(EntityType type) {
++	switch (type) {
++	case EntityType::Blockquote: return Kind::Quote;
++	case EntityType::Pre: return Kind::Pre;
++	case EntityType::Code: return Kind::Code;
++	default: break;
++	}
++	return Kind::Inline;
++}
++
++[[nodiscard]] bool Block(Kind kind) {
++	return (kind == Kind::Quote) || (kind == Kind::Pre);
++}
++
++[[nodiscard]] QString MentionUrl(const QString &data) {
++	const auto fields = TextUtilities::MentionNameDataToFields(data);
++	return fields.userId
++		? (u"tg://user?id="_q + QString::number(fields.userId))
++		: QString();
++}
++
++[[nodiscard]] std::vector<Span> CollectSpans(const TextWithEntities &text) {
++	const auto size = int(text.text.size());
++	auto result = std::vector<Span>();
++	for (const auto &entity : text.entities) {
++		const auto type = entity.type();
++		auto data = entity.data();
++		switch (type) {
++		case EntityType::Bold:
++		case EntityType::Italic:
++		case EntityType::Underline:
++		case EntityType::StrikeOut:
++		case EntityType::Spoiler:
++		case EntityType::Code:
++		case EntityType::Pre:
++		case EntityType::Blockquote:
++			break;
++		case EntityType::CustomUrl:
++			if (data.isEmpty()) {
++				continue;
++			}
++			break;
++		case EntityType::MentionName:
++			data = MentionUrl(data);
++			if (data.isEmpty()) {
++				continue;
++			}
++			break;
++		default:
++			continue;
++		}
++		const auto from = std::clamp(entity.offset(), 0, size);
++		const auto till = std::clamp(entity.offset() + entity.length(), 0, size);
++		if (till > from) {
++			result.push_back({
++				.type = type,
++				.kind = KindOf(type),
++				.from = from,
++				.till = till,
++				.data = std::move(data),
++			});
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<Span> SplitSpans(
++		std::vector<Span> spans,
++		QStringView text,
++		Format format) {
++	auto cuts = std::vector<int>();
++	for (const auto &span : spans) {
++		if (span.kind != Kind::Inline) {
++			cuts.push_back(span.from);
++			cuts.push_back(span.till);
++		}
++	}
++	if (format == Format::Markdown) {
++		for (auto i = 0; i != int(text.size()); ++i) {
++			if (text[i] == '\n') {
++				cuts.push_back(i);
++				cuts.push_back(i + 1);
++			}
++		}
++	}
++	ranges::sort(cuts);
++	cuts.erase(ranges::unique(cuts), end(cuts));
++
++	auto result = std::vector<Span>();
++	const auto push = [&](const Span &span, int from, int till) {
++		if (format == Format::Markdown) {
++			if (till - from == 1 && text[from] == '\n') {
++				return;
++			} else if (span.kind == Kind::Inline) {
++				while (from < till && text[from].isSpace()) {
++					++from;
++				}
++				while (till > from && text[till - 1].isSpace()) {
++					--till;
++				}
++			}
++		}
++		if (till > from) {
++			auto piece = span;
++			piece.from = from;
++			piece.till = till;
++			result.push_back(std::move(piece));
++		}
++	};
++	for (const auto &span : spans) {
++		if (Block(span.kind)) {
++			result.push_back(span);
++			continue;
++		}
++		auto from = span.from;
++		for (const auto cut : cuts) {
++			if (cut > from && cut < span.till) {
++				push(span, from, cut);
++				from = cut;
++			}
++		}
++		push(span, from, span.till);
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<Span> DropInsideCode(std::vector<Span> spans) {
++	auto result = std::vector<Span>();
++	result.reserve(spans.size());
++	for (auto i = 0; i != int(spans.size()); ++i) {
++		const auto &span = spans[i];
++		if (span.kind == Kind::Quote) {
++			result.push_back(span);
++			continue;
++		}
++		auto inside = false;
++		for (auto j = 0; j != int(spans.size()); ++j) {
++			const auto &code = spans[j];
++			if (j == i
++				|| (code.kind != Kind::Code && code.kind != Kind::Pre)
++				|| code.from > span.from
++				|| code.till < span.till) {
++				continue;
++			}
++			const auto same = (code.from == span.from)
++				&& (code.till == span.till);
++			if (same
++				&& ((span.kind == Kind::Inline && code.kind == Kind::Code)
++					|| (span.kind != Kind::Inline && j > i))) {
++				continue;
++			}
++			inside = true;
++			break;
++		}
++		if (!inside) {
++			result.push_back(span);
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] int LongestRun(QStringView text, QChar ch) {
++	auto result = 0;
++	auto current = 0;
++	for (const auto c : text) {
++		current = (c == ch) ? (current + 1) : 0;
++		result = std::max(result, current);
++	}
++	return result;
++}
++
++[[nodiscard]] QString MarkdownUrl(QString url) {
++	return url
++		.replace(' ', u"%20"_q)
++		.replace('(', u"%28"_q)
++		.replace(')', u"%29"_q);
++}
++
++void Decorate(Span &span, QStringView text, Format format) {
++	const auto markdown = (format == Format::Markdown);
++	const auto both = [&](const QString &value) {
++		span.open = span.close = value;
++	};
++	const auto tag = [&](const QString &name) {
++		span.open = QChar('<') + name + QChar('>');
++		span.close = u"</"_q + name + QChar('>');
++	};
++	const auto simple = [&](const QString &value, const QString &name) {
++		if (markdown) {
++			both(value);
++		} else {
++			tag(name);
++		}
++	};
++	switch (span.type) {
++	case EntityType::Bold: simple(u"**"_q, u"b"_q); break;
++	case EntityType::Italic: simple(u"_"_q, u"i"_q); break;
++	case EntityType::Underline: simple(u"__"_q, u"u"_q); break;
++	case EntityType::StrikeOut: simple(u"~~"_q, u"s"_q); break;
++	case EntityType::Spoiler:
++		if (markdown) {
++			both(u"||"_q);
++		} else {
++			span.open = u"<span class=\"tg-spoiler\">"_q;
++			span.close = u"</span>"_q;
++		}
++		break;
++	case EntityType::CustomUrl:
++	case EntityType::MentionName:
++		if (markdown) {
++			span.open = u"["_q;
++			span.close = u"]("_q + MarkdownUrl(span.data) + QChar(')');
++		} else {
++			span.open = u"<a href=\""_q
++				+ Writer::Escape(span.data, true)
++				+ u"\">"_q;
++			span.close = u"</a>"_q;
++		}
++		break;
++	case EntityType::Code:
++		if (markdown) {
++			const auto content = text.mid(span.from, span.till - span.from);
++			const auto fence = QString(
++				LongestRun(content, '`') + 1,
++				QChar('`'));
++			const auto pad = (content.startsWith('`')
++				|| content.endsWith('`'))
++				? u" "_q
++				: QString();
++			span.open = fence + pad;
++			span.close = pad + fence;
++		} else {
++			tag(u"code"_q);
++		}
++		break;
++	case EntityType::Pre: {
++		const auto language = span.data.trimmed();
++		if (markdown) {
++			const auto content = text.mid(span.from, span.till - span.from);
++			const auto fence = QString(
++				std::max(3, LongestRun(content, '`') + 1),
++				QChar('`'));
++			span.open = fence + language + QChar('\n');
++			span.close = fence;
++		} else if (language.isEmpty()) {
++			tag(u"pre"_q);
++		} else {
++			span.open = u"<pre><code class=\"language-"_q
++				+ Writer::Escape(language, true)
++				+ u"\">"_q;
++			span.close = u"</code></pre>"_q;
++		}
++	} break;
++	case EntityType::Blockquote:
++		if (!markdown) {
++			span.open = span.data.isEmpty()
++				? u"<blockquote>"_q
++				: u"<blockquote expandable>"_q;
++			span.close = u"</blockquote>"_q;
++		}
++		break;
++	default: break;
++	}
++}
++
++void Open(Writer &writer, const Span &span, Format format) {
++	if (format == Format::Markdown) {
++		if (span.kind == Kind::Quote) {
++			writer.ensureLine();
++			writer.enterQuote();
++			return;
++		} else if (span.kind == Kind::Pre) {
++			writer.ensureLine();
++		}
++	}
++	writer.markup(span.open);
++}
++
++void Close(Writer &writer, const Span &span, Format format) {
++	if (format == Format::Markdown) {
++		if (span.kind == Kind::Quote) {
++			writer.leaveQuote();
++			writer.requestBreak();
++			return;
++		} else if (span.kind == Kind::Pre) {
++			writer.ensureLine();
++			writer.markup(span.close);
++			writer.requestBreak();
++			return;
++		}
++	}
++	writer.markup(span.close);
++}
++
++[[nodiscard]] QString Convert(const TextWithEntities &text, Format format) {
++	const auto view = QStringView(text.text);
++	auto spans = DropInsideCode(
++		SplitSpans(CollectSpans(text), view, format));
++	ranges::stable_sort(spans, [](const Span &a, const Span &b) {
++		if (a.from != b.from) {
++			return a.from < b.from;
++		} else if (a.till != b.till) {
++			return a.till > b.till;
++		}
++		return int(a.kind) < int(b.kind);
++	});
++	for (auto &span : spans) {
++		Decorate(span, view, format);
++	}
++
++	auto writer = Writer(format);
++	auto stack = std::vector<int>();
++	auto next = 0;
++	const auto count = int(spans.size());
++	const auto size = int(view.size());
++	for (auto position = 0; position <= size; ++position) {
++		const auto ending = ranges::find_if(stack, [&](int index) {
++			return spans[index].till == position;
++		});
++		if (ending != end(stack)) {
++			const auto lowest = int(ending - begin(stack));
++			auto reopen = std::vector<int>();
++			while (int(stack.size()) > lowest) {
++				const auto index = stack.back();
++				stack.pop_back();
++				Close(writer, spans[index], format);
++				if (spans[index].till != position) {
++					reopen.push_back(index);
++				}
++			}
++			for (auto i = rbegin(reopen); i != rend(reopen); ++i) {
++				Open(writer, spans[*i], format);
++				stack.push_back(*i);
++			}
++		}
++		while (next != count && spans[next].from == position) {
++			Open(writer, spans[next], format);
++			stack.push_back(next++);
++		}
++		if (position < size) {
++			writer.text(view[position]);
++		}
++	}
++	return std::move(writer).result();
++}
++
++[[nodiscard]] TextWithEntities ItemText(
++		not_null<HistoryItem*> item,
++		bool asGroup) {
++	if (asGroup) {
++		if (const auto group = item->history()->owner().groups().find(item)) {
++			return HistoryGroupText(group).rich;
++		}
++	}
++	return HistoryItemText(item).rich;
++}
++
++} // namespace
++
++QString TextToMarkdown(const TextWithEntities &text) {
++	return Convert(text, Format::Markdown);
++}
++
++QString TextToHtml(const TextWithEntities &text) {
++	return Convert(text, Format::Html);
++}
++
++void AddCopyMarkupActions(
++		not_null<Ui::PopupMenu*> menu,
++		const TextWithEntities &text) {
++	if (!CopyMarkdown() || text.text.isEmpty()) {
++		return;
++	}
++	menu->addAction(Lower(u"Copy as Markdown"_q), [=] {
++		QGuiApplication::clipboard()->setText(TextToMarkdown(text));
++	}, &st::menuIconCopy);
++	menu->addAction(Lower(u"Copy as HTML"_q), [=] {
++		QGuiApplication::clipboard()->setText(TextToHtml(text));
++	}, &st::menuIconCopy);
++}
++
++void AddCopyMarkupActions(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<HistoryItem*> item,
++		bool asGroup) {
++	if (CopyMarkdown()) {
++		AddCopyMarkupActions(menu, ItemText(item, asGroup));
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_copy_markdown.h b/Telegram/SourceFiles/tele/tele_copy_markdown.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..af872d35b2487c1d62416b151d44b7d786302fb3
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_copy_markdown.h
+@@ -0,0 +1,23 @@
++#pragma once
++
++class HistoryItem;
++struct TextWithEntities;
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] QString TextToMarkdown(const TextWithEntities &text);
++[[nodiscard]] QString TextToHtml(const TextWithEntities &text);
++
++void AddCopyMarkupActions(
++	not_null<Ui::PopupMenu*> menu,
++	const TextWithEntities &text);
++void AddCopyMarkupActions(
++	not_null<Ui::PopupMenu*> menu,
++	not_null<HistoryItem*> item,
++	bool asGroup = true);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_menu_order.cpp b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+index 598214820dd1bdf3d2f09192bacdc7cfe4457298..466b7531ca6d24dd0cc20f516d33f13ad4ce9888 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_order.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+@@ -224,6 +224,14 @@ struct Found {
+ 			{ [](int) { return tr::lng_context_copy_text(tr::now); },
+ 				&st::menuIconCopy },
+ 		} },
++		{ u"copy_markdown"_q, {
++			{ [](int) { return Lower(u"Copy as Markdown"_q); },
++				&st::menuIconCopy },
++		} },
++		{ u"copy_html"_q, {
++			{ [](int) { return Lower(u"Copy as HTML"_q); },
++				&st::menuIconCopy },
++		} },
+ 		{ u"translate"_q, {
+ 			{ [](int) { return tr::lng_context_translate(tr::now); },
+ 				&st::menuIconTranslate },
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index ea2401d9c002803a5dd18328a947e169129f6d1e..3b203a48ffdc8bd4bdfcc4fe7e016c6fad37872c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -76,6 +76,7 @@ const char kOptionParallelUploads[] = "tele-parallel-uploads";
+ const char kOptionCalcmula[] = "tele-calcmula";
+ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
+ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
++const char kOptionCopyMarkdown[] = "tele-copy-markdown";
+ const char kOptionShot[] = "tele-shot";
+ const char kOptionShotView[] = "tele-shot-view";
+ const char kOptionServerUrl[] = "tele-server-url";
+@@ -561,6 +562,11 @@ base::options::toggle CopyEmojiIdOption({
+ 	.description = "Right-click a custom emoji in a message to copy its ID.",
+ });
+ 
++base::options::toggle CopyMarkdownOption({
++	.id = kOptionCopyMarkdown,
++	.name = "Copy as Markdown and HTML",
++});
++
+ base::options::toggle ShotOption({
+ 	.id = kOptionShot,
+ 	.name = "Shot in the message menu",
+@@ -1375,6 +1381,10 @@ bool CopyEmojiId() {
+ 	return CopyEmojiIdOption.value();
+ }
+ 
++bool CopyMarkdown() {
++	return CopyMarkdownOption.value();
++}
++
+ bool ShotInMenu() {
+ 	return ShotOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 04da5826f9cc3655ca9b6c342ac17b9c830f9163..cc958dcbce3f479886b145f6b0f3039cdf5033d3 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -72,6 +72,7 @@ extern const char kOptionParallelUploads[];
+ extern const char kOptionCalcmula[];
+ extern const char kOptionCalcmulaPreview[];
+ extern const char kOptionCopyEmojiId[];
++extern const char kOptionCopyMarkdown[];
+ extern const char kOptionShot[];
+ extern const char kOptionShotView[];
+ extern const char kOptionServerUrl[];
+@@ -224,6 +225,7 @@ void SetDeletedReply(const QString &value);
+ [[nodiscard]] bool Calcmula();
+ [[nodiscard]] bool CalcmulaPreview();
+ [[nodiscard]] bool CopyEmojiId();
++[[nodiscard]] bool CopyMarkdown();
+ [[nodiscard]] bool ShotInMenu();
+ [[nodiscard]] QString ShotView();
+ void SetShotView(const QString &value);
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 4398743a808151232294bcf0c4073a413a59b244..78f03aecc242e49e70a5e9a682c9e0bd1d2aeafe 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -157,6 +157,7 @@ struct Spec {
+ 		Toggle(kOptionCalcmula),
+ 		Toggle(kOptionCalcmulaPreview),
+ 		Toggle(kOptionCopyEmojiId),
++		Toggle(kOptionCopyMarkdown),
+ 		Toggle(kOptionShot),
+ 		Toggle(kOptionServerUsernames),
+ 		Toggle(kOptionSentToBottom),

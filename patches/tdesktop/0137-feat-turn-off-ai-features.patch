@@ -1,0 +1,371 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 03:23:12 +0300
+Subject: [PATCH] feat: turn off ai features
+
+---
+ Telegram/CMakeLists.txt                       |  2 ++
+ .../SourceFiles/api/api_compose_with_ai.cpp   |  4 ++++
+ Telegram/SourceFiles/api/api_transcribes.cpp  |  5 +++--
+ .../SourceFiles/core/local_url_handlers.cpp   |  3 +++
+ .../data/data_ai_compose_tones.cpp            |  5 ++++-
+ .../history/view/history_view_message.cpp     |  2 ++
+ .../view/history_view_translate_bar.cpp       |  6 ++++++
+ .../SourceFiles/iv/editor/iv_editor_box.cpp   |  5 ++++-
+ Telegram/SourceFiles/main/main_session.cpp    |  2 ++
+ .../SourceFiles/settings/settings_tele.cpp    |  4 ++++
+ Telegram/SourceFiles/tele/tele_no_ai.cpp      | 19 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_no_ai.h        | 11 +++++++++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 14 ++++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  3 +++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ .../ui/controls/compose_ai_button_factory.cpp |  2 ++
+ 16 files changed, 84 insertions(+), 4 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_no_ai.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_no_ai.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index c595f4cea2f3b1fb94e5753002908edeed8e35ae..ee480103eff52f3566ccd11a4f0b3810fc2cc206 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2327,6 +2327,8 @@ PRIVATE
+     tele/tele_mtp_log.h
+     tele/tele_new_settings.cpp
+     tele/tele_new_settings.h
++    tele/tele_no_ai.cpp
++    tele/tele_no_ai.h
+     tele/tele_jump_to_first.cpp
+     tele/tele_jump_to_first.h
+     tele/tele_link_previews.cpp
+diff --git a/Telegram/SourceFiles/api/api_compose_with_ai.cpp b/Telegram/SourceFiles/api/api_compose_with_ai.cpp
+index 0366a1c3ab37403c1511455a491ea42c294ec887..21cd05874975c90da95cda92a7c49a0486f10493 100644
+--- a/Telegram/SourceFiles/api/api_compose_with_ai.cpp
++++ b/Telegram/SourceFiles/api/api_compose_with_ai.cpp
+@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "ui/layers/show.h"
+ #include "ui/widgets/fields/input_field.h"
++#include "tele/tele_options.h"
+ 
+ namespace Api {
+ namespace {
+@@ -211,6 +212,9 @@ void TriggerAiApplyInPlace(
+ 		not_null<Ui::InputField*> field,
+ 		TextWithEntities fullFieldText,
+ 		Fn<void(TextWithTags textWithTags, int cursor)> applyToField) {
++	if (Tele::NoAi()) {
++		return;
++	}
+ 	const auto slug = AiApplyBoundSlug();
+ 	if (slug.isEmpty()) {
+ 		show->showToast(tr::lng_ai_compose_apply_unbound(tr::now));
+diff --git a/Telegram/SourceFiles/api/api_transcribes.cpp b/Telegram/SourceFiles/api/api_transcribes.cpp
+index 7c6b271ca594a45769f93730da905e2cfafebab6..b6b81f2a4c5a0659dc59aa0b3b7fb23d4583d5c8 100644
+--- a/Telegram/SourceFiles/api/api_transcribes.cpp
++++ b/Telegram/SourceFiles/api/api_transcribes.cpp
+@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "main/main_session_settings.h"
+ #include "spellcheck/spellcheck_types.h"
++#include "tele/tele_options.h"
+ 
+ namespace Api {
+ 
+@@ -237,7 +238,7 @@ void Transcribes::load(not_null<HistoryItem*> item) {
+ }
+ 
+ void Transcribes::summarize(not_null<HistoryItem*> item) {
+-	if (!item->isHistoryEntry() || item->isLocal()) {
++	if (!item->isHistoryEntry() || item->isLocal() || Tele::NoAi()) {
+ 		return;
+ 	}
+ 
+@@ -292,7 +293,7 @@ void Transcribes::summarize(not_null<HistoryItem*> item) {
+ 
+ void Transcribes::checkSummaryToTranslate(FullMsgId id) {
+ 	const auto i = _summaries.find(id);
+-	if (i == _summaries.end() || i->second.result.empty()) {
++	if (i == _summaries.end() || i->second.result.empty() || Tele::NoAi()) {
+ 		return;
+ 	}
+ 	const auto item = _session->data().message(id);
+diff --git a/Telegram/SourceFiles/core/local_url_handlers.cpp b/Telegram/SourceFiles/core/local_url_handlers.cpp
+index 2499a18779ddfd22ca2a46ecbfbbf204432848e8..d211fcdeb3c063c743839446b0b3a6d1ec93a021 100644
+--- a/Telegram/SourceFiles/core/local_url_handlers.cpp
++++ b/Telegram/SourceFiles/core/local_url_handlers.cpp
+@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history_item.h"
+ #include "iv/iv_instance.h"
+ #include "apiwrap.h"
++#include "tele/tele_options.h"
+ 
+ #include "styles/style_chat_helpers.h"
+ 
+@@ -305,6 +306,8 @@ bool ShowAiStyle(
+ 		const QVariant &context) {
+ 	if (!controller) {
+ 		return false;
++	} else if (Tele::NoAi()) {
++		return true;
+ 	}
+ 	const auto slug = match->captured(1);
+ 	Core::App().hideMediaView();
+diff --git a/Telegram/SourceFiles/data/data_ai_compose_tones.cpp b/Telegram/SourceFiles/data/data_ai_compose_tones.cpp
+index 678672e7a20e29121b886915615dbb5176f2f260..7dcfef4308b13cd1fb030a9a9fb07019a887b0a7 100644
+--- a/Telegram/SourceFiles/data/data_ai_compose_tones.cpp
++++ b/Telegram/SourceFiles/data/data_ai_compose_tones.cpp
+@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "api/api_text_entities.h"
+ #include "data/data_session.h"
+ #include "main/main_session.h"
++#include "tele/tele_options.h"
+ 
+ namespace Data {
+ namespace {
+@@ -31,7 +32,9 @@ void AiComposeTones::refresh() {
+ }
+ 
+ void AiComposeTones::refreshWithHash(uint64 hash) {
+-	if (_refreshRequestId) {
++	if (Tele::NoAi()) {
++		return;
++	} else if (_refreshRequestId) {
+ 		if (hash == 0) {
+ 			_pendingRefresh = PendingRefresh::Full;
+ 		} else if (_pendingRefresh == PendingRefresh::None) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index a0d2530057bfb315984851e100992eb91f10450a..9b74cc9ca4b4b99eeb0e698ee5671a6ef506ce19 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_options.h"
+ #include "tele/tele_protected.h"
+ #include "tele/tele_shot.h"
+ #include "tele/tele_shot_sharp.h"
+@@ -7281,6 +7282,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
+ 
+ void Message::ensureSummarizeButton() const {
+ 	if (data()->canBeSummarized()
++		&& !Tele::NoAi()
+ 		/*&& item->originalText().text.size() >= kSummarizeThreshold*/) {
+ 		if (!_summarize) {
+ 			_summarize
+diff --git a/Telegram/SourceFiles/history/view/history_view_translate_bar.cpp b/Telegram/SourceFiles/history/view/history_view_translate_bar.cpp
+index 64f39771725c1a6c2ad464a13bed5bff773eb987..7f9715a3ab8b2021437e206c3d6bede2366bed46 100644
+--- a/Telegram/SourceFiles/history/view/history_view_translate_bar.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_translate_bar.cpp
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/widgets/popup_menu.h"
+ #include "ui/painter.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_options.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -484,6 +485,11 @@ void TranslateBar::showMenu(base::unique_qptr<Ui::PopupMenu> menu) {
+ 		tr::lng_translate_menu_hide(tr::now),
+ 		hideBar,
+ 		&st::menuIconCancel);
++	if (Tele::NoAi()) {
++		_menu->popup(_wrap.mapToGlobal(
++			QPoint(_wrap.width(), 0) + st::historyTranslateMenuPosition));
++		return;
++	}
+ 	_menu->addSeparator();
+ 
+ 	const auto cocoon = ChatHelpers::GenerateLocalTgsSticker(
+diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
+index 74e421561d9b2da49bc6c1f74419f5bd1937922a..7d029a6e363a4fb772025cf90a058519279a4928 100644
+--- a/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
++++ b/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
+@@ -73,6 +73,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include <memory>
+ #include <vector>
+ 
++#include "tele/tele_options.h"
++
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_basic.h"
+ #include "styles/style_iv.h"
+@@ -1806,7 +1808,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
+ 			}
+ 		});
+ 	}
+-	if (!base::options::value<bool>(Ui::kOptionHideAiButton)) {
++	if (!base::options::value<bool>(Ui::kOptionHideAiButton)
++		&& !Tele::NoAi()) {
+ 		const auto session = descriptor.session;
+ 		_aiPill = object_ptr<ToolbarPill>(
+ 			_bottom.data(),
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index f4cfa7bd2ab8ea34f665ad35a6326b2fbb5d0426..f80befccacc6d0e540e8343992000824a9ebc8d2 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -63,6 +63,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_local_pins.h"
++#include "tele/tele_no_ai.h"
+ #include "tele/tele_protected.h"
+ #include "tele/tele_punctual_scheduled.h"
+ #include "styles/style_layers.h"
+@@ -283,6 +284,7 @@ Session::Session(
+ 	Tele::SetupCommunities(this);
+ 	Tele::SetupLocalPins(this);
+ 	Tele::SetupBookmarks(this);
++	Tele::SetupNoAi(this);
+ }
+ 
+ void Session::appConfigRefreshed() {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index e26404684ff2a11c46a6311bb61c9b08f27d910d..e56dbbde9c0039604900275f66575bcbc5d25c5b 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1909,6 +1909,10 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionHideReactionsButton,
+ 		{ u"unread"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionNoAi,
++		{ u"cocoon"_q, u"summary"_q, u"compose"_q, u"style"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionEmojiPanelClick,
+diff --git a/Telegram/SourceFiles/tele/tele_no_ai.cpp b/Telegram/SourceFiles/tele/tele_no_ai.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..99586034e26c8819db11452fbc3073b59de858c8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_no_ai.cpp
+@@ -0,0 +1,19 @@
++#include "tele/tele_no_ai.h"
++
++#include "data/data_ai_compose_tones.h"
++#include "data/data_session.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++
++void SetupNoAi(not_null<Main::Session*> session) {
++	NoAiChanges(
++	) | rpl::filter([] {
++		return !NoAi();
++	}) | rpl::on_next([=] {
++		session->data().aiComposeTones().refresh();
++	}, session->lifetime());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_no_ai.h b/Telegram/SourceFiles/tele/tele_no_ai.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..a23b63dbb2245f0c65006cfdda7c494fc8340158
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_no_ai.h
+@@ -0,0 +1,11 @@
++#pragma once
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++void SetupNoAi(not_null<Main::Session*> session);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 513ab7be6691df929ec62d323bd0227a10a408aa..ea2401d9c002803a5dd18328a947e169129f6d1e 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -47,6 +47,7 @@ const char kOptionChatListNoReorderAnimation[] = "tele-chat-list-no-reorder-anim
+ const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
+ const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
+ const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
++const char kOptionNoAi[] = "tele-no-ai";
+ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
+ const char kOptionAttachMenuClick[] = "tele-attach-menu-click";
+ const char kOptionPinSets[] = "tele-pin-sets";
+@@ -388,6 +389,11 @@ base::options::toggle HideReactionsButtonOption({
+ 	.name = "Hide unread reaction markers",
+ });
+ 
++base::options::toggle NoAiOption({
++	.id = kOptionNoAi,
++	.name = "Turn off AI features",
++});
++
+ base::options::toggle EmojiPanelClickOption({
+ 	.id = kOptionEmojiPanelClick,
+ 	.name = "Open the emoji panel by click only",
+@@ -1155,6 +1161,14 @@ rpl::producer<> HideReactionsButtonChanges() {
+ 	return HideReactionsButtonOption.changes();
+ }
+ 
++bool NoAi() {
++	return NoAiOption.value();
++}
++
++rpl::producer<> NoAiChanges() {
++	return NoAiOption.changes();
++}
++
+ bool EmojiPanelClick() {
+ 	return EmojiPanelClickOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 898c726f55e6dea206eb83de5634b0cdb8c6baa2..04da5826f9cc3655ca9b6c342ac17b9c830f9163 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -43,6 +43,7 @@ extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionHideMentionsButton[];
+ extern const char kOptionHideReactionsButton[];
++extern const char kOptionNoAi[];
+ extern const char kOptionEmojiPanelClick[];
+ extern const char kOptionAttachMenuClick[];
+ extern const char kOptionPinSets[];
+@@ -182,6 +183,8 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] rpl::producer<> HideMentionsButtonChanges();
+ [[nodiscard]] bool HideReactionsButton();
+ [[nodiscard]] rpl::producer<> HideReactionsButtonChanges();
++[[nodiscard]] bool NoAi();
++[[nodiscard]] rpl::producer<> NoAiChanges();
+ [[nodiscard]] bool EmojiPanelClick();
+ [[nodiscard]] bool AttachMenuClick();
+ [[nodiscard]] bool PinSets();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 0f784edf58f66c0230ae55d58f0852b0071be69b..d68edda071151310d7dfa805acd9ef3404573ce5 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -124,6 +124,7 @@ struct Spec {
+ 		Toggle(kOptionStaticUserpicsChats),
+ 		Toggle(kOptionHideMentionsButton),
+ 		Toggle(kOptionHideReactionsButton),
++		Toggle(kOptionNoAi),
+ 		Toggle(kOptionEmojiPanelClick),
+ 		Toggle(kOptionAttachMenuClick),
+ 		Toggle(kOptionPinSets),
+diff --git a/Telegram/SourceFiles/ui/controls/compose_ai_button_factory.cpp b/Telegram/SourceFiles/ui/controls/compose_ai_button_factory.cpp
+index a4051002f00a338ef087889699dcedf56e352a25..9a7b2ab5c9f655089f6da96126ee8d30767e2468 100644
+--- a/Telegram/SourceFiles/ui/controls/compose_ai_button_factory.cpp
++++ b/Telegram/SourceFiles/ui/controls/compose_ai_button_factory.cpp
+@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/text/text.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/widgets/fields/input_field.h"
++#include "tele/tele_options.h"
+ 
+ #include "styles/style_chat_helpers.h"
+ 
+@@ -37,6 +38,7 @@ bool HasEnoughLinesForAi(
+ 		not_null<Main::Session*> session,
+ 		not_null<Ui::InputField*> field) {
+ 	if (HideAiButtonOption.value()
++		|| Tele::NoAi()
+ 		|| session->data().aiComposeTones().list().empty()) {
+ 		return false;
+ 	}

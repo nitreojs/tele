@@ -1,0 +1,212 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 29 Sep 2026 17:06:06 +0300
+Subject: [PATCH] feat: hide similar channels
+
+---
+ Telegram/SourceFiles/apiwrap.cpp              |  4 ++-
+ .../history/view/history_view_element.cpp     |  4 ++-
+ .../profile/info_profile_inner_widget.cpp     |  5 +++-
+ .../info_profile_shared_media_classic.cpp     |  5 +++-
+ .../SourceFiles/settings/settings_tele.cpp    | 14 ++++++++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 26 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  5 ++++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  3 +++
+ 8 files changed, 62 insertions(+), 4 deletions(-)
+
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index 6a05eeac1004bc7d32145fdb16aff57ae7daa562..0814ca36b364925d2e0c63efc1fe31795662f674 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -1965,7 +1965,9 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
+ 		_channelAmInRequests.emplace(channel, requestId);
+ 
+ 		using Flag = ChannelDataFlag;
+-		chatParticipants().loadSimilarPeers(channel);
++		if (!Tele::HideSimilarAfterJoin()) {
++			chatParticipants().loadSimilarPeers(channel);
++		}
+ 		channel->setFlags(channel->flags() | Flag::SimilarExpanded);
+ 	}
+ }
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index c9c85e24cc745ca0075973f58b38f566a8eb7e89..31f91283ead1ba00b74030d555becd0f571204a4 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_options.h"
+ #include "tele/tele_shot.h"
+ #include "tele/tele_shot_sharp.h"
+ #include "tele/tele_time.h"
+@@ -1656,7 +1657,8 @@ void Element::refreshMedia(Element *replacing) {
+ 				&& Tele::ShotHides(this, Tele::ShotPart::Previews))
+ 			? nullptr
+ 			: media->createView(this, replacing);
+-	} else if (item->showSimilarChannels()) {
++	} else if (item->showSimilarChannels()
++		&& !Tele::HideSimilarAfterJoin()) {
+ 		_media = std::make_unique<SimilarChannels>(this);
+ 	} else if (isOnlyCustomEmoji()
+ 		&& Core::App().settings().largeEmoji()
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
+index 1bee3924f8f5ad2a687f054eba5cfe9830d13bfa..67615acb292641293d1ea9bd7afeac78824cec3a 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
+@@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/painter.h"
+ #include "ui/vertical_list.h"
+ #include "ui/ui_utility.h"
++#include "tele/tele_options.h"
+ #include "styles/style_info.h"
+ 
+ namespace Info {
+@@ -344,7 +345,9 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
+ 			if (const auto user = _peer->asUser()) {
+ 				tabs.push_back(MakeCommonGroupsTabDescriptor(user));
+ 			}
+-			if (_peer->asBot() || _peer->asBroadcast()) {
++			if (_peer->asBot()
++				|| (_peer->asBroadcast()
++					&& !Tele::HideSimilarInProfiles())) {
+ 				tabs.push_back(MakeSimilarPeersTabDescriptor(_peer));
+ 			}
+ 		}
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp b/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp
+index 003d9459b7be1515fed2f8c9e3567d3d4710746c..08b9fc318335a0f05c8e277efe750dd3ae1c0f63 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp
+@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/wrap/slide_wrap.h"
+ #include "ui/wrap/vertical_layout.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_options.h"
+ #include "styles/style_info.h"
+ 
+ namespace Info::Profile {
+@@ -357,7 +358,9 @@ object_ptr<Ui::SlideWrap<Ui::RpWidget>> SetupSharedMediaClassic(
+ 		addCommonGroupsButton(bot, st::infoIconMediaGroup);
+ 		addSimilarPeersButton(bot, st::infoIconMediaBot);
+ 	} else if (const auto channel = peer->asBroadcast()) {
+-		addSimilarPeersButton(channel, st::infoIconMediaChannel);
++		if (!Tele::HideSimilarInProfiles()) {
++			addSimilarPeersButton(channel, st::infoIconMediaChannel);
++		}
+ 	} else if (const auto user = peer->asUser()) {
+ 		addCommonGroupsButton(user, st::infoIconMediaGroup);
+ 	}
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index edb51e57313a354cb03d25194e581085c94042d2..20afc0abdef7033c2a231a877ba3d96a3d77aa1b 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1912,6 +1912,20 @@ void FillInterface(SectionBuilder &builder) {
+ 		{ u"gesture"_q, u"navigation"_q },
+ 		::Tele::kOptionNoGestures);
+ 	AddCallButtons(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideSimilar,
++		{ u"recommendations"_q, u"recommended"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideSimilarJoin,
++		{},
++		::Tele::kOptionHideSimilar);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideSimilarProfile,
++		{},
++		::Tele::kOptionHideSimilar);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Text"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionLowercase);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0715403451954be32a5a607c0446bfe5434b07f0..8d74c96a7edbc4061d8273b0d3f86f268b8eaff4 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -37,6 +37,9 @@ const char kOptionCleanSentLinks[] = "tele-clean-sent-links";
+ const char kOptionLinkPreviews[] = "tele-link-previews";
+ const char kOptionHideAllChats[] = "tele-hide-all-chats";
+ const char kOptionHideCommunities[] = "tele-hide-communities";
++const char kOptionHideSimilar[] = "tele-hide-similar";
++const char kOptionHideSimilarJoin[] = "tele-hide-similar-join";
++const char kOptionHideSimilarProfile[] = "tele-hide-similar-profile";
+ const char kOptionJumpToFirst[] = "tele-jump-to-first";
+ const char kOptionStaticUserpicsList[] = "tele-static-userpics-list";
+ const char kOptionHideListPreviews[] = "tele-hide-list-previews";
+@@ -323,6 +326,21 @@ base::options::toggle HideCommunitiesOption({
+ 	.description = "Their chats stay in the list as regular chats.",
+ });
+ 
++base::options::toggle HideSimilarOption({
++	.id = kOptionHideSimilar,
++	.name = "Hide similar channels",
++});
++
++base::options::toggle HideSimilarJoinOption({
++	.id = kOptionHideSimilarJoin,
++	.name = "After joining",
++});
++
++base::options::toggle HideSimilarProfileOption({
++	.id = kOptionHideSimilarProfile,
++	.name = "In profiles",
++});
++
+ base::options::toggle JumpToFirstOption({
+ 	.id = kOptionJumpToFirst,
+ 	.name = "Jump to the first message",
+@@ -1039,6 +1057,14 @@ rpl::producer<> HideCommunitiesChanges() {
+ 	return HideCommunitiesOption.changes();
+ }
+ 
++bool HideSimilarAfterJoin() {
++	return HideSimilarOption.value() && HideSimilarJoinOption.value();
++}
++
++bool HideSimilarInProfiles() {
++	return HideSimilarOption.value() && HideSimilarProfileOption.value();
++}
++
+ bool JumpToFirst() {
+ 	return JumpToFirstOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 0171c791b54ed17418be687300c61e04a255b22e..0f942c9cf6c5ce6a99aa0576fc895784398ec17d 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -32,6 +32,9 @@ extern const char kOptionCleanSentLinks[];
+ extern const char kOptionLinkPreviews[];
+ extern const char kOptionHideAllChats[];
+ extern const char kOptionHideCommunities[];
++extern const char kOptionHideSimilar[];
++extern const char kOptionHideSimilarJoin[];
++extern const char kOptionHideSimilarProfile[];
+ extern const char kOptionJumpToFirst[];
+ extern const char kOptionStaticUserpicsList[];
+ extern const char kOptionHideListPreviews[];
+@@ -158,6 +161,8 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] rpl::producer<> HideAllChatsChanges();
+ [[nodiscard]] bool HideCommunities();
+ [[nodiscard]] rpl::producer<> HideCommunitiesChanges();
++[[nodiscard]] bool HideSimilarAfterJoin();
++[[nodiscard]] bool HideSimilarInProfiles();
+ [[nodiscard]] bool JumpToFirst();
+ [[nodiscard]] bool GhostInMenu();
+ [[nodiscard]] bool StaticUserpicsList();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 50cb0df711ec66a6f9547100a869a92427437767..41c580a17e799a73a77992cd9a6e902e70ecfd30 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -113,6 +113,9 @@ struct Spec {
+ 		Toggle(kOptionCleanSentLinks),
+ 		Toggle(kOptionHideAllChats),
+ 		Toggle(kOptionHideCommunities),
++		Toggle(kOptionHideSimilar),
++		Toggle(kOptionHideSimilarJoin),
++		Toggle(kOptionHideSimilarProfile),
+ 		Toggle(kOptionJumpToFirst),
+ 		Toggle(kOptionStaticUserpicsList),
+ 		Toggle(kOptionHideListPreviews),

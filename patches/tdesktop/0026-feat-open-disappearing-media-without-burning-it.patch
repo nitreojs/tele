@@ -185,7 +185,7 @@ index 1ee22e0fe2fc86aae2f065a473b115e9405a6318..633b880e1b0f36727387e22dee5a7707
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 73bd5d17a7551979eeb278d54eff115673023deb..bbc7d80237b4d962f3e3f972957b0f088b8dbb1e 100644
+index 2be477232e33c4493a12a04affeb3062d2a66e10..d48c8b3ce0149f934616988a7819814cb69a5aba 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -24,6 +24,7 @@ const char kOptionMessageSeconds[] = "tele-message-seconds";
@@ -196,7 +196,7 @@ index 73bd5d17a7551979eeb278d54eff115673023deb..bbc7d80237b4d962f3e3f972957b0f08
  const char kOptionServerUrl[] = "tele-server-url";
  const char kOptionTitleTemplate[] = "tele-title";
  
-@@ -184,6 +185,15 @@ base::options::toggle DeletedIconOption({
+@@ -183,6 +184,15 @@ base::options::toggle DeletedIconOption({
  		"icon next to the time.",
  });
  
@@ -212,7 +212,7 @@ index 73bd5d17a7551979eeb278d54eff115673023deb..bbc7d80237b4d962f3e3f972957b0f08
  base::options::option<QString> ServerUrlOption({
  	.id = kOptionServerUrl,
  	.name = "tele server",
-@@ -363,6 +373,10 @@ rpl::producer<bool> DeletedTrashIconValue() {
+@@ -362,6 +372,10 @@ rpl::producer<bool> DeletedTrashIconValue() {
  	});
  }
  

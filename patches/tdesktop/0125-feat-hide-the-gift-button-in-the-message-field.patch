@@ -1,0 +1,203 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 29 Sep 2026 05:44:35 +0300
+Subject: [PATCH] feat: hide the gift button in the message field
+
+---
+ Telegram/SourceFiles/history/history_widget.cpp    |  9 +++++++++
+ .../view/controls/history_view_bottom_controls.cpp |  5 +++++
+ .../controls/history_view_compose_controls.cpp     |  5 +++++
+ Telegram/SourceFiles/settings/settings_tele.cpp    |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp         | 14 ++++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h           |  3 +++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 7 files changed, 41 insertions(+)
+
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 6954465f465a018a193fc30260013743e3e31e16..9e923792588890e15ea30b4b32c50b84554a60cb 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -179,6 +179,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_inline_text.h"
+ #include "tele/tele_send_order.h"
+ #include "tele/tele_username_aliases.h"
++#include "tele/tele_options.h"
+ #include "media/audio/media_audio.h"
+ #include "media/audio/media_audio_capture.h"
+ #include "media/player/media_player_instance.h"
+@@ -471,6 +472,12 @@ HistoryWidget::HistoryWidget(
+ 	_muteUnmute->addClickHandler([=] { toggleMuteUnmute(); });
+ 	setupGiftToChannelButton();
+ 	setupDirectMessageButton();
++	Tele::HideGiftButtonChanges() | rpl::on_next([=] {
++		refreshSendGiftToggle();
++		refreshGiftToChannelShown();
++		updateControlsVisibility();
++		updateControlsGeometry();
++	}, lifetime());
+ 	_reportMessages->addClickHandler([=] { reportSelectedMessages(); });
+ 	_field->submits(
+ 	) | rpl::on_next([=](Qt::KeyboardModifiers modifiers) {
+@@ -1347,6 +1354,7 @@ void HistoryWidget::refreshGiftToChannelShown() {
+ 	const auto channel = _peer->asChannel();
+ 	_giftToChannel->setVisible(channel
+ 		&& channel->isBroadcast()
++		&& !Tele::HideGiftButton()
+ 		&& channel->stargiftsAvailable());
+ }
+ 
+@@ -4002,6 +4010,7 @@ void HistoryWidget::refreshSendGiftToggle() {
+ 		| Type::Unique;
+ 	const auto has = user
+ 		&& _canSendMessages
++		&& !Tele::HideGiftButton()
+ 		&& !user->isServiceUser()
+ 		&& !user->isSelf()
+ 		&& !user->isBot()
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp
+index c34d06a26eab9dea343c040ad0d93dbfa73a1a1e..a56a4d5d45cce63fb44d2f08dd4595b491e41083 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_bottom_controls.cpp
+@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/view/controls/compose_controls_common.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_options.h"
+ #include "ui/painter.h"
+ #include "ui/ui_utility.h"
+ #include "ui/widgets/buttons.h"
+@@ -298,6 +299,9 @@ void BottomControls::setupGiftToChannelButton() {
+ 	setupOverlayIconButton(_giftToChannel, true, [=] {
+ 		refreshGiftToChannelShown();
+ 	});
++	Tele::HideGiftButtonChanges() | rpl::on_next([=] {
++		refreshGiftToChannelShown();
++	}, _giftToChannel->lifetime());
+ }
+ 
+ void BottomControls::setupDirectMessageButton() {
+@@ -480,6 +484,7 @@ void BottomControls::refreshGiftToChannelShown() {
+ 	const auto channel = _peer->asChannel();
+ 	_giftToChannel->setVisible(channel
+ 		&& channel->isBroadcast()
++		&& !Tele::HideGiftButton()
+ 		&& channel->stargiftsAvailable());
+ }
+ 
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index e9002c3189ba643e32878bbe0752747f5ac9a91a..63ecd073045444fb8caffec6708a5d6af0451fc5 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_inline_text.h"
+ #include "tele/tele_send_order.h"
+ #include "tele/tele_username_aliases.h"
++#include "tele/tele_options.h"
+ #include "support/support_helper.h"
+ #include "ui/item_text_options.h"
+ #include "ui/text/text_options.h"
+@@ -2817,6 +2818,9 @@ void ComposeControls::init() {
+ 		initEditStarsButton();
+ 		updateControlsGeometry(_wrap->size());
+ 	}, _wrap->lifetime());
++	Tele::HideGiftButtonChanges() | rpl::on_next([=] {
++		refreshSendGiftToggle();
++	}, _wrap->lifetime());
+ 
+ 	_hidden.changes(
+ 	) | rpl::on_next([=] {
+@@ -5661,6 +5665,7 @@ void ComposeControls::refreshSendGiftToggle() {
+ 	const auto has = _regularWindow
+ 		&& user
+ 		&& !_writeRestriction.current()
++		&& !Tele::HideGiftButton()
+ 		&& !user->isServiceUser()
+ 		&& !user->isSelf()
+ 		&& !user->isBot()
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 29ea26a63e6f3b4f5d3f1781ea2e739b55d1e93d..ebf63ecc076289639bfd361bce3f6ffd4e3aec32 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1955,6 +1955,10 @@ void FillChats(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionNoRichPastePrompt,
+ 		{ u"formatted"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideGiftButton,
++		{ u"gift"_q, u"premium"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionCalcmula);
+ 	AddOptionToggle(
+ 		builder,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index a7b088e7b3aaaac26482a806b835e9e531213f9c..4a3d3c7acb764ca5a2e56971ad0421311d23dbae 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -83,6 +83,7 @@ const char kOptionSendOlderReplies[] = "tele-send-older-replies";
+ const char kOptionDoubleEnterSend[] = "tele-double-enter-send";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
++const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionPunctualScheduled[] = "tele-punctual-scheduled";
+ const char kOptionHdPhotos[] = "tele-hd-photos";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+@@ -586,6 +587,11 @@ base::options::toggle NoRichPastePromptOption({
+ 	.name = "No rich message prompt on paste",
+ });
+ 
++base::options::toggle HideGiftButtonOption({
++	.id = kOptionHideGiftButton,
++	.name = "Hide the gift button in the message field",
++});
++
+ base::options::toggle PunctualScheduledOption({
+ 	.id = kOptionPunctualScheduled,
+ 	.name = "Send scheduled messages on time",
+@@ -1313,6 +1319,14 @@ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+ 
++bool HideGiftButton() {
++	return HideGiftButtonOption.value();
++}
++
++rpl::producer<> HideGiftButtonChanges() {
++	return HideGiftButtonOption.changes();
++}
++
+ bool PunctualScheduled() {
+ 	return PunctualScheduledOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 88d868851d17127e3ee5329d921933695b068eb6..f6c012515987acc30a120551d73f08fa118ad2b8 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -79,6 +79,7 @@ extern const char kOptionSendOlderReplies[];
+ extern const char kOptionDoubleEnterSend[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionNoRichPastePrompt[];
++extern const char kOptionHideGiftButton[];
+ extern const char kOptionPunctualScheduled[];
+ extern const char kOptionHdPhotos[];
+ extern const char kOptionChatBackgrounds[];
+@@ -217,6 +218,8 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] bool DoubleEnterSend();
+ [[nodiscard]] bool InlineWithoutVia();
+ [[nodiscard]] bool NoRichPastePrompt();
++[[nodiscard]] bool HideGiftButton();
++[[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+ [[nodiscard]] bool PunctualScheduled();
+ [[nodiscard]] bool HdPhotos();
+ [[nodiscard]] rpl::producer<> PunctualScheduledChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 691eec09becb7e4a77a578fdf78b7b821fd0b46b..776d5b6b40034f79f05cb14d3c225197cba22612 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -154,6 +154,7 @@ struct Spec {
+ 		Toggle(kOptionDoubleEnterSend),
+ 		Toggle(kOptionInlineWithoutVia),
+ 		Toggle(kOptionNoRichPastePrompt),
++		Toggle(kOptionHideGiftButton),
+ 		Toggle(kOptionPunctualScheduled),
+ 		Toggle(kOptionHdPhotos),
+ 		Toggle(kOptionDockedAttachments),

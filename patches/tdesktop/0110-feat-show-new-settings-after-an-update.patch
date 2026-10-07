@@ -1,0 +1,1296 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 19:43:32 +0300
+Subject: [PATCH] feat: show new settings after an update
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    | 407 +++++++++++++++---
+ Telegram/SourceFiles/settings/settings_tele.h |   1 +
+ Telegram/SourceFiles/tele/tele_changelog.cpp  |   8 +
+ .../SourceFiles/tele/tele_new_settings.cpp    | 220 ++++++++++
+ Telegram/SourceFiles/tele/tele_new_settings.h |  12 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  16 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |  11 +
+ Telegram/SourceFiles/tele/tele_settings_io.h  |   1 +
+ 10 files changed, 614 insertions(+), 67 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_new_settings.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_new_settings.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index ffbf590620006783e1957e0cdee3187cecbed406..39b8746a8e68d3242e64ed9846e1d0d4de6ceace 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2311,6 +2311,8 @@ PRIVATE
+     tele/tele_mtp_inspector.h
+     tele/tele_mtp_log.cpp
+     tele/tele_mtp_log.h
++    tele/tele_new_settings.cpp
++    tele/tele_new_settings.h
+     tele/tele_jump_to_first.cpp
+     tele/tele_jump_to_first.h
+     tele/tele_link_previews.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index db19fd3ca31b1ab6167bd53224a3c01b9d160135..431922c600270497093e60f96b7146d5ab852a4f 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -39,6 +39,7 @@
+ #include "tele/tele_menu_order.h"
+ #include "tele/tele_mtp_inspector.h"
+ #include "tele/tele_mtp_log.h"
++#include "tele/tele_new_settings.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_settings_io_box.h"
+ #include "tele/tele_title_box.h"
+@@ -47,6 +48,7 @@
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/boxes/single_choice_box.h"
+ #include "ui/layers/generic_box.h"
++#include "ui/new_badges.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/toast/toast.h"
+ #include "ui/vertical_list.h"
+@@ -79,9 +81,12 @@ struct Category {
+ 	const style::icon *icon = nullptr;
+ 	QStringList keywords;
+ 	Type id;
++	void (*fill)(SectionBuilder&) = nullptr;
+ 	std::unique_ptr<BuildHelper> helper;
+ };
+ 
++const auto kNewId = u"tele-new"_q;
++
+ [[nodiscard]] const std::vector<Category> &Categories();
+ 
+ struct TeleSearchState {
+@@ -125,6 +130,20 @@ private:
+ 
+ };
+ 
++class NewSection final : public Section<NewSection> {
++public:
++	NewSection(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller);
++
++	[[nodiscard]] rpl::producer<QString> title() override;
++	void showFinished() override;
++
++private:
++	void setupContent();
++
++};
++
+ class CategorySection final : public AbstractSection {
+ public:
+ 	CategorySection(
+@@ -209,6 +228,27 @@ void SetupLink(not_null<Ui::RpWidget*> widget, const QString &id) {
+ 	SetupCopyLink(widget, nullptr, id);
+ }
+ 
++const base::flat_set<QString> *Picked = nullptr;
++
++[[nodiscard]] bool Shown(const QString &id) {
++	return !Picked || Picked->contains(id);
++}
++
++Button *AddButton(
++		SectionBuilder &builder,
++		SectionBuilder::ButtonArgs &&args,
++		const QString &owner = QString()) {
++	return Shown(owner.isEmpty() ? args.id : owner)
++		? builder.addButton(std::move(args))
++		: nullptr;
++}
++
++void AddSkip(SectionBuilder &builder) {
++	if (!Picked) {
++		builder.addSkip();
++	}
++}
++
+ struct OptionRow {
+ 	object_ptr<Ui::RpWidget> widget;
+ 	not_null<Button*> button;
+@@ -259,6 +299,9 @@ void AddOptionToggle(
+ 		const char id[],
+ 		QStringList keywords = {}) {
+ 	auto &option = base::options::lookup<bool>(id);
++	if (!Shown(option.id())) {
++		return;
++	}
+ 	const auto name = ::Tele::Lower(option.name());
+ 	const auto description = ::Tele::Lower(option.description());
+ 	builder.add([&](const WidgetContext &ctx) {
+@@ -302,7 +345,13 @@ void AddOptionToggle(
+ 	});
+ }
+ 
+-void AddAbout(SectionBuilder &builder, const QString &text) {
++void AddAbout(
++		SectionBuilder &builder,
++		const QString &owner,
++		const QString &text) {
++	if (!Shown(owner)) {
++		return;
++	}
+ 	builder.add([&](const WidgetContext &ctx) {
+ 		return SectionBuilder::WidgetToAdd{
+ 			.widget = object_ptr<Ui::FlatLabel>(
+@@ -315,10 +364,16 @@ void AddAbout(SectionBuilder &builder, const QString &text) {
+ }
+ 
+ void AddGroupTitle(SectionBuilder &builder, const QString &title) {
++	if (Picked) {
++		return;
++	}
+ 	builder.addSubsectionTitle(rpl::single(::Tele::Lower(title)));
+ }
+ 
+ void AddGroupDivider(SectionBuilder &builder) {
++	if (Picked) {
++		return;
++	}
+ 	builder.addSkip();
+ 	builder.addDivider();
+ 	builder.addSkip();
+@@ -383,7 +438,7 @@ void AddUpdates(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionAutoUpdate);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowChangelog);
+ 	const auto controller = builder.controller();
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = u"tele-check-updates"_q,
+ 		.title = ::Tele::UpdateReadyValue() | rpl::map([](bool ready) {
+ 			return ::Tele::Lower(ready ? u"Restart to update"_q : u"Check for updates"_q);
+@@ -404,6 +459,9 @@ void AddUpdates(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, u"tele-check-updates"_q);
+ 	}
++	if (Picked) {
++		return;
++	}
+ 	builder.addSkip();
+ 	builder.addDividerText(::Tele::UpdateStatusValue(
+ 	) | rpl::map([](const ::Tele::UpdateStatus &status) {
+@@ -450,7 +508,7 @@ void AddServer(SectionBuilder &builder) {
+ 		::Tele::kOptionServerUrl);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto server = builder.addButton({
++	const auto server = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(u"Server"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -469,7 +527,7 @@ void AddServer(SectionBuilder &builder) {
+ 	if (server) {
+ 		SetupLink(server, option.id());
+ 	}
+-	const auto refresh = builder.addButton({
++	const auto refresh = AddButton(builder, {
+ 		.id = u"tele-refresh-badges"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Refresh now"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -479,11 +537,11 @@ void AddServer(SectionBuilder &builder) {
+ 			}));
+ 		},
+ 		.keywords = { u"verification"_q, u"checkmarks"_q, u"badges"_q },
+-	});
++	}, option.id());
+ 	if (refresh) {
+ 		SetupLink(refresh, u"tele-refresh-badges"_q);
+ 	}
+-	const auto clear = builder.addButton({
++	const auto clear = AddButton(builder, {
+ 		.id = u"tele-clear-badges"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Clear cached data"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -493,11 +551,11 @@ void AddServer(SectionBuilder &builder) {
+ 			}));
+ 		},
+ 		.keywords = { u"cache"_q, u"badges"_q, u"verification"_q },
+-	});
++	}, option.id());
+ 	if (clear) {
+ 		SetupLink(clear, u"tele-clear-badges"_q);
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddTitle(SectionBuilder &builder) {
+@@ -505,7 +563,7 @@ void AddTitle(SectionBuilder &builder) {
+ 		::Tele::kOptionTitleTemplate);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -524,11 +582,11 @@ void AddTitle(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ 	const auto &windowOption = base::options::lookup<QString>(
+ 		::Tele::kOptionWindowTitleTemplate);
+ 	const auto windowDescription = ::Tele::Lower(windowOption.description());
+-	const auto windowButton = builder.addButton({
++	const auto windowButton = AddButton(builder, {
+ 		.id = windowOption.id(),
+ 		.title = rpl::single(::Tele::Lower(windowOption.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -547,7 +605,7 @@ void AddTitle(SectionBuilder &builder) {
+ 	if (windowButton) {
+ 		SetupLink(windowButton, windowOption.id());
+ 	}
+-	AddAbout(builder, windowDescription);
++	AddAbout(builder, windowOption.id(), windowDescription);
+ }
+ 
+ void AddMessageMenu(SectionBuilder &builder) {
+@@ -555,7 +613,7 @@ void AddMessageMenu(SectionBuilder &builder) {
+ 		::Tele::kOptionMessageMenuLayout);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -573,7 +631,7 @@ void AddMessageMenu(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ struct ButtonChoice {
+@@ -613,7 +671,7 @@ void AddButtonChoice(
+ 			? choice.label
+ 			: choice.option));
+ 	}
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(name),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -641,7 +699,7 @@ void AddButtonChoice(
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddCallButtons(SectionBuilder &builder) {
+@@ -836,7 +894,7 @@ void AddIgnoredUsers(SectionBuilder &builder) {
+ 		::Tele::kOptionIgnoredUsers);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = u"tele-ignored-users"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Ignored users"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -853,7 +911,7 @@ void AddIgnoredUsers(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, u"tele-ignored-users"_q);
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, u"tele-ignored-users"_q, description);
+ }
+ 
+ class GhostChatRow final : public PeerListRowWithLink {
+@@ -895,7 +953,7 @@ void AddGhostChats(SectionBuilder &builder) {
+ 			const QString &id,
+ 			const QString &title,
+ 			::Tele::GhostOverride mode) {
+-		const auto button = builder.addButton({
++		const auto button = AddButton(builder, {
+ 			.id = id,
+ 			.title = rpl::single(::Tele::Lower(title)),
+ 			.st = &st::settingsButtonNoIcon,
+@@ -909,7 +967,7 @@ void AddGhostChats(SectionBuilder &builder) {
+ 				ShowGhostChatsBox(controller, mode);
+ 			},
+ 			.keywords = { description },
+-		});
++		}, option.id());
+ 		if (button) {
+ 			SetupLink(button, id);
+ 		}
+@@ -919,7 +977,7 @@ void AddGhostChats(SectionBuilder &builder) {
+ 		option.id() + u"-never"_q,
+ 		u"Never ghost in"_q,
+ 		::Tele::GhostOverride::Never);
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddLocalDrafts(SectionBuilder &builder) {
+@@ -930,7 +988,7 @@ void AddLocalDrafts(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+ 	const auto session = builder.session();
+ 	const auto id = u"tele-clear-cloud-drafts"_q;
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = id,
+ 		.title = rpl::single(::Tele::Lower(u"Clear drafts in the cloud"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -952,7 +1010,7 @@ void AddLocalDrafts(SectionBuilder &builder) {
+ 		},
+ 		.keywords = { u"cloud"_q, u"drafts"_q, u"delete"_q },
+ 		.shown = ::Tele::LocalDraftsValue(),
+-	});
++	}, QString::fromLatin1(::Tele::kOptionLocalDrafts));
+ 	if (button) {
+ 		SetupLink(button, id);
+ 		::Tele::LocalDraftsValue(
+@@ -1067,7 +1125,7 @@ void AddChatBackgrounds(SectionBuilder &builder) {
+ 		::Tele::kOptionChatBackgrounds);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1084,7 +1142,7 @@ void AddChatBackgrounds(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ class UsernameAliasRow final : public PeerListRowWithLink {
+@@ -1223,7 +1281,7 @@ void AddUsernameAliases(SectionBuilder &builder) {
+ 		::Tele::kOptionUsernameAliases);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1240,7 +1298,7 @@ void AddUsernameAliases(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddSavedDrafts(SectionBuilder &builder) {
+@@ -1249,7 +1307,7 @@ void AddSavedDrafts(SectionBuilder &builder) {
+ 	const auto description = ::Tele::Lower(u"Drafts you keep on this device, "
+ 		"any number per chat, apart from the regular one. Save them with "
+ 		"Ctrl+S or a right click on the send button."_q);
+-	builder.addButton({
++	AddButton(builder, {
+ 		.id = u"tele-saved-drafts"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Saved drafts"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1266,7 +1324,7 @@ void AddSavedDrafts(SectionBuilder &builder) {
+ 		},
+ 		.keywords = { description, u"draft"_q, u"drafts"_q },
+ 	});
+-	AddAbout(builder, description);
++	AddAbout(builder, u"tele-saved-drafts"_q, description);
+ }
+ 
+ void AddAppLinks(SectionBuilder &builder) {
+@@ -1274,7 +1332,7 @@ void AddAppLinks(SectionBuilder &builder) {
+ 		::Tele::kOptionAppLinks);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1297,7 +1355,7 @@ void AddAppLinks(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddLinkRewrites(SectionBuilder &builder) {
+@@ -1305,7 +1363,7 @@ void AddLinkRewrites(SectionBuilder &builder) {
+ 		::Tele::kOptionLinkRewrites);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1327,7 +1385,7 @@ void AddLinkRewrites(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ class LocalNameRow final : public PeerListRowWithLink {
+@@ -1460,7 +1518,7 @@ void AddLocalNames(SectionBuilder &builder) {
+ 		::Tele::kOptionLocalNames);
+ 	const auto controller = builder.controller();
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1477,7 +1535,7 @@ void AddLocalNames(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void ChooseIconFile(
+@@ -1508,7 +1566,7 @@ void AddIconButton(
+ 		Fn<void(not_null<Ui::PopupMenu*>)> fill) {
+ 	const auto &option = base::options::lookup<QString>(id);
+ 	const auto description = ::Tele::Lower(option.description());
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1527,7 +1585,7 @@ void AddIconButton(
+ 		});
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddAppIcons(SectionBuilder &builder) {
+@@ -1582,7 +1640,7 @@ void AddAppIcons(SectionBuilder &builder) {
+ }
+ 
+ void FillInterface(SectionBuilder &builder) {
+-	builder.addSkip();
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Title bar"_q);
+ 	AddTitle(builder);
+ 	AddGroupDivider(builder);
+@@ -1605,11 +1663,11 @@ void FillInterface(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Text"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionLowercase);
+-	builder.addSkip();
++	AddSkip(builder);
+ }
+ 
+ void FillChats(SectionBuilder &builder) {
+-	builder.addSkip();
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Messages"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageSeconds);
+ 	AddOptionToggle(builder, ::Tele::kOptionEditHistory);
+@@ -1679,11 +1737,11 @@ void FillChats(SectionBuilder &builder) {
+ 		{ u"preview"_q, u"paste"_q, u"webpage"_q });
+ 	AddAppLinks(builder);
+ 	AddLinkRewrites(builder);
+-	builder.addSkip();
++	AddSkip(builder);
+ }
+ 
+ void FillPrivacy(SectionBuilder &builder) {
+-	builder.addSkip();
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Ghost mode"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhost);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhostInMenu);
+@@ -1705,11 +1763,11 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Ignoring"_q);
+ 	AddIgnoredUsers(builder);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideIgnored);
+-	builder.addSkip();
++	AddSkip(builder);
+ }
+ 
+ void FillProfiles(SectionBuilder &builder) {
+-	builder.addSkip();
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Peer IDs"_q);
+ 	AddOptionToggle(builder, ::Info::Profile::kOptionShowPeerIdBelowAbout);
+ 	AddOptionToggle(builder, ::Tele::kOptionPeerIdsWithoutSpaces);
+@@ -1726,14 +1784,14 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowRegularGiftIds);
+ 	AddOptionToggle(builder, ::Tele::kOptionSeeTgButton);
+-	builder.addSkip();
++	AddSkip(builder);
+ }
+ 
+ void FillBots(SectionBuilder &builder) {
+-	builder.addSkip();
++	AddSkip(builder);
+ 	AddOptionToggle(builder, ::Tele::kOptionButtonPayloads);
+ 	AddOptionToggle(builder, ::Tele::kOptionInlineWithoutVia);
+-	builder.addSkip();
++	AddSkip(builder);
+ }
+ 
+ void OpenFolder(
+@@ -1748,6 +1806,9 @@ void OpenFolder(
+ }
+ 
+ void AddDebugLogs(SectionBuilder &builder) {
++	if (!Shown(u"tele-debug-logs"_q)) {
++		return;
++	}
+ 	const auto name = ::Tele::Lower(u"Debug logs"_q);
+ 	const auto description = ::Tele::Lower(
+ 		u"Write every network event into DebugLogs. "
+@@ -1798,7 +1859,7 @@ void AddDebugLogs(SectionBuilder &builder) {
+ 
+ void AddLogFolders(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+-	const auto logs = builder.addButton({
++	const auto logs = AddButton(builder, {
+ 		.id = u"tele-open-logs"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Open the logs folder"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1810,7 +1871,7 @@ void AddLogFolders(SectionBuilder &builder) {
+ 	if (logs) {
+ 		SetupLink(logs, u"tele-open-logs"_q);
+ 	}
+-	const auto folder = builder.addButton({
++	const auto folder = AddButton(builder, {
+ 		.id = u"tele-open-folder"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Open the tele folder"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1826,7 +1887,7 @@ void AddLogFolders(SectionBuilder &builder) {
+ 
+ void AddClearLogs(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = u"tele-clear-logs"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Clear logs"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1868,7 +1929,7 @@ void AddMtpInspector(SectionBuilder &builder) {
+ 		"entries. Constructor links open schema.jppgr.am in the browser."_q
+ 			.arg(::Tele::MtpLog::kMaxBytes / (1024 * 1024))
+ 			.arg(::Tele::MtpLog::kMaxEntries));
+-	const auto button = builder.addButton({
++	const auto button = AddButton(builder, {
+ 		.id = u"tele-mtp-inspector"_q,
+ 		.title = rpl::single(::Tele::Lower(u"MTProto inspector"_q)),
+ 		.st = &st::settingsButtonNoIcon,
+@@ -1893,11 +1954,11 @@ void AddMtpInspector(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, u"tele-mtp-inspector"_q);
+ 	}
+-	AddAbout(builder, description);
++	AddAbout(builder, u"tele-mtp-inspector"_q, description);
+ }
+ 
+ void FillDebug(SectionBuilder &builder) {
+-	builder.addSkip();
++	AddSkip(builder);
+ 	AddGroupTitle(builder, u"Logs"_q);
+ 	AddDebugLogs(builder);
+ 	AddLogFolders(builder);
+@@ -1905,7 +1966,7 @@ void FillDebug(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"MTProto"_q);
+ 	AddMtpInspector(builder);
+-	builder.addSkip();
++	AddSkip(builder);
+ }
+ 
+ void AddBackup(SectionBuilder &builder) {
+@@ -1915,7 +1976,7 @@ void AddBackup(SectionBuilder &builder) {
+ 			const QString &title,
+ 			void (*box)(not_null<Ui::GenericBox*>),
+ 			QStringList keywords) {
+-		const auto button = builder.addButton({
++		const auto button = AddButton(builder, {
+ 			.id = id,
+ 			.title = rpl::single(::Tele::Lower(title)),
+ 			.st = &st::settingsButtonNoIcon,
+@@ -1938,21 +1999,77 @@ void AddBackup(SectionBuilder &builder) {
+ 		u"Import settings..."_q,
+ 		::Tele::ImportSettingsBox,
+ 		{ u"backup"_q, u"restore"_q, u"load"_q, u"file"_q });
+-	AddAbout(builder, ::Tele::Lower(u"Move tele settings to another "
++	AddAbout(builder, u"tele-export-settings"_q, ::Tele::Lower(
++		u"Move tele settings to another "
+ 		"computer or share them with friends as a file or text."_q));
+ }
+ 
++void AddNewBadge(not_null<Button*> button, const QString &title) {
++	const auto badge = Ui::NewBadge::CreateNewBadge(
++		button,
++		rpl::single(::Tele::Lower(u"NEW"_q))).get();
++	rpl::combine(
++		button->widthValue(),
++		::Tele::NewSettingsSeenValue()
++	) | rpl::on_next([=](int width, bool seen) {
++		const auto &st = st::settingsButton;
++		const auto left = st.padding.left()
++			+ st.style.font->width(title)
++			+ st.style.font->spacew;
++		const auto available = width - left - st.padding.right();
++		badge->setVisible(!seen && available >= badge->width());
++		if (!badge->isHidden()) {
++			const auto top = st.padding.top()
++				+ st.style.font->ascent
++				- st::settingsPremiumNewBadge.style.font->ascent
++				- st::settingsPremiumNewBadgePadding.top();
++			badge->moveToLeft(left, top, width);
++		}
++	}, badge->lifetime());
++}
++
++void AddNewEntry(SectionBuilder &builder) {
++	if (::Tele::NewSettings().empty()) {
++		return;
++	}
++	const auto showOther = builder.showOther();
++	const auto title = ::Tele::NewSettingsTitle();
++	const auto button = builder.addButton({
++		.id = kNewId,
++		.title = rpl::single(title),
++		.icon = { &st::menuIconStar },
++		.onClick = [=] {
++			showOther(NewSection::Id());
++		},
++		.keywords = {
++			u"new"_q,
++			u"what's new"_q,
++			u"update"_q,
++			u"changelog"_q,
++			u"features"_q,
++		},
++	});
++	if (button) {
++		AddNewBadge(button, title);
++		SetupCopyLink(button, NewSection::Id(), QString());
++	}
++	AddGroupDivider(builder);
++}
++
+ void FillRoot(SectionBuilder &builder) {
+-	builder.addSkip();
+-	for (const auto &category : Categories()) {
+-		const auto button = builder.addSectionButton({
+-			.title = rpl::single(::Tele::Lower(category.title)),
+-			.targetSection = category.id,
+-			.icon = { category.icon },
+-			.keywords = category.keywords,
+-		});
+-		if (button) {
+-			SetupCopyLink(button, category.id, QString());
++	if (!Picked) {
++		builder.addSkip();
++		AddNewEntry(builder);
++		for (const auto &category : Categories()) {
++			const auto button = builder.addSectionButton({
++				.title = rpl::single(::Tele::Lower(category.title)),
++				.targetSection = category.id,
++				.icon = { category.icon },
++				.keywords = category.keywords,
++			});
++			if (button) {
++				SetupCopyLink(button, category.id, QString());
++			}
+ 		}
+ 	}
+ 	AddGroupDivider(builder);
+@@ -1989,6 +2106,7 @@ void FillRoot(SectionBuilder &builder) {
+ 			.icon = &icon,
+ 			.keywords = std::move(keywords),
+ 			.id = id,
++			.fill = fill,
+ 			.helper = std::make_unique<BuildHelper>(std::move(meta), fill),
+ 		});
+ 	};
+@@ -2061,6 +2179,148 @@ const auto kMeta = BuildHelper({
+ 
+ [[maybe_unused]] const auto kCategoriesCount = Categories().size();
+ 
++[[nodiscard]] QString CategoryId(const Category &category) {
++	return u"tele/"_q + category.path;
++}
++
++void AddNewGroupDivider(SectionBuilder &builder, bool &first) {
++	if (base::take(first)) {
++		return;
++	}
++	builder.addSkip();
++	builder.addDivider();
++	builder.addSkip();
++}
++
++void FillNew(SectionBuilder &builder) {
++	const auto &fresh = ::Tele::NewSettings();
++	const auto ids = base::flat_set<QString>(begin(fresh), end(fresh));
++	const auto session = builder.session();
++	const auto controller = builder.controller();
++	const auto showOther = builder.showOther();
++	builder.addSkip();
++	if (ids.empty()) {
++		builder.add([&](const WidgetContext &ctx) {
++			return SectionBuilder::WidgetToAdd{
++				.widget = object_ptr<Ui::FlatLabel>(
++					ctx.container,
++					::Tele::Lower(u"Nothing new in this tele build."_q),
++					st::settingsSearchNoResults),
++				.margin = st::settingsSearchNoResultsPadding,
++			};
++		}, nullptr);
++		return;
++	}
++	auto first = true;
++	auto pages = std::vector<not_null<const Category*>>();
++	for (const auto &category : Categories()) {
++		if (ids.contains(CategoryId(category))) {
++			pages.push_back(&category);
++		}
++	}
++	if (!pages.empty()) {
++		AddNewGroupDivider(builder, first);
++		builder.addSubsectionTitle(rpl::single(
++			::Tele::Lower(u"New pages"_q)));
++		for (const auto &page : pages) {
++			const auto button = builder.addSectionButton({
++				.title = rpl::single(::Tele::Lower(page->title)),
++				.targetSection = page->id,
++				.icon = { page->icon },
++			});
++			if (button) {
++				SetupCopyLink(button, page->id, QString());
++			}
++		}
++	}
++	const auto group = [&](
++			const QString &title,
++			Type section,
++			const BuildHelper &helper,
++			void (*fill)(SectionBuilder&)) {
++		auto picked = base::flat_set<QString>();
++		auto highlight = QString();
++		for (const auto &entry : helper.index(session)) {
++			if (ids.contains(entry.id)) {
++				if (highlight.isEmpty()) {
++					highlight = entry.id;
++				}
++				picked.emplace(entry.id);
++			}
++		}
++		if (picked.empty()) {
++			return;
++		}
++		AddNewGroupDivider(builder, first);
++		builder.addSubsectionTitle(rpl::single(::Tele::Lower(title)));
++		Picked = &picked;
++		fill(builder);
++		Picked = nullptr;
++		builder.addButton({
++			.title = rpl::single(::Tele::Lower(u"Open %1"_q.arg(title))),
++			.st = &st::settingsButtonLightNoIcon,
++			.onClick = [=] {
++				controller->setHighlightControlId(highlight);
++				showOther(section);
++			},
++		});
++	};
++	for (const auto &category : Categories()) {
++		group(category.title, category.id, *category.helper, category.fill);
++	}
++	group(u"tele"_q, TeleSection::Id(), kMeta, FillRoot);
++	builder.addSkip();
++}
++
++NewSection::NewSection(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller)
++: Section(parent, controller) {
++	setupContent();
++}
++
++rpl::producer<QString> NewSection::title() {
++	return rpl::single(::Tele::NewSettingsTitle());
++}
++
++void NewSection::showFinished() {
++	Section<NewSection>::showFinished();
++	::Tele::MarkNewSettingsSeen();
++}
++
++void NewSection::setupContent() {
++	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
++	build(content, [](
++			not_null<Ui::VerticalLayout*> container,
++			not_null<Window::SessionController*> controller,
++			Fn<void(Type)> showOther,
++			rpl::producer<> showFinished) {
++		auto &lifetime = container->lifetime();
++		const auto highlights = lifetime.make_state<HighlightRegistry>();
++		auto builder = SectionBuilder(WidgetContext{
++			.container = static_cast<Ui::VerticalLayout*>(
++				container->add(object_ptr<Ui::OverrideMargins>(
++					container,
++					object_ptr<Ui::VerticalLayout>(container)))->entity()),
++			.controller = controller,
++			.showOther = std::move(showOther),
++			.highlights = highlights,
++		});
++		FillNew(builder);
++		std::move(showFinished) | rpl::on_next([=] {
++			for (const auto &[id, entry] : *highlights) {
++				if (entry.widget) {
++					controller->checkHighlightControl(
++						id,
++						entry.widget,
++						base::duplicate(entry.args));
++				}
++			}
++		}, lifetime);
++	});
++	Ui::ResizeFitChild(this, content);
++}
++
+ CategorySection::CategorySection(
+ 	QWidget *parent,
+ 	not_null<Window::SessionController*> controller,
+@@ -2197,7 +2457,11 @@ void TeleSection::buildIndex() {
+ 		}
+ 	}
+ 	for (auto &entry : kMeta.index(session)) {
+-		if (!entry.id.isEmpty()) {
++		if (entry.id == kNewId) {
++			entry.id = QString();
++			entry.section = NewSection::Id();
++			push(std::move(entry), u"tele"_q, &st::menuIconStar);
++		} else if (!entry.id.isEmpty()) {
+ 			push(std::move(entry), u"tele"_q, &st::menuIconCustomize);
+ 		}
+ 	}
+@@ -2260,12 +2524,21 @@ std::vector<std::pair<QString, Type>> TeleSettingsPaths() {
+ 	for (const auto &category : Categories()) {
+ 		result.emplace_back(u"tele/"_q + category.path, category.id);
+ 	}
++	result.emplace_back(u"tele/new"_q, NewSection::Id());
+ 	result.emplace_back(u"tele/server"_q, TeleSection::Id());
+ 	result.emplace_back(u"tele/backup"_q, TeleSection::Id());
+ 	result.emplace_back(u"tele/updates"_q, TeleSection::Id());
+ 	return result;
+ }
+ 
++std::vector<QString> TeleCategoryIds() {
++	auto result = std::vector<QString>();
++	for (const auto &category : Categories()) {
++		result.push_back(CategoryId(category));
++	}
++	return result;
++}
++
+ void AddTeleSectionButton(Builder::SectionBuilder &builder) {
+ 	builder.addSkip();
+ 	builder.addDivider();
+diff --git a/Telegram/SourceFiles/settings/settings_tele.h b/Telegram/SourceFiles/settings/settings_tele.h
+index 5c8bd2d49852c9bfa5e80385c31db3692420650a..f97d59bdd7f99efb902820f8876a75e153a731b2 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.h
++++ b/Telegram/SourceFiles/settings/settings_tele.h
+@@ -9,6 +9,7 @@ class SectionBuilder;
+ namespace Settings {
+ 
+ [[nodiscard]] std::vector<std::pair<QString, Type>> TeleSettingsPaths();
++[[nodiscard]] std::vector<QString> TeleCategoryIds();
+ void AddTeleSectionButton(Builder::SectionBuilder &builder);
+ 
+ } // namespace Settings
+diff --git a/Telegram/SourceFiles/tele/tele_changelog.cpp b/Telegram/SourceFiles/tele/tele_changelog.cpp
+index 95ad3f6b661795c2efab3346ac44b92b3d4939b6..7a38e13749a3f0f9932e4ff961b8d39d4bf4160d 100644
+--- a/Telegram/SourceFiles/tele/tele_changelog.cpp
++++ b/Telegram/SourceFiles/tele/tele_changelog.cpp
+@@ -13,6 +13,7 @@
+ #include "tele/tele_changelog_chat.h"
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_new_settings.h"
+ #include "tele/tele_options.h"
+ #include "ui/basic_click_handlers.h"
+ #include "ui/layers/generic_box.h"
+@@ -239,6 +240,12 @@ void AddButtons(ChangelogMessage &message, const Notes &notes) {
+ 			.url = notes.url,
+ 		});
+ 	}
++	if (!NewSettings().empty()) {
++		message.buttons.push_back({
++			.text = Lower(u"New settings"_q),
++			.url = NewSettingsLink(),
++		});
++	}
+ }
+ 
+ [[nodiscard]] TextWithEntities EntryText(const Entry &entry) {
+@@ -612,6 +619,7 @@ void Changelog::post(not_null<Main::Session*> session) {
+ } // namespace
+ 
+ void StartChangelog() {
++	StartNewSettings();
+ 	if (BuildNumber() <= 0 || Instance) {
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_new_settings.cpp b/Telegram/SourceFiles/tele/tele_new_settings.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..99b089d5ceaee072f2dcc514dbf130ca7789df99
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_new_settings.cpp
+@@ -0,0 +1,220 @@
++#include "tele/tele_new_settings.h"
++
++#include "settings/settings_tele.h"
++#include "tele/tele_build.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "tele/tele_settings_io.h"
++
++#include <QtCore/QJsonArray>
++#include <QtCore/QJsonDocument>
++#include <QtCore/QJsonObject>
++
++namespace Tele {
++namespace {
++
++struct State {
++	std::vector<QString> fresh;
++	rpl::variable<bool> seen = false;
++	bool started = false;
++};
++
++[[nodiscard]] State &Current() {
++	static auto result = State();
++	return result;
++}
++
++constexpr auto kTele10Settings = std::array{
++	"tele-hide-stories",
++	"tele-invisible-stories",
++	"tele-ghost",
++	"tele-ghost-in-menu",
++	"tele-ghost-read",
++	"tele-ghost-read-on-reply",
++	"tele-ghost-typing",
++	"tele-ghost-online",
++	"tele-ghost-schedule",
++	"tele-ghost-stories",
++	"tele-button-payloads",
++	"tele-auto-update",
++	"tele-show-changelog",
++	"tele-group-quick-replies",
++	"tele-bubble-badges",
++	"tele-lowercase",
++	"tele-hide-sponsored",
++	"tele-hide-proxy-sponsor",
++	"tele-no-link-warning",
++	"tele-clean-opened-links",
++	"tele-clean-sent-links",
++	"tele-hide-all-chats",
++	"tele-jump-to-first",
++	"tele-static-userpics-list",
++	"tele-chat-list-no-reorder-animation",
++	"tele-static-userpics-chats",
++	"tele-hide-mentions-button",
++	"tele-hide-reactions-button",
++	"tele-emoji-panel-click",
++	"tele-attach-menu-click",
++	"tele-show-gift-ids",
++	"tele-show-regular-gift-ids",
++	"tele-seetg-button",
++	"show-peer-id-below-about",
++	"tele-peer-ids-without-spaces",
++	"tele-bot-api-peer-ids",
++	"tele-show-dc",
++	"tele-merge-id-dc",
++	"tele-message-id-menu",
++	"tele-hide-ignored",
++	"tele-message-seconds",
++	"tele-edit-history",
++	"tele-keep-deleted",
++	"tele-deleted-icon",
++	"tele-reveal-spoilers",
++	"tele-keep-secret-media",
++	"tele-screenshot-secret-media",
++	"tele-view-as-tl",
++	"tele-parallel-uploads",
++	"tele-calcmula",
++	"tele-calcmula-preview",
++	"tele-copy-emoji-id",
++	"tele-shot",
++	"tele-server-usernames",
++	"tele-sent-to-bottom",
++	"tele-queue-behind-media",
++	"tele-inline-without-via",
++	"tele-no-rich-paste-prompt",
++	"tele-punctual-scheduled",
++	"tele-hd-photos",
++	"tele-no-phone-in-header",
++	"tele-nft-purchase-price",
++	"tele-local-drafts",
++	"tele-call-button",
++	"tele-group-call-button",
++	"tele-deleted-reply",
++	"tele-link-previews",
++	"tele-server-url",
++	"tele-title",
++	"tele-window-title",
++	"tele-message-menu",
++	"tele-link-rewrites",
++	"tele-app-links",
++	"tele-ghost-chats",
++	"tele-ignored-users",
++	"tele-username-aliases",
++	"tele-local-names",
++	"tele-chat-backgrounds",
++	"tele-app-icon",
++	"tele-tray-icon",
++	"tele/interface",
++	"tele/chats",
++	"tele/privacy",
++	"tele/profiles",
++	"tele/bots",
++	"tele/debug",
++};
++
++[[nodiscard]] bool UpdatedFromOlderTele() {
++	return (ChangelogShown() > 0) || !ChangelogAccounts().isEmpty();
++}
++
++[[nodiscard]] std::vector<QString> CurrentIds() {
++	auto result = SettingIds();
++	for (const auto &id : ::Settings::TeleCategoryIds()) {
++		result.push_back(id);
++	}
++	return result;
++}
++
++[[nodiscard]] base::flat_set<QString> ParseIds(const QJsonValue &value) {
++	auto result = base::flat_set<QString>();
++	for (const auto &id : value.toArray()) {
++		if (id.isString()) {
++			result.emplace(id.toString());
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] QJsonArray SerializeIds(const std::vector<QString> &ids) {
++	auto result = QJsonArray();
++	for (const auto &id : ids) {
++		result.push_back(id);
++	}
++	return result;
++}
++
++void Write(const std::vector<QString> &fresh, bool seen) {
++	auto object = QJsonObject();
++	object.insert(u"known"_q, SerializeIds(CurrentIds()));
++	object.insert(u"new"_q, SerializeIds(fresh));
++	object.insert(u"seen"_q, seen);
++	SetKnownSettings(QString::fromUtf8(
++		QJsonDocument(object).toJson(QJsonDocument::Compact)));
++}
++
++} // namespace
++
++void StartNewSettings() {
++	auto &state = Current();
++	if (state.started) {
++		return;
++	}
++	state.started = true;
++	const auto document = QJsonDocument::fromJson(KnownSettings().toUtf8());
++	const auto object = document.object();
++	if (!document.isObject() || !object.value(u"known"_q).isArray()) {
++		if (UpdatedFromOlderTele()) {
++			for (const auto &id : CurrentIds()) {
++				const auto known = ranges::contains(
++					kTele10Settings,
++					id,
++					[](const char *value) { return QString::fromLatin1(value); });
++				if (!known) {
++					state.fresh.push_back(id);
++				}
++			}
++		}
++		Write(state.fresh, false);
++		return;
++	}
++	const auto known = ParseIds(object.value(u"known"_q));
++	const auto previous = object.value(u"seen"_q).toBool()
++		? base::flat_set<QString>()
++		: ParseIds(object.value(u"new"_q));
++	for (const auto &id : CurrentIds()) {
++		if (!known.contains(id) || previous.contains(id)) {
++			state.fresh.push_back(id);
++		}
++	}
++	Write(state.fresh, false);
++}
++
++const std::vector<QString> &NewSettings() {
++	StartNewSettings();
++	return Current().fresh;
++}
++
++QString NewSettingsTitle() {
++	return Lower((BuildNumber() > 0)
++		? u"New in tele %1"_q.arg(BuildNumber())
++		: u"New in tele"_q);
++}
++
++QString NewSettingsLink() {
++	return u"tg://settings/tele/new"_q;
++}
++
++rpl::producer<bool> NewSettingsSeenValue() {
++	return Current().seen.value();
++}
++
++void MarkNewSettingsSeen() {
++	auto &state = Current();
++	if (state.seen.current() || NewSettings().empty()) {
++		return;
++	}
++	state.seen = true;
++	Write(state.fresh, true);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_new_settings.h b/Telegram/SourceFiles/tele/tele_new_settings.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..1ff1903ada74e80b194b26f6665a19d43166e92d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_new_settings.h
+@@ -0,0 +1,12 @@
++#pragma once
++
++namespace Tele {
++
++void StartNewSettings();
++[[nodiscard]] const std::vector<QString> &NewSettings();
++[[nodiscard]] QString NewSettingsTitle();
++[[nodiscard]] QString NewSettingsLink();
++[[nodiscard]] rpl::producer<bool> NewSettingsSeenValue();
++void MarkNewSettingsSeen();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 11796988082d85936d06f6430d6fde2453353268..113ee6c844bcde7e7bcc90c66f5614a85fc9c727 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -20,6 +20,7 @@ const char kOptionAutoUpdate[] = "tele-auto-update";
+ const char kOptionShowChangelog[] = "tele-show-changelog";
+ const char kOptionChangelogShown[] = "tele-changelog-shown";
+ const char kOptionChangelogAccounts[] = "tele-changelog-accounts";
++const char kOptionKnownSettings[] = "tele-known-settings";
+ const char kOptionGroupQuickReplies[] = "tele-group-quick-replies";
+ const char kOptionBubbleBadges[] = "tele-bubble-badges";
+ const char kOptionHideCalls[] = "tele-hide-calls";
+@@ -201,6 +202,13 @@ base::options::option<QString> ChangelogAccountsOption({
+ 	.description = "The tele build whose changes each account was shown.",
+ });
+ 
++base::options::option<QString> KnownSettingsOption({
++	.id = kOptionKnownSettings,
++	.name = "Known settings",
++	.description = "The tele settings this device has seen, to show the "
++		"new ones after an update.",
++});
++
+ base::options::toggle GroupQuickRepliesOption({
+ 	.id = kOptionGroupQuickReplies,
+ 	.name = "Quick replies in groups and channels",
+@@ -761,6 +769,14 @@ void SetChangelogAccounts(const QString &value) {
+ 	ChangelogAccountsOption.set(value);
+ }
+ 
++QString KnownSettings() {
++	return KnownSettingsOption.value();
++}
++
++void SetKnownSettings(const QString &value) {
++	KnownSettingsOption.set(value);
++}
++
+ bool GroupQuickReplies() {
+ 	return GroupQuickRepliesOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index b57429624c36d3066c9abf137a3e34722710483b..cb76e9192ba92a31e79ce1311b9dd1723c65af82 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -17,6 +17,7 @@ extern const char kOptionAutoUpdate[];
+ extern const char kOptionShowChangelog[];
+ extern const char kOptionChangelogShown[];
+ extern const char kOptionChangelogAccounts[];
++extern const char kOptionKnownSettings[];
+ extern const char kOptionGroupQuickReplies[];
+ extern const char kOptionBubbleBadges[];
+ extern const char kOptionCallButton[];
+@@ -106,6 +107,8 @@ void SetGhostChats(const QString &value);
+ [[nodiscard]] int ChangelogShown();
+ [[nodiscard]] QString ChangelogAccounts();
+ void SetChangelogAccounts(const QString &value);
++[[nodiscard]] QString KnownSettings();
++void SetKnownSettings(const QString &value);
+ [[nodiscard]] bool GroupQuickReplies();
+ [[nodiscard]] bool BubbleBadges();
+ [[nodiscard]] bool LowercaseStrings();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 1c26258c258928a1db23ed18d628787b3dc39d7c..68761756b44e543965a11903ea05868999ca2bf5 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -184,6 +184,7 @@ struct Spec {
+ 		Device(kOptionTrayIcon, Kind::TrayIcon),
+ 		Internal(kOptionChangelogShown),
+ 		Internal(kOptionChangelogAccounts),
++		Internal(kOptionKnownSettings),
+ 		Internal("tele-hide-calls"),
+ 		Internal("tele-open-links-in-apps"),
+ 	};
+@@ -895,4 +896,14 @@ QString SettingName(const QString &id) {
+ 	return name.isEmpty() ? id : Lower(name);
+ }
+ 
++std::vector<QString> SettingIds() {
++	auto result = std::vector<QString>();
++	for (const auto &spec : Specs()) {
++		if (spec.kind != Kind::Internal) {
++			result.push_back(QString::fromLatin1(spec.id));
++		}
++	}
++	return result;
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.h b/Telegram/SourceFiles/tele/tele_settings_io.h
+index 69bef6a50cb9d32f687d612d65da88427794704e..12c95c956799c5a855db2252a004020a49276c35 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.h
++++ b/Telegram/SourceFiles/tele/tele_settings_io.h
+@@ -54,5 +54,6 @@ SettingsChanges ApplySettings(
+ 	const SettingsImport &data,
+ 	SettingsGroups groups);
+ [[nodiscard]] QString SettingName(const QString &id);
++[[nodiscard]] std::vector<QString> SettingIds();
+ 
+ } // namespace Tele

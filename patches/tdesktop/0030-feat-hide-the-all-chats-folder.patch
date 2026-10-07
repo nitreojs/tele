@@ -259,7 +259,7 @@ index 0000000000000000000000000000000000000000..d3b96761b106c72a0a024802d0d11190
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 1aacd819c402b1df0dcb518238dfa853c71a39aa..0669631de73e1ccc02ce556fd3924c14fc90dc4f 100644
+index 145bcbae00517c6448d35466758e502f7301cbfd..3a4eb6d5f95efed66d63d4af07073b496cb82fc7 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -14,6 +14,7 @@ const char kOptionHideCalls[] = "tele-hide-calls";
@@ -284,7 +284,7 @@ index 1aacd819c402b1df0dcb518238dfa853c71a39aa..0669631de73e1ccc02ce556fd3924c14
  base::options::toggle ShowGiftIdsOption({
  	.id = kOptionShowGiftIds,
  	.name = "Show gift IDs",
-@@ -294,6 +302,14 @@ bool NoLinkWarning() {
+@@ -293,6 +301,14 @@ bool NoLinkWarning() {
  	return NoLinkWarningOption.value();
  }
  

@@ -1,0 +1,419 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 11:58:41 +0300
+Subject: [PATCH] feat: retry failed messages
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/dialogs/ui/dialogs_layout.cpp |   9 +
+ .../history/history_inner_widget.cpp          |   4 +
+ .../history/view/history_view_bottom_info.cpp |  20 ++
+ .../history/view/history_view_bottom_info.h   |   3 +-
+ .../view/history_view_context_menu.cpp        |   2 +
+ .../SourceFiles/tele/tele_failed_sends.cpp    | 193 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_failed_sends.h |  21 ++
+ .../SourceFiles/tele/tele_menu_registry.cpp   |   8 +
+ 9 files changed, 261 insertions(+), 1 deletion(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 57ebc0a242322d4f84f5f95bbd21f12a4a53a358..f1002338b618d035a87a7212e7347badc1836c0d 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2307,6 +2307,8 @@ PRIVATE
+     tele/tele_emoji_panel.h
+     tele/tele_edit_history_section.cpp
+     tele/tele_edit_history_section.h
++    tele/tele_failed_sends.cpp
++    tele/tele_failed_sends.h
+     tele/tele_field_resize.cpp
+     tele/tele_field_resize.h
+     tele/tele_flood_wait.h
+diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
+index f121b15f1b54950a09fb546f1b29b2c2f6c5046f..9b73173b0d1effaca246a3cceb353f9dd05c61fd 100644
+--- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
++++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "support/support_helper.h"
+ #include "tele/tele_corner_buttons.h"
+ #include "tele/tele_docked_media.h"
++#include "tele/tele_failed_sends.h"
+ #include "tele/tele_hidden_words.h"
+ #include "tele/tele_list_previews.h"
+ #include "tele/tele_local_pins.h"
+@@ -897,6 +898,14 @@ void PaintRow(
+ 	if (sendStateIcon) {
+ 		rectForName.setWidth(rectForName.width() - st::dialogsSendStateSkip);
+ 		sendStateIcon->paint(p, rectForName.topLeft() + QPoint(rectForName.width(), 0), context.width);
++		if (!draft && item && item->hasFailed()) {
++			Tele::PaintFailedIcon(
++				p,
++				*sendStateIcon,
++				rectForName.topLeft() + QPoint(rectForName.width(), 0),
++				{ 8, 4 },
++				context.width);
++		}
+ 	}
+ 
+ 	p.setFont(st::semiboldFont);
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 706b8890f170557367e35a05750f0e4ca6548943..7d6308ecf13498f042f1c9629cf9d3abf94492a7 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_copy_markdown.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_failed_sends.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_gif_video.h"
+ #include "tele/tele_ignored.h"
+@@ -3908,6 +3909,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 		(isUponSelected != -2) ? _dragStateItem : nullptr,
+ 		width(),
+ 		crl::guard(this, [=] { _widget->clearSelected(); }));
++	Tele::AddRetryFailedActions(
++		_menu.get(),
++		(isUponSelected != -2) ? _dragStateItem : nullptr);
+ 	Tele::AddResendAsGifAction(
+ 		_menu.get(),
+ 		controller,
+diff --git a/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp b/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
+index 4914f49203d20f9f825c7f09faa58e67881ab5c3..756ec7a6c052cbe94762016360132650a544733c 100644
+--- a/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_session_controller.h"
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_failed_sends.h"
+ #include "tele/tele_time.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_credits.h"
+@@ -299,6 +300,14 @@ void BottomInfo::paint(
+ 			p,
+ 			QPoint(right, firstLineBottom) + st::historySendStatePosition,
+ 			outerWidth);
++		if (_data.flags & Data::Flag::Failed) {
++			Tele::PaintFailedIcon(
++				p,
++				icon,
++				QPoint(right, firstLineBottom) + st::historySendStatePosition,
++				{ 5, 5 },
++				outerWidth);
++		}
+ 		right -= st::historySendStateSpace;
+ 	}
+ 
+@@ -392,6 +401,14 @@ void BottomInfo::paint(
+ 			right,
+ 			firstLineBottom + st::historyViewsTop,
+ 			outerWidth);
++		if (_data.flags & Data::Flag::Failed) {
++			Tele::PaintFailedIcon(
++				p,
++				icon,
++				QPoint(right, firstLineBottom + st::historyViewsTop),
++				{ 3, 0 },
++				outerWidth);
++		}
+ 	}
+ 	if (_effect) {
+ 		auto left = position.x();
+@@ -739,6 +756,9 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
+ 	if (item->isSending() || item->hasFailed()) {
+ 		result.flags |= Flag::Sending;
+ 	}
++	if (item->hasFailed()) {
++		result.flags |= Flag::Failed;
++	}
+ 	if (item->isEphemeral()
+ 		&& !message->hasBubble()
+ 		&& (!message->media()
+diff --git a/Telegram/SourceFiles/history/view/history_view_bottom_info.h b/Telegram/SourceFiles/history/view/history_view_bottom_info.h
+index d2a2b9915f2dfbef55b62dfa2fffa5bda22e20f9..200d9e319be5f73be38d16af287028c8413d0214 100644
+--- a/Telegram/SourceFiles/history/view/history_view_bottom_info.h
++++ b/Telegram/SourceFiles/history/view/history_view_bottom_info.h
+@@ -32,7 +32,7 @@ struct TextState;
+ class BottomInfo final : public Object {
+ public:
+ 	struct Data {
+-		enum class Flag : uint16 {
++		enum class Flag : uint32 {
+ 			Edited         = 0x001,
+ 			OutLayout      = 0x002,
+ 			Sending        = 0x004,
+@@ -49,6 +49,7 @@ public:
+ 			Updated        = 0x2000,
+ 			Deleted        = 0x4000,
+ 			Bookmarked     = 0x8000,
++			Failed         = 0x10000,
+ 			//Unread, // We don't want to pass and update it in Date for now.
+ 		};
+ 		friend inline constexpr bool is_flag_type(Flag) { return true; };
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 14610438926bea77de95a60733c4d98f377cb546..f2a02bbed6775773f6e7029b765bf6dbf484b71a 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_drafts_section.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_failed_sends.h"
+ #include "tele/tele_gif_video.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_shot.h"
+@@ -2028,6 +2029,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+ 		}
+ 	}
+ 	Tele::AddShotAction(result.get(), list, request);
++	Tele::AddRetryFailedActions(result.get(), item);
+ 	Tele::AddResendAsGifAction(result.get(), list->controller(), item);
+ 	Tele::InsertMessageTools(
+ 		result.get(),
+diff --git a/Telegram/SourceFiles/tele/tele_failed_sends.cpp b/Telegram/SourceFiles/tele/tele_failed_sends.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ccc4b55163a916dc60f9f8ba5e5d8f7e3709d536
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_failed_sends.cpp
+@@ -0,0 +1,193 @@
++#include "tele/tele_failed_sends.h"
++
++#include "api/api_common.h"
++#include "api/api_sending.h"
++#include "apiwrap.h"
++#include "data/data_document.h"
++#include "data/data_drafts.h"
++#include "data/data_media_types.h"
++#include "data/data_photo.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "tele/tele_lowercase.h"
++#include "ui/painter.h"
++#include "ui/widgets/menu/menu_action.h"
++#include "ui/widgets/popup_menu.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++enum class Kind : uchar {
++	None,
++	Text,
++	Document,
++	Photo,
++};
++
++[[nodiscard]] bool RemotePhoto(not_null<PhotoData*> photo) {
++	const auto input = photo->mtpInput();
++	return (input.type() == mtpc_inputPhoto)
++		&& (input.c_inputPhoto().vaccess_hash().v != 0);
++}
++
++[[nodiscard]] Kind RetryKind(not_null<HistoryItem*> item) {
++	if (!item->hasFailed()
++		|| item->isScheduled()
++		|| item->isBusinessShortcut()
++		|| item->isWelcomeTemplate()
++		|| item->isEphemeral()
++		|| item->starsPaid()
++		|| item->groupId()
++		|| item->viaBot()
++		|| item->richPage()
++		|| item->Get<HistoryMessageForwarded>()) {
++		return Kind::None;
++	}
++	const auto media = item->media();
++	if (!media || media->webpage()) {
++		return item->originalText().empty() ? Kind::None : Kind::Text;
++	} else if (media->ttlSeconds()) {
++		return Kind::None;
++	} else if (dynamic_cast<Data::MediaFile*>(media)) {
++		const auto document = media->document();
++		return (document && document->hasRemoteLocation())
++			? Kind::Document
++			: Kind::None;
++	} else if (dynamic_cast<Data::MediaPhoto*>(media)) {
++		const auto photo = media->photo();
++		return (photo && RemotePhoto(photo)) ? Kind::Photo : Kind::None;
++	}
++	return Kind::None;
++}
++
++void Retry(not_null<HistoryItem*> item) {
++	const auto kind = RetryKind(item);
++	if (kind == Kind::None) {
++		return;
++	}
++	const auto history = item->history();
++	const auto media = item->media();
++	auto action = Api::SendAction(history);
++	action.replyTo = item->replyTo();
++	action.clearDraft = false;
++	action.options.silent = item->isSilent();
++	action.options.effectId = item->effectId();
++	action.options.invertCaption = item->invertMedia();
++	action.options.mediaSpoiler = media && media->hasSpoiler();
++	const auto from = item->from();
++	if (from != history->peer && !from->isSelf()) {
++		action.options.sendAs = from;
++	}
++	auto message = Api::MessageToSend(action);
++	const auto &text = item->originalText();
++	message.textWithTags = TextWithTags{
++		text.text,
++		TextUtilities::ConvertEntitiesToTextTags(text.entities),
++	};
++	if (kind == Kind::Text) {
++		message.webPage = Data::WebPageDraft::FromItem(item);
++		history->session().api().sendMessage(std::move(message));
++	} else if (kind == Kind::Document) {
++		Api::SendExistingDocument(std::move(message), media->document());
++	} else {
++		Api::SendExistingPhoto(std::move(message), media->photo());
++	}
++	item->destroy();
++}
++
++[[nodiscard]] std::vector<not_null<HistoryItem*>> Retryable(
++		not_null<History*> history) {
++	auto result = std::vector<not_null<HistoryItem*>>();
++	for (const auto &item : history->clientSideMessages()) {
++		if (RetryKind(item) != Kind::None) {
++			result.push_back(item);
++		}
++	}
++	ranges::sort(result, [](
++			not_null<HistoryItem*> a,
++			not_null<HistoryItem*> b) {
++		return (a->date() != b->date())
++			? (a->date() < b->date())
++			: (a->id < b->id);
++	});
++	return result;
++}
++
++void InsertAction(
++		not_null<Ui::PopupMenu*> menu,
++		int position,
++		const QString &text,
++		Fn<void()> callback) {
++	const auto icon = &st::menuIconRestore;
++	const auto raw = menu->menu();
++	menu->insertAction(position, base::make_unique_q<Ui::Menu::Action>(
++		raw,
++		menu->st().menu,
++		Ui::Menu::CreateAction(raw, text, std::move(callback)),
++		icon,
++		icon));
++}
++
++} // namespace
++
++void PaintFailedIcon(
++		QPainter &p,
++		const style::icon &clock,
++		QPoint position,
++		QPoint offset,
++		int outerWidth) {
++	const auto size = std::max(clock.width(), clock.height())
++		+ style::ConvertScale(4);
++	auto left = position.x()
++		+ style::ConvertScale(offset.x())
++		+ (clock.width() - size) / 2;
++	const auto top = position.y()
++		+ style::ConvertScale(offset.y())
++		+ (clock.height() - size) / 2;
++	if (style::RightToLeft()) {
++		left = outerWidth - left - size;
++	}
++	p.save();
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(Qt::NoPen);
++	p.setBrush(st::boxTextFgError);
++	p.drawEllipse(QRectF(left, top, size, size));
++	auto pen = QPen(st::windowFgActive->c);
++	pen.setWidthF(size / 7.);
++	pen.setCapStyle(Qt::RoundCap);
++	p.setPen(pen);
++	const auto x = left + size / 2.;
++	const auto y = top + size / 2.;
++	p.drawLine(QPointF(x, y - size * 0.26), QPointF(x, y + size * 0.06));
++	p.drawPoint(QPointF(x, y + size * 0.25));
++	p.restore();
++}
++
++void AddRetryFailedActions(
++		not_null<Ui::PopupMenu*> menu,
++		HistoryItem *item) {
++	if (!item || RetryKind(item) == Kind::None) {
++		return;
++	}
++	const auto history = item->history();
++	const auto itemId = item->fullId();
++	InsertAction(menu, 0, Lower(tr::lng_bot_download_retry(tr::now)), [=] {
++		if (const auto item = history->owner().message(itemId)) {
++			Retry(item);
++		}
++	});
++	if (Retryable(history).size() > 1) {
++		InsertAction(menu, 1, Lower(u"Retry all failed in this chat"_q), [=] {
++			for (const auto &item : Retryable(history)) {
++				Retry(item);
++			}
++		});
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_failed_sends.h b/Telegram/SourceFiles/tele/tele_failed_sends.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e1b1c531d664ae70b060697158c962e043917492
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_failed_sends.h
+@@ -0,0 +1,21 @@
++#pragma once
++
++class HistoryItem;
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Tele {
++
++void PaintFailedIcon(
++	QPainter &p,
++	const style::icon &clock,
++	QPoint position,
++	QPoint offset,
++	int outerWidth);
++void AddRetryFailedActions(
++	not_null<Ui::PopupMenu*> menu,
++	HistoryItem *item);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index 50d4a2baa3667d8735ecc6b3fdfe046c8f774726..184c2c6b6132d9cc8aab82da7da727ba49969bee 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -329,6 +329,14 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			kMessage,
+ 			nullptr,
+ 			MenuItemFlag::Strip),
++		{ .key = u"retry_failed"_q, .phrases = {
++			P([](int) { return Lower(tr::lng_bot_download_retry(tr::now)); },
++				st::menuIconRestore),
++		}, .contexts = kOwn | kMedia },
++		{ .key = u"retry_all_failed"_q, .phrases = {
++			P([](int) { return Lower(u"Retry all failed in this chat"_q); },
++				st::menuIconRestore),
++		}, .contexts = kOwn | kMedia },
+ 		{ .key = u"reply"_q, .phrases = {
+ 			P([](int) { return tr::lng_context_reply_msg(tr::now); },
+ 				st::menuIconReply),

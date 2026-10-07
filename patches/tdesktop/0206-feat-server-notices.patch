@@ -1,0 +1,1216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 3 Oct 2026 17:23:40 +0300
+Subject: [PATCH] feat: server notices
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  10 +-
+ Telegram/SourceFiles/tele/tele_badges.cpp     |  80 +++
+ Telegram/SourceFiles/tele/tele_badges.h       |   5 +
+ Telegram/SourceFiles/tele/tele_notices.cpp    | 120 ++++
+ Telegram/SourceFiles/tele/tele_notices.h      |  17 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  17 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_server_notices.cpp  | 604 ++++++++++++++++++
+ .../SourceFiles/tele/tele_server_notices.h    |  39 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 11 files changed, 897 insertions(+), 1 deletion(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_server_notices.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_server_notices.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 6e045488f387908081014fff2d819bffaa3b09e7..edb99782efee6ff02437b8358b5448a5d3006327 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2478,6 +2478,8 @@ PRIVATE
+     tele/tele_send_files.h
+     tele/tele_send_order.cpp
+     tele/tele_send_order.h
++    tele/tele_server_notices.cpp
++    tele/tele_server_notices.h
+     tele/tele_settings_io.cpp
+     tele/tele_settings_io.h
+     tele/tele_settings_io_box.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index bb81628cc67f0c357b5be8ea7d685368084c4538..96f8388c69f9416c571fed90be3da3ee26e9edbb 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -50,6 +50,7 @@
+ #include "tele/tele_mtp_log.h"
+ #include "tele/tele_new_settings.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_server_notices.h"
+ #include "tele/tele_settings_io_box.h"
+ #include "tele/tele_title_box.h"
+ #include "tele/tele_updater.h"
+@@ -1244,7 +1245,9 @@ void AddServer(SectionBuilder &builder) {
+ 			.onClick = [=] {
+ 				::Tele::RefreshBadges(crl::guard(controller, [=](
+ 						QString text) {
+-					controller->showToast(text);
++					if (!::Tele::ServerNoticeToastRecent()) {
++						controller->showToast(text);
++					}
+ 				}));
+ 			},
+ 			.keywords = { u"verification"_q, u"checkmarks"_q, u"badges"_q },
+@@ -3717,6 +3720,11 @@ void FillRoot(SectionBuilder &builder) {
+ 		::Tele::kOptionServerUsernames,
+ 		{},
+ 		::Tele::kOptionServerUrl);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionNoticesServer,
++		{},
++		::Tele::kOptionServerUrl);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Backup"_q);
+ 	AddBackup(builder);
+diff --git a/Telegram/SourceFiles/tele/tele_badges.cpp b/Telegram/SourceFiles/tele/tele_badges.cpp
+index fc7d03846d2cf61960b1a383b9a43338a07529a0..a23b2831b547ea9a80f3e5c028fc30288198bc5d 100644
+--- a/Telegram/SourceFiles/tele/tele_badges.cpp
++++ b/Telegram/SourceFiles/tele/tele_badges.cpp
+@@ -18,6 +18,7 @@
+ #include "tele/tele_changelog_chat.h"
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_server_notices.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/unread_badge.h"
+ 
+@@ -89,6 +90,7 @@ struct Feed {
+ 	Params params;
+ 	std::vector<std::pair<Tag, Entry>> entries;
+ 	std::vector<FeedUsername> usernames;
++	std::vector<FeedNotice> notices;
+ 
+ 	[[nodiscard]] const Entry *find(const Tag &tag) const {
+ 		const auto i = ranges::lower_bound(
+@@ -374,6 +376,7 @@ struct Feed {
+ 	}
+ 	ranges::sort(result.entries, ranges::less(), &std::pair<Tag, Entry>::first);
+ 	result.usernames = ParseUsernames(object.value(u"usernames"_q));
++	result.notices = ParseFeedNotices(object.value(u"notices"_q));
+ 	return result;
+ }
+ 
+@@ -429,6 +432,7 @@ public:
+ 	[[nodiscard]] const Entry *applied(PeerKey key) const;
+ 	void refreshNow(Fn<void(QString)> done);
+ 	void clearCache(Fn<void(QString)> done);
++	void notices(not_null<Main::Session*> session);
+ 
+ private:
+ 	void cancel();
+@@ -453,6 +457,8 @@ private:
+ 		const std::vector<std::optional<Tag>> &tags);
+ 	void refresh(PeerKey key);
+ 	void push(PeerKey key, const Entry &was, const Entry &now) const;
++	void pushNotices();
++	void deriveSelf(PeerKey key);
+ 
+ 	QNetworkAccessManager _manager;
+ 	QPointer<QNetworkReply> _reply;
+@@ -464,6 +470,8 @@ private:
+ 	std::unordered_map<PeerKey, Entry> _applied;
+ 	std::unordered_set<PeerKey> _queued;
+ 	std::unordered_set<PeerKey> _failed;
++	std::unordered_map<PeerKey, std::optional<Tag>> _selfTags;
++	std::unordered_set<PeerKey> _selfHashing;
+ 	std::deque<PeerKey> _queue;
+ 	std::vector<PeerKey> _inFlight;
+ 	std::vector<Fn<void(QString)>> _waiting;
+@@ -706,6 +714,10 @@ void Badges::setFeed(std::optional<Feed> feed) {
+ 	const auto wasActive = active();
+ 	const auto was = _feed ? _feed->params : Params();
+ 	_feed = std::move(feed);
++	if (!_feed || _feed->params != was) {
++		_selfTags.clear();
++	}
++	pushNotices();
+ 	if (!active()) {
+ 		reset();
+ 		return;
+@@ -896,6 +908,68 @@ void Badges::push(PeerKey key, const Entry &was, const Entry &now) const {
+ 	});
+ }
+ 
++void Badges::pushNotices() {
++	EnumerateSessions([&](not_null<Main::Session*> session) {
++		notices(session);
++	});
++}
++
++void Badges::notices(not_null<Main::Session*> session) {
++	auto list = std::vector<FeedNotice>();
++	if (!_feed) {
++		ApplyFeedNotices(session, std::move(list));
++		return;
++	}
++	const auto key = Key(session->user());
++	const auto targeted = ranges::any_of(
++		_feed->notices,
++		[](const FeedNotice &notice) { return notice.users.has_value(); });
++	auto self = QByteArray();
++	if (targeted) {
++		const auto i = _selfTags.find(key);
++		if (i == end(_selfTags)) {
++			deriveSelf(key);
++			return;
++		} else if (const auto &tag = i->second) {
++			self = QByteArray(
++				reinterpret_cast<const char*>(tag->data()),
++				int(tag->size()));
++		}
++	}
++	for (const auto &notice : _feed->notices) {
++		if (!notice.users
++			|| (!self.isEmpty() && ranges::contains(*notice.users, self))) {
++			list.push_back(notice);
++		}
++	}
++	ApplyFeedNotices(session, std::move(list));
++}
++
++void Badges::deriveSelf(PeerKey key) {
++	if (!_feed || !_selfHashing.emplace(key).second) {
++		return;
++	}
++	crl::async([
++		=,
++		weak = base::make_weak(this),
++		params = _feed->params,
++		password = Password(key)
++	] {
++		auto tags = DeriveAll(params, { password });
++		crl::on_main(weak, [=, tag = tags.front()] {
++			_selfHashing.erase(key);
++			if (_feed && _feed->params == params) {
++				_selfTags[key] = tag;
++			}
++			EnumerateSessions([&](not_null<Main::Session*> session) {
++				if (Key(session->user()) == key) {
++					notices(session);
++				}
++			});
++		});
++	});
++}
++
+ [[nodiscard]] const Entry *Lookup(not_null<PeerData*> peer) {
+ 	if (!Instance || !Instance->active()) {
+ 		return nullptr;
+@@ -920,6 +994,12 @@ void RefreshBadges(Fn<void(QString)> done) {
+ 	}
+ }
+ 
++void RequestFeedNotices(not_null<Main::Session*> session) {
++	if (Instance) {
++		Instance->notices(session);
++	}
++}
++
+ void ClearBadgesCache(Fn<void(QString)> done) {
+ 	if (Instance) {
+ 		Instance->clearCache(std::move(done));
+diff --git a/Telegram/SourceFiles/tele/tele_badges.h b/Telegram/SourceFiles/tele/tele_badges.h
+index 4da2d745694c77ac227a303702e37ec9ed929dc7..a6abbd32dc45bcc6714956f50620eb43d4b7e2dc 100644
+--- a/Telegram/SourceFiles/tele/tele_badges.h
++++ b/Telegram/SourceFiles/tele/tele_badges.h
+@@ -3,6 +3,10 @@
+ class PeerData;
+ class UserData;
+ 
++namespace Main {
++class Session;
++} // namespace Main
++
+ namespace Ui {
+ struct BotVerifyDetails;
+ } // namespace Ui
+@@ -22,6 +26,7 @@ struct FeedUsername {
+ void StartBadges();
+ void RefreshBadges(Fn<void(QString)> done);
+ void ClearBadgesCache(Fn<void(QString)> done);
++void RequestFeedNotices(not_null<Main::Session*> session);
+ 
+ [[nodiscard]] bool Verified(not_null<PeerData*> peer);
+ [[nodiscard]] bool Scam(not_null<PeerData*> peer);
+diff --git a/Telegram/SourceFiles/tele/tele_notices.cpp b/Telegram/SourceFiles/tele/tele_notices.cpp
+index d8cdfc5df39b0d08b8d94cd765ae8235bec33880..19270811dcf55f5104ad7b79a5ab3b9d5212b945 100644
+--- a/Telegram/SourceFiles/tele/tele_notices.cpp
++++ b/Telegram/SourceFiles/tele/tele_notices.cpp
+@@ -12,6 +12,7 @@
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_rate_limits.h"
++#include "tele/tele_server_notices.h"
+ #include "tele/tele_updater.h"
+ 
+ #include <QtCore/QJsonArray>
+@@ -30,8 +31,15 @@ constexpr auto kMaxAge = TimeId(30 * 24 * 60 * 60);
+ constexpr auto kMaxJsonSize = 32 * 1024 * 1024;
+ constexpr auto kWriteDelay = crl::time(1000);
+ constexpr auto kMergeTeleToasts = crl::time(10 * 1000);
++constexpr auto kMaxServerNotices = 500;
+ constexpr auto kReleasesPrefix = "https://github.com/nitreojs/tele/releases/";
+ 
++struct ServerSeen {
++	QString id;
++	int rev = 0;
++	bool toasted = false;
++};
++
+ struct PendingCrash {
+ 	QString id;
+ 	bool freeze = false;
+@@ -229,6 +237,9 @@ public:
+ 	void remove(uint64 id);
+ 	void clear();
+ 	[[nodiscard]] QImage photo(const QString &name) const;
++	void savePhoto(const QString &name, const QByteArray &bytes);
++	[[nodiscard]] const ServerSeen *server(const QString &id) const;
++	void setServer(ServerSeen seen);
+ 	void deliverCrashes();
+ 
+ private:
+@@ -240,12 +251,15 @@ private:
+ 	void read();
+ 	void write();
+ 	void changed();
++	void scheduleWrite();
+ 	void trim();
+ 	void removePhotos(const std::vector<QString> &names);
+ 	void updateStatus(const UpdateStatus &status);
+ 
+ 	const not_null<Main::Session*> _session;
+ 	std::vector<Notice> _list;
++	std::vector<ServerSeen> _server;
++	base::flat_map<QString, QByteArray> _photos;
+ 	QString _updateTag;
+ 	QString _teleWhere;
+ 	uint64 _teleId = 0;
+@@ -392,6 +406,11 @@ void Store::clear() {
+ }
+ 
+ QImage Store::photo(const QString &name) const {
++	if (const auto i = _photos.find(name); i != end(_photos)) {
++		auto image = QImage();
++		image.loadFromData(i->second);
++		return image;
++	}
+ 	auto file = FileReadDescriptor();
+ 	const auto key = _session->local().peekLegacyLocalKey();
+ 	if (name.isEmpty()
+@@ -409,6 +428,35 @@ QImage Store::photo(const QString &name) const {
+ 	return image;
+ }
+ 
++void Store::savePhoto(const QString &name, const QByteArray &bytes) {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || name.isEmpty()) {
++		return;
++	}
++	_photos[name] = bytes;
++	auto data = EncryptedDescriptor(sizeof(quint32) + bytes.size());
++	data.stream << bytes;
++	auto file = FileWriteDescriptor(name, folder());
++	file.writeEncrypted(data, key);
++}
++
++const ServerSeen *Store::server(const QString &id) const {
++	const auto i = ranges::find(_server, id, &ServerSeen::id);
++	return (i != end(_server)) ? &*i : nullptr;
++}
++
++void Store::setServer(ServerSeen seen) {
++	const auto i = ranges::find(_server, seen.id, &ServerSeen::id);
++	if (i != end(_server)) {
++		_server.erase(i);
++	}
++	_server.push_back(std::move(seen));
++	if (_server.size() > kMaxServerNotices) {
++		_server.erase(begin(_server));
++	}
++	scheduleWrite();
++}
++
+ void Store::deliverCrashes() {
+ 	auto &pending = PendingCrashes();
+ 	if (pending.empty() || !NoticesCentre()) {
+@@ -456,6 +504,17 @@ void Store::read() {
+ 	const auto object = QJsonDocument::fromJson(json).object();
+ 	_lastId = object.value(u"last"_q).toString().toULongLong();
+ 	_updateTag = object.value(u"update"_q).toString();
++	for (const auto &value : object.value(u"server"_q).toArray()) {
++		const auto fields = value.toArray();
++		const auto id = fields.at(0).toString();
++		if (!id.isEmpty() && int(_server.size()) < kMaxServerNotices) {
++			_server.push_back({
++				.id = id,
++				.rev = fields.at(1).toInt(),
++				.toasted = fields.at(2).toBool(),
++			});
++		}
++	}
+ 	for (const auto &value : object.value(u"list"_q).toArray()) {
+ 		if (auto notice = Parse(value.toObject())) {
+ 			_lastId = std::max(_lastId, notice->id);
+@@ -475,9 +534,14 @@ void Store::write() {
+ 	for (const auto &notice : _list) {
+ 		list.push_back(Serialize(notice));
+ 	}
++	auto server = QJsonArray();
++	for (const auto &seen : _server) {
++		server.push_back(QJsonArray{ seen.id, seen.rev, seen.toasted });
++	}
+ 	auto object = QJsonObject();
+ 	object.insert(u"last"_q, QString::number(_lastId));
+ 	object.insert(u"update"_q, _updateTag);
++	object.insert(u"server"_q, server);
+ 	object.insert(u"list"_q, list);
+ 	const auto json = QJsonDocument(object).toJson(QJsonDocument::Compact);
+ 	auto data = EncryptedDescriptor(
+@@ -495,6 +559,10 @@ void Store::write() {
+ void Store::changed() {
+ 	_unread = int(ranges::count(_list, true, &Notice::unread));
+ 	_changes.fire({});
++	scheduleWrite();
++}
++
++void Store::scheduleWrite() {
+ 	if (!_writeTimer.isActive()) {
+ 		_writeTimer.callOnce(kWriteDelay);
+ 	}
+@@ -522,6 +590,7 @@ void Store::removePhotos(const std::vector<QString> &names) {
+ 		if (ranges::contains(_list, name, &Notice::photo)) {
+ 			continue;
+ 		}
++		_photos.remove(name);
+ 		for (const auto suffix : { 's', '0', '1' }) {
+ 			QFile::remove(base + name + suffix);
+ 		}
+@@ -570,6 +639,7 @@ void DeliverCrashes() {
+ void SetupNotices(not_null<Main::Session*> session) {
+ 	session->lifetime().make_state<Store>(session);
+ 	SetupRateLimits(session);
++	SetupServerNotices(session);
+ }
+ 
+ void Notify(not_null<Main::Session*> session, Notice notice) {
+@@ -625,6 +695,56 @@ QImage NoticePhoto(not_null<Main::Session*> session, const QString &photo) {
+ 	return store ? store->photo(photo) : QImage();
+ }
+ 
++void SaveNoticePhoto(
++		not_null<Main::Session*> session,
++		const QString &photo,
++		const QByteArray &bytes) {
++	if (const auto store = Store::Find(session)) {
++		store->savePhoto(photo, bytes);
++	}
++}
++
++int ServerNoticeRev(not_null<Main::Session*> session, const QString &id) {
++	const auto store = Store::Find(session);
++	const auto seen = store ? store->server(id) : nullptr;
++	return seen ? seen->rev : -1;
++}
++
++void SetServerNoticeRev(
++		not_null<Main::Session*> session,
++		const QString &id,
++		int rev) {
++	if (const auto store = Store::Find(session)) {
++		const auto seen = store->server(id);
++		store->setServer({
++			.id = id,
++			.rev = rev,
++			.toasted = seen && seen->toasted,
++		});
++	}
++}
++
++bool ServerNoticeToasted(
++		not_null<Main::Session*> session,
++		const QString &id) {
++	const auto store = Store::Find(session);
++	const auto seen = store ? store->server(id) : nullptr;
++	return seen && seen->toasted;
++}
++
++void SetServerNoticeToasted(
++		not_null<Main::Session*> session,
++		const QString &id) {
++	if (const auto store = Store::Find(session)) {
++		const auto seen = store->server(id);
++		store->setServer({
++			.id = id,
++			.rev = seen ? seen->rev : -1,
++			.toasted = true,
++		});
++	}
++}
++
+ void NoteCrashReportSent(const QByteArray &result, bool freeze) {
+ 	const auto text = QString::fromUtf8(result).trimmed();
+ 	PendingCrashes().push_back({
+diff --git a/Telegram/SourceFiles/tele/tele_notices.h b/Telegram/SourceFiles/tele/tele_notices.h
+index 22326a1bf2e6d1cd7cfbd51abc4599e0df7e647a..58e1c6e11a6a698924d8ed6fb847cf9177cee2cc 100644
+--- a/Telegram/SourceFiles/tele/tele_notices.h
++++ b/Telegram/SourceFiles/tele/tele_notices.h
+@@ -73,6 +73,23 @@ void ClearNotices(not_null<Main::Session*> session);
+ [[nodiscard]] QImage NoticePhoto(
+ 	not_null<Main::Session*> session,
+ 	const QString &photo);
++void SaveNoticePhoto(
++	not_null<Main::Session*> session,
++	const QString &photo,
++	const QByteArray &bytes);
++[[nodiscard]] int ServerNoticeRev(
++	not_null<Main::Session*> session,
++	const QString &id);
++void SetServerNoticeRev(
++	not_null<Main::Session*> session,
++	const QString &id,
++	int rev);
++[[nodiscard]] bool ServerNoticeToasted(
++	not_null<Main::Session*> session,
++	const QString &id);
++void SetServerNoticeToasted(
++	not_null<Main::Session*> session,
++	const QString &id);
+ 
+ void NoteCrashReportSent(const QByteArray &result, bool freeze);
+ void NoteCameOnline(not_null<UserData*> user);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index f00ac2a3d305283ffe5cca94685969e5d58e90c5..afa10bf7c238a95e81c1c9fbff958aee5be25eaa 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -116,6 +116,7 @@ const char kOptionShot[] = "tele-shot";
+ const char kOptionShotView[] = "tele-shot-view";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionServerUsernames[] = "tele-server-usernames";
++const char kOptionNoticesServer[] = "tele-notices-server";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
+ const char kOptionTitleBuildHash[] = "tele-title-build-hash";
+@@ -878,6 +879,14 @@ base::options::toggle ServerUsernamesOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle NoticesServerOption({
++	.id = kOptionNoticesServer,
++	.name = "Notifications from the server",
++	.description = "Notices from the tele server in the notification "
++		"centre.",
++	.defaultValue = true,
++});
++
+ base::options::option<QString> TitleTemplateOption({
+ 	.id = kOptionTitleTemplate,
+ 	.name = "Title bar label",
+@@ -2221,6 +2230,14 @@ rpl::producer<> ServerUsernamesChanges() {
+ 	return ServerUsernamesOption.changes();
+ }
+ 
++bool NoticesServer() {
++	return NoticesServerOption.value();
++}
++
++rpl::producer<> NoticesServerChanges() {
++	return NoticesServerOption.changes();
++}
++
+ QString TitleTemplate() {
+ 	MigrateTitleBuild();
+ 	return TitleTemplateOption.value();
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 37e7ccb8b5c6c04195252f0441cd3a2e458f4561..2a20872685f8bbaff34ec3b884644f19927f1538 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -111,6 +111,7 @@ extern const char kOptionShot[];
+ extern const char kOptionShotView[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionServerUsernames[];
++extern const char kOptionNoticesServer[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
+ extern const char kOptionTitleBuildHash[];
+@@ -358,6 +359,8 @@ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();
+ [[nodiscard]] bool ServerUsernames();
+ [[nodiscard]] rpl::producer<> ServerUsernamesChanges();
++[[nodiscard]] bool NoticesServer();
++[[nodiscard]] rpl::producer<> NoticesServerChanges();
+ [[nodiscard]] QString TitleTemplate();
+ void SetTitleTemplate(const QString &value);
+ [[nodiscard]] rpl::producer<QString> TitleTemplateValue();
+diff --git a/Telegram/SourceFiles/tele/tele_server_notices.cpp b/Telegram/SourceFiles/tele/tele_server_notices.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..51bfd4f3f6d04c97281676cd9235cba56d2e2797
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_server_notices.cpp
+@@ -0,0 +1,604 @@
++#include "tele/tele_server_notices.h"
++
++#include "base/timer.h"
++#include "base/unixtime.h"
++#include "base/weak_ptr.h"
++#include "core/ui_integration.h"
++#include "core/version.h"
++#include "data/stickers/data_custom_emoji.h"
++#include "main/main_session.h"
++#include "mainwindow.h"
++#include "tele/tele_badges.h"
++#include "tele/tele_build.h"
++#include "tele/tele_launch_flags.h"
++#include "tele/tele_options.h"
++#include "ui/painter.h"
++#include "ui/rp_widget.h"
++#include "ui/toast/toast.h"
++#include "window/window_session_controller.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QBuffer>
++#include <QtCore/QJsonArray>
++#include <QtCore/QJsonObject>
++#include <QtGui/QImageReader>
++#include <QtNetwork/QNetworkAccessManager>
++#include <QtNetwork/QNetworkReply>
++#include <QtNetwork/QNetworkRequest>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxNotices = 64;
++constexpr auto kMaxIdLength = 64;
++constexpr auto kMaxTextLength = 4096;
++constexpr auto kMaxEntities = 256;
++constexpr auto kMaxUsers = 100000;
++constexpr auto kTagSize = 16;
++constexpr auto kMaxPhotoSize = qint64(1024 * 1024);
++constexpr auto kTransferTimeout = 60 * 1000;
++constexpr auto kToastDuration = 6 * crl::time(1000);
++constexpr auto kRetryDelay = 5 * crl::time(1000);
++constexpr auto kToastIconSize = 32;
++
++[[nodiscard]] crl::time &LastServerToastQueued() {
++	static auto result = crl::time();
++	return result;
++}
++
++#if defined Q_OS_WIN
++constexpr auto kPlatform = "windows";
++#elif defined Q_OS_MAC
++constexpr auto kPlatform = "macos";
++#else
++constexpr auto kPlatform = "linux";
++#endif
++
++[[nodiscard]] bool Present(const QJsonValue &value) {
++	return !value.isUndefined() && !value.isNull();
++}
++
++[[nodiscard]] std::optional<int> Number(const QJsonValue &value) {
++	if (!value.isDouble()) {
++		return std::nullopt;
++	}
++	const auto number = value.toDouble();
++	if (number < 0 || number > 2147483647. || number != std::floor(number)) {
++		return std::nullopt;
++	}
++	return int(number);
++}
++
++[[nodiscard]] bool LinkAllowed(const QString &url) {
++	return url.startsWith(u"https://"_q, Qt::CaseInsensitive)
++		|| url.startsWith(u"http://"_q, Qt::CaseInsensitive)
++		|| url.startsWith(u"tg://"_q, Qt::CaseInsensitive);
++}
++
++[[nodiscard]] bool IdAllowed(const QString &id) {
++	if (id.isEmpty() || id.size() > kMaxIdLength) {
++		return false;
++	}
++	for (const auto ch : id) {
++		if (!(ch >= 'a' && ch <= 'z')
++			&& !(ch >= 'A' && ch <= 'Z')
++			&& !(ch >= '0' && ch <= '9')
++			&& ch != '-') {
++			return false;
++		}
++	}
++	return true;
++}
++
++[[nodiscard]] std::optional<NoticeTone> ParseTone(const QString &type) {
++	if (type == u"info"_q) {
++		return NoticeTone::Info;
++	} else if (type == u"success"_q) {
++		return NoticeTone::Success;
++	} else if (type == u"warning"_q) {
++		return NoticeTone::Warning;
++	} else if (type == u"critical"_q) {
++		return NoticeTone::Critical;
++	}
++	return std::nullopt;
++}
++
++[[nodiscard]] std::optional<EntityInText> ParseEntity(
++		const QJsonObject &fields) {
++	const auto type = fields.value(u"type"_q).toString();
++	const auto offset = Number(fields.value(u"offset"_q));
++	const auto length = Number(fields.value(u"length"_q));
++	if (!offset || !length || !*length) {
++		return std::nullopt;
++	}
++	const auto make = [&](EntityType type, QString data = QString()) {
++		return std::make_optional(EntityInText(
++			type,
++			*offset,
++			*length,
++			std::move(data)));
++	};
++	if (type == u"bold"_q) {
++		return make(EntityType::Bold);
++	} else if (type == u"italic"_q) {
++		return make(EntityType::Italic);
++	} else if (type == u"underline"_q) {
++		return make(EntityType::Underline);
++	} else if (type == u"strikethrough"_q) {
++		return make(EntityType::StrikeOut);
++	} else if (type == u"spoiler"_q) {
++		return make(EntityType::Spoiler);
++	} else if (type == u"code"_q) {
++		return make(EntityType::Code);
++	} else if (type == u"pre"_q) {
++		return make(EntityType::Pre, fields.value(u"language"_q).toString());
++	} else if (type == u"blockquote"_q) {
++		return make(EntityType::Blockquote);
++	} else if (type == u"url"_q) {
++		return make(EntityType::Url);
++	} else if (type == u"text_link"_q) {
++		const auto url = fields.value(u"url"_q).toString();
++		return LinkAllowed(url)
++			? make(EntityType::CustomUrl, url)
++			: std::nullopt;
++	} else if (type == u"custom_emoji"_q) {
++		auto ok = false;
++		const auto id = fields.value(u"custom_emoji_id"_q).toString();
++		const auto document = id.toULongLong(&ok);
++		return (ok && document)
++			? make(
++				EntityType::CustomEmoji,
++				Data::SerializeCustomEmojiId(DocumentId(document)))
++			: std::nullopt;
++	}
++	return std::nullopt;
++}
++
++[[nodiscard]] std::optional<FeedNotice> ParseNotice(const QJsonValue &value) {
++	if (!value.isObject()) {
++		return std::nullopt;
++	}
++	const auto fields = value.toObject();
++	const auto id = fields.value(u"id"_q).toString();
++	const auto rev = Number(fields.value(u"rev"_q));
++	const auto tone = ParseTone(fields.value(u"type"_q).toString());
++	const auto title = fields.value(u"title"_q);
++	const auto text = fields.value(u"text"_q);
++	if (!IdAllowed(id)
++		|| !rev
++		|| !tone
++		|| (Present(title) && !title.isString())
++		|| (Present(text) && !text.isString())) {
++		return std::nullopt;
++	}
++	auto result = FeedNotice{
++		.id = id,
++		.rev = *rev,
++		.tone = *tone,
++		.title = title.toString().trimmed(),
++		.text = { text.toString().left(kMaxTextLength) },
++		.toast = fields.value(u"toast"_q).toBool(),
++	};
++	if (result.title.isEmpty() && result.text.text.trimmed().isEmpty()) {
++		return std::nullopt;
++	}
++	const auto size = int(result.text.text.size());
++	for (const auto &entity : fields.value(u"entities"_q).toArray()) {
++		if (result.text.entities.size() >= kMaxEntities) {
++			break;
++		}
++		const auto parsed = ParseEntity(entity.toObject());
++		if (parsed && parsed->offset() + parsed->length() <= size) {
++			result.text.entities.push_back(*parsed);
++		}
++	}
++	std::stable_sort(
++		result.text.entities.begin(),
++		result.text.entities.end(),
++		[](const EntityInText &a, const EntityInText &b) {
++			return a.offset() < b.offset();
++		});
++	const auto photo = fields.value(u"photo"_q).toObject();
++	const auto url = photo.value(u"url"_q).toString();
++	if (url.startsWith('/') && !url.startsWith(u"//"_q)) {
++		result.photo = url;
++	}
++	for (const auto &button : fields.value(u"buttons"_q).toArray()) {
++		const auto object = button.toObject();
++		const auto text = object.value(u"text"_q).toString().trimmed();
++		const auto link = object.value(u"url"_q).toString();
++		if (!text.isEmpty() && LinkAllowed(link)) {
++			result.buttons.push_back({ text, link });
++			if (result.buttons.size() == 2) {
++				break;
++			}
++		}
++	}
++	const auto builds = fields.value(u"builds"_q);
++	if (builds.isObject()) {
++		const auto range = builds.toObject();
++		result.buildsMin = Number(range.value(u"min"_q));
++		result.buildsMax = Number(range.value(u"max"_q));
++	}
++	const auto platforms = fields.value(u"platforms"_q);
++	if (platforms.isArray()) {
++		auto &list = result.platforms.emplace();
++		for (const auto &platform : platforms.toArray()) {
++			list.push_back(platform.toString());
++		}
++	}
++	const auto users = fields.value(u"users"_q);
++	if (users.isArray()) {
++		auto &list = result.users.emplace();
++		for (const auto &user : users.toArray()) {
++			const auto decoded = QByteArray::fromBase64Encoding(
++				user.toString().toLatin1(),
++				(QByteArray::Base64UrlEncoding
++					| QByteArray::OmitTrailingEquals
++					| QByteArray::AbortOnBase64DecodingErrors));
++			if (decoded && decoded.decoded.size() == kTagSize) {
++				list.push_back(decoded.decoded);
++			}
++			if (int(list.size()) >= kMaxUsers) {
++				break;
++			}
++		}
++	}
++	result.from = Number(fields.value(u"from"_q)).value_or(0);
++	result.until = Number(fields.value(u"until"_q)).value_or(0);
++	return result;
++}
++
++[[nodiscard]] bool Targeted(const FeedNotice &notice) {
++	const auto build = BuildNumber();
++	if ((notice.buildsMin && build < *notice.buildsMin)
++		|| (notice.buildsMax && build > *notice.buildsMax)) {
++		return false;
++	} else if (notice.platforms
++		&& !ranges::contains(
++			*notice.platforms,
++			QString::fromLatin1(kPlatform))) {
++		return false;
++	}
++	return true;
++}
++
++[[nodiscard]] bool Enabled() {
++	return NoticesCentre() && NoticesServer() && !ServerOffForLaunch();
++}
++
++[[nodiscard]] const style::color &ToneColor(NoticeTone tone) {
++	switch (tone) {
++	case NoticeTone::Success: return st::settingsIconBg2;
++	case NoticeTone::Warning: return st::settingsIconBg3;
++	case NoticeTone::Critical: return st::settingsIconBg1;
++	case NoticeTone::None:
++	case NoticeTone::Info: break;
++	}
++	return st::settingsIconBg4;
++}
++
++[[nodiscard]] QString PhotoName(const FeedNotice &notice) {
++	return u"tele_notice_%1_%2"_q.arg(notice.id).arg(notice.rev);
++}
++
++[[nodiscard]] QByteArray UserAgent() {
++	return u"tele/%1-tele.%2"_q.arg(
++		QString::fromLatin1(AppVersionStr)).arg(BuildNumber()).toLatin1();
++}
++
++class State final : public base::has_weak_ptr {
++public:
++	explicit State(not_null<Main::Session*> session);
++	~State();
++
++	[[nodiscard]] static State *Find(not_null<Main::Session*> session);
++
++	void apply(std::vector<FeedNotice> list);
++
++private:
++	[[nodiscard]] static base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &Registry();
++
++	void refresh();
++	void show(const FeedNotice &notice);
++	void fetch(const FeedNotice &notice);
++	void fetched(const FeedNotice &notice, const QByteArray &bytes);
++	void add(const FeedNotice &notice, const QString &photo, QSize size);
++	void toast(const FeedNotice &notice);
++	void pumpToasts();
++	void showToast(const FeedNotice &notice);
++
++	const not_null<Main::Session*> _session;
++	std::vector<FeedNotice> _list;
++	base::flat_set<QString> _fetching;
++	std::vector<QPointer<QNetworkReply>> _replies;
++	std::unique_ptr<QNetworkAccessManager> _manager;
++	base::Timer _timer;
++	std::vector<FeedNotice> _toastQueue;
++	base::weak_ptr<Ui::Toast::Instance> _currentToast;
++	base::Timer _toastTimer;
++	rpl::lifetime _lifetime;
++
++};
++
++State::State(not_null<Main::Session*> session)
++: _session(session)
++, _timer([=] { refresh(); })
++, _toastTimer([=] { pumpToasts(); }) {
++	Registry().emplace(session, this);
++	rpl::merge(
++		NoticesCentreValue() | rpl::to_empty,
++		NoticesServerChanges()
++	) | rpl::skip(1) | rpl::on_next([=] {
++		refresh();
++	}, _lifetime);
++	crl::on_main(this, [=] {
++		RequestFeedNotices(_session);
++	});
++}
++
++State::~State() {
++	for (const auto &reply : base::take(_replies)) {
++		if (const auto raw = reply.data()) {
++			raw->disconnect();
++			raw->abort();
++			raw->deleteLater();
++		}
++	}
++	Registry().remove(_session);
++}
++
++base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &State::Registry() {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>>();
++	return result;
++}
++
++State *State::Find(not_null<Main::Session*> session) {
++	const auto &registry = Registry();
++	const auto i = registry.find(session);
++	return (i != end(registry)) ? i->second.get() : nullptr;
++}
++
++void State::apply(std::vector<FeedNotice> list) {
++	_list = std::move(list);
++	refresh();
++}
++
++void State::refresh() {
++	_timer.cancel();
++	if (!Enabled()) {
++		return;
++	}
++	const auto now = base::unixtime::now();
++	auto next = TimeId();
++	for (const auto &notice : _list) {
++		if (!Targeted(notice) || (notice.until && now >= notice.until)) {
++			continue;
++		} else if (notice.from && now < notice.from) {
++			next = next ? std::min(next, notice.from) : notice.from;
++			continue;
++		}
++		show(notice);
++	}
++	if (next && !_timer.isActive()) {
++		_timer.callOnce((next - now) * crl::time(1000) + 500);
++	}
++}
++
++void State::show(const FeedNotice &notice) {
++	if (ServerNoticeRev(_session, notice.id) == notice.rev) {
++		toast(notice);
++	} else if (_fetching.contains(notice.id)) {
++		return;
++	} else if (notice.photo.isEmpty()) {
++		add(notice, QString(), QSize());
++	} else {
++		fetch(notice);
++	}
++}
++
++void State::fetch(const FeedNotice &notice) {
++	const auto base = NormalizeServerUrl(ServerUrl());
++	if (!base || base->isEmpty() || ServerOffForLaunch()) {
++		add(notice, QString(), QSize());
++		return;
++	}
++	if (!_manager) {
++		_manager = std::make_unique<QNetworkAccessManager>();
++	}
++	_fetching.emplace(notice.id);
++	auto request = QNetworkRequest(QUrl(*base + notice.photo));
++	request.setAttribute(
++		QNetworkRequest::RedirectPolicyAttribute,
++		QNetworkRequest::SameOriginRedirectPolicy);
++	request.setTransferTimeout(kTransferTimeout);
++	request.setRawHeader("User-Agent", UserAgent());
++	const auto reply = _manager->get(request);
++	_replies.push_back(reply);
++	const auto body = std::make_shared<QByteArray>();
++	const auto tooLarge = std::make_shared<bool>(false);
++	const auto take = [=] {
++		if (!*tooLarge) {
++			body->append(reply->read(kMaxPhotoSize + 1 - body->size()));
++			*tooLarge = (body->size() > kMaxPhotoSize);
++		}
++	};
++	QObject::connect(reply, &QNetworkReply::readyRead, reply, [=] {
++		take();
++		if (*tooLarge) {
++			reply->abort();
++		}
++	});
++	QObject::connect(reply, &QNetworkReply::finished, reply, [=] {
++		reply->deleteLater();
++		_replies.erase(
++			ranges::remove(_replies, QPointer<QNetworkReply>(reply)),
++			end(_replies));
++		take();
++		const auto code = reply->attribute(
++			QNetworkRequest::HttpStatusCodeAttribute).toInt();
++		const auto ok = !*tooLarge
++			&& (reply->error() == QNetworkReply::NoError)
++			&& (code == 200);
++		if (!ok) {
++			LOG(("Tele Notices Error: photo %1, http %2, %3"
++				).arg(notice.id
++				).arg(code
++				).arg(*tooLarge ? u"too large"_q : reply->errorString()));
++		}
++		fetched(notice, ok ? *body : QByteArray());
++	});
++}
++
++void State::fetched(const FeedNotice &notice, const QByteArray &bytes) {
++	_fetching.remove(notice.id);
++	const auto i = ranges::find(_list, notice.id, &FeedNotice::id);
++	if (i == end(_list) || i->rev != notice.rev || !Enabled()) {
++		return;
++	}
++	auto buffer = QBuffer();
++	buffer.setData(bytes);
++	auto reader = QImageReader(&buffer);
++	const auto format = reader.format();
++	auto image = QImage();
++	if (!bytes.isEmpty()
++		&& (format == "jpeg" || format == "png")
++		&& reader.read(&image)
++		&& !image.isNull()) {
++		const auto name = PhotoName(notice);
++		SaveNoticePhoto(_session, name, bytes);
++		add(notice, name, image.size());
++	} else {
++		add(notice, QString(), QSize());
++	}
++}
++
++void State::add(const FeedNotice &notice, const QString &photo, QSize size) {
++	SetServerNoticeRev(_session, notice.id, notice.rev);
++	Notify(_session, {
++		.kind = NoticeKind::Server,
++		.tone = notice.tone,
++		.key = u"server:"_q + notice.id,
++		.rev = notice.rev,
++		.title = notice.title,
++		.text = notice.text,
++		.buttons = notice.buttons,
++		.photo = photo,
++		.photoSize = size,
++	});
++	toast(notice);
++}
++
++void State::toast(const FeedNotice &notice) {
++	if (!notice.toast
++		|| ServerNoticeToasted(_session, notice.id)
++		|| ranges::contains(_toastQueue, notice.id, &FeedNotice::id)) {
++		return;
++	}
++	_toastQueue.push_back(notice);
++	LastServerToastQueued() = crl::now();
++	crl::on_main(this, [=] {
++		pumpToasts();
++	});
++}
++
++void State::pumpToasts() {
++	if (_currentToast.get() || _toastQueue.empty()) {
++		return;
++	}
++	const auto window = _session->tryResolveWindow();
++	if (!window || !window->widget()->isActiveWindow()) {
++		_toastTimer.callOnce(window ? crl::time(1000) : kRetryDelay);
++		return;
++	}
++	const auto notice = _toastQueue.front();
++	_toastQueue.erase(begin(_toastQueue));
++	if (!Enabled() || ServerNoticeToasted(_session, notice.id)) {
++		pumpToasts();
++		return;
++	}
++	showToast(notice);
++	_toastTimer.callOnce(kToastDuration + crl::time(400));
++}
++
++void State::showToast(const FeedNotice &notice) {
++	const auto window = _session->tryResolveWindow();
++	SetServerNoticeToasted(_session, notice.id);
++	const auto size = style::ConvertScale(kToastIconSize);
++	auto icon = object_ptr<Ui::RpWidget>((QWidget*)nullptr);
++	const auto raw = icon.data();
++	raw->resize(size, size);
++	raw->setAttribute(Qt::WA_TransparentForMouseEvents);
++	const auto tone = notice.tone;
++	raw->paintRequest() | rpl::on_next([=] {
++		auto p = QPainter(raw);
++		{
++			auto hq = PainterHighQualityEnabler(p);
++			p.setPen(Qt::NoPen);
++			p.setBrush(ToneColor(tone));
++			p.drawEllipse(raw->rect());
++		}
++		const auto &glyph = st::menuIconInfo;
++		glyph.paint(
++			p,
++			(size - glyph.width()) / 2,
++			(size - glyph.height()) / 2,
++			size,
++			st::settingsIconFg->c);
++	}, raw->lifetime());
++	_currentToast = window->showToast(Ui::Toast::Config{
++		.title = notice.title,
++		.text = notice.text,
++		.textContext = Core::TextContext({ .session = _session }),
++		.iconContent = std::move(icon),
++		.duration = kToastDuration,
++	});
++}
++
++} // namespace
++
++std::vector<FeedNotice> ParseFeedNotices(const QJsonValue &value) {
++	auto result = std::vector<FeedNotice>();
++	if (!value.isArray()) {
++		return result;
++	}
++	auto skipped = 0;
++	for (const auto &entry : value.toArray()) {
++		if (int(result.size()) >= kMaxNotices) {
++			++skipped;
++		} else if (auto notice = ParseNotice(entry)) {
++			result.push_back(std::move(*notice));
++		} else {
++			++skipped;
++		}
++	}
++	if (skipped) {
++		LOG(("Tele Notices Error: skipped %1 notices").arg(skipped));
++	}
++	return result;
++}
++
++bool ServerNoticeToastRecent() {
++	const auto queued = LastServerToastQueued();
++	return queued && (crl::now() - queued < crl::time(3000));
++}
++
++void SetupServerNotices(not_null<Main::Session*> session) {
++	session->lifetime().make_state<State>(session);
++}
++
++void ApplyFeedNotices(
++		not_null<Main::Session*> session,
++		std::vector<FeedNotice> list) {
++	if (const auto state = State::Find(session)) {
++		state->apply(std::move(list));
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_server_notices.h b/Telegram/SourceFiles/tele/tele_server_notices.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..785dc5ecf18c1cb1ef67902dd7baf38d293047a8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_server_notices.h
+@@ -0,0 +1,39 @@
++#pragma once
++
++#include "tele/tele_notices.h"
++
++class QJsonValue;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++struct FeedNotice {
++	QString id;
++	int rev = 0;
++	NoticeTone tone = NoticeTone::Info;
++	QString title;
++	TextWithEntities text;
++	QString photo;
++	std::vector<NoticeButton> buttons;
++	bool toast = false;
++	std::optional<int> buildsMin;
++	std::optional<int> buildsMax;
++	std::optional<std::vector<QString>> platforms;
++	std::optional<std::vector<QByteArray>> users;
++	TimeId from = 0;
++	TimeId until = 0;
++};
++
++[[nodiscard]] std::vector<FeedNotice> ParseFeedNotices(
++	const QJsonValue &value);
++
++[[nodiscard]] bool ServerNoticeToastRecent();
++void SetupServerNotices(not_null<Main::Session*> session);
++void ApplyFeedNotices(
++	not_null<Main::Session*> session,
++	std::vector<FeedNotice> list);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 7e21802dbbabaaf69bbc6d8c8eba921f09aaf9ef..41554d1ac97ace99be5603b267bb6f1289dc174f 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -197,6 +197,7 @@ struct Spec {
+ 		Toggle(kOptionRmbBesideBubble),
+ 		Toggle(kOptionShot),
+ 		Toggle(kOptionServerUsernames),
++		Toggle(kOptionNoticesServer),
+ 		Toggle(kOptionSentToBottom),
+ 		Toggle(kOptionQueueBehindMedia),
+ 		Toggle(kOptionSendOlderReplies),

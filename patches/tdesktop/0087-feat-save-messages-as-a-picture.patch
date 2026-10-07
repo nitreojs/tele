@@ -1,0 +1,1503 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 03:37:24 +0300
+Subject: [PATCH] feat: save messages as a picture
+
+---
+ Telegram/CMakeLists.txt                       |    2 +
+ .../history/history_inner_widget.cpp          |    7 +
+ .../view/history_view_context_menu.cpp        |    2 +
+ .../history/view/history_view_element.cpp     |    3 +-
+ .../view/reactions/history_view_reactions.cpp |    2 +-
+ .../SourceFiles/settings/settings_tele.cpp    |    1 +
+ Telegram/SourceFiles/tele/tele_menu_order.cpp |    3 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |   12 +
+ Telegram/SourceFiles/tele/tele_options.h      |    2 +
+ Telegram/SourceFiles/tele/tele_shot.cpp       | 1258 +++++++++++++++++
+ Telegram/SourceFiles/tele/tele_shot.h         |   37 +
+ 11 files changed, 1327 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_shot.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_shot.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 527cb643560e2984b268cb7726ba641cd10ddfd3..878f015b9dbe3535d61943130c3167ae07ee3b77 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2307,6 +2307,8 @@ PRIVATE
+     tele/tele_send_order.h
+     tele/tele_shortcuts.cpp
+     tele/tele_shortcuts.h
++    tele/tele_shot.cpp
++    tele/tele_shot.h
+     tele/tele_spoilers.cpp
+     tele/tele_spoilers.h
+     tele/tele_time.cpp
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 19e437b0095e70b849a0b8f014c4b0019c52b0da..2b6daf02acec5dbada2185b7e4e226aca3f5d8a4 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_secret_media.h"
++#include "tele/tele_shot.h"
+ #include "tele/tele_message_menu.h"
+ #include "tele/tele_options.h"
+ #include "styles/style_chat.h"
+@@ -3876,6 +3877,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			Menu::RateTranscribeCallbackFactory(rateTranscriptionItem)));
+ 	}
+ 
++	Tele::AddShotAction(
++		_menu.get(),
++		controller,
++		(isUponSelected > 1) ? getSelectedItems() : MessageIdsList(),
++		(isUponSelected != -2) ? _dragStateItem : nullptr,
++		width());
+ 	Tele::InsertMessageTools(
+ 		_menu.get(),
+ 		controller->uiShow(),
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 9530bafacad8f3c145c72fa4b6f72d5a205ea0e5..584be5f7eab27ac978ce284729916689abf5eecc 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_secret_media.h"
++#include "tele/tele_shot.h"
+ #include "tele/tele_message_menu.h"
+ #include "tele/tele_ghost.h"
+ #include "styles/style_chat.h"
+@@ -2005,6 +2006,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+ 			InsertPollVoteRestrictionsLabel(result.get(), item, poll);
+ 		}
+ 	}
++	Tele::AddShotAction(result.get(), list, request);
+ 	Tele::InsertMessageTools(
+ 		result.get(),
+ 		list->controller()->uiShow(),
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index 983de4130638789badb286ee08bf0ea34408fa00..3a59a64654d60537b35d072fdf2089d98ce91a4b 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_user.h"
+ #include "lang/lang_keys.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_shot.h"
+ #include "tele/tele_time.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_style.h"
+@@ -1506,7 +1507,7 @@ bool Element::isTopicRootReply() const {
+ }
+ 
+ bool Element::hidesBottomInfo() const {
+-	return data()->isWelcomeTemplate();
++	return data()->isWelcomeTemplate() || Tele::ShotHidesBottomInfo(this);
+ }
+ 
+ int Element::skipBlockWidth() const {
+diff --git a/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp b/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp
+index 8d2049c5111dd22df872f1b2cb12a2b066604fc5..76d642304ccb7ef1aab6757ece403cb68733d2a3 100644
+--- a/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp
++++ b/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp
+@@ -368,7 +368,7 @@ QSize InlineList::countOptimalSize() {
+ 		x += width + between;
+ 	}
+ 	return QSize(
+-		x - between + _skipBlock.width(),
++		std::max(x - between - left, x - between + _skipBlock.width()),
+ 		std::max(height, _skipBlock.height()));
+ }
+ 
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index b8f60ecaec92d026e9d5cbc413a7d727510117b9..6c5770d5ad7f2aeac2afb9f294691f6213cc0f95 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1616,6 +1616,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyEmojiId);
++	AddOptionToggle(builder, ::Tele::kOptionShot);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+diff --git a/Telegram/SourceFiles/tele/tele_menu_order.cpp b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+index ccaecacde36d2289dadb00952454ff09c6ed2a2b..551b215aedd6c57da2c3f3206eb76e9d0a125976 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_order.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+@@ -294,6 +294,9 @@ struct Found {
+ 			{ [](int) { return tr::lng_context_save_html(tr::now); },
+ 				&st::menuIconExport },
+ 		} },
++		{ u"shot"_q, {
++			{ [](int) { return Lower(u"Shot"_q); }, &st::menuIconPhoto },
++		} },
+ 		{ u"report"_q, {
+ 			{ [](int) { return tr::lng_context_report_msg(tr::now); },
+ 				&st::menuIconReport },
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index c8f1d9560b65522f01208c566b33f033c8e2106c..631780506f1ad40dae8f4f2b3b1613f83cd69f4a 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -64,6 +64,7 @@ const char kOptionParallelUploads[] = "tele-parallel-uploads";
+ const char kOptionCalcmula[] = "tele-calcmula";
+ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
+ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
++const char kOptionShot[] = "tele-shot";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
+@@ -464,6 +465,13 @@ base::options::toggle CopyEmojiIdOption({
+ 	.description = "Right-click a custom emoji in a message to copy its ID.",
+ });
+ 
++base::options::toggle ShotOption({
++	.id = kOptionShot,
++	.name = "Shot in the message menu",
++	.description = "Selected messages or one message can be saved as a "
++		"picture.",
++});
++
+ base::options::option<QString> ServerUrlOption({
+ 	.id = kOptionServerUrl,
+ 	.name = "tele server",
+@@ -1016,6 +1024,10 @@ bool CopyEmojiId() {
+ 	return CopyEmojiIdOption.value();
+ }
+ 
++bool ShotInMenu() {
++	return ShotOption.value();
++}
++
+ QString ServerUrl() {
+ 	return ServerUrlOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 391af7eaf59e151301b5b2853a261582e5373530..48a1d4cf2ab271d06fe5e1074cebeebae39d1f08 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -61,6 +61,7 @@ extern const char kOptionParallelUploads[];
+ extern const char kOptionCalcmula[];
+ extern const char kOptionCalcmulaPreview[];
+ extern const char kOptionCopyEmojiId[];
++extern const char kOptionShot[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
+@@ -164,6 +165,7 @@ void SetDeletedReply(const QString &value);
+ [[nodiscard]] bool Calcmula();
+ [[nodiscard]] bool CalcmulaPreview();
+ [[nodiscard]] bool CopyEmojiId();
++[[nodiscard]] bool ShotInMenu();
+ [[nodiscard]] QString ServerUrl();
+ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();
+diff --git a/Telegram/SourceFiles/tele/tele_shot.cpp b/Telegram/SourceFiles/tele/tele_shot.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..a2218dc0f667c242b0f3c7d1046e30038c27fea3
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_shot.cpp
+@@ -0,0 +1,1258 @@
++#include "tele/tele_shot.h"
++
++#include "api/api_common.h"
++#include "apiwrap.h"
++#include "base/weak_ptr.h"
++#include "boxes/send_files_box.h"
++#include "chat_helpers/compose/compose_show.h"
++#include "core/application.h"
++#include "core/file_utilities.h"
++#include "data/data_chat_participant_status.h"
++#include "data/data_forum_topic.h"
++#include "data/data_groups.h"
++#include "data/data_messages.h"
++#include "data/data_peer.h"
++#include "data/data_saved_sublist.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "dialogs/dialogs_key.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "history/history_item_helpers.h"
++#include "history/view/history_view_context_menu.h"
++#include "history/view/history_view_element.h"
++#include "history/view/history_view_list_widget.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "main/session/session_show.h"
++#include "mainwidget.h"
++#include "storage/localimageloader.h"
++#include "storage/storage_media_prepare.h"
++#include "tele/tele_launch_flags.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/chat/chat_style.h"
++#include "ui/chat/chat_theme.h"
++#include "ui/effects/path_shift_gradient.h"
++#include "ui/layers/generic_box.h"
++#include "ui/painter.h"
++#include "ui/toast/toast.h"
++#include "ui/userpic_view.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu_action.h"
++#include "ui/widgets/menu/menu_common.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/wrap/slide_wrap.h"
++#include "ui/wrap/vertical_layout.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_chat.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++
++#include <QtCore/QBuffer>
++#include <QtCore/QMimeData>
++#include <QtGui/QClipboard>
++#include <QtGui/QGuiApplication>
++
++namespace Tele {
++namespace {
++
++using HistoryView::Context;
++using HistoryView::Element;
++
++constexpr auto kMaxSide = 16000;
++constexpr auto kScanStrip = 512;
++constexpr auto kScanAlpha = 16;
++
++struct ShotOptions {
++	bool background = true;
++	bool dates = false;
++	bool transparent = false;
++};
++
++[[nodiscard]] base::flat_set<const HistoryView::ElementDelegate*> &Hiding() {
++	static auto result = base::flat_set<const HistoryView::ElementDelegate*>();
++	return result;
++}
++
++[[nodiscard]] int ExportRatio() {
++	return style::DevicePixelRatio();
++}
++
++[[nodiscard]] int Padding() {
++	return st::msgMargin.left();
++}
++
++[[nodiscard]] int TopPadding() {
++	return std::max(Padding() - st::msgMargin.top(), 0);
++}
++
++[[nodiscard]] int BottomPadding() {
++	return std::max(Padding() - st::msgMargin.bottom(), 0);
++}
++
++[[nodiscard]] int LayoutWidth(int chatWidth) {
++	const auto skip = st::msgPhotoSkip
++		+ st::msgMargin.left()
++		+ st::msgMargin.right();
++	return std::clamp(
++		chatWidth,
++		st::msgMinWidth + skip,
++		st::msgMaxWidth + skip);
++}
++
++[[nodiscard]] bool Restricted(not_null<HistoryItem*> item) {
++	return !item->history()->peer->allowsForwarding()
++		|| item->forbidsForward()
++		|| item->forbidsSaving();
++}
++
++[[nodiscard]] std::vector<not_null<HistoryItem*>> CollectItems(
++		not_null<Main::Session*> session,
++		const std::vector<FullMsgId> &ids) {
++	auto &owner = session->data();
++	auto result = std::vector<not_null<HistoryItem*>>();
++	const auto add = [&](not_null<HistoryItem*> item) {
++		if (!ranges::contains(result, item)) {
++			result.push_back(item);
++		}
++	};
++	for (const auto &id : ids) {
++		const auto item = owner.message(id);
++		if (!item || !item->isHistoryEntry() || item->isSponsored()) {
++			continue;
++		} else if (const auto group = owner.groups().find(item)) {
++			for (const auto &part : group->items) {
++				add(part);
++			}
++		} else {
++			add(item);
++		}
++	}
++	ranges::sort(result, [](
++			not_null<HistoryItem*> a,
++			not_null<HistoryItem*> b) {
++		return a->position() < b->position();
++	});
++	return result;
++}
++
++[[nodiscard]] QByteArray PngBytes(const QImage &image) {
++	auto result = QByteArray();
++	auto buffer = QBuffer(&result);
++	buffer.open(QIODevice::WriteOnly);
++	image.save(&buffer, "PNG");
++	return result;
++}
++
++[[nodiscard]] bool FitsPhoto(QSize size) {
++	const auto limit = PhotoSideLimit();
++	return (size.width() <= limit)
++		&& (size.height() <= limit)
++		&& Ui::ValidateThumbDimensions(size.width(), size.height());
++}
++
++[[nodiscard]] Data::Thread *SendThread(
++		not_null<Window::SessionController*> controller,
++		not_null<HistoryItem*> item) {
++	const auto peer = item->history()->peer;
++	if (const auto thread = controller->activeChatCurrent().thread()) {
++		if (thread->peer() == peer) {
++			return thread;
++		}
++	}
++	if (const auto topic = item->topic()) {
++		return topic;
++	} else if (const auto sublist = item->savedSublist()) {
++		return sublist;
++	}
++	return item->history();
++}
++
++[[nodiscard]] bool CanSendShot(not_null<Data::Thread*> thread) {
++	return !OfflineForLaunch()
++		&& Data::CanSendAnyOf(
++			thread,
++			ChatRestriction::SendPhotos | ChatRestriction::SendFiles);
++}
++
++class ShotDelegate final : public HistoryView::DefaultElementDelegate {
++public:
++	ShotDelegate(
++		not_null<const Ui::ChatStyle*> st,
++		Context context,
++		Fn<void()> update);
++	~ShotDelegate();
++
++	void setHideBottomInfo(bool hide);
++
++	Context elementContext() override;
++	bool elementAnimationsPaused() override;
++	not_null<Ui::PathShiftGradient*> elementPathShiftGradient() override;
++
++private:
++	const Context _context;
++	const std::unique_ptr<Ui::PathShiftGradient> _pathGradient;
++
++};
++
++ShotDelegate::ShotDelegate(
++	not_null<const Ui::ChatStyle*> st,
++	Context context,
++	Fn<void()> update)
++: _context(context)
++, _pathGradient(HistoryView::MakePathShiftGradient(st, std::move(update))) {
++}
++
++ShotDelegate::~ShotDelegate() {
++	setHideBottomInfo(false);
++}
++
++void ShotDelegate::setHideBottomInfo(bool hide) {
++	const auto key = static_cast<const HistoryView::ElementDelegate*>(this);
++	if (hide) {
++		Hiding().emplace(key);
++	} else {
++		Hiding().remove(key);
++	}
++}
++
++Context ShotDelegate::elementContext() {
++	return _context;
++}
++
++bool ShotDelegate::elementAnimationsPaused() {
++	return false;
++}
++
++auto ShotDelegate::elementPathShiftGradient()
++-> not_null<Ui::PathShiftGradient*> {
++	return _pathGradient.get();
++}
++
++class ShotRenderer final : public base::has_weak_ptr {
++public:
++	ShotRenderer(
++		not_null<Window::SessionController*> controller,
++		std::vector<not_null<HistoryItem*>> items,
++		Context context,
++		int chatWidth);
++	~ShotRenderer();
++
++	[[nodiscard]] rpl::producer<> repaints() const;
++	[[nodiscard]] rpl::producer<int> layoutVersionValue() const;
++	[[nodiscard]] rpl::producer<> removals() const;
++
++	[[nodiscard]] const ShotOptions &options() const;
++	void setOptions(ShotOptions options);
++
++	[[nodiscard]] QSize size() const;
++	[[nodiscard]] int shownCount() const;
++	[[nodiscard]] int totalCount() const;
++	[[nodiscard]] HistoryItem *firstItem() const;
++
++	void paint(Painter &p, QRect clip, int ratio);
++	[[nodiscard]] QImage render();
++
++private:
++	struct Background {
++		not_null<Ui::ChatTheme*> theme;
++		QString key;
++		qint64 prepared = 0;
++		qint64 gradient = 0;
++		QSize size;
++		int ratio = 0;
++		QImage image;
++	};
++
++	void subscribe();
++	void schedule(bool full);
++	void clear();
++	void rebuild();
++	void relayout();
++	void refreshAttachments(int till);
++	void computeBounds();
++	void scanBounds(int &left, int &right);
++	void paintContent(Painter &p, QRect clip);
++	void paintUserpic(Painter &p, not_null<Element*> view, int top);
++	void paintDates(Painter &p, QRect clip);
++	void paintBackground(Painter &p, QRect clip, int ratio);
++	void validateBackground(
++		not_null<Ui::ChatTheme*> theme,
++		QSize size,
++		int ratio);
++
++	const not_null<Window::SessionController*> _controller;
++	std::vector<not_null<HistoryItem*>> _items;
++	const int _chatWidth = 0;
++	const int _liveHeight = 0;
++	const std::unique_ptr<ShotDelegate> _delegate;
++	std::vector<std::unique_ptr<Element>> _views;
++	base::flat_set<const Element*> _viewSet;
++	base::flat_set<not_null<Element*>> _dirty;
++	std::vector<int> _tops;
++	base::flat_map<not_null<PeerData*>, Ui::PeerUserpicView> _userpics;
++	base::flat_map<FullMsgId, Ui::PeerUserpicView> _hiddenUserpics;
++	std::optional<Background> _background;
++	ShotOptions _options;
++	int _width = 0;
++	int _height = 0;
++	int _shown = 0;
++	int _cropLeft = 0;
++	int _cropWidth = 0;
++	bool _scheduled = false;
++	bool _pendingRebuild = false;
++	bool _layingOut = false;
++	rpl::event_stream<> _repaints;
++	rpl::event_stream<> _removals;
++	rpl::variable<int> _layoutVersion = 0;
++	rpl::lifetime _lifetime;
++
++};
++
++ShotRenderer::ShotRenderer(
++	not_null<Window::SessionController*> controller,
++	std::vector<not_null<HistoryItem*>> items,
++	Context context,
++	int chatWidth)
++: _controller(controller)
++, _items(std::move(items))
++, _chatWidth(chatWidth)
++, _liveHeight(controller->content()->height())
++, _delegate(std::make_unique<ShotDelegate>(
++	controller->chatStyle(),
++	context,
++	[=] { _repaints.fire({}); })) {
++	_delegate->setHideBottomInfo(!_options.dates);
++	subscribe();
++	rebuild();
++}
++
++ShotRenderer::~ShotRenderer() {
++	clear();
++}
++
++rpl::producer<> ShotRenderer::repaints() const {
++	return _repaints.events();
++}
++
++rpl::producer<int> ShotRenderer::layoutVersionValue() const {
++	return _layoutVersion.value();
++}
++
++rpl::producer<> ShotRenderer::removals() const {
++	return _removals.events();
++}
++
++const ShotOptions &ShotRenderer::options() const {
++	return _options;
++}
++
++void ShotRenderer::setOptions(ShotOptions options) {
++	const auto datesChanged = (_options.dates != options.dates);
++	_options = options;
++	if (datesChanged) {
++		_delegate->setHideBottomInfo(!_options.dates);
++		rebuild();
++	} else {
++		_repaints.fire({});
++	}
++}
++
++QSize ShotRenderer::size() const {
++	return QSize(_cropWidth, _height);
++}
++
++int ShotRenderer::shownCount() const {
++	return _shown;
++}
++
++int ShotRenderer::totalCount() const {
++	return int(_views.size());
++}
++
++HistoryItem *ShotRenderer::firstItem() const {
++	return _items.empty() ? nullptr : _items.front().get();
++}
++
++void ShotRenderer::subscribe() {
++	const auto session = &_controller->session();
++	auto &owner = session->data();
++	const auto ours = [=](not_null<const HistoryItem*> item) {
++		return ranges::any_of(_items, [&](not_null<HistoryItem*> mine) {
++			return (mine.get() == item.get());
++		});
++	};
++
++	owner.viewRepaintRequest(
++	) | rpl::filter([=](const Data::RequestViewRepaint &data) {
++		return _viewSet.contains(data.view.get());
++	}) | rpl::on_next([=](const Data::RequestViewRepaint &) {
++		_repaints.fire({});
++	}, _lifetime);
++
++	owner.itemRepaintRequest(
++	) | rpl::filter(ours) | rpl::on_next([=](
++			not_null<const HistoryItem*>) {
++		_repaints.fire({});
++	}, _lifetime);
++
++	session->downloaderTaskFinished(
++	) | rpl::on_next([=] {
++		_repaints.fire({});
++	}, _lifetime);
++
++	style::PaletteChanged(
++	) | rpl::on_next([=] {
++		_background = std::nullopt;
++		_repaints.fire({});
++	}, _lifetime);
++
++	owner.viewResizeRequest(
++	) | rpl::filter([=](not_null<Element*> view) {
++		return !_layingOut && _viewSet.contains(view.get());
++	}) | rpl::on_next([=](not_null<Element*> view) {
++		_dirty.emplace(view);
++		schedule(false);
++	}, _lifetime);
++
++	owner.itemResizeRequest(
++	) | rpl::filter([=](not_null<const HistoryItem*> item) {
++		return !_layingOut && ours(item);
++	}) | rpl::on_next([=](not_null<const HistoryItem*> item) {
++		for (const auto &view : _views) {
++			if (view->data() == item) {
++				_dirty.emplace(view.get());
++			}
++		}
++		schedule(false);
++	}, _lifetime);
++
++	owner.itemViewRefreshRequest(
++	) | rpl::filter(ours) | rpl::on_next([=](
++			not_null<const HistoryItem*>) {
++		schedule(true);
++	}, _lifetime);
++
++	owner.itemRemoved(
++	) | rpl::filter(ours) | rpl::on_next([=](
++			not_null<const HistoryItem*>) {
++		clear();
++		_items.clear();
++		_removals.fire({});
++	}, _lifetime);
++}
++
++void ShotRenderer::schedule(bool full) {
++	if (full) {
++		_pendingRebuild = true;
++	}
++	if (_scheduled) {
++		return;
++	}
++	_scheduled = true;
++	crl::on_main(this, [=] {
++		_scheduled = false;
++		if (base::take(_pendingRebuild)) {
++			rebuild();
++		} else {
++			relayout();
++		}
++	});
++}
++
++void ShotRenderer::clear() {
++	_dirty.clear();
++	_viewSet.clear();
++	_tops.clear();
++	_shown = 0;
++	base::take(_views);
++}
++
++void ShotRenderer::rebuild() {
++	clear();
++	for (const auto &item : _items) {
++		auto view = item->createView(_delegate.get());
++		_viewSet.emplace(view.get());
++		_views.push_back(std::move(view));
++	}
++	relayout();
++}
++
++void ShotRenderer::refreshAttachments(int till) {
++	Element *previous = nullptr;
++	for (auto i = 0; i != till; ++i) {
++		const auto view = _views[i].get();
++		if (view->isHidden()) {
++			view->setDisplayDate(false);
++			continue;
++		} else if (!previous) {
++			view->setDisplayDate(_options.dates);
++			view->setAttachToPrevious(false);
++		} else {
++			view->setDisplayDate(_options.dates
++				&& ((view->dateTime().date()
++					!= previous->dateTime().date())
++					|| previous->data()->hideDisplayDate()));
++			const auto attached = view->computeIsAttachToPrevious(previous);
++			view->setAttachToPrevious(attached, previous);
++			previous->setAttachToNext(attached, view);
++		}
++		previous = view;
++	}
++	if (previous) {
++		previous->setAttachToNext(false);
++	}
++}
++
++void ShotRenderer::relayout() {
++	_layingOut = true;
++	for (const auto &view : base::take(_dirty)) {
++		view->initDimensions();
++	}
++	_width = LayoutWidth(_chatWidth);
++	const auto limit = kMaxSide / ExportRatio();
++	const auto count = int(_views.size());
++	refreshAttachments(count);
++	auto top = TopPadding();
++	auto shown = 0;
++	for (; shown != count; ++shown) {
++		const auto height = _views[shown]->resizeGetHeight(_width);
++		if (shown > 0 && top + height + BottomPadding() > limit) {
++			break;
++		}
++		top += height;
++	}
++	if (shown < count) {
++		refreshAttachments(shown);
++	}
++	_tops.clear();
++	top = TopPadding();
++	for (auto i = 0; i != shown; ++i) {
++		_tops.push_back(top);
++		top += _views[i]->resizeGetHeight(_width);
++	}
++	_shown = shown;
++	_height = std::min(top + BottomPadding(), limit);
++	computeBounds();
++	_layingOut = false;
++	_layoutVersion = _layoutVersion.current() + 1;
++}
++
++void ShotRenderer::computeBounds() {
++	auto left = _width;
++	auto right = 0;
++	const auto add = [&](int from, int till) {
++		if (from < till) {
++			left = std::min(left, from);
++			right = std::max(right, till);
++		}
++	};
++	auto badge = 0;
++	for (auto i = 0; i != _shown; ++i) {
++		const auto view = _views[i].get();
++		if (view->isHidden()) {
++			continue;
++		}
++		const auto inner = view->innerGeometry();
++		add(inner.x(), inner.x() + inner.width());
++		if (view->hasFromPhoto()) {
++			add(st::historyPhotoLeft, st::historyPhotoLeft + st::msgPhotoSize);
++		}
++		if (const auto date = view->Get<HistoryView::DateBadge>()) {
++			badge = std::max(
++				badge,
++				date->width
++					+ st::msgServicePadding.left()
++					+ st::msgServicePadding.right());
++		}
++	}
++	scanBounds(left, right);
++	if (left >= right) {
++		left = 0;
++		right = _width;
++	}
++	left = std::max(left - Padding(), 0);
++	right = std::min(right + Padding(), _width);
++	const auto need = std::min(badge + 2 * Padding(), _width);
++	if (right - left < need) {
++		const auto add = need - (right - left);
++		left = std::max(left - add / 2, 0);
++		right = std::min(left + need, _width);
++		left = right - need;
++	}
++	_cropLeft = left;
++	_cropWidth = std::max(right - left, 1);
++}
++
++void ShotRenderer::scanBounds(int &left, int &right) {
++	if (_width <= 0 || _height <= 0) {
++		return;
++	}
++	auto image = QImage(
++		QSize(_width, kScanStrip),
++		QImage::Format_ARGB32_Premultiplied);
++	for (auto y = 0; y < _height; y += kScanStrip) {
++		image.fill(Qt::transparent);
++		{
++			auto p = Painter(&image);
++			p.translate(0, -y);
++			paintContent(p, QRect(0, y, _width, kScanStrip));
++		}
++		const auto rows = std::min(kScanStrip, _height - y);
++		for (auto row = 0; row != rows; ++row) {
++			const auto line = reinterpret_cast<const QRgb*>(
++				image.constScanLine(row));
++			for (auto x = 0; x < left; ++x) {
++				if (qAlpha(line[x]) > kScanAlpha) {
++					left = x;
++					break;
++				}
++			}
++			for (auto x = _width; x > right; --x) {
++				if (qAlpha(line[x - 1]) > kScanAlpha) {
++					right = x;
++					break;
++				}
++			}
++		}
++	}
++}
++
++void ShotRenderer::paint(Painter &p, QRect clip, int ratio) {
++	clip = clip.intersected(QRect(QPoint(), size()));
++	if (clip.isEmpty() || _views.empty()) {
++		return;
++	}
++	const auto st = _controller->chatStyle();
++	if (_options.background) {
++		paintBackground(p, clip, ratio);
++	} else if (!_options.transparent) {
++		p.fillRect(clip, st->windowBg()->c);
++	}
++	p.translate(-_cropLeft, 0);
++	paintContent(p, clip.translated(_cropLeft, 0));
++	p.translate(_cropLeft, 0);
++	paintDates(p, clip);
++}
++
++QImage ShotRenderer::render() {
++	const auto ratio = ExportRatio();
++	const auto full = size();
++	auto result = QImage(full * ratio, QImage::Format_ARGB32_Premultiplied);
++	result.setDevicePixelRatio(ratio);
++	result.fill(Qt::transparent);
++	{
++		auto p = Painter(&result);
++		paint(p, QRect(QPoint(), full), ratio);
++	}
++	result.setDevicePixelRatio(1.);
++	return result;
++}
++
++void ShotRenderer::paintContent(Painter &p, QRect clip) {
++	const auto st = _controller->chatStyle();
++	const auto theme = _controller->currentChatTheme();
++	const auto viewport = std::max(_height, _liveHeight);
++	auto context = Ui::ChatPaintContext{
++		.st = st,
++		.bubblesPattern = theme->bubblesBackgroundPattern(),
++		.viewport = QRect(0, _height - viewport, _width, viewport),
++		.area = QRect(0, 0, _width, _height),
++		.clip = clip,
++		.now = crl::now(),
++	};
++	const auto till = clip.y() + clip.height();
++	for (auto i = 0; i != _shown; ++i) {
++		const auto view = _views[i].get();
++		const auto top = _tops[i];
++		const auto height = view->height();
++		if (top >= till) {
++			break;
++		} else if (top + height <= clip.y() || view->isHidden()) {
++			continue;
++		}
++		context.outbg = view->hasOutLayout();
++		p.translate(0, top);
++		view->draw(p, context.translated(0, -top));
++		p.translate(0, -top);
++	}
++	for (auto i = 0; i != _shown; ++i) {
++		const auto view = _views[i].get();
++		if (view->isHidden() || !view->displayFromPhoto()) {
++			continue;
++		}
++		const auto top = _tops[i]
++			+ view->height()
++			- view->marginBottom()
++			- st::msgPhotoSize;
++		if (top < till && top + st::msgPhotoSize > clip.y()) {
++			paintUserpic(p, view, top);
++		}
++	}
++}
++
++void ShotRenderer::paintUserpic(
++		Painter &p,
++		not_null<Element*> view,
++		int top) {
++	const auto item = view->data();
++	if (const auto from = view->displayFrom()) {
++		from->paintUserpicLeft(
++			p,
++			_userpics[from],
++			st::historyPhotoLeft,
++			top,
++			_width,
++			st::msgPhotoSize);
++	} else if (const auto info = item->displayHiddenSenderInfo()) {
++		if (info->customUserpic.empty()) {
++			info->emptyUserpic.paintCircle(
++				p,
++				st::historyPhotoLeft,
++				top,
++				_width,
++				st::msgPhotoSize);
++		} else {
++			const auto valid = info->paintCustomUserpic(
++				p,
++				_hiddenUserpics[item->fullId()],
++				st::historyPhotoLeft,
++				top,
++				_width,
++				st::msgPhotoSize);
++			if (!valid) {
++				info->customUserpic.load(
++					&item->history()->session(),
++					item->fullId());
++			}
++		}
++	}
++}
++
++void ShotRenderer::paintDates(Painter &p, QRect clip) {
++	const auto st = _controller->chatStyle();
++	const auto till = clip.y() + clip.height();
++	for (auto i = 0; i != _shown; ++i) {
++		const auto view = _views[i].get();
++		const auto top = _tops[i];
++		if (top >= till) {
++			break;
++		} else if (const auto date = view->Get<HistoryView::DateBadge>()) {
++			if (top + date->height() > clip.y()) {
++				date->paint(p, st, top, _cropWidth, false);
++			}
++		}
++	}
++}
++
++void ShotRenderer::paintBackground(Painter &p, QRect clip, int ratio) {
++	const auto theme = _controller->currentChatTheme();
++	if (const auto color = theme->background().colorForFill) {
++		p.fillRect(clip, *color);
++		return;
++	}
++	const auto chunk = std::max(
++		std::min(_height, std::max(_liveHeight, _cropWidth)),
++		1);
++	validateBackground(theme, QSize(_cropWidth, chunk), ratio);
++	if (!_background || _background->image.isNull()) {
++		p.fillRect(clip, _controller->chatStyle()->windowBg()->c);
++		return;
++	}
++	const auto &image = _background->image;
++	auto hq = PainterHighQualityEnabler(p);
++	for (auto y = 0, index = 0; y < _height; y += chunk, ++index) {
++		const auto rect = QRect(0, y, _cropWidth, chunk);
++		const auto fill = rect.intersected(clip);
++		if (fill.isEmpty()) {
++			continue;
++		}
++		p.save();
++		p.setClipRect(fill, Qt::IntersectClip);
++		if (index % 2) {
++			p.translate(0, y + chunk);
++			p.scale(1., -1.);
++			p.drawImage(QRect(0, 0, _cropWidth, chunk), image);
++		} else {
++			p.drawImage(rect, image);
++		}
++		p.restore();
++	}
++}
++
++void ShotRenderer::validateBackground(
++		not_null<Ui::ChatTheme*> theme,
++		QSize size,
++		int ratio) {
++	const auto &background = theme->background();
++	const auto prepared = background.prepared.cacheKey();
++	const auto gradient = background.gradientForFill.cacheKey();
++	if (_background
++		&& _background->theme == theme
++		&& _background->key == background.key
++		&& _background->prepared == prepared
++		&& _background->gradient == gradient
++		&& _background->size == size
++		&& _background->ratio == ratio) {
++		return;
++	}
++	const auto styleRatio = style::DevicePixelRatio();
++	const auto area = QSize(
++		(size.width() * ratio + styleRatio - 1) / styleRatio,
++		(size.height() * ratio + styleRatio - 1) / styleRatio);
++	auto image = QImage(size * ratio, QImage::Format_ARGB32_Premultiplied);
++	image.fill(_controller->chatStyle()->windowBg()->c);
++	if (const auto request = theme->cacheBackgroundRequest(area)) {
++		auto cached = Ui::CacheBackground(request);
++		cached.image.setDevicePixelRatio(1.);
++		auto q = QPainter(&image);
++		q.drawImage(
++			cached.x * styleRatio,
++			cached.y * styleRatio,
++			cached.image);
++	}
++	image.setDevicePixelRatio(ratio);
++	_background = Background{
++		.theme = theme,
++		.key = background.key,
++		.prepared = prepared,
++		.gradient = gradient,
++		.size = size,
++		.ratio = ratio,
++		.image = std::move(image),
++	};
++}
++
++void PaintChecker(QPainter &p, QRect rect) {
++	static const auto brush = [] {
++		const auto cell = style::ConvertScale(8);
++		auto image = QImage(
++			QSize(cell, cell) * 2,
++			QImage::Format_ARGB32_Premultiplied);
++		image.fill(QColor(255, 255, 255));
++		auto q = QPainter(&image);
++		q.fillRect(0, 0, cell, cell, QColor(204, 204, 204));
++		q.fillRect(cell, cell, cell, cell, QColor(204, 204, 204));
++		q.end();
++		return QBrush(image);
++	}();
++	p.fillRect(rect, brush);
++}
++
++void CopyShot(
++		not_null<ShotRenderer*> shot,
++		std::shared_ptr<Main::SessionShow> show) {
++	auto image = shot->render();
++	if (image.isNull()) {
++		return;
++	}
++	auto mime = std::make_unique<QMimeData>();
++	mime->setData(u"image/png"_q, PngBytes(image));
++	mime->setImageData(std::move(image));
++	QGuiApplication::clipboard()->setMimeData(mime.release());
++	show->showToast({
++		.text = { Lower(u"Shot copied to clipboard."_q) },
++		.iconLottie = u"toast/copy"_q,
++		.iconLottieSize = st::toastLottieIconSize,
++	});
++}
++
++void SaveShot(
++		not_null<Ui::GenericBox*> box,
++		not_null<ShotRenderer*> shot,
++		std::shared_ptr<Main::SessionShow> show) {
++	FileDialog::GetWritePath(
++		Core::App().getFileDialogParent(),
++		Lower(u"Save shot"_q),
++		u"PNG Image (*.png);;"_q + FileDialog::AllFilesFilter(),
++		filedialogDefaultName(u"shot"_q, u".png"_q),
++		crl::guard(box, [=](const QString &path) {
++			if (path.isEmpty()) {
++				return;
++			}
++			const auto image = shot->render();
++			if (image.isNull() || !image.save(path, "PNG")) {
++				show->showToast(Lower(u"Couldn't save the shot."_q));
++			}
++		}));
++}
++
++void SendConfirmed(
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread,
++		FullMsgId replyTo,
++		std::shared_ptr<Ui::PreparedBundle> bundle,
++		Api::SendOptions options) {
++	if (!bundle) {
++		return;
++	}
++	const auto payment = std::make_shared<SendPaymentHelper>();
++	const auto weak = base::make_weak(thread);
++	const auto withPaymentApproved = crl::guard(controller, [=](
++			int approved) {
++		payment->clear();
++		if (const auto strong = weak.get()) {
++			auto copy = options;
++			copy.starsApproved = approved;
++			SendConfirmed(controller, strong, replyTo, bundle, copy);
++		}
++	});
++	const auto checked = payment->check(
++		controller,
++		thread->peer(),
++		options,
++		bundle->totalCount,
++		withPaymentApproved);
++	if (!checked) {
++		return;
++	}
++	const auto type = bundle->way.sendImagesAsPhotos()
++		? SendMediaType::Photo
++		: SendMediaType::File;
++	auto action = Api::SendAction(thread, options);
++	action.clearDraft = false;
++	action.replyTo = FullReplyTo{
++		.messageId = replyTo,
++		.topicRootId = thread->topicRootId(),
++		.monoforumPeerId = thread->monoforumPeerId(),
++	};
++	auto &api = controller->session().api();
++	for (auto &group : bundle->groups) {
++		const auto album = (group.type != Ui::AlbumType::None)
++			? std::make_shared<SendingAlbum>()
++			: nullptr;
++		api.sendFiles(std::move(group.list), type, album, action);
++	}
++}
++
++void SendShot(
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread,
++		QImage &&image,
++		bool asFile,
++		Fn<void()> sent) {
++	auto content = PngBytes(image);
++	auto list = Storage::PrepareMediaFromImage(
++		std::move(image),
++		std::move(content),
++		st::sendMediaPreviewSize);
++	if (asFile) {
++		list.overrideSendImagesAsPhotos = false;
++	}
++	const auto weak = base::make_weak(thread);
++	const auto peer = thread->peer();
++	const auto show = controller->uiShow();
++	show->show(Box<SendFilesBox>(SendFilesBoxDescriptor{
++		.show = show,
++		.list = std::move(list),
++		.caption = TextWithTags(),
++		.toPeer = peer,
++		.limits = DefaultLimitsForPeer(peer),
++		.check = DefaultCheckForPeer(show, peer),
++		.sendType = Api::SendType::Normal,
++		.confirmed = crl::guard(controller, [=](
++				std::shared_ptr<Ui::PreparedBundle> bundle,
++				Api::SendOptions options,
++				FullReplyTo currentReplyTo) {
++			if (const auto strong = weak.get()) {
++				SendConfirmed(
++					controller,
++					strong,
++					currentReplyTo.messageId,
++					std::move(bundle),
++					options);
++				sent();
++			}
++		}),
++		.replyTo = FullReplyTo{
++			.topicRootId = thread->topicRootId(),
++			.monoforumPeerId = thread->monoforumPeerId(),
++		},
++	}));
++}
++
++void ShotBox(
++		not_null<Ui::GenericBox*> box,
++		not_null<Window::SessionController*> controller,
++		std::vector<not_null<HistoryItem*>> items,
++		Context context,
++		int chatWidth) {
++	const auto shot = box->lifetime().make_state<ShotRenderer>(
++		controller,
++		std::move(items),
++		context,
++		chatWidth);
++	const auto show = controller->uiShow();
++	const auto padding = st::boxRowPadding.left();
++
++	box->setTitle(rpl::single(Lower(u"Shot"_q)));
++	box->setWidth(std::clamp(
++		shot->size().width() + 2 * padding,
++		st::boxWideWidth,
++		std::max(st::boxWideWidth, controller->content()->width() * 9 / 10)));
++	box->addTopButton(st::boxTitleClose, [=] { box->closeBox(); });
++
++	shot->removals() | rpl::on_next([=] {
++		box->closeBox();
++	}, box->lifetime());
++
++	const auto preview = box->addRow(
++		object_ptr<Ui::RpWidget>(box),
++		style::margins());
++	const auto scale = [=] {
++		const auto size = shot->size();
++		const auto available = preview->width() - 2 * padding;
++		return (size.width() > available && available > 0)
++			? (available / float64(size.width()))
++			: 1.;
++	};
++	rpl::combine(
++		preview->widthValue(),
++		shot->layoutVersionValue()
++	) | rpl::on_next([=](int width, int) {
++		const auto height = int(std::ceil(shot->size().height() * scale()));
++		preview->resize(width, height);
++		preview->update();
++	}, preview->lifetime());
++	shot->repaints() | rpl::on_next([=] {
++		preview->update();
++	}, preview->lifetime());
++	preview->paintRequest() | rpl::on_next([=](QRect clip) {
++		const auto size = shot->size();
++		if (size.isEmpty()) {
++			return;
++		}
++		const auto k = scale();
++		const auto left = (k < 1.)
++			? ((preview->width() - size.width() * k) / 2.)
++			: float64((preview->width() - size.width()) / 2);
++		const auto mapped = QRectF(clip).translated(-left, 0.);
++		const auto inner = QRectF(
++			mapped.x() / k,
++			mapped.y() / k,
++			mapped.width() / k,
++			mapped.height() / k
++		).toAlignedRect().intersected(QRect(QPoint(), size));
++		if (inner.isEmpty()) {
++			return;
++		}
++		auto p = Painter(preview);
++		p.translate(left, 0.);
++		if (k < 1.) {
++			p.scale(k, k);
++			p.setRenderHint(QPainter::SmoothPixmapTransform);
++		}
++		p.setClipRect(inner);
++		const auto &options = shot->options();
++		if (!options.background && options.transparent) {
++			PaintChecker(p, inner);
++		}
++		shot->paint(p, inner, style::DevicePixelRatio());
++	}, preview->lifetime());
++
++	const auto bottom = box->setPinnedToBottomContent(
++		object_ptr<Ui::VerticalLayout>(box));
++	const auto note = bottom->add(
++		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
++			bottom,
++			object_ptr<Ui::FlatLabel>(
++				bottom,
++				shot->layoutVersionValue() | rpl::map([=](int) {
++					return Lower(u"Too tall for one picture: only the "
++						"first %1 of %2 messages fit."_q).arg(
++							shot->shownCount()).arg(shot->totalCount());
++				}),
++				st::boxDividerLabel),
++			st::boxRowPadding));
++	note->toggleOn(shot->layoutVersionValue() | rpl::map([=](int) {
++		return shot->shownCount() < shot->totalCount();
++	}));
++	note->finishAnimating();
++	Ui::AddSkip(bottom);
++
++	const auto addToggle = [&](const QString &text, bool value) {
++		auto result = object_ptr<Ui::SettingsButton>(
++			bottom,
++			rpl::single(Lower(text)),
++			st::settingsButtonNoIcon);
++		result->toggleOn(rpl::single(value));
++		return result;
++	};
++	const auto background = bottom->add(
++		addToggle(u"Show background"_q, shot->options().background));
++	const auto dates = bottom->add(
++		addToggle(u"Show dates"_q, shot->options().dates));
++	const auto transparentWrap = bottom->add(
++		object_ptr<Ui::SlideWrap<Ui::SettingsButton>>(
++			bottom,
++			addToggle(u"Transparent"_q, shot->options().transparent)));
++	const auto transparent = transparentWrap->entity();
++	transparentWrap->toggleOn(background->toggledValue(
++	) | rpl::map([](bool shown) {
++		return !shown;
++	}));
++	transparentWrap->finishAnimating();
++	Ui::AddSkip(bottom);
++
++	background->toggledChanges() | rpl::on_next([=](bool value) {
++		auto options = shot->options();
++		options.background = value;
++		shot->setOptions(options);
++	}, background->lifetime());
++	dates->toggledChanges() | rpl::on_next([=](bool value) {
++		auto options = shot->options();
++		options.dates = value;
++		shot->setOptions(options);
++	}, dates->lifetime());
++	transparent->toggledChanges() | rpl::on_next([=](bool value) {
++		auto options = shot->options();
++		options.transparent = value;
++		shot->setOptions(options);
++	}, transparent->lifetime());
++
++	box->addButton(rpl::single(Lower(u"Copy"_q)), [=] {
++		CopyShot(shot, show);
++	});
++	box->addButton(rpl::single(Lower(u"Save"_q)), [=] {
++		SaveShot(box, shot, show);
++	});
++	const auto first = shot->firstItem();
++	const auto target = first ? SendThread(controller, first) : nullptr;
++	if (target && CanSendShot(target)) {
++		box->addLeftButton(rpl::single(Lower(u"Send"_q)), [=] {
++			const auto item = shot->firstItem();
++			if (!item) {
++				return;
++			}
++			const auto thread = SendThread(controller, item);
++			auto image = shot->render();
++			if (image.isNull()) {
++				return;
++			}
++			const auto &options = shot->options();
++			const auto asFile = (!options.background && options.transparent)
++				|| !FitsPhoto(image.size());
++			SendShot(
++				controller,
++				thread,
++				std::move(image),
++				asFile,
++				crl::guard(box, [=] { box->closeBox(); }));
++		});
++	}
++}
++
++void InsertShotAction(
++		not_null<Ui::PopupMenu*> menu,
++		Fn<void()> callback) {
++	const auto text = Lower(u"Shot"_q);
++	const auto icon = &st::menuIconPhoto;
++	const auto select = tr::lng_context_select_msg(tr::now);
++	const auto clear = tr::lng_context_clear_selection(tr::now);
++	const auto &actions = menu->actions();
++	auto position = -1;
++	for (auto i = int(actions.size()); i != 0;) {
++		const auto label = actions[--i]->text();
++		if (label == select || label == clear) {
++			position = i + 1;
++			break;
++		}
++	}
++	if (position < 0) {
++		menu->addAction(text, std::move(callback), icon);
++		return;
++	}
++	const auto raw = menu->menu();
++	menu->insertAction(position, base::make_unique_q<Ui::Menu::Action>(
++		raw,
++		menu->st().menu,
++		Ui::Menu::CreateAction(raw, text, std::move(callback)),
++		icon,
++		icon));
++}
++
++void AddShot(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<Window::SessionController*> controller,
++		std::vector<FullMsgId> ids,
++		Context context,
++		int chatWidth) {
++	const auto session = &controller->session();
++	const auto items = CollectItems(session, ids);
++	if (items.empty() || ranges::any_of(items, Restricted)) {
++		return;
++	}
++	InsertShotAction(menu, [=] {
++		auto items = CollectItems(session, ids);
++		if (!items.empty()) {
++			controller->show(Box(
++				ShotBox,
++				controller,
++				std::move(items),
++				context,
++				chatWidth));
++		}
++	});
++}
++
++} // namespace
++
++bool ShotHidesBottomInfo(not_null<const HistoryView::Element*> view) {
++	const auto &hiding = Hiding();
++	return !hiding.empty() && hiding.contains(view->delegate().get());
++}
++
++void AddShotAction(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<Window::SessionController*> controller,
++		std::vector<FullMsgId> selected,
++		HistoryItem *item,
++		int chatWidth) {
++	if (!ShotInMenu() || menu->empty()) {
++		return;
++	}
++	if (selected.empty() && item) {
++		selected.push_back(item->fullId());
++	}
++	if (!selected.empty()) {
++		AddShot(
++			menu,
++			controller,
++			std::move(selected),
++			Context::History,
++			chatWidth);
++	}
++}
++
++void AddShotAction(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<HistoryView::ListWidget*> list,
++		const HistoryView::ContextMenuRequest &request) {
++	if (!ShotInMenu() || menu->empty()) {
++		return;
++	}
++	auto ids = std::vector<FullMsgId>();
++	if (request.overSelection && !request.selectedItems.empty()) {
++		ids = list->getSelectedIds();
++	} else if (request.item) {
++		ids.push_back(request.item->fullId());
++	}
++	if (!ids.empty()) {
++		AddShot(
++			menu,
++			list->controller(),
++			std::move(ids),
++			list->delegate()->listContext(),
++			list->width());
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_shot.h b/Telegram/SourceFiles/tele/tele_shot.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..430b4dc1a1c6599872d4a88a4ed4d910c086218d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_shot.h
+@@ -0,0 +1,37 @@
++#pragma once
++
++#include "data/data_msg_id.h"
++
++class HistoryItem;
++
++namespace HistoryView {
++class Element;
++class ListWidget;
++struct ContextMenuRequest;
++} // namespace HistoryView
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] bool ShotHidesBottomInfo(
++	not_null<const HistoryView::Element*> view);
++
++void AddShotAction(
++	not_null<Ui::PopupMenu*> menu,
++	not_null<Window::SessionController*> controller,
++	std::vector<FullMsgId> selected,
++	HistoryItem *item,
++	int chatWidth);
++void AddShotAction(
++	not_null<Ui::PopupMenu*> menu,
++	not_null<HistoryView::ListWidget*> list,
++	const HistoryView::ContextMenuRequest &request);
++
++} // namespace Tele

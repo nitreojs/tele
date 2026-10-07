@@ -68,7 +68,7 @@ index 616db2d1d3bd37e9af2d6164e667b623ee30a7bd..1ee22e0fe2fc86aae2f065a473b115e9
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 04099357edc4eadc9ffd4f7edb20e2e17f80aedb..73bd5d17a7551979eeb278d54eff115673023deb 100644
+index 57fc16f29e79da0ece3dbb1ffaf745a3ee12a7c0..2be477232e33c4493a12a04affeb3062d2a66e10 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -13,6 +13,7 @@ const char kOptionBubbleBadges[] = "tele-bubble-badges";
@@ -94,7 +94,7 @@ index 04099357edc4eadc9ffd4f7edb20e2e17f80aedb..73bd5d17a7551979eeb278d54eff1156
  base::options::toggle ShowGiftIdsOption({
  	.id = kOptionShowGiftIds,
  	.name = "Show gift IDs",
-@@ -254,6 +263,10 @@ rpl::producer<bool> HideSponsoredValue() {
+@@ -253,6 +262,10 @@ rpl::producer<bool> HideSponsoredValue() {
  	});
  }
  

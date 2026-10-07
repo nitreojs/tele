@@ -1,0 +1,840 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 07:54:29 +0300
+Subject: [PATCH] feat: hide messages by keyword or regex
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../dialogs/dialogs_inner_widget.cpp          |   6 +
+ .../SourceFiles/dialogs/ui/dialogs_layout.cpp |   3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  22 +
+ .../SourceFiles/tele/tele_hidden_words.cpp    | 465 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_hidden_words.h |  30 ++
+ Telegram/SourceFiles/tele/tele_ignored.cpp    |  19 +-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  24 +
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   8 +-
+ .../SourceFiles/window/window_peer_menu.cpp   |   2 +
+ 11 files changed, 578 insertions(+), 7 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_hidden_words.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_hidden_words.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index a2005b8eb58587f186e134f81775b8ba2f3a9fc4..036b3a980f3177215017e6587086fae9e7502c61 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2313,6 +2313,8 @@ PRIVATE
+     tele/tele_gifts.h
+     tele/tele_ghost.cpp
+     tele/tele_ghost.h
++    tele/tele_hidden_words.cpp
++    tele/tele_hidden_words.h
+     tele/tele_ignored.cpp
+     tele/tele_ignored.h
+     tele/tele_inline_text.cpp
+diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
+index a6a40d99922d5f7cce66b852357f1f835e50c111..6c72c2388457df4e13060c0dcc11d2e3aa253677 100644
+--- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
++++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
+@@ -89,6 +89,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_chats_selection.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_corner_buttons.h"
++#include "tele/tele_hidden_words.h"
+ #include "tele/tele_list_previews.h"
+ #include "tele/tele_local_pins.h"
+ #include "tele/tele_options.h"
+@@ -348,6 +349,11 @@ InnerWidget::InnerWidget(
+ 		update();
+ 	}, lifetime());
+ 
++	::Tele::HiddenWordsChanges(
++	) | rpl::on_next([=] {
++		update();
++	}, lifetime());
++
+ 	style::PaletteChanged(
+ 	) | rpl::on_next([=] {
+ 		_topicJumpCache = nullptr;
+diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
+index 9297ab44ca68bdccb507945d0e204ff04ff88eab..f121b15f1b54950a09fb546f1b29b2c2f6c5046f 100644
+--- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
++++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "support/support_helper.h"
+ #include "tele/tele_corner_buttons.h"
+ #include "tele/tele_docked_media.h"
++#include "tele/tele_hidden_words.h"
+ #include "tele/tele_list_previews.h"
+ #include "tele/tele_local_pins.h"
+ #include "ui/empty_userpic.h"
+@@ -1263,7 +1264,7 @@ void RowPainter::Paint(
+ 			: thread
+ 			? &thread->lastItemDialogsView()
+ 			: nullptr;
+-		if (view) {
++		if (view && !Tele::HiddenByWords(item)) {
+ 			const auto forum = (peer && context.st->topicsHeight)
+ 				? peer->forum()
+ 				: nullptr;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index dabdbcc24d413bce7cb3dd94e7bffa697a382557..cf1bfb71b328b8d95909f0886ca2464b1dd83d4a 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -30,6 +30,7 @@
+ #include "tele/tele_drafts.h"
+ #include "tele/tele_drafts_box.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_hidden_words.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_online_notify.h"
+ #include "tele/tele_link_rewrites.h"
+@@ -1121,6 +1122,26 @@ void AddIgnoredUsers(SectionBuilder &builder) {
+ 	AddAbout(builder, u"tele-ignored-users"_q, description);
+ }
+ 
++void AddHiddenWords(SectionBuilder &builder) {
++	const auto controller = builder.controller();
++	const auto button = AddButton(builder, {
++		.id = u"tele-hidden-words"_q,
++		.title = rpl::single(::Tele::Lower(u"Hidden words"_q)),
++		.st = &st::settingsButtonNoIcon,
++		.label = ::Tele::HiddenWordsCountValue(
++		) | rpl::map([](int count) {
++			return count ? QString::number(count) : u"none"_q;
++		}),
++		.onClick = [=] {
++			controller->show(Box(::Tele::HiddenWordsBox, nullptr));
++		},
++		.keywords = { u"keywords"_q, u"regex"_q, u"filter"_q },
++	});
++	if (button) {
++		SetupLink(button, u"tele-hidden-words"_q);
++	}
++}
++
+ void ShowOnlineNotifyBox(not_null<Window::SessionController*> window) {
+ 	const auto session = &window->session();
+ 	auto selected = std::vector<not_null<PeerData*>>();
+@@ -2280,6 +2301,7 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Ignoring"_q);
+ 	AddIgnoredUsers(builder);
++	AddHiddenWords(builder);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideIgnored);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Screen capture"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_hidden_words.cpp b/Telegram/SourceFiles/tele/tele_hidden_words.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..aec822de594673eba33a415d715865ef3f713c4d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_hidden_words.cpp
+@@ -0,0 +1,465 @@
++#include "tele/tele_hidden_words.h"
++
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/view/history_view_element.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/serialize_common.h"
++#include "storage/storage_account.h"
++#include "tele/tele_ignored.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/layers/generic_box.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/wrap/slide_wrap.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QRegularExpression>
++
++namespace Tele {
++namespace {
++
++using namespace Storage::details;
++
++constexpr auto kMagic = quint32(0x7E1E3D5A);
++constexpr auto kVersion = qint32(1);
++constexpr auto kMaxChats = 65536;
++constexpr auto kMaxCache = 8192;
++
++struct Rule {
++	QString text;
++	QRegularExpression regex;
++	bool pattern = false;
++};
++
++using Rules = std::vector<Rule>;
++
++struct Cached {
++	uint64 generation = 0;
++	const History *history = nullptr;
++	QString text;
++	bool result = false;
++};
++
++struct State {
++	State();
++
++	Rules rules;
++	uint64 generation = 0;
++	std::unordered_map<const HistoryItem*, Cached> cache;
++	rpl::event_stream<> changes;
++	rpl::lifetime lifetime;
++};
++
++[[nodiscard]] QStringList Lines(const QString &value) {
++	auto result = QStringList();
++	for (const auto &line : value.split(QChar('\n'))) {
++		const auto trimmed = line.trimmed();
++		if (!trimmed.isEmpty() && !result.contains(trimmed)) {
++			result.push_back(trimmed);
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] std::optional<QString> RegexPattern(const QString &line) {
++	if (line.size() < 3 || !line.startsWith(QChar('/'))) {
++		return std::nullopt;
++	} else if (line.endsWith(QChar('/'))) {
++		return line.mid(1, line.size() - 2);
++	} else if (line.size() > 3 && line.endsWith(u"/i"_q)) {
++		return line.mid(1, line.size() - 3);
++	}
++	return std::nullopt;
++}
++
++[[nodiscard]] QRegularExpression MakeRegex(const QString &pattern) {
++	return QRegularExpression(
++		pattern,
++		(QRegularExpression::CaseInsensitiveOption
++			| QRegularExpression::UseUnicodePropertiesOption));
++}
++
++[[nodiscard]] QString LineError(const QString &line) {
++	const auto pattern = RegexPattern(line);
++	if (!pattern) {
++		return QString();
++	}
++	const auto regex = MakeRegex(*pattern);
++	return regex.isValid() ? QString() : regex.errorString();
++}
++
++[[nodiscard]] QString FirstError(const QString &value) {
++	const auto lines = value.split(QChar('\n'));
++	for (auto i = 0; i != int(lines.size()); ++i) {
++		const auto error = LineError(lines[i].trimmed());
++		if (!error.isEmpty()) {
++			return u"Line %1: %2"_q.arg(i + 1).arg(error);
++		}
++	}
++	return QString();
++}
++
++[[nodiscard]] Rules Compile(const QString &value) {
++	auto result = Rules();
++	for (const auto &line : Lines(value)) {
++		if (const auto pattern = RegexPattern(line)) {
++			auto regex = MakeRegex(*pattern);
++			if (regex.isValid()) {
++				regex.optimize();
++				result.push_back({ .regex = std::move(regex), .pattern = true });
++			}
++		} else {
++			result.push_back({ .text = line });
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] bool Matches(const Rules &rules, const QString &text) {
++	for (const auto &rule : rules) {
++		const auto found = rule.pattern
++			? rule.regex.match(text).hasMatch()
++			: text.contains(rule.text, Qt::CaseInsensitive);
++		if (found) {
++			return true;
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] State &Get() {
++	static State state;
++	return state;
++}
++
++void Apply(Fn<void()> change) {
++	auto items = std::vector<not_null<HistoryItem*>>();
++	EnumerateViews([&](not_null<HistoryView::Element*> view) {
++		items.push_back(view->data());
++	});
++	ranges::sort(items);
++	items.erase(ranges::unique(items), end(items));
++	auto before = std::vector<bool>();
++	before.reserve(items.size());
++	for (const auto &item : items) {
++		before.push_back(HiddenByWords(item));
++	}
++	change();
++	auto &state = Get();
++	++state.generation;
++	state.cache.clear();
++	for (auto i = 0; i != int(items.size()); ++i) {
++		const auto item = items[i];
++		if (HiddenByWords(item) != before[i]) {
++			item->history()->owner().requestItemViewRefresh(item);
++		}
++	}
++	state.changes.fire({});
++}
++
++State::State()
++: rules(Compile(HiddenWords())) {
++	HiddenWordsValue(
++	) | rpl::skip(1) | rpl::on_next([=](const QString &value) {
++		Apply([&] {
++			rules = Compile(value);
++		});
++	}, lifetime);
++}
++
++class Chats final {
++public:
++	explicit Chats(not_null<Main::Session*> session);
++	~Chats();
++
++	[[nodiscard]] static Chats &For(not_null<Main::Session*> session);
++
++	[[nodiscard]] QString value(PeerId peer) const;
++	[[nodiscard]] const Rules *rules(PeerId peer) const;
++	void set(PeerId peer, const QString &value);
++
++private:
++	[[nodiscard]] static base::flat_map<
++		not_null<Main::Session*>,
++		not_null<Chats*>> &Registry();
++
++	[[nodiscard]] QString folder() const;
++	void read();
++	void write() const;
++
++	const not_null<Main::Session*> _session;
++	base::flat_map<PeerId, QString> _values;
++	base::flat_map<PeerId, Rules> _rules;
++
++};
++
++Chats::Chats(not_null<Main::Session*> session)
++: _session(session) {
++	Registry().emplace(session, this);
++	read();
++}
++
++Chats::~Chats() {
++	Registry().remove(_session);
++}
++
++base::flat_map<
++		not_null<Main::Session*>,
++		not_null<Chats*>> &Chats::Registry() {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		not_null<Chats*>>();
++	return result;
++}
++
++Chats &Chats::For(not_null<Main::Session*> session) {
++	const auto &registry = Registry();
++	const auto i = registry.find(session);
++	return (i != end(registry))
++		? *i->second
++		: *session->lifetime().make_state<Chats>(session);
++}
++
++QString Chats::value(PeerId peer) const {
++	const auto i = _values.find(peer);
++	return (i != end(_values)) ? i->second : QString();
++}
++
++const Rules *Chats::rules(PeerId peer) const {
++	const auto i = _rules.find(peer);
++	return (i != end(_rules) && !i->second.empty()) ? &i->second : nullptr;
++}
++
++void Chats::set(PeerId peer, const QString &value) {
++	const auto normalized = NormalizeHiddenWords(value);
++	if (normalized == this->value(peer)) {
++		return;
++	} else if (normalized.isEmpty()) {
++		_values.remove(peer);
++		_rules.remove(peer);
++	} else {
++		_values[peer] = normalized;
++		_rules[peer] = Compile(normalized);
++	}
++	write();
++}
++
++QString Chats::folder() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + '/';
++}
++
++void Chats::read() {
++	auto file = FileReadDescriptor();
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key
++		|| !ReadEncryptedFile(file, u"tele_hidden_words"_q, folder(), key)) {
++		return;
++	}
++	auto magic = quint32();
++	auto version = qint32();
++	auto owner = quint64();
++	auto count = quint32();
++	file.stream >> magic >> version >> owner >> count;
++	if (file.stream.status() != QDataStream::Ok
++		|| magic != kMagic
++		|| version < 1
++		|| version > kVersion
++		|| owner != _session->uniqueId()
++		|| count > kMaxChats) {
++		return;
++	}
++	for (auto i = quint32(); i != count; ++i) {
++		auto peer = quint64();
++		auto value = QString();
++		file.stream >> peer >> value;
++		if (file.stream.status() != QDataStream::Ok) {
++			return;
++		}
++		const auto normalized = NormalizeHiddenWords(value);
++		if (peer && !normalized.isEmpty()) {
++			_values[PeerId(peer)] = normalized;
++			_rules[PeerId(peer)] = Compile(normalized);
++		}
++	}
++}
++
++void Chats::write() const {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		return;
++	}
++	auto size = sizeof(quint32) * 3 + sizeof(quint64);
++	for (const auto &[peer, value] : _values) {
++		size += sizeof(quint64) + Serialize::stringSize(value);
++	}
++	auto data = EncryptedDescriptor(size);
++	data.stream
++		<< kMagic
++		<< kVersion
++		<< quint64(_session->uniqueId())
++		<< quint32(_values.size());
++	for (const auto &[peer, value] : _values) {
++		data.stream << quint64(peer.value) << value;
++	}
++	auto file = FileWriteDescriptor(u"tele_hidden_words"_q, folder());
++	file.writeEncrypted(data, key);
++}
++
++} // namespace
++
++bool HiddenByWords(const HistoryItem *item) {
++	if (!item
++		|| item->out()
++		|| item->isService()
++		|| item->isSponsored()) {
++		return false;
++	}
++	auto &state = Get();
++	const auto history = item->history();
++	const auto local = Chats::For(&history->session()).rules(
++		history->peer->id);
++	if (state.rules.empty() && !local) {
++		return false;
++	}
++	const auto &text = item->originalText().text;
++	if (text.isEmpty() || item->from()->isSelf()) {
++		return false;
++	}
++	const auto i = state.cache.find(item);
++	if (i != end(state.cache)
++		&& i->second.generation == state.generation
++		&& i->second.history == history
++		&& i->second.text == text) {
++		return i->second.result;
++	}
++	const auto result = Matches(state.rules, text)
++		|| (local && Matches(*local, text));
++	if (state.cache.size() >= kMaxCache) {
++		state.cache.clear();
++	}
++	state.cache[item] = Cached{
++		.generation = state.generation,
++		.history = history,
++		.text = text,
++		.result = result,
++	};
++	return result;
++}
++
++rpl::producer<> HiddenWordsChanges() {
++	return Get().changes.events();
++}
++
++rpl::producer<int> HiddenWordsCountValue() {
++	return HiddenWordsValue() | rpl::map([](const QString &value) {
++		return int(Lines(value).size());
++	});
++}
++
++void HiddenWordsBox(not_null<Ui::GenericBox*> box, PeerData *peer) {
++	box->setWidth(st::boxWideWidth);
++	box->setTitle(rpl::single(Lower(u"Hidden words"_q)));
++
++	const auto field = box->addRow(object_ptr<Ui::InputField>(
++		box,
++		st::newGroupDescription,
++		Ui::InputField::Mode::MultiLine,
++		rpl::single(Lower(u"Text or /regex/"_q)),
++		(peer
++			? Chats::For(&peer->session()).value(peer->id)
++			: HiddenWords())));
++	const auto error = box->addRow(
++		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
++			box,
++			object_ptr<Ui::FlatLabel>(
++				box,
++				QString(),
++				st::boxAttentionDividerLabel)));
++	Ui::AddSkip(box->verticalLayout());
++	box->addRow(object_ptr<Ui::FlatLabel>(
++		box,
++		Lower(peer
++			? u"One rule per line, added to the global ones."_q
++			: u"One rule per line."_q),
++		st::boxDividerLabel));
++
++	const auto refresh = [=] {
++		const auto invalid = FirstError(field->getLastText());
++		error->entity()->setText(Lower(invalid));
++		error->toggle(!invalid.isEmpty(), anim::type::instant);
++		if (invalid.isEmpty()) {
++			field->hideError();
++		} else {
++			field->showErrorNoFocus();
++		}
++	};
++	field->changes() | rpl::on_next(refresh, field->lifetime());
++	refresh();
++
++	const auto save = [=] {
++		const auto value = field->getLastText();
++		if (!FirstError(value).isEmpty()) {
++			field->showError();
++			return;
++		}
++		const auto normalized = NormalizeHiddenWords(value);
++		if (peer) {
++			const auto session = &peer->session();
++			const auto id = peer->id;
++			Apply([&] {
++				Chats::For(session).set(id, normalized);
++			});
++		} else if (normalized != NormalizeHiddenWords(HiddenWords())) {
++			SetHiddenWords(normalized);
++		}
++		box->closeBox();
++	};
++	field->submits(
++	) | rpl::on_next([=](Qt::KeyboardModifiers) {
++		save();
++	}, field->lifetime());
++	box->setFocusCallback([=] {
++		field->setFocusFast();
++	});
++	box->addButton(tr::lng_settings_save(), save);
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++}
++
++void AddHiddenWordsAction(
++		not_null<Window::SessionController*> controller,
++		PeerData *peer,
++		const Ui::Menu::MenuCallback &addAction) {
++	if (!peer || peer->isSelf()) {
++		return;
++	}
++	const auto weak = base::make_weak(controller);
++	addAction(Lower(u"Hidden words"_q) + QChar(0x2026), [=] {
++		if (const auto strong = weak.get()) {
++			strong->show(Box(HiddenWordsBox, peer));
++		}
++	}, &st::menuIconCaptionHide);
++}
++
++QString NormalizeHiddenWords(const QString &value) {
++	auto lines = Lines(value);
++	lines.erase(ranges::remove_if(lines, [](const QString &line) {
++		return !LineError(line).isEmpty();
++	}), lines.end());
++	return lines.join(QChar('\n'));
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_hidden_words.h b/Telegram/SourceFiles/tele/tele_hidden_words.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..bf69246b0b3ab7c715b39b0517eadf76e680cf48
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_hidden_words.h
+@@ -0,0 +1,30 @@
++#pragma once
++
++class HistoryItem;
++class PeerData;
++
++namespace Ui {
++class GenericBox;
++} // namespace Ui
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] bool HiddenByWords(const HistoryItem *item);
++[[nodiscard]] rpl::producer<> HiddenWordsChanges();
++[[nodiscard]] rpl::producer<int> HiddenWordsCountValue();
++void HiddenWordsBox(not_null<Ui::GenericBox*> box, PeerData *peer);
++void AddHiddenWordsAction(
++	not_null<Window::SessionController*> controller,
++	PeerData *peer,
++	const Ui::Menu::MenuCallback &addAction);
++[[nodiscard]] QString NormalizeHiddenWords(const QString &value);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
+index 54c10a8bf2c995ab680bd99d8a3431988e285b20..6fcc88d5ba9efd86707039731a7c1e589d8d8c97 100644
+--- a/Telegram/SourceFiles/tele/tele_ignored.cpp
++++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
+@@ -7,6 +7,7 @@
+ #include "history/history_item.h"
+ #include "history/view/history_view_element.h"
+ #include "main/main_session.h"
++#include "tele/tele_hidden_words.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+@@ -78,15 +79,19 @@ struct State {
+ 	return list.join(QChar(','));
+ }
+ 
+-void Refresh(const State &state, const base::flat_set<Key> &changed) {
+-	if (changed.empty()) {
++void Refresh(
++		const State &state,
++		const base::flat_set<Key> &changed,
++		bool words = false) {
++	if (changed.empty() && !words) {
+ 		return;
+ 	}
+ 	auto items = base::flat_set<not_null<HistoryItem*>>();
+ 	for (const auto &view : state.views) {
+ 		const auto item = view->data();
+ 		const auto from = item->from();
+-		if (from->isUser() && changed.contains(PeerKey(from))) {
++		if ((from->isUser() && changed.contains(PeerKey(from)))
++			|| (words && HiddenByWords(item))) {
+ 			items.emplace(item);
+ 		}
+ 	}
+@@ -131,7 +136,7 @@ State::State() {
+ 
+ 	HideIgnoredValue(
+ 	) | rpl::skip(1) | rpl::on_next([=] {
+-		Refresh(*this, keys);
++		Refresh(*this, keys, true);
+ 	}, lifetime);
+ 
+ 	MessageSecondsValue(
+@@ -151,12 +156,16 @@ State::State() {
+ 
+ [[nodiscard]] bool IgnoredView(not_null<const Element*> view) {
+ 	const auto &state = Get();
+-	if (state.keys.empty() || !Applies(view->context())) {
++	if (!Applies(view->context())) {
+ 		return false;
+ 	}
+ 	const auto item = view->data();
+ 	if (item->isService() || item->isSponsored()) {
+ 		return false;
++	} else if (HiddenByWords(item)) {
++		return true;
++	} else if (state.keys.empty()) {
++		return false;
+ 	}
+ 	const auto from = item->from();
+ 	return from->isUser()
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index d6a932235bb5745f9de5efbea74944684975516d..19d9842800039414e0040f34fb44340bd499861a 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -67,6 +67,7 @@ const char kOptionMergeIdDc[] = "tele-merge-id-dc";
+ const char kOptionMessageIdMenu[] = "tele-message-id-menu";
+ const char kOptionHideIgnored[] = "tele-hide-ignored";
+ const char kOptionIgnoredUsers[] = "tele-ignored-users";
++const char kOptionHiddenWords[] = "tele-hidden-words";
+ const char kOptionMessageSeconds[] = "tele-message-seconds";
+ const char kOptionEditHistory[] = "tele-edit-history";
+ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+@@ -523,6 +524,11 @@ base::options::option<QString> IgnoredUsersOption({
+ 	.description = "Right-click a userpic in a group to ignore someone.",
+ });
+ 
++base::options::option<QString> HiddenWordsOption({
++	.id = kOptionHiddenWords,
++	.name = "Hidden words",
++});
++
+ base::options::toggle MessageSecondsOption({
+ 	.id = kOptionMessageSeconds,
+ 	.name = "Show seconds in message times",
+@@ -1467,6 +1473,24 @@ rpl::producer<QString> IgnoredListValue() {
+ 	});
+ }
+ 
++QString HiddenWords() {
++	return HiddenWordsOption.value();
++}
++
++void SetHiddenWords(const QString &value) {
++	HiddenWordsOption.set(value);
++}
++
++rpl::producer<QString> HiddenWordsValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		HiddenWordsOption.changes()
++	) | rpl::map([] {
++		return HiddenWordsOption.value();
++	});
++}
++
+ bool MessageSeconds() {
+ 	return MessageSecondsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index e8edaaa741884b4e087e7ab3406a014dede7579f..3b44c061e4d4d8158227d31fa5c1136f8fe47e12 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -62,6 +62,7 @@ extern const char kOptionMergeIdDc[];
+ extern const char kOptionMessageIdMenu[];
+ extern const char kOptionHideIgnored[];
+ extern const char kOptionIgnoredUsers[];
++extern const char kOptionHiddenWords[];
+ extern const char kOptionMessageSeconds[];
+ extern const char kOptionEditHistory[];
+ extern const char kOptionKeepDeleted[];
+@@ -233,6 +234,9 @@ void SetReduceMotionSaved(const QString &value);
+ [[nodiscard]] rpl::producer<bool> HideIgnoredValue();
+ void SetIgnoredList(const QString &value);
+ [[nodiscard]] rpl::producer<QString> IgnoredListValue();
++[[nodiscard]] QString HiddenWords();
++void SetHiddenWords(const QString &value);
++[[nodiscard]] rpl::producer<QString> HiddenWordsValue();
+ [[nodiscard]] bool MessageSeconds();
+ [[nodiscard]] rpl::producer<bool> MessageSecondsValue();
+ [[nodiscard]] bool EditHistory();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index fd4cad014e5a8fbc18849651a4b0c40915cb6b24..f90d2e23b45c1493b691068a033452f890d0d495 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -9,6 +9,7 @@
+ #include "tele/tele_build.h"
+ #include "tele/tele_chat_backgrounds.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_hidden_words.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_link_rewrites.h"
+ #include "tele/tele_local_drafts.h"
+@@ -42,6 +43,7 @@ enum class Kind : uchar {
+ 	AppIcon,
+ 	TrayIcon,
+ 	List,
++	Lines,
+ 	Backgrounds,
+ 	Internal,
+ };
+@@ -225,6 +227,7 @@ struct Spec {
+ 		Text(kOptionAppLinks, Kind::AppLinks),
+ 		People(kOptionGhostChats, Kind::List, NormalizeGhostChats),
+ 		People(kOptionIgnoredUsers, Kind::List, NormalizeIgnoredUsers),
++		People(kOptionHiddenWords, Kind::Lines, NormalizeHiddenWords),
+ 		People(kOptionUsernameAliases, Kind::List, NormalizeUsernameAliases),
+ 		People(kOptionLocalNames, Kind::List, NormalizeLocalNames),
+ 		People(kOptionChatBackgrounds, Kind::Backgrounds),
+@@ -407,6 +410,8 @@ void SetText(const Spec &spec, const QString &value) {
+ 	switch (spec.kind) {
+ 	case Kind::List:
+ 		return spec.normalize(current + QChar(',') + entry.text);
++	case Kind::Lines:
++		return spec.normalize(current + QChar('\n') + entry.text);
+ 	case Kind::Backgrounds:
+ 		return NormalizeChatBackgrounds(
+ 			current + QChar(',') + entry.text,
+@@ -588,6 +593,7 @@ void Parser::parseText(const Spec &spec, const QString &value) {
+ 	case Kind::AppIcon:
+ 	case Kind::TrayIcon: parseIcon(spec, value); return;
+ 	case Kind::List: parseList(spec, value); return;
++	case Kind::Lines: text(spec.normalize(value)); return;
+ 	case Kind::Backgrounds: parseBackgrounds(spec, value); return;
+ 	case Kind::Toggle:
+ 	case Kind::Internal: break;
+@@ -768,7 +774,7 @@ QByteArray ExportSettings(SettingsGroups groups) {
+ 						Encode(bytes));
+ 				}
+ 			}
+-		} else if (spec.kind == Kind::List) {
++		} else if (spec.kind == Kind::List || spec.kind == Kind::Lines) {
+ 			value = spec.normalize(value);
+ 		} else if (spec.kind == Kind::Backgrounds) {
+ 			value = NormalizeChatBackgrounds(value, HasFile({}));
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index e99241ba05d27d42af7eac8216436ed91e3a8f30..b2af8d924c336d6c8bdea3044bc27c0a78c978bd 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted_section.h"
+ #include "tele/tele_download_folders.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_hidden_words.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_jump_to_first.h"
+ #include "tele/tele_local_names.h"
+@@ -1953,6 +1954,7 @@ void Filler::fillHistoryActions() {
+ 	Tele::AddPinnedBarAction(_controller, _thread, _addAction);
+ 	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
+ 	Tele::AddLocalNameAction(_controller, _peer, _addAction);
++	Tele::AddHiddenWordsAction(_controller, _peer, _addAction);
+ 	addViewAsTopics();
+ 	addManageChat();
+ 	addStoryArchive();

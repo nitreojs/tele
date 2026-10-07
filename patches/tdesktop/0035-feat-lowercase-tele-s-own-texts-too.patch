@@ -724,7 +724,7 @@ index ec8564599dec4ebedfc8512504b404f0473f8e1d..a50ec73cbc1059b1eb9d91b22f4c112b
  
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
-index baecb81248fcd68bf53ffbe36ecfb56da477a9fa..10890d4482fcf8cacbd3467ad459ae8a2d56d0b0 100644
+index 1c65bb7d6b4cd92c188cfad71962088ab3fcacd5..5f4eabe36455090cb9fb87984f946ec35322ea62 100644
 --- a/Telegram/SourceFiles/tele/tele_ignored.cpp
 +++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
 @@ -7,6 +7,7 @@
@@ -735,7 +735,7 @@ index baecb81248fcd68bf53ffbe36ecfb56da477a9fa..10890d4482fcf8cacbd3467ad459ae8a
  #include "tele/tele_options.h"
  #include "ui/widgets/menu/menu_add_action_callback.h"
  #include "ui/widgets/menu/menu_add_action_callback_factory.h"
-@@ -247,8 +248,8 @@ void AddIgnoreAction(
+@@ -251,8 +252,8 @@ void AddIgnoreAction(
  	const auto ignored = IsIgnored(user);
  	addAction(
  		(ignored
@@ -893,7 +893,7 @@ index 6789c2c3ec98af929c74aa5dff6730f29d79ebb2..4c6317f887bcdd01d4db58562f7601e7
  		return QString::fromLatin1(AppVersionStr);
  	} else if (name == u"time"_q) {
 diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
-index eb1899e52a7200b07e45d46568572de7742038e9..30c0d797f253dcd91d8c6c99ef49ed9316e8a843 100644
+index a3fc9feb6f5a9fc983152c70803da0c979cc7b8d..70c8aa458ef7dd243a40c44d827696865a65e576 100644
 --- a/Telegram/SourceFiles/tele/tele_updater.cpp
 +++ b/Telegram/SourceFiles/tele/tele_updater.cpp
 @@ -8,6 +8,7 @@
@@ -904,7 +904,7 @@ index eb1899e52a7200b07e45d46568572de7742038e9..30c0d797f253dcd91d8c6c99ef49ed93
  #include "tele/tele_options.h"
  
  #include <QtCore/QCoreApplication>
-@@ -510,8 +511,8 @@ void Updater::verifyFeed(const QByteArray &envelope) {
+@@ -530,8 +531,8 @@ void Updater::verifyFeed(const QByteArray &envelope) {
  		finish({ .state = UpdateState::Latest });
  		return;
  	} else if (!CanWriteNextToInstall()) {

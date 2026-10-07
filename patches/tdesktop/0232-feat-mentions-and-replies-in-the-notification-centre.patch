@@ -1,0 +1,857 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 13:47:33 +0300
+Subject: [PATCH] feat: mentions and replies in the notification centre
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |   5 +
+ Telegram/SourceFiles/tele/tele_notices.cpp    |  61 +++-
+ Telegram/SourceFiles/tele/tele_notices.h      |  11 +
+ .../tele/tele_notices_mentions.cpp            | 330 ++++++++++++++++++
+ .../SourceFiles/tele/tele_notices_mentions.h  |  20 ++
+ .../SourceFiles/tele/tele_notices_section.cpp |  84 ++++-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  12 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 10 files changed, 511 insertions(+), 17 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_notices_mentions.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_notices_mentions.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index d3b7685a8002fbe6dedb13c71fa2ebdaac65374e..788d150d56011b62165437fad8f739917f665b92 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2432,6 +2432,8 @@ PRIVATE
+     tele/tele_no_ai.h
+     tele/tele_notices.cpp
+     tele/tele_notices.h
++    tele/tele_notices_mentions.cpp
++    tele/tele_notices_mentions.h
+     tele/tele_notices_section.cpp
+     tele/tele_notices_section.h
+     tele/tele_online_notify.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 4df10e3541fc7831a463f0589f87f35beb8fb5b2..d631ee64ed77eb76c6ac72b52acbe2c4b5fffdc3 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3116,6 +3116,11 @@ void FillNotifications(SectionBuilder &builder) {
+ 				::Tele::kOptionNoticesTeleToasts,
+ 				{ u"notices"_q, u"history"_q },
+ 				::Tele::kOptionNotices);
++			AddOptionToggle(
++				builder,
++				::Tele::kOptionNoticesMentions,
++				{ u"mention"_q, u"reply"_q, u"notices"_q, u"history"_q },
++				::Tele::kOptionNotices);
+ 		});
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Rate limits"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_notices.cpp b/Telegram/SourceFiles/tele/tele_notices.cpp
+index 19270811dcf55f5104ad7b79a5ab3b9d5212b945..8e4d146d45f7a0679908270a29ece15ef16512d3 100644
+--- a/Telegram/SourceFiles/tele/tele_notices.cpp
++++ b/Telegram/SourceFiles/tele/tele_notices.cpp
+@@ -10,6 +10,7 @@
+ #include "storage/details/storage_file_utilities.h"
+ #include "storage/storage_account.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_notices_mentions.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_rate_limits.h"
+ #include "tele/tele_server_notices.h"
+@@ -27,6 +28,7 @@ using namespace Storage::details;
+ constexpr auto kMagic = quint32(0x7E1E0A71);
+ constexpr auto kVersion = qint32(1);
+ constexpr auto kMaxNotices = 300;
++constexpr auto kMaxMentions = 300;
+ constexpr auto kMaxAge = TimeId(30 * 24 * 60 * 60);
+ constexpr auto kMaxJsonSize = 32 * 1024 * 1024;
+ constexpr auto kWriteDelay = crl::time(1000);
+@@ -57,6 +59,7 @@ constexpr auto kKindNames = std::array{
+ 	std::pair{ NoticeKind::Update, "update" },
+ 	std::pair{ NoticeKind::Crash, "crash" },
+ 	std::pair{ NoticeKind::Online, "online" },
++	std::pair{ NoticeKind::Mention, "mention" },
+ };
+ 
+ constexpr auto kToneNames = std::array{
+@@ -174,6 +177,13 @@ template <typename Value, size_t Size>
+ 	result.insert(u"pw"_q, notice.photoSize.width());
+ 	result.insert(u"ph"_q, notice.photoSize.height());
+ 	result.insert(u"peer"_q, QString::number(notice.peer));
++	if (notice.kind == NoticeKind::Mention) {
++		result.insert(u"from"_q, QString::number(notice.from));
++		result.insert(u"msg"_q, QString::number(notice.msg));
++		result.insert(u"topic"_q, QString::number(notice.topic));
++		result.insert(u"source"_q, QString::number(notice.source));
++		result.insert(u"smsg"_q, QString::number(notice.sourceMsg));
++	}
+ 	result.insert(u"unread"_q, notice.unread);
+ 	return result;
+ }
+@@ -202,6 +212,11 @@ template <typename Value, size_t Size>
+ 			fields.value(u"pw"_q).toInt(),
+ 			fields.value(u"ph"_q).toInt()),
+ 		.peer = fields.value(u"peer"_q).toString().toULongLong(),
++		.from = fields.value(u"from"_q).toString().toULongLong(),
++		.msg = fields.value(u"msg"_q).toString().toLongLong(),
++		.topic = fields.value(u"topic"_q).toString().toLongLong(),
++		.source = fields.value(u"source"_q).toString().toULongLong(),
++		.sourceMsg = fields.value(u"smsg"_q).toString().toLongLong(),
+ 		.unread = fields.value(u"unread"_q).toBool(),
+ 	};
+ 	for (const auto &value : fields.value(u"buttons"_q).toArray()) {
+@@ -234,6 +249,8 @@ public:
+ 	void add(Notice notice);
+ 	void addTele(Notice notice, const QString &where);
+ 	void markRead();
++	void markRead(uint64 id);
++	void setText(uint64 id, TextWithEntities text);
+ 	void remove(uint64 id);
+ 	void clear();
+ 	[[nodiscard]] QImage photo(const QString &name) const;
+@@ -378,6 +395,25 @@ void Store::markRead() {
+ 	}
+ }
+ 
++void Store::markRead(uint64 id) {
++	const auto i = ranges::find(_list, id, &Notice::id);
++	if (i != end(_list) && std::exchange(i->unread, false)) {
++		changed();
++	}
++}
++
++void Store::setText(uint64 id, TextWithEntities text) {
++	const auto i = ranges::find(_list, id, &Notice::id);
++	if (i == end(_list)) {
++		return;
++	}
++	text = Sanitize(std::move(text));
++	if (i->text != text) {
++		i->text = std::move(text);
++		changed();
++	}
++}
++
+ void Store::remove(uint64 id) {
+ 	const auto i = ranges::find(_list, id, &Notice::id);
+ 	if (i == end(_list)) {
+@@ -571,9 +607,14 @@ void Store::scheduleWrite() {
+ void Store::trim() {
+ 	const auto old = base::unixtime::now() - kMaxAge;
+ 	auto removed = std::vector<QString>();
++	auto mentions = 0;
++	auto others = 0;
+ 	for (auto i = begin(_list); i != end(_list);) {
+-		const auto index = int(i - begin(_list));
+-		if (index < kMaxNotices && i->date >= old) {
++		const auto mention = (i->kind == NoticeKind::Mention);
++		auto &count = mention ? mentions : others;
++		if (count < (mention ? kMaxMentions : kMaxNotices)
++			&& i->date >= old) {
++			++count;
+ 			++i;
+ 			continue;
+ 		} else if (!i->photo.isEmpty()) {
+@@ -640,6 +681,7 @@ void SetupNotices(not_null<Main::Session*> session) {
+ 	session->lifetime().make_state<Store>(session);
+ 	SetupRateLimits(session);
+ 	SetupServerNotices(session);
++	SetupNoticeMentions(session);
+ }
+ 
+ void Notify(not_null<Main::Session*> session, Notice notice) {
+@@ -678,6 +720,21 @@ void MarkNoticesRead(not_null<Main::Session*> session) {
+ 	}
+ }
+ 
++void MarkNoticeRead(not_null<Main::Session*> session, uint64 id) {
++	if (const auto store = Store::Find(session)) {
++		store->markRead(id);
++	}
++}
++
++void SetNoticeText(
++		not_null<Main::Session*> session,
++		uint64 id,
++		TextWithEntities text) {
++	if (const auto store = Store::Find(session)) {
++		store->setText(id, std::move(text));
++	}
++}
++
+ void RemoveNotice(not_null<Main::Session*> session, uint64 id) {
+ 	if (const auto store = Store::Find(session)) {
+ 		store->remove(id);
+diff --git a/Telegram/SourceFiles/tele/tele_notices.h b/Telegram/SourceFiles/tele/tele_notices.h
+index 58e1c6e11a6a698924d8ed6fb847cf9177cee2cc..b806189e4b48fae84254700fd1100874a1976d53 100644
+--- a/Telegram/SourceFiles/tele/tele_notices.h
++++ b/Telegram/SourceFiles/tele/tele_notices.h
+@@ -20,6 +20,7 @@ enum class NoticeKind : uchar {
+ 	Update,
+ 	Crash,
+ 	Online,
++	Mention,
+ };
+ 
+ enum class NoticeTone : uchar {
+@@ -52,6 +53,11 @@ struct Notice {
+ 	QString photo;
+ 	QSize photoSize;
+ 	uint64 peer = 0;
++	uint64 from = 0;
++	int64 msg = 0;
++	int64 topic = 0;
++	uint64 source = 0;
++	int64 sourceMsg = 0;
+ 	bool unread = true;
+ };
+ 
+@@ -68,6 +74,11 @@ void Notify(not_null<Main::Session*> session, Notice notice);
+ [[nodiscard]] rpl::producer<int> NoticesUnreadValue(
+ 	not_null<Main::Session*> session);
+ void MarkNoticesRead(not_null<Main::Session*> session);
++void MarkNoticeRead(not_null<Main::Session*> session, uint64 id);
++void SetNoticeText(
++	not_null<Main::Session*> session,
++	uint64 id,
++	TextWithEntities text);
+ void RemoveNotice(not_null<Main::Session*> session, uint64 id);
+ void ClearNotices(not_null<Main::Session*> session);
+ [[nodiscard]] QImage NoticePhoto(
+diff --git a/Telegram/SourceFiles/tele/tele_notices_mentions.cpp b/Telegram/SourceFiles/tele/tele_notices_mentions.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..d9d144505d13fe3d1b44fd04a8515e5d119fd617
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_notices_mentions.cpp
+@@ -0,0 +1,330 @@
++#include "tele/tele_notices_mentions.h"
++
++#include "apiwrap.h"
++#include "base/unixtime.h"
++#include "data/data_changes.h"
++#include "data/data_forum_topic.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "history/view/history_view_item_preview.h"
++#include "main/main_session.h"
++#include "tele/tele_ignored.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_notices.h"
++#include "tele/tele_options.h"
++#include "window/window_session_controller.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kEditWindow = TimeId(120);
++
++struct State {
++	base::flat_set<FullMsgId> logged;
++};
++
++struct Target {
++	not_null<PeerData*> chat;
++	MsgId msg = 0;
++	MsgId topic = 0;
++	PeerData *from = nullptr;
++	QString name;
++};
++
++[[nodiscard]] bool Enabled() {
++	return NoticesCentre() && NoticesMentions();
++}
++
++[[nodiscard]] QString Key(FullMsgId id) {
++	return u"mention:%1:%2"_q.arg(id.peer.value).arg(id.msg.bare);
++}
++
++[[nodiscard]] PeerId PeerFromNotice(uint64 value) {
++	return PeerId(PeerIdHelper(value));
++}
++
++[[nodiscard]] bool GroupPeer(not_null<PeerData*> peer) {
++	return peer->isChat() || (peer->isMegagroup() && !peer->isMonoforum());
++}
++
++[[nodiscard]] bool RepliesToSelf(not_null<HistoryItem*> item) {
++	const auto reply = item->Get<HistoryMessageReply>();
++	const auto to = reply ? reply->resolvedMessage.get() : nullptr;
++	if (!to
++		|| (item->history()->isForum() && to->id == item->topicRootId())) {
++		return false;
++	}
++	return to->out() || to->from()->isSelf();
++}
++
++[[nodiscard]] bool TextMentionsSelf(not_null<HistoryItem*> item) {
++	const auto self = item->history()->session().user();
++	const auto &text = item->originalText();
++	for (const auto &entity : text.entities) {
++		if (entity.type() == EntityType::MentionName) {
++			const auto fields = TextUtilities::MentionNameDataToFields(
++				entity.data());
++			if (fields.userId == peerToUser(self->id).bare) {
++				return true;
++			}
++		} else if (entity.type() == EntityType::Mention
++			&& entity.length() > 1) {
++			const auto name = QStringView(text.text).mid(
++				entity.offset() + 1,
++				entity.length() - 1);
++			for (const auto &username : self->usernames()) {
++				if (!name.compare(username, Qt::CaseInsensitive)) {
++					return true;
++				}
++			}
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] std::optional<Target> TargetOf(not_null<HistoryItem*> item) {
++	if (item->out()
++		|| item->isService()
++		|| item->isSponsored()
++		|| !item->isRegular()) {
++		return std::nullopt;
++	}
++	const auto history = item->history();
++	const auto peer = history->peer;
++	if (peer->isRepliesChat()) {
++		const auto forwarded = item->Get<HistoryMessageForwarded>();
++		if (!forwarded
++			|| !forwarded->savedFromPeer
++			|| !forwarded->savedFromMsgId) {
++			return std::nullopt;
++		}
++		const auto from = forwarded->originalSender;
++		const auto info = forwarded->originalHiddenSenderInfo.get();
++		if (from && (from->isSelf() || IsIgnored(from))) {
++			return std::nullopt;
++		}
++		return Target{
++			.chat = forwarded->savedFromPeer,
++			.msg = forwarded->savedFromMsgId,
++			.from = from,
++			.name = from ? from->name() : info ? info->name : QString(),
++		};
++	} else if (!GroupPeer(peer)) {
++		return std::nullopt;
++	}
++	const auto from = item->from();
++	if (from->isSelf()) {
++		return std::nullopt;
++	}
++	return Target{
++		.chat = peer,
++		.msg = item->id,
++		.topic = history->isForum() ? item->topicRootId() : MsgId(),
++		.from = from,
++		.name = from->name(),
++	};
++}
++
++[[nodiscard]] bool Qualifies(not_null<HistoryItem*> item) {
++	return !IgnoredItem(item)
++		&& (item->history()->peer->isRepliesChat()
++			|| item->mentionsMe()
++			|| RepliesToSelf(item)
++			|| TextMentionsSelf(item));
++}
++
++[[nodiscard]] TextWithEntities Preview(not_null<HistoryItem*> item) {
++	return item->toPreview({
++		.hideSender = true,
++		.generateImages = false,
++	}).text;
++}
++
++[[nodiscard]] QString Title(const Target &target) {
++	auto chat = target.chat->name();
++	if (target.topic) {
++		if (const auto topic = target.chat->forumTopicFor(target.topic)) {
++			chat += u" \u203A "_q + topic->title();
++		}
++	}
++	return target.name.isEmpty()
++		? chat
++		: Lower(u"%1 in %2"_q).arg(target.name, chat);
++}
++
++[[nodiscard]] bool ItemRead(not_null<HistoryItem*> item) {
++	if (item->mentionsMe() && !item->isUnreadMention()) {
++		return true;
++	} else if (const auto topic = item->topic()) {
++		return !item->unread(topic);
++	}
++	return !item->unread(item->history());
++}
++
++void CheckRead(not_null<Main::Session*> session, PeerId peer) {
++	auto read = std::vector<uint64>();
++	const auto history = session->data().historyLoaded(peer);
++	for (const auto &notice : Notices(session)) {
++		if (notice.kind != NoticeKind::Mention || !notice.unread) {
++			continue;
++		}
++		const auto source = notice.source ? notice.source : notice.peer;
++		if (PeerFromNotice(source) != peer) {
++			continue;
++		}
++		const auto msg = MsgId(notice.source ? notice.sourceMsg : notice.msg);
++		if (const auto item = session->data().message(peer, msg)) {
++			if (ItemRead(item)) {
++				read.push_back(notice.id);
++			}
++		} else if (history
++			&& !history->isForum()
++			&& history->inboxReadTillKnown()
++			&& history->inboxReadTillId() >= msg) {
++			read.push_back(notice.id);
++		}
++	}
++	for (const auto id : read) {
++		MarkNoticeRead(session, id);
++	}
++}
++
++void Log(
++		not_null<Main::Session*> session,
++		not_null<State*> state,
++		not_null<HistoryItem*> item,
++		TimeId date) {
++	const auto target = TargetOf(item);
++	if (!target || !Qualifies(item)) {
++		return;
++	}
++	const auto id = FullMsgId(target->chat->id, target->msg);
++	const auto key = Key(id);
++	if (!state->logged.emplace(id).second || FindNotice(session, key)) {
++		return;
++	}
++	const auto source = item->history()->peer;
++	const auto external = (source != target->chat);
++	Notify(session, {
++		.kind = NoticeKind::Mention,
++		.date = date,
++		.key = key,
++		.title = Title(*target),
++		.text = Preview(item),
++		.peer = target->chat->id.value,
++		.from = target->from ? target->from->id.value : 0,
++		.msg = target->msg.bare,
++		.topic = target->topic.bare,
++		.source = external ? source->id.value : 0,
++		.sourceMsg = external ? item->id.bare : 0,
++	});
++	CheckRead(session, source->id);
++}
++
++void Edited(
++		not_null<Main::Session*> session,
++		not_null<State*> state,
++		not_null<HistoryItem*> item) {
++	const auto target = TargetOf(item);
++	if (!target) {
++		return;
++	}
++	const auto id = FullMsgId(target->chat->id, target->msg);
++	if (const auto notice = FindNotice(session, Key(id))) {
++		SetNoticeText(session, notice->id, Preview(item));
++		return;
++	}
++	const auto edited = item->Get<HistoryMessageEdited>();
++	if (!edited
++		|| edited->date < base::unixtime::now() - kEditWindow
++		|| state->logged.contains(id)) {
++		return;
++	}
++	Log(session, state, item, edited->date);
++}
++
++} // namespace
++
++void SetupNoticeMentions(not_null<Main::Session*> session) {
++	const auto state = session->lifetime().make_state<State>();
++	session->data().newItemAdded(
++	) | rpl::filter([](const auto &) {
++		return Enabled();
++	}) | rpl::on_next([=](not_null<HistoryItem*> item) {
++		Log(session, state, item, item->date());
++	}, session->lifetime());
++
++	session->changes().messageUpdates(
++		Data::MessageUpdate::Flag::Edited
++	) | rpl::filter([](const auto &) {
++		return Enabled();
++	}) | rpl::on_next([=](const Data::MessageUpdate &update) {
++		Edited(session, state, update.item);
++	}, session->lifetime());
++
++	using HistoryFlag = Data::HistoryUpdate::Flag;
++	session->changes().historyUpdates(
++		HistoryFlag::UnreadView | HistoryFlag::UnreadMentions
++	) | rpl::filter([](const auto &) {
++		return Enabled();
++	}) | rpl::on_next([=](const Data::HistoryUpdate &update) {
++		CheckRead(session, update.history->peer->id);
++	}, session->lifetime());
++
++	using TopicFlag = Data::TopicUpdate::Flag;
++	session->changes().topicUpdates(
++		TopicFlag::UnreadView | TopicFlag::UnreadMentions
++	) | rpl::filter([](const auto &) {
++		return Enabled();
++	}) | rpl::on_next([=](const Data::TopicUpdate &update) {
++		CheckRead(session, update.topic->peer()->id);
++	}, session->lifetime());
++}
++
++void ShowMentionNotice(
++		not_null<Window::SessionController*> controller,
++		const Notice &notice) {
++	const auto session = &controller->session();
++	const auto peer = session->data().peer(PeerFromNotice(notice.peer));
++	const auto msg = MsgId(notice.msg);
++	const auto root = MsgId(notice.topic);
++	const auto external = (notice.source != 0);
++	const auto show = [=](not_null<Window::SessionController*> controller) {
++		const auto way = Window::SectionShow::Way::Forward;
++		const auto item = session->data().message(peer, msg);
++		const auto thread = (external && item) ? item->replyToTop() : 0;
++		if (item && item->topic()) {
++			controller->showMessage(item, way);
++		} else if (const auto topic = root
++				? peer->forumTopicFor(root)
++				: nullptr) {
++			controller->showTopic(topic, msg, way);
++		} else if (thread) {
++			controller->showRepliesForMessage(
++				item->history(),
++				thread,
++				msg,
++				way);
++		} else if (item) {
++			controller->showMessage(item, way);
++		} else {
++			controller->showPeerHistory(peer->id, way, msg);
++		}
++	};
++	if (external && !session->data().message(peer, msg)) {
++		const auto weak = base::make_weak(controller);
++		session->api().requestMessageData(peer, msg, [=] {
++			if (const auto strong = weak.get()) {
++				show(strong);
++			}
++		});
++	} else {
++		show(controller);
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_notices_mentions.h b/Telegram/SourceFiles/tele/tele_notices_mentions.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..27a48568221aa1d4aa571350d899526fb4631194
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_notices_mentions.h
+@@ -0,0 +1,20 @@
++#pragma once
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++struct Notice;
++
++void SetupNoticeMentions(not_null<Main::Session*> session);
++void ShowMentionNotice(
++	not_null<Window::SessionController*> controller,
++	const Notice &notice);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_notices_section.cpp b/Telegram/SourceFiles/tele/tele_notices_section.cpp
+index e65fbfcb223d79bc8875b4b8009bbdb98e1ba2ef..1b6e9f98c81347031a04560d3395c9a1276dcc08 100644
+--- a/Telegram/SourceFiles/tele/tele_notices_section.cpp
++++ b/Telegram/SourceFiles/tele/tele_notices_section.cpp
+@@ -4,14 +4,18 @@
+ #include "base/unixtime.h"
+ #include "core/click_handler_types.h"
+ #include "core/ui_integration.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
+ #include "main/main_session.h"
+ #include "settings/settings_common_session.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
++#include "tele/tele_notices_mentions.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/controls/sub_tabs.h"
+ #include "ui/painter.h"
+ #include "ui/text/text_utilities.h"
++#include "ui/userpic_view.h"
+ #include "ui/widgets/buttons.h"
+ #include "ui/widgets/labels.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+@@ -35,6 +39,7 @@ constexpr auto kIconSize = 36;
+ 
+ enum class Filter : uchar {
+ 	All,
++	Mentions,
+ 	Limits,
+ 	Server,
+ 	Tele,
+@@ -43,6 +48,7 @@ enum class Filter : uchar {
+ [[nodiscard]] QString FilterId(Filter filter) {
+ 	switch (filter) {
+ 	case Filter::All: return u"all"_q;
++	case Filter::Mentions: return u"mentions"_q;
+ 	case Filter::Limits: return u"limits"_q;
+ 	case Filter::Server: return u"server"_q;
+ 	case Filter::Tele: return u"tele"_q;
+@@ -53,6 +59,7 @@ enum class Filter : uchar {
+ [[nodiscard]] Filter FilterFromId(const QString &id) {
+ 	for (const auto filter : {
+ 			Filter::All,
++			Filter::Mentions,
+ 			Filter::Limits,
+ 			Filter::Server,
+ 			Filter::Tele }) {
+@@ -66,10 +73,12 @@ enum class Filter : uchar {
+ [[nodiscard]] bool Matches(Filter filter, NoticeKind kind) {
+ 	switch (filter) {
+ 	case Filter::All: return true;
++	case Filter::Mentions: return (kind == NoticeKind::Mention);
+ 	case Filter::Limits: return (kind == NoticeKind::Limit);
+ 	case Filter::Server: return (kind == NoticeKind::Server);
+ 	case Filter::Tele: return (kind != NoticeKind::Limit)
+-		&& (kind != NoticeKind::Server);
++		&& (kind != NoticeKind::Server)
++		&& (kind != NoticeKind::Mention);
+ 	}
+ 	Unexpected("Filter in Tele::Matches.");
+ }
+@@ -82,6 +91,7 @@ enum class Filter : uchar {
+ 	case NoticeKind::Update: return st::menuIconDownload;
+ 	case NoticeKind::Crash: return st::menuIconReport;
+ 	case NoticeKind::Online: return st::menuIconUserShow;
++	case NoticeKind::Mention: return st::menuIconReply;
+ 	}
+ 	Unexpected("Kind in Tele::KindIcon.");
+ }
+@@ -101,6 +111,7 @@ enum class Filter : uchar {
+ 	case NoticeKind::Update: return st::settingsIconBg2;
+ 	case NoticeKind::Crash: return st::settingsIconBg1;
+ 	case NoticeKind::Online: return st::settingsIconBg6;
++	case NoticeKind::Mention: return st::settingsIconBg4;
+ 	}
+ 	Unexpected("Kind in Tele::KindColor.");
+ }
+@@ -130,6 +141,17 @@ enum class Filter : uchar {
+ 	return result;
+ }
+ 
++[[nodiscard]] const style::FlatLabel &TwoLinesLabel() {
++	static const auto result = [] {
++		auto result = st::defaultFlatLabel;
++		result.maxHeight = 2 * std::max(
++			result.style.lineHeight,
++			result.style.font->height);
++		return result;
++	}();
++	return result;
++}
++
+ [[nodiscard]] QVariant LinkContext(
+ 		not_null<Window::SessionController*> controller) {
+ 	return QVariant::fromValue(ClickHandlerContext{
+@@ -166,6 +188,8 @@ private:
+ 	QString _time;
+ 	int _timeWidth = 0;
+ 	object_ptr<Ui::FlatLabel> _text = { nullptr };
++	PeerData *_from = nullptr;
++	Ui::PeerUserpicView _userpic;
+ 	QImage _photo;
+ 	QImage _photoCache;
+ 	QRect _photoRect;
+@@ -186,7 +210,12 @@ Entry::Entry(
+ 	const auto session = &controller->session();
+ 	_title.setText(st::semiboldTextStyle, _notice.title);
+ 	if (!_notice.text.text.isEmpty()) {
+-		_text.create(this, st::defaultFlatLabel, st::popupMenuWithIcons);
++		_text.create(
++			this,
++			((_notice.kind == NoticeKind::Mention)
++				? TwoLinesLabel()
++				: st::defaultFlatLabel),
++			st::popupMenuWithIcons);
+ 		_text->setMarkedText(
+ 			_notice.text,
+ 			Core::TextContext({ .session = session }));
+@@ -206,6 +235,9 @@ Entry::Entry(
+ 			}
+ 			fillMenu(r.menu);
+ 		});
++		if (_notice.kind == NoticeKind::Mention) {
++			_text->setAttribute(Qt::WA_TransparentForMouseEvents);
++		}
+ 	}
+ 	if (!_notice.photo.isEmpty()) {
+ 		_photo = NoticePhoto(session, _notice.photo);
+@@ -222,6 +254,15 @@ Entry::Entry(
+ 		});
+ 		_buttons.push_back(raw);
+ 	}
++	if (_notice.from) {
++		_from = session->data().peerLoaded(PeerId(PeerIdHelper(_notice.from)));
++		if (_from) {
++			session->downloaderTaskFinished(
++			) | rpl::on_next([=] {
++				update();
++			}, lifetime());
++		}
++	}
+ 	if (_notice.peer
+ 		|| (_notice.kind == NoticeKind::Update && !_buttons.empty())) {
+ 		setCursor(style::cur_pointer);
+@@ -304,19 +345,29 @@ void Entry::paintEvent(QPaintEvent *e) {
+ 	const auto padding = st::boxRowPadding.left() / 2;
+ 	const auto size = style::ConvertScale(kIconSize);
+ 	const auto iconLeft = st::boxRowPadding.left();
+-	{
+-		auto hq = PainterHighQualityEnabler(p);
+-		p.setPen(Qt::NoPen);
+-		p.setBrush(KindColor(_notice));
+-		p.drawEllipse(iconLeft, padding, size, size);
++	if (_from) {
++		_from->paintUserpicLeft(
++			p,
++			_userpic,
++			iconLeft,
++			padding,
++			width(),
++			size);
++	} else {
++		{
++			auto hq = PainterHighQualityEnabler(p);
++			p.setPen(Qt::NoPen);
++			p.setBrush(KindColor(_notice));
++			p.drawEllipse(iconLeft, padding, size, size);
++		}
++		const auto &icon = KindIcon(_notice.kind);
++		icon.paint(
++			p,
++			iconLeft + (size - icon.width()) / 2,
++			padding + (size - icon.height()) / 2,
++			width(),
++			st::settingsIconFg->c);
+ 	}
+-	const auto &icon = KindIcon(_notice.kind);
+-	icon.paint(
+-		p,
+-		iconLeft + (size - icon.width()) / 2,
+-		padding + (size - icon.height()) / 2,
+-		width(),
+-		st::settingsIconFg->c);
+ 
+ 	const auto available = width() - left() - right();
+ 	const auto titleWidth = std::max(
+@@ -387,7 +438,9 @@ void Entry::fillMenu(not_null<Ui::PopupMenu*> menu) {
+ }
+ 
+ void Entry::activate() {
+-	if (_notice.peer) {
++	if (_notice.kind == NoticeKind::Mention && _notice.peer) {
++		ShowMentionNotice(_controller, _notice);
++	} else if (_notice.peer) {
+ 		_controller->showPeerHistory(
+ 			PeerId(PeerIdHelper(_notice.peer)),
+ 			Window::SectionShow::Way::Forward);
+@@ -483,6 +536,7 @@ base::weak_qptr<Ui::RpWidget> NoticesSection::createPinnedToTop(
+ 	auto tabs = std::vector<Ui::SubTabs::Tab>();
+ 	for (const auto &[filter, name] : {
+ 			std::pair{ Filter::All, u"All"_q },
++			std::pair{ Filter::Mentions, u"Mentions"_q },
+ 			std::pair{ Filter::Limits, u"Limits"_q },
+ 			std::pair{ Filter::Server, u"Server"_q },
+ 			std::pair{ Filter::Tele, u"tele"_q } }) {
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 489138ad2256a24b776f7ed3b417feb5fd3e888b..2ab65c233ce110ee2c8748226a535f9eb5128f18 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -141,6 +141,7 @@ const char kOptionNotices[] = "tele-notices";
+ const char kOptionNoticesLimits[] = "tele-notices-limits";
+ const char kOptionNoticesLogLimits[] = "tele-notices-log-limits";
+ const char kOptionNoticesTeleToasts[] = "tele-notices-tele-toasts";
++const char kOptionNoticesMentions[] = "tele-notices-mentions";
+ const char kOptionSilenceChats[] = "tele-silence-chats";
+ const char kOptionMuteFolders[] = "tele-mute-folders";
+ const char kOptionVoiceNoFade[] = "tele-voice-no-fade";
+@@ -1041,6 +1042,13 @@ base::options::toggle NoticesTeleToastsOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle NoticesMentionsOption({
++	.id = kOptionNoticesMentions,
++	.name = "Log mentions and replies",
++	.description = "From groups, including muted ones.",
++	.defaultValue = true,
++});
++
+ base::options::toggle SilenceChatsOption({
+ 	.id = kOptionSilenceChats,
+ 	.name = "Silence chats completely",
+@@ -2502,6 +2510,10 @@ bool NoticesTeleToasts() {
+ 	return NoticesTeleToastsOption.value();
+ }
+ 
++bool NoticesMentions() {
++	return NoticesMentionsOption.value();
++}
++
+ bool SilenceChats() {
+ 	return SilenceChatsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index c19ed05f6ed2542884d06baab26af1f1a5e9f071..05e39cc4a2478011cb079e7411484456d64dd0d8 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -136,6 +136,7 @@ extern const char kOptionNotices[];
+ extern const char kOptionNoticesLimits[];
+ extern const char kOptionNoticesLogLimits[];
+ extern const char kOptionNoticesTeleToasts[];
++extern const char kOptionNoticesMentions[];
+ extern const char kOptionSilenceChats[];
+ extern const char kOptionMuteFolders[];
+ extern const char kOptionVoiceNoFade[];
+@@ -412,6 +413,7 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool NoticesLimits();
+ [[nodiscard]] bool NoticesLogLimits();
+ [[nodiscard]] bool NoticesTeleToasts();
++[[nodiscard]] bool NoticesMentions();
+ [[nodiscard]] bool SilenceChats();
+ [[nodiscard]] bool MuteFolders();
+ [[nodiscard]] rpl::producer<> MuteFoldersChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index b42426df148735ade4d747c56c462b91ab8b6848..ac56d75a43bb99682d5529ab3e3276848a31ae42 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -218,6 +218,7 @@ struct Spec {
+ 		Toggle(kOptionNoticesLimits),
+ 		Toggle(kOptionNoticesLogLimits),
+ 		Toggle(kOptionNoticesTeleToasts),
++		Toggle(kOptionNoticesMentions),
+ 		Toggle(kOptionSilenceChats),
+ 		Toggle(kOptionMuteFolders),
+ 		Toggle(kOptionVoiceNoFade),

@@ -9,8 +9,8 @@ Subject: [PATCH] feat: group and search tele settings
  .../SourceFiles/settings/settings_builder.h   |   3 +-
  .../SourceFiles/settings/settings_tele.cpp    | 996 +++++++++++++-----
  Telegram/SourceFiles/settings/settings_tele.h |   2 +-
- Telegram/SourceFiles/tele/tele_options.cpp    | 154 +--
- 6 files changed, 769 insertions(+), 404 deletions(-)
+ Telegram/SourceFiles/tele/tele_options.cpp    | 152 +--
+ 6 files changed, 769 insertions(+), 402 deletions(-)
 
 diff --git a/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp b/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
 index eac57db85c6be9151af8e14b3b9b7ab3da6d897c..9c5a449edccb7770fa02d11e05821fe720ebb043 100644
@@ -1264,7 +1264,7 @@ index 729bad1f2234157137cc69718f23b0f7ca97bd0c..5c8bd2d49852c9bfa5e80385c31db369
  
  } // namespace Settings
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 22d865d1590a766b395912c84403148b90697bda..331f11c0c8b5667e463018dff5c8f0ee422ff75f 100644
+index e2983cb5b04bd9deca406665480dcdee5455c541..81552d22fe7b5be5846c5c0800dff953a11a0d00 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -52,111 +52,91 @@ namespace {
@@ -1397,7 +1397,7 @@ index 22d865d1590a766b395912c84403148b90697bda..331f11c0c8b5667e463018dff5c8f0ee
  	.defaultValue = true,
  });
  
-@@ -169,217 +149,169 @@ base::options::option<int> ChangelogShownOption({
+@@ -169,136 +149,107 @@ base::options::option<int> ChangelogShownOption({
  base::options::toggle GroupQuickRepliesOption({
  	.id = kOptionGroupQuickReplies,
  	.name = "Quick replies in groups and channels",
@@ -1549,12 +1549,7 @@ index 22d865d1590a766b395912c84403148b90697bda..331f11c0c8b5667e463018dff5c8f0ee
  });
  
  base::options::toggle MessageSecondsOption({
- 	.id = kOptionMessageSeconds,
- 	.name = "Show seconds in message times",
--	.description = "Times in message bubbles show seconds too, "
--		"like 14:03:21.",
- });
- 
+@@ -310,75 +261,58 @@ base::options::toggle MessageSecondsOption({
  base::options::toggle EditHistoryOption({
  	.id = kOptionEditHistory,
  	.name = "Keep edit history",

@@ -60,7 +60,7 @@ index 633b880e1b0f36727387e22dee5a770783f5e9bd..b5599484d0391312c19e5181c240681b
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index bbc7d80237b4d962f3e3f972957b0f088b8dbb1e..cd50a79dbbd96fb60fbbcd648dbe5c6d3fe05f58 100644
+index d48c8b3ce0149f934616988a7819814cb69a5aba..00e8044dc07f3ef3d27430b9e9d0053011a90269 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -25,6 +25,7 @@ const char kOptionEditHistory[] = "tele-edit-history";
@@ -71,7 +71,7 @@ index bbc7d80237b4d962f3e3f972957b0f088b8dbb1e..cd50a79dbbd96fb60fbbcd648dbe5c6d
  const char kOptionServerUrl[] = "tele-server-url";
  const char kOptionTitleTemplate[] = "tele-title";
  
-@@ -194,6 +195,14 @@ base::options::toggle KeepSecretMediaOption({
+@@ -193,6 +194,14 @@ base::options::toggle KeepSecretMediaOption({
  		"opened again. Right-click one to mark it as viewed.",
  });
  
@@ -86,7 +86,7 @@ index bbc7d80237b4d962f3e3f972957b0f088b8dbb1e..cd50a79dbbd96fb60fbbcd648dbe5c6d
  base::options::option<QString> ServerUrlOption({
  	.id = kOptionServerUrl,
  	.name = "tele server",
-@@ -377,6 +386,10 @@ bool KeepSecretMedia() {
+@@ -376,6 +385,10 @@ bool KeepSecretMedia() {
  	return KeepSecretMediaOption.value();
  }
  

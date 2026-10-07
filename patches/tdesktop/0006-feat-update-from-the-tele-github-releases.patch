@@ -11,9 +11,9 @@ Subject: [PATCH] feat: update from the tele github releases
  .../SourceFiles/settings/settings_tele.cpp    |  59 +-
  Telegram/SourceFiles/tele/tele_options.cpp    |  23 +
  Telegram/SourceFiles/tele/tele_options.h      |   3 +
- Telegram/SourceFiles/tele/tele_updater.cpp    | 654 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_updater.cpp    | 807 ++++++++++++++++++
  Telegram/SourceFiles/tele/tele_updater.h      |  36 +
- 9 files changed, 790 insertions(+), 7 deletions(-)
+ 9 files changed, 943 insertions(+), 7 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_updater.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_updater.h
 
@@ -268,10 +268,10 @@ index 48e433dccd1abcf6643ec48f1032afd604eef806..8701f56e74f11b4dc252508b38b54608
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7742038e9
+index 0000000000000000000000000000000000000000..a3fc9feb6f5a9fc983152c70803da0c979cc7b8d
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_updater.cpp
-@@ -0,0 +1,654 @@
+@@ -0,0 +1,807 @@
 +#include "tele/tele_updater.h"
 +
 +#include "base/platform/base_platform_file_utilities.h"
@@ -314,6 +314,12 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +
 +constexpr auto kFirstCheckDelay = 15 * crl::time(1000);
 +constexpr auto kCheckInterval = 3 * 60 * 60 * crl::time(1000);
++constexpr crl::time kRetryDelays[] = {
++	1 * 60 * crl::time(1000),
++	5 * 60 * crl::time(1000),
++	15 * 60 * crl::time(1000),
++	60 * 60 * crl::time(1000),
++};
 +constexpr auto kTransferTimeout = 60 * 1000;
 +constexpr auto kMaxFeedSize = qint64(64 * 1024);
 +constexpr auto kMaxZipSize = qint64(512 * 1024 * 1024);
@@ -394,6 +400,34 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +		+ u".json"_q;
 +}
 +
++[[nodiscard]] QString PartName(const Release &release) {
++	return QUrl(release.url).fileName() + u".part"_q;
++}
++
++void RemoveParts(const QString &keep) {
++	const auto mask = u"*-"_q + QString::fromLatin1(kPlatform) + u".zip.part"_q;
++	const auto dir = QDir(cExeDir());
++	for (const auto &name : dir.entryList({ mask }, QDir::Files)) {
++		if (name != keep) {
++			QFile::remove(dir.filePath(name));
++		}
++	}
++}
++
++[[nodiscard]] std::optional<qint64> ContentRangeStart(QNetworkReply *reply) {
++	const auto header = reply->rawHeader("Content-Range");
++	const auto prefix = QByteArray("bytes ");
++	const auto dash = header.indexOf('-');
++	if (!header.startsWith(prefix) || dash <= prefix.size()) {
++		return std::nullopt;
++	}
++	auto ok = false;
++	const auto result = header.mid(
++		prefix.size(),
++		dash - prefix.size()).trimmed().toLongLong(&ok);
++	return ok ? std::make_optional(result) : std::nullopt;
++}
++
 +[[nodiscard]] std::optional<QString> DisabledReason() {
 +	if (BuildNumber() <= 0) {
 +		return QString();
@@ -465,9 +499,6 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +}
 +
 +[[nodiscard]] QString Unpack(const Release &release, const QByteArray &zip) {
-+	if (Sha256Hex(zip) != release.zipSha256) {
-+		return u"downloaded archive doesn't match the feed"_q;
-+	}
 +	const auto target = InstallPath() + u".new"_q;
 +	base::Platform::DeleteDirectory(target);
 +	const auto fail = [&](const QString &error) {
@@ -577,9 +608,6 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +}
 +#else
 +[[nodiscard]] QString Unpack(const Release &release, const QByteArray &zip) {
-+	if (Sha256Hex(zip) != release.zipSha256) {
-+		return u"downloaded archive doesn't match the feed"_q;
-+	}
 +	auto archive = zlib::FileToRead(zip);
 +	const auto exe = archive.readFileContent(kExeInZip, 0, kMaxExeSize);
 +	if (exe.isEmpty() || archive.error() != UNZ_OK) {
@@ -621,16 +649,18 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +	using Done = Fn<void(QByteArray)>;
 +
 +	void scheduleCheck(crl::time delay);
-+	void get(const QString &url, qint64 limit, bool progress, Done done);
++	void get(const QString &url, qint64 limit, Done done);
 +	void verifyFeed(const QByteArray &envelope);
 +	void download(const Release &release);
++	void unpack(const Release &release, const QString &path);
 +	void install(const Release &release);
-+	void fail(const QString &error);
-+	void finish(UpdateStatus status);
++	void fail(const QString &error, bool network = false);
++	void finish(UpdateStatus status, crl::time delay = kCheckInterval);
 +
 +	QNetworkAccessManager _manager;
 +	base::Timer _timer;
 +	bool _busy = false;
++	int _networkFailures = 0;
 +	rpl::variable<UpdateStatus> _status;
 +	rpl::lifetime _lifetime;
 +
@@ -692,17 +722,12 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +	_busy = true;
 +	_timer.cancel();
 +	_status = UpdateStatus{ .state = UpdateState::Checking };
-+	get(FeedUrl(), kMaxFeedSize, false, [=](
-+			QByteArray envelope) {
++	get(FeedUrl(), kMaxFeedSize, [=](QByteArray envelope) {
 +		verifyFeed(envelope);
 +	});
 +}
 +
-+void Updater::get(
-+		const QString &url,
-+		qint64 limit,
-+		bool progress,
-+		Done done) {
++void Updater::get(const QString &url, qint64 limit, Done done) {
 +	auto request = QNetworkRequest(QUrl(url));
 +	request.setAttribute(
 +		QNetworkRequest::RedirectPolicyAttribute,
@@ -716,12 +741,6 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +		if (ready > limit || total > limit) {
 +			*tooLarge = true;
 +			reply->abort();
-+			return;
-+		} else if (progress) {
-+			auto status = _status.current();
-+			status.ready = ready;
-+			status.total = total;
-+			_status = std::move(status);
 +		}
 +	});
 +	connect(reply, &QNetworkReply::finished, this, [=] {
@@ -731,9 +750,9 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +		if (*tooLarge) {
 +			fail(u"response is too large"_q);
 +		} else if (reply->error() != QNetworkReply::NoError) {
-+			fail(u"network error: %1"_q.arg(reply->errorString()));
++			fail(u"network error: %1"_q.arg(reply->errorString()), true);
 +		} else if (code != 200) {
-+			fail(u"unexpected http status %1"_q.arg(code));
++			fail(u"unexpected http status %1"_q.arg(code), true);
 +		} else {
 +			done(reply->readAll());
 +		}
@@ -781,6 +800,7 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +		quint32(base),
 +		quint32(counter));
 +	if (version <= RunningVersion()) {
++		RemoveParts(QString());
 +		finish({ .state = UpdateState::Latest });
 +		return;
 +	} else if (!CanWriteNextToInstall()) {
@@ -805,16 +825,140 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +}
 +
 +void Updater::download(const Release &release) {
-+	get(release.url, kMaxZipSize, true, [=](QByteArray zip) {
-+		crl::async([=, weak = base::make_weak(this)] {
-+			const auto error = Unpack(release, zip);
-+			crl::on_main(weak, [=] {
-+				if (!error.isEmpty()) {
-+					fail(error);
-+				} else {
-+					install(release);
-+				}
-+			});
++	const auto name = PartName(release);
++	const auto path = cExeDir() + name;
++	RemoveParts(name);
++	struct Transfer {
++		QFile file;
++		qint64 offset = 0;
++		bool started = false;
++		bool network = false;
++		QString error;
++	};
++	const auto state = std::make_shared<Transfer>();
++	state->file.setFileName(path);
++	if (!state->file.open(QIODevice::ReadWrite)) {
++		fail(u"can't write %1"_q.arg(path));
++		return;
++	}
++	state->offset = state->file.size();
++	if (state->offset >= kMaxZipSize) {
++		state->file.resize(0);
++		state->offset = 0;
++	}
++	state->file.seek(state->offset);
++	auto request = QNetworkRequest(QUrl(release.url));
++	request.setAttribute(
++		QNetworkRequest::RedirectPolicyAttribute,
++		QNetworkRequest::NoLessSafeRedirectPolicy);
++	request.setTransferTimeout(kTransferTimeout);
++	if (state->offset > 0) {
++		request.setRawHeader(
++			"Range",
++			"bytes=" + QByteArray::number(state->offset) + '-');
++	}
++	const auto reply = _manager.get(request);
++	const auto stop = [=](const QString &error, bool network) {
++		if (state->error.isEmpty()) {
++			state->error = error;
++			state->network = network;
++		}
++		reply->abort();
++	};
++	const auto restart = [=] {
++		state->file.resize(0);
++		state->file.seek(0);
++		state->offset = 0;
++	};
++	const auto write = [=] {
++		if (!state->error.isEmpty()) {
++			reply->readAll();
++			return;
++		}
++		if (!state->started) {
++			const auto code = reply->attribute(
++				QNetworkRequest::HttpStatusCodeAttribute).toInt();
++			if (code == 200) {
++				restart();
++			} else if (code != 206) {
++				reply->readAll();
++				return;
++			} else if (ContentRangeStart(reply) != state->offset) {
++				restart();
++				stop(u"server resumed the download at a wrong offset"_q, true);
++				return;
++			}
++			state->started = true;
++		}
++		const auto data = reply->readAll();
++		if (state->file.pos() + data.size() > kMaxZipSize) {
++			restart();
++			stop(u"response is too large"_q, false);
++		} else if (state->file.write(data) != data.size()) {
++			stop(u"can't write %1"_q.arg(path), false);
++		}
++	};
++	connect(reply, &QNetworkReply::readyRead, this, write);
++	connect(reply, &QNetworkReply::downloadProgress, this, [=](
++			qint64 ready,
++			qint64 total) {
++		if (!state->started || !state->error.isEmpty()) {
++			return;
++		}
++		auto status = _status.current();
++		status.ready = state->offset + ready;
++		status.total = (total > 0) ? (state->offset + total) : 0;
++		_status = std::move(status);
++	});
++	connect(reply, &QNetworkReply::finished, this, [=] {
++		reply->deleteLater();
++		const auto code = reply->attribute(
++			QNetworkRequest::HttpStatusCodeAttribute).toInt();
++		if (reply->error() == QNetworkReply::NoError) {
++			write();
++		}
++		const auto flushed = state->file.flush();
++		state->file.close();
++		if (!state->error.isEmpty()) {
++			fail(state->error, state->network);
++		} else if (code == 416 && state->offset > 0) {
++			unpack(release, path);
++		} else if (reply->error() != QNetworkReply::NoError) {
++			fail(u"network error: %1"_q.arg(reply->errorString()), true);
++		} else if (code != 200 && code != 206) {
++			fail(u"unexpected http status %1"_q.arg(code), true);
++		} else if (!flushed) {
++			fail(u"can't write %1"_q.arg(path));
++		} else {
++			unpack(release, path);
++		}
++	});
++}
++
++void Updater::unpack(const Release &release, const QString &path) {
++	crl::async([=, weak = base::make_weak(this)] {
++		auto zip = QByteArray();
++		auto file = QFile(path);
++		if (file.open(QIODevice::ReadOnly)) {
++			zip = file.readAll();
++			file.close();
++		}
++		auto error = QString();
++		if (Sha256Hex(zip) != release.zipSha256) {
++			QFile::remove(path);
++			error = u"downloaded archive doesn't match the feed"_q;
++		} else {
++			error = Unpack(release, zip);
++			if (error.isEmpty()) {
++				QFile::remove(path);
++			}
++		}
++		crl::on_main(weak, [=] {
++			if (!error.isEmpty()) {
++				fail(error);
++			} else {
++				install(release);
++			}
 +		});
 +	});
 +}
@@ -870,15 +1014,24 @@ index 0000000000000000000000000000000000000000..eb1899e52a7200b07e45d46568572de7
 +	finish({ .state = UpdateState::Ready, .tag = release.tag });
 +}
 +
-+void Updater::fail(const QString &error) {
++void Updater::fail(const QString &error, bool network) {
 +	LOG(("Tele Updater Error: %1").arg(error));
-+	finish({ .state = UpdateState::Failed, .error = error });
++	auto delay = kCheckInterval;
++	if (!network) {
++		_networkFailures = 0;
++	} else if (_networkFailures < int(std::size(kRetryDelays))) {
++		delay = kRetryDelays[_networkFailures++];
++	}
++	finish({ .state = UpdateState::Failed, .error = error }, delay);
 +}
 +
-+void Updater::finish(UpdateStatus status) {
++void Updater::finish(UpdateStatus status, crl::time delay) {
++	if (status.state != UpdateState::Failed) {
++		_networkFailures = 0;
++	}
 +	_busy = false;
 +	_status = std::move(status);
-+	scheduleCheck(kCheckInterval);
++	scheduleCheck(delay);
 +}
 +
 +} // namespace

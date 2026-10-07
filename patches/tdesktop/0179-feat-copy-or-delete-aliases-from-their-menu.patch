@@ -1,0 +1,235 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Fri, 2 Oct 2026 10:16:24 +0300
+Subject: [PATCH] feat: copy or delete aliases from their menu
+
+---
+ .../SourceFiles/tele/tele_button_payload.cpp  |  1 +
+ .../SourceFiles/tele/tele_menu_registry.cpp   | 31 ++++--
+ .../tele/tele_username_aliases.cpp            | 94 +++++++++++++++++--
+ .../SourceFiles/tele/tele_username_aliases.h  |  4 +
+ 4 files changed, 114 insertions(+), 16 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+index 1149b101ba7510a731f75d8910650027dc9c276e..ea15e8445e49389fda1a0a317496602786fe506d 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.cpp
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -286,6 +286,7 @@ void AddCopyButtonPayloadAction(
+ 		const ClickHandlerPtr &link) {
+ 	AddOpenUncleanedAction(menu, link);
+ 	AddOpenRealUsernameAction(menu, show, link);
++	AddAliasMentionActions(menu, show, link);
+ 	const auto handler = dynamic_cast<ReplyMarkupClickHandler*>(link.get());
+ 	const auto button = handler ? handler->getButton() : nullptr;
+ 	if (!button || !CopyButtonData()) {
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index b446b683b6984ba993ba59a1c7b85a3d02f5140c..50d4a2baa3667d8735ecc6b3fdfe046c8f774726 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -536,6 +536,24 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			Prefix([](int) { return Lower(u"Open the real "_q) + '@'; },
+ 				st::menuIconUsername),
+ 		}, .contexts = kText | kPost },
++		Tagged(
++			u"alias_copy"_q,
++			[] { return Lower(u"Copy alias"_q); },
++			&st::menuIconCopy,
++			kText | kPost,
++			kOptionAliasMenu),
++		Tagged(
++			u"alias_open"_q,
++			[] { return Lower(u"Open profile from alias"_q); },
++			&st::menuIconProfile,
++			kText | kPost,
++			kOptionAliasMenu),
++		Tagged(
++			u"alias_delete"_q,
++			[] { return Lower(u"Delete alias"_q); },
++			&st::menuIconDelete,
++			kText | kPost,
++			kOptionAliasMenu),
+ 		{ .key = u"copy_button_data"_q, .label = [] {
+ 			return Lower(u"Copy button data"_q);
+ 		}, .phrases = {
+@@ -701,9 +719,9 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,"
+ 		"view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,[Copy#copy:copy_markdown,copy_html,"
+-		"copy_link,copy_message_link,copy_id,copy_emoji_id,"
++		"copy_link,alias_copy,copy_message_link,copy_id,copy_emoji_id,"
+ 		"copy_button_data,copy_filename,copy_phone],translate_selected,"
+-		"translate,open_uncleaned,open_username,|,"
++		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+ 		"[tele#tele:[Bookmark#bookmark:bookmark,rename_bookmark],mark_read,"
+ 		"edit_history,shot,mark_viewed],|,"
+ 		"select,select_up_to,clear_selection,|,"
+@@ -720,7 +738,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"open_gif,save_gif,sticker_set,fave_sticker,show_in_folder,"
+ 		"save_sound,save_as,copy_image,copy_filename,attached_stickers,"
+ 		"copy_phone,send_gift,copy_text,translate,copy_link,"
+-		"open_uncleaned,open_username,copy_button_data,copy_message_link,"
++		"open_uncleaned,open_username,alias_copy,alias_open,alias_delete,"
++		"copy_button_data,copy_message_link,"
+ 		"forward,add_offer,send_now,edit_caption,cancel_upload,delete,"
+ 		"download_selected,save_html,report,block_user,select,"
+ 		"select_up_to,clear_selection,reschedule,|,"
+@@ -746,9 +765,9 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,"
+ 		"view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,copy_markdown,copy_html,copy_link,"
+-		"copy_message_link,copy_id,copy_emoji_id,copy_button_data,"
+-		"copy_filename,copy_phone,translate_selected,translate,"
+-		"open_uncleaned,open_username,|,"
++		"alias_copy,copy_message_link,copy_id,copy_emoji_id,"
++		"copy_button_data,copy_filename,copy_phone,translate_selected,"
++		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+ 		"bookmark,rename_bookmark,mark_read,edit_history,shot,mark_viewed,|,"
+ 		"select,select_up_to,clear_selection,|,"
+ 		"delete,report,block_user,|,"
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.cpp b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+index fa01268d3c11295b2980b7b2298f7ad626925f22..b267e8a1e72f0d346ed27f87ba8967a50ddb2ed2 100644
+--- a/Telegram/SourceFiles/tele/tele_username_aliases.cpp
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+@@ -17,6 +17,7 @@
+ #include "main/session/session_show.h"
+ #include "tele/tele_badges.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_menu_apply.h"
+ #include "tele/tele_options.h"
+ #include "ui/layers/generic_box.h"
+ #include "ui/text/text_entity.h"
+@@ -413,6 +414,18 @@ void ReplaceToken(
+ 		mentionName));
+ }
+ 
++[[nodiscard]] Ui::Toast::Config AliasCopiedToast() {
++	return {
++		.text = { Lower(u"Alias copied to clipboard."_q) },
++		.iconLottie = u"toast/copy"_q,
++		.iconLottieSize = st::toastLottieIconSize,
++	};
++}
++
++[[nodiscard]] QString AliasDeletedText(const QString &alias) {
++	return '@' + alias + Lower(u" deleted."_q);
++}
++
+ void ShowReplacedToast(
+ 		not_null<History*> history,
+ 		const std::vector<std::pair<QString, QString>> &replaced) {
+@@ -583,22 +596,48 @@ void SetupPeerAliasesLabel(
+ 		not_null<Ui::FlatLabel*> label,
+ 		not_null<PeerData*> peer,
+ 		not_null<Window::SessionController*> controller) {
++	using Links = std::vector<std::pair<ClickHandlerPtr, QString>>;
+ 	const auto weak = base::make_weak(controller);
++	const auto session = &peer->session();
++	const auto links = label->lifetime().make_state<Links>();
++	const auto copy = [=](const QString &alias) {
++		TextUtilities::SetClipboardText({ alias });
++		if (const auto strong = weak.get()) {
++			strong->showToast(AliasCopiedToast());
++		}
++	};
+ 	PeerAliasesValue(peer) | rpl::on_next([=](const QStringList &list) {
++		links->clear();
+ 		for (auto i = 0; i != int(list.size()); ++i) {
+ 			const auto alias = list[i];
+-			label->setLink(i + 1, std::make_shared<LambdaClickHandler>([=] {
+-				TextUtilities::SetClipboardText({ alias });
+-				if (const auto strong = weak.get()) {
+-					strong->showToast({
+-						.text = { Lower(u"Alias copied to clipboard."_q) },
+-						.iconLottie = u"toast/copy"_q,
+-						.iconLottieSize = st::toastLottieIconSize,
+-					});
+-				}
+-			}));
++			const auto link = std::make_shared<LambdaClickHandler>([=] {
++				copy(alias);
++			});
++			links->emplace_back(link, alias);
++			label->setLink(i + 1, link);
+ 		}
+ 	}, label->lifetime());
++	label->setContextMenuHook([=](
++			Ui::FlatLabel::ContextMenuRequest request) {
++		const auto i = ranges::find(
++			*links,
++			request.link,
++			&Links::value_type::first);
++		if (!request.selection.empty() || i == end(*links)) {
++			label->fillContextMenu(request);
++			return;
++		}
++		const auto alias = i->second;
++		request.menu->addAction(Lower(u"Copy alias"_q), [=] {
++			copy(alias);
++		});
++		request.menu->addAction(Lower(u"Delete alias"_q), [=] {
++			RemoveUsernameAlias(session, alias.mid(1));
++			if (const auto strong = weak.get()) {
++				strong->showToast(AliasDeletedText(alias.mid(1)));
++			}
++		});
++	});
+ }
+ 
+ rpl::producer<int> UsernameAliasesCountValue(
+@@ -692,6 +731,41 @@ void AddOpenRealUsernameAction(
+ 	}, &st::menuIconUsername);
+ }
+ 
++void AddAliasMentionActions(
++		not_null<Ui::PopupMenu*> menu,
++		const std::shared_ptr<Main::SessionShow> &show,
++		const std::shared_ptr<ClickHandler> &link) {
++	if (!link || !show || !AliasMenu()) {
++		return;
++	}
++	const auto session = &show->session();
++	const auto alias = LinkUsername(link).toLower();
++	const auto id = alias.isEmpty() ? PeerId() : AliasPeerId(session, alias);
++	if (!id) {
++		return;
++	}
++	TagMenuAction(menu->addAction(Lower(u"Copy alias"_q), [=] {
++		TextUtilities::SetClipboardText({ '@' + alias });
++		show->showToast(AliasCopiedToast());
++	}, &st::menuIconCopy), u"alias_copy"_q);
++	if (LoadedPeer(session, id)) {
++		const auto weak = base::make_weak(session->tryResolveWindow());
++		TagMenuAction(menu->addAction(Lower(u"Open profile"_q), [=] {
++			const auto strong = weak.get();
++			const auto peer = strong
++				? LoadedPeer(&strong->session(), id)
++				: nullptr;
++			if (peer) {
++				strong->showPeerInfo(peer);
++			}
++		}, &st::menuIconProfile), u"alias_open"_q);
++	}
++	TagMenuAction(menu->addAction(Lower(u"Delete alias"_q), [=] {
++		RemoveUsernameAlias(&show->session(), alias);
++		show->showToast(AliasDeletedText(alias));
++	}, &st::menuIconDelete), u"alias_delete"_q);
++}
++
+ std::vector<UsernameAliasMention> UsernameAliasMentions(
+ 		not_null<Main::Session*> session,
+ 		const QString &filter) {
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.h b/Telegram/SourceFiles/tele/tele_username_aliases.h
+index 11cd54957f95370162268ad0bc6bd07b648e597e..7eb0c876b2f975df403de0681308cbb17ec13f85 100644
+--- a/Telegram/SourceFiles/tele/tele_username_aliases.h
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.h
+@@ -69,6 +69,10 @@ void AddOpenRealUsernameAction(
+ 	not_null<Ui::PopupMenu*> menu,
+ 	const std::shared_ptr<Main::SessionShow> &show,
+ 	const std::shared_ptr<ClickHandler> &link);
++void AddAliasMentionActions(
++	not_null<Ui::PopupMenu*> menu,
++	const std::shared_ptr<Main::SessionShow> &show,
++	const std::shared_ptr<ClickHandler> &link);
+ [[nodiscard]] std::vector<UsernameAliasMention> UsernameAliasMentions(
+ 	not_null<Main::Session*> session,
+ 	const QString &filter);

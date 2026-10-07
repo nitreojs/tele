@@ -4,15 +4,16 @@ Date: Sun, 27 Sep 2026 04:09:25 +0300
 Subject: [PATCH] feat: show seconds in message times
 
 ---
- Telegram/CMakeLists.txt                       |  2 +
- .../history/view/history_view_bottom_info.cpp |  7 +-
- .../SourceFiles/settings/settings_tele.cpp    |  5 +
- Telegram/SourceFiles/tele/tele_ignored.cpp    | 15 +++
- Telegram/SourceFiles/tele/tele_options.cpp    | 22 +++++
- Telegram/SourceFiles/tele/tele_options.h      |  3 +
- Telegram/SourceFiles/tele/tele_time.cpp       | 96 +++++++++++++++++++
- Telegram/SourceFiles/tele/tele_time.h         |  8 ++
- 8 files changed, 155 insertions(+), 3 deletions(-)
+ Telegram/CMakeLists.txt                       |   2 +
+ .../history/view/history_view_bottom_info.cpp |   7 +-
+ .../history/view/history_view_element.cpp     |   3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   5 +
+ Telegram/SourceFiles/tele/tele_ignored.cpp    |  19 +++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  21 ++++
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ Telegram/SourceFiles/tele/tele_time.cpp       | 111 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_time.h         |  15 +++
+ 9 files changed, 182 insertions(+), 4 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_time.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_time.h
 
@@ -61,6 +62,27 @@ index 21ac2d09730569f4e4c4b5db79a68e97204252e9..730ed0f5b9f83b79c639cb29209062b1
  	const auto afterAuthor = prefix + date;
  	const auto afterAuthorWidth = st::msgDateFont->width(afterAuthor);
  	const auto authorWidth = st::msgDateFont->width(author);
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index db89b14648c4554a3442977437b4e89b95f969c3..983de4130638789badb286ee08bf0ea34408fa00 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_user.h"
+ #include "lang/lang_keys.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_time.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_style.h"
+ #include "styles/style_dialogs.h"
+@@ -2133,7 +2134,7 @@ void Element::validateText() {
+ 		const auto &customLinks = contextDependentText.text.empty()
+ 			? _textItem->customTextLinks()
+ 			: contextDependentText.links;
+-		setTextWithLinks(markedText, customLinks);
++		setTextWithLinks(Tele::WithServiceTime(item, markedText), customLinks);
+ 
+ 		if (const auto done = item->Get<HistoryServiceTodoCompletions>()) {
+ 			if (!done->completed.empty() && !done->incompleted.empty()) {
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
 index 5c432ffed51471aa72113fa6b028755a77252afb..2e858a9acceed6d41e8ec651153d56ff4b9edc4c 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
@@ -78,10 +100,10 @@ index 5c432ffed51471aa72113fa6b028755a77252afb..2e858a9acceed6d41e8ec651153d56ff
  	AddOptionToggle(content, controller(), ::Tele::kOptionShowGiftIds);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
-index 4e4a5d5e1847399fc90bbf528b3f4093b5b0f627..baecb81248fcd68bf53ffbe36ecfb56da477a9fa 100644
+index 4e4a5d5e1847399fc90bbf528b3f4093b5b0f627..1c65bb7d6b4cd92c188cfad71962088ab3fcacd5 100644
 --- a/Telegram/SourceFiles/tele/tele_ignored.cpp
 +++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
-@@ -94,6 +94,16 @@ void Refresh(const State &state, const base::flat_set<Key> &changed) {
+@@ -94,6 +94,20 @@ void Refresh(const State &state, const base::flat_set<Key> &changed) {
  	}
  }
  
@@ -91,14 +113,18 @@ index 4e4a5d5e1847399fc90bbf528b3f4093b5b0f627..baecb81248fcd68bf53ffbe36ecfb56d
 +		items.emplace(view->data());
 +	}
 +	for (const auto &item : items) {
-+		item->history()->owner().notifyItemDataChange(item);
++		const auto owner = &item->history()->owner();
++		if (item->isService()) {
++			owner->requestItemTextRefresh(item);
++		}
++		owner->notifyItemDataChange(item);
 +	}
 +}
 +
  State::State() {
  	IgnoredListValue(
  	) | rpl::on_next([=](const QString &value) {
-@@ -118,6 +128,11 @@ State::State() {
+@@ -118,6 +132,11 @@ State::State() {
  	) | rpl::skip(1) | rpl::on_next([=] {
  		Refresh(*this, keys);
  	}, lifetime);
@@ -111,7 +137,7 @@ index 4e4a5d5e1847399fc90bbf528b3f4093b5b0f627..baecb81248fcd68bf53ffbe36ecfb56d
  
  [[nodiscard]] bool Applies(Context context) {
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 76c4449d77364d4693adc1a799caac8c2cdd535e..67d3bd386647abab556894201b74de3bf774e049 100644
+index 76c4449d77364d4693adc1a799caac8c2cdd535e..67cbb84d79e85c0f8554ae75c47a849154f347fa 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -15,6 +15,7 @@ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
@@ -122,21 +148,20 @@ index 76c4449d77364d4693adc1a799caac8c2cdd535e..67d3bd386647abab556894201b74de3b
  const char kOptionServerUrl[] = "tele-server-url";
  const char kOptionTitleTemplate[] = "tele-title";
  
-@@ -105,6 +106,13 @@ base::options::option<QString> IgnoredUsersOption({
+@@ -105,6 +106,12 @@ base::options::option<QString> IgnoredUsersOption({
  		"Right-click a userpic in a group to ignore someone.",
  });
  
 +base::options::toggle MessageSecondsOption({
 +	.id = kOptionMessageSeconds,
 +	.name = "Show seconds in message times",
-+	.description = "Times in message bubbles show seconds too, "
-+		"like 14:03:21.",
++	.description = "Service messages like joins and pins also show their time.",
 +});
 +
  base::options::option<QString> ServerUrlOption({
  	.id = kOptionServerUrl,
  	.name = "tele server",
-@@ -204,6 +212,20 @@ rpl::producer<QString> IgnoredListValue() {
+@@ -204,6 +211,20 @@ rpl::producer<QString> IgnoredListValue() {
  	});
  }
  
@@ -180,13 +205,14 @@ index 0e1aabd4e07b37ff98696589a659f0fb72faef09..dad7dec0f2c9e4896efb2196853dac8b
  [[nodiscard]] rpl::producer<QString> ServerUrlValue();
 diff --git a/Telegram/SourceFiles/tele/tele_time.cpp b/Telegram/SourceFiles/tele/tele_time.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..528af5cfd66ea7988c0596d0f1fa07377e6316bb
+index 0000000000000000000000000000000000000000..fa7cd6b5d35f0acb19bf9996e9e25995186bd479
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_time.cpp
-@@ -0,0 +1,96 @@
+@@ -0,0 +1,111 @@
 +#include "tele/tele_time.h"
 +
 +#include "base/unixtime.h"
++#include "history/history_item.h"
 +#include "lang/lang_keys.h"
 +#include "tele/tele_options.h"
 +#include "ui/text/format_values.h"
@@ -279,18 +305,39 @@ index 0000000000000000000000000000000000000000..528af5cfd66ea7988c0596d0f1fa0737
 +		time);
 +}
 +
++TextWithEntities WithServiceTime(
++		not_null<const HistoryItem*> item,
++		const TextWithEntities &text) {
++	if (!MessageSeconds() || text.empty() || item->date() <= 0) {
++		return text;
++	}
++	auto result = text;
++	result.text.append(u" "_q
++		+ QChar(0x00B7)
++		+ u" "_q
++		+ FormatMessageTime(base::unixtime::parse(item->date()).time()));
++	return result;
++}
++
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_time.h b/Telegram/SourceFiles/tele/tele_time.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..c584a9a5d03de038c0d9ccda78cf395711cafb03
+index 0000000000000000000000000000000000000000..cf8992ae1cca65940fbb73d089fb7c71c87c39e2
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_time.h
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,15 @@
 +#pragma once
++
++#include "ui/text/text_entity.h"
++
++class HistoryItem;
 +
 +namespace Tele {
 +
 +[[nodiscard]] QString FormatMessageTime(const QTime &time);
 +[[nodiscard]] QString FormatMessageSavedFromDate(const QDateTime &dateTime);
++[[nodiscard]] TextWithEntities WithServiceTime(
++	not_null<const HistoryItem*> item,
++	const TextWithEntities &text);
 +
 +} // namespace Tele

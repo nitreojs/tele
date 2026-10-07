@@ -1,0 +1,1014 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Fri, 2 Oct 2026 21:00:49 +0300
+Subject: [PATCH] feat: search, filter and export star transactions
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../info_statistics_list_controllers.cpp      |  21 +
+ .../SourceFiles/settings/settings_tele.cpp    |   6 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  11 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../SourceFiles/tele/tele_stars_tools.cpp     | 794 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_stars_tools.h  |  32 +
+ 8 files changed, 869 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_stars_tools.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_stars_tools.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index dbade0413979b38c0cff00fe5f44b53f77e52847..8dcfca3656045377491e8a7972e3543f5840ac64 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2439,6 +2439,8 @@ PRIVATE
+     tele/tele_silent.h
+     tele/tele_spoilers.cpp
+     tele/tele_spoilers.h
++    tele/tele_stars_tools.cpp
++    tele/tele_stars_tools.h
+     tele/tele_sticker_captions.cpp
+     tele/tele_sticker_captions.h
+     tele/tele_streamer_mode.cpp
+diff --git a/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp b/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
+index 5a3f8e92969e366fd8bdf11c05ea250b481702e9..a45aa402abafb36682a0ff1400b76b3715a27b2e 100644
+--- a/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
++++ b/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
+@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "main/session/session_show.h"
+ #include "settings/settings_credits_graphics.h" // PaintSubscriptionRightLabelCallback
++#include "tele/tele_stars_tools.h"
+ #include "ui/dynamic_image.h"
+ #include "ui/dynamic_thumbnails.h"
+ #include "ui/effects/credits_graphics.h"
+@@ -1199,6 +1200,9 @@ public:
+ 	void requestNext(int limit = 0);
+ 
+ 	[[nodiscard]] rpl::producer<bool> showMoreShownValue() const;
++	[[nodiscard]] rpl::producer<bool> teleSliceApplied() const {
++		return _teleSliceApplied.events();
++	}
+ 
+ private:
+ 	struct IconCache {
+@@ -1224,6 +1228,7 @@ private:
+ 	rpl::variable<bool> _allLoaded = false;
+ 	rpl::variable<int> _loadedCount = 0;
+ 	bool _requesting = false;
++	rpl::event_stream<bool> _teleSliceApplied;
+ 
+ };
+ 
+@@ -1368,6 +1373,7 @@ void CreditsController::applySlice(const Data::CreditsStatusSlice &slice) {
+ 		delegate()->peerListAppendRow(create({}, item));
+ 	}
+ 	delegate()->peerListRefreshRows();
++	_teleSliceApplied.fire_copy(_allLoaded.current());
+ }
+ 
+ void CreditsController::rowClicked(not_null<PeerListRow*> row) {
+@@ -1561,6 +1567,21 @@ void AddCreditsHistoryList(
+ 			object_ptr<PeerListWidgets>(container, &state->controller)));
+ 		state->controller.setDelegate(&(*state->subscriptionDelegate));
+ 	} else {
++		Tele::SetupStarsTools({
++			.container = container,
++			.show = show,
++			.delegate = [=]() -> PeerListDelegate* {
++				return state->creditsDelegate
++					? &*state->creditsDelegate
++					: nullptr;
++			},
++			.entry = [](not_null<PeerListRow*> row) {
++				return &static_cast<CreditsRow*>(row.get())->entry();
++			},
++			.requesting = [=] { return state->controller.skipRequest(); },
++			.requestNext = [=] { state->controller.requestNext(); },
++			.sliceApplied = state->controller.teleSliceApplied(),
++		});
+ 		state->creditsDelegate.emplace(show);
+ 		state->creditsDelegate->setContent(container->add(
+ 			object_ptr<PeerListContent>(container, &state->controller)));
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 14be39f87f5a0ffec6bdfc5fa29737cf10cbaae1..8cd4620d24ac01283f5ef617be0f30e2cc1cdce1 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2510,6 +2510,12 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionFullChatPreview,
+ 		{ u"peek"_q, u"read-only"_q, u"hold"_q, u"userpic"_q });
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Lists"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionStarsTools,
++		{ u"csv"_q, u"filter"_q, u"ton"_q, u"history"_q, u"stars"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0401455b3d82e3b90f19c9c6fcf578967ffa4bed..d52a8099db9e412035e2ac0d85bf936f930fd8ce 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -65,6 +65,7 @@ const char kOptionShowRegularGiftIds[] = "tele-show-regular-gift-ids";
+ const char kOptionGiftQuantity[] = "tele-gift-quantity";
+ const char kOptionSeeTgButton[] = "tele-seetg-button";
+ const char kOptionGiftSearch[] = "tele-gift-search";
++const char kOptionStarsTools[] = "tele-stars-tools";
+ const char kOptionNoCollectibleTooltip[] = "tele-no-collectible-tooltip";
+ const char kOptionGiftHiddenDim[] = "tele-gift-hidden-dim";
+ const char kOptionGiftSelect[] = "tele-gift-select";
+@@ -559,6 +560,12 @@ base::options::toggle GiftSearchOption({
+ 	.description = "Covers collectible gifts only.",
+ });
+ 
++base::options::toggle StarsToolsOption({
++	.id = kOptionStarsTools,
++	.name = "Search and export star transactions",
++	.description = "Search and filters load the whole history first.",
++});
++
+ base::options::toggle NoCollectibleTooltipOption({
+ 	.id = kOptionNoCollectibleTooltip,
+ 	.name = "No tooltip for collectible statuses",
+@@ -1746,6 +1753,10 @@ bool GiftSearch() {
+ 	return GiftSearchOption.value();
+ }
+ 
++bool StarsTools() {
++	return StarsToolsOption.value();
++}
++
+ bool NoCollectibleTooltip() {
+ 	return NoCollectibleTooltipOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 5c313c92cecae68066a8dde8ed03bda11bed0e34..da7c7a92340ba647e55693fb275cd7571ecad108 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -60,6 +60,7 @@ extern const char kOptionShowRegularGiftIds[];
+ extern const char kOptionGiftQuantity[];
+ extern const char kOptionSeeTgButton[];
+ extern const char kOptionGiftSearch[];
++extern const char kOptionStarsTools[];
+ extern const char kOptionNoCollectibleTooltip[];
+ extern const char kOptionGiftHiddenDim[];
+ extern const char kOptionGiftSelect[];
+@@ -272,6 +273,7 @@ void SetReduceMotionSaved(const QString &value);
+ [[nodiscard]] bool GiftQuantity();
+ [[nodiscard]] bool SeeTgButton();
+ [[nodiscard]] bool GiftSearch();
++[[nodiscard]] bool StarsTools();
+ [[nodiscard]] bool NoCollectibleTooltip();
+ [[nodiscard]] bool GiftHiddenDim();
+ [[nodiscard]] bool GiftSelect();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 96796702885992c6bcb9bc53505c40140680fa88..858d815711a4d93e4df6549b5f9aa867f23e9e80 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -146,6 +146,7 @@ struct Spec {
+ 		Toggle(kOptionGiftQuantity),
+ 		Toggle(kOptionSeeTgButton),
+ 		Toggle(kOptionGiftSearch),
++		Toggle(kOptionStarsTools),
+ 		Toggle(kOptionNoCollectibleTooltip),
+ 		Toggle(kOptionGiftHiddenDim),
+ 		Toggle(kOptionGiftSelect),
+diff --git a/Telegram/SourceFiles/tele/tele_stars_tools.cpp b/Telegram/SourceFiles/tele/tele_stars_tools.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..85230162c4b1990cfa0972f4d3b3b9e56b38e9c6
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_stars_tools.cpp
+@@ -0,0 +1,794 @@
++#include "tele/tele_stars_tools.h"
++
++#include "boxes/peer_list_box.h"
++#include "core/file_utilities.h"
++#include "data/data_credits.h"
++#include "data/data_peer.h"
++#include "data/data_star_gift.h"
++#include "data/data_user.h"
++#include "lang/lang_tag.h"
++#include "main/session/session_show.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/effects/credits_graphics.h"
++#include "ui/text/text_utilities.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/multi_select.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/wrap/vertical_layout.h"
++#include "ui/painter.h"
++#include "ui/rp_widget.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_credits.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_widgets.h"
++
++#include <QtCore/QFile>
++#include <QtCore/QFileInfo>
++
++namespace Tele {
++namespace {
++
++constexpr auto kChannelShift = int64(1000000000000LL);
++constexpr auto kNanoDigits = 9;
++
++enum Category : uint32 {
++	kGifts = (1U << 0),
++	kReactions = (1U << 1),
++	kPaidMedia = (1U << 2),
++	kSubscriptions = (1U << 3),
++	kBots = (1U << 4),
++	kTopUps = (1U << 5),
++	kWithdrawals = (1U << 6),
++	kIncoming = (1U << 7),
++	kOutgoing = (1U << 8),
++};
++constexpr auto kTypeMask = uint32(kIncoming - 1);
++constexpr auto kDirectionMask = uint32(kIncoming | kOutgoing);
++
++struct ChipDescriptor {
++	uint32 flag = 0;
++	QString name;
++	QString key;
++};
++
++struct Chip {
++	uint32 flag = 0;
++	QRect geometry;
++	Ui::Text::String text;
++};
++
++struct Item {
++	const Data::CreditsHistoryEntry *entry = nullptr;
++	uint32 categories = 0;
++	QString text;
++};
++
++struct Totals {
++	CreditsAmount inStars;
++	CreditsAmount outStars;
++	CreditsAmount inTon;
++	CreditsAmount outTon;
++	bool stars = false;
++	bool ton = false;
++	int count = 0;
++};
++
++struct Word {
++	QString text;
++	std::optional<double> number;
++	uint32 direction = 0;
++};
++
++[[nodiscard]] const std::vector<ChipDescriptor> &ChipDescriptors() {
++	static const auto result = std::vector<ChipDescriptor>{
++		{ kGifts, u"Gifts"_q, u"gift"_q },
++		{ kReactions, u"Reactions"_q, u"reaction"_q },
++		{ kPaidMedia, u"Paid media"_q, u"paid_media"_q },
++		{ kSubscriptions, u"Subscriptions"_q, u"subscription"_q },
++		{ kBots, u"Bots/mini apps"_q, u"bot"_q },
++		{ kTopUps, u"Top-ups"_q, u"top_up"_q },
++		{ kWithdrawals, u"Withdrawals/refunds"_q, u"withdrawal"_q },
++		{ kIncoming, u"Incoming"_q, u"in"_q },
++		{ kOutgoing, u"Outgoing"_q, u"out"_q },
++	};
++	return result;
++}
++
++[[nodiscard]] PeerData *RowPeer(not_null<PeerListRow*> row) {
++	return row->special() ? nullptr : row->peer().get();
++}
++
++[[nodiscard]] uint32 Categories(
++		not_null<PeerListRow*> row,
++		const Data::CreditsHistoryEntry &entry) {
++	using PeerType = Data::CreditsHistoryEntry::PeerType;
++	const auto type = entry.peerType;
++	const auto peer = RowPeer(row);
++	const auto user = peer ? peer->asUser() : nullptr;
++	auto result = uint32(entry.in ? kIncoming : kOutgoing);
++	if (entry.stargift
++		|| entry.gift
++		|| entry.giftUpgraded
++		|| entry.giftResale
++		|| entry.giftOffer
++		|| entry.uniqueGift
++		|| entry.bareGiveawayMsgId
++		|| entry.premiumMonthsForStars) {
++		result |= kGifts;
++	}
++	if (entry.reaction) {
++		result |= kReactions;
++	}
++	if (!entry.extended.empty() || entry.paidMessagesCount) {
++		result |= kPaidMedia;
++	}
++	if (!entry.subscriptionUntil.isNull()) {
++		result |= kSubscriptions;
++	}
++	if ((user && user->isBot()) || (type == PeerType::API)) {
++		result |= kBots;
++	}
++	if ((type == PeerType::AppStore)
++		|| (type == PeerType::PlayMarket)
++		|| (type == PeerType::PremiumBot)
++		|| ((type == PeerType::Fragment) && entry.in)) {
++		result |= kTopUps;
++	}
++	if (((type == PeerType::Fragment) && !entry.in) || entry.refunded) {
++		result |= kWithdrawals;
++	}
++	return result;
++}
++
++[[nodiscard]] QString GiftName(const Data::CreditsHistoryEntry &entry) {
++	const auto &unique = entry.uniqueGift;
++	return unique
++		? u"%1 #%2"_q.arg(unique->title).arg(unique->number)
++		: QString();
++}
++
++[[nodiscard]] QString PeerName(
++		not_null<PeerListRow*> row,
++		const Data::CreditsHistoryEntry &entry) {
++	const auto peer = RowPeer(row);
++	return peer ? peer->name() : Ui::GenerateEntryName(entry).text;
++}
++
++[[nodiscard]] QString PeerApiId(not_null<PeerListRow*> row) {
++	const auto peer = RowPeer(row);
++	if (!peer) {
++		return QString();
++	}
++	const auto bare = int64(peer->id.value & PeerId::kChatTypeMask);
++	return QString::number(peer->isChat()
++		? -bare
++		: peer->isChannel()
++		? -(kChannelShift + bare)
++		: bare);
++}
++
++[[nodiscard]] Item MakeItem(
++		not_null<PeerListRow*> row,
++		const Data::CreditsHistoryEntry *entry) {
++	if (!entry || !*entry) {
++		return {};
++	}
++	auto result = Item{ .entry = entry };
++	result.categories = Categories(row, *entry);
++	auto fields = QStringList{
++		row->generateName(),
++		entry->title,
++		entry->description.text,
++		Ui::GenerateEntryName(*entry).text,
++		GiftName(*entry),
++	};
++	if (const auto peer = RowPeer(row)) {
++		fields.push_back(peer->name());
++		fields.push_back(peer->username());
++	}
++	if (const auto &unique = entry->uniqueGift) {
++		fields.push_back(unique->slug);
++	}
++	for (const auto &chip : ChipDescriptors()) {
++		if (result.categories & chip.flag & kTypeMask) {
++			fields.push_back(chip.name);
++		}
++	}
++	fields.removeAll(QString());
++	result.text = fields.join(QChar('\n')).toLower();
++	return result;
++}
++
++[[nodiscard]] Word ParseWord(const QString &word) {
++	auto result = Word{ .text = word };
++	auto digits = word;
++	if (digits.startsWith(QChar('+'))) {
++		result.direction = kIncoming;
++		digits = digits.mid(1);
++	} else if (digits.startsWith(QChar('-'))
++		|| digits.startsWith(QChar(0x2212))) {
++		result.direction = kOutgoing;
++		digits = digits.mid(1);
++	}
++	digits.remove(QChar(','));
++	digits.remove(QChar('\''));
++	if (digits.isEmpty()) {
++		result.direction = 0;
++		return result;
++	}
++	for (const auto ch : digits) {
++		if (!ch.isDigit() && ch != QChar('.')) {
++			result.direction = 0;
++			return result;
++		}
++	}
++	auto ok = false;
++	const auto value = digits.toDouble(&ok);
++	if (ok) {
++		result.number = value;
++	} else {
++		result.direction = 0;
++	}
++	return result;
++}
++
++[[nodiscard]] QString FormatAmount(CreditsAmount amount, bool ton) {
++	return Lang::FormatCreditsAmountDecimal(amount)
++		+ (ton ? u" TON"_q : (u" "_q + QString::fromUtf8("\xe2\xad\x90")));
++}
++
++[[nodiscard]] QString FormatSide(
++		const Totals &totals,
++		bool in) {
++	auto parts = QStringList();
++	const auto sign = in ? QString(QChar('+')) : QString(QChar(0x2212));
++	if (totals.stars || !totals.ton) {
++		parts.push_back(sign
++			+ FormatAmount(in ? totals.inStars : totals.outStars, false));
++	}
++	if (totals.ton) {
++		parts.push_back(sign
++			+ FormatAmount(in ? totals.inTon : totals.outTon, true));
++	}
++	return parts.join(QChar(' '));
++}
++
++[[nodiscard]] QString ExactAmount(CreditsAmount amount) {
++	const auto abs = amount.abs();
++	auto nano = QString::number(abs.nano()).rightJustified(
++		kNanoDigits,
++		QChar('0'));
++	while (nano.endsWith(QChar('0'))) {
++		nano.chop(1);
++	}
++	return QString::number(abs.whole())
++		+ (nano.isEmpty() ? QString() : (QChar('.') + nano));
++}
++
++[[nodiscard]] QString CsvField(QString value, bool text) {
++	if (text
++		&& !value.isEmpty()
++		&& QString(u"=+-@\t\r"_q).contains(value[0])) {
++		value.prepend(QChar('\''));
++	}
++	if (value.contains(QChar('"'))
++		|| value.contains(QChar(','))
++		|| value.contains(QChar('\n'))
++		|| value.contains(QChar('\r'))) {
++		value.replace(u"\""_q, u"\"\""_q);
++		return QChar('"') + value + QChar('"');
++	}
++	return value;
++}
++
++[[nodiscard]] QString CsvLine(
++		not_null<PeerListRow*> row,
++		const Item &item) {
++	const auto &entry = *item.entry;
++	const auto ton = entry.credits.ton();
++	const auto abs = entry.credits.abs();
++	const auto nano = abs.whole() * int64(1000000000) + abs.nano();
++	auto types = QStringList();
++	for (const auto &chip : ChipDescriptors()) {
++		if (item.categories & chip.flag & kTypeMask) {
++			types.push_back(chip.key);
++		}
++	}
++	const auto &unique = entry.uniqueGift;
++	const auto number = [](uint64 value) {
++		return value ? QString::number(value) : QString();
++	};
++	const auto fields = std::vector<std::pair<QString, bool>>{
++		{ entry.id, false },
++		{ entry.date.toUTC().toString(Qt::ISODate), false },
++		{ entry.in ? u"in"_q : u"out"_q, false },
++		{ (entry.in ? QString() : u"-"_q) + ExactAmount(abs), false },
++		{ QString::number(entry.in ? nano : -nano), false },
++		{ ton ? u"ton"_q : u"stars"_q, false },
++		{ PeerName(row, entry), true },
++		{ PeerApiId(row), false },
++		{ types.isEmpty() ? u"other"_q : types.join(QChar(';')), false },
++		{ entry.title, true },
++		{ entry.description.text, true },
++		{ GiftName(entry), true },
++		{ unique ? unique->slug : QString(), true },
++		{ unique ? number(unique->id) : QString(), false },
++		{ number(entry.bareMsgId), false },
++		{ number(entry.bareGiveawayMsgId), false },
++	};
++	auto result = QStringList();
++	for (const auto &[value, text] : fields) {
++		result.push_back(CsvField(value, text));
++	}
++	return result.join(QChar(','));
++}
++
++[[nodiscard]] QString CsvHeader() {
++	return u"id,date,direction,amount,nano,currency,peer,peer_id,type,"
++		"title,description,gift,gift_slug,gift_id,msg_id,"
++		"giveaway_msg_id"_q;
++}
++
++class Bar final : public Ui::RpWidget {
++public:
++	Bar(QWidget *parent, StarsToolsList list);
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++	void mouseMoveEvent(QMouseEvent *e) override;
++	void mousePressEvent(QMouseEvent *e) override;
++	void mouseReleaseEvent(QMouseEvent *e) override;
++	void leaveEventHook(QEvent *e) override;
++
++private:
++	void queryChanged(const QString &query);
++	void toggleChip(uint32 flag);
++	void selectChip(QPoint position);
++	void used();
++	void startLoading();
++	void cancelLoading();
++	void sliceApplied(bool allLoaded);
++	void apply();
++	void refreshStatus();
++	void relayout();
++	void showMenu();
++	void exportRequested();
++	void exportCsv();
++	[[nodiscard]] bool active() const;
++	[[nodiscard]] bool matches(const Item &item) const;
++	[[nodiscard]] const Item &itemFor(not_null<PeerListRow*> row);
++	[[nodiscard]] int fullCount() const;
++
++	StarsToolsList _list;
++	std::vector<Chip> _chips;
++	std::vector<Word> _words;
++	base::flat_map<PeerListRowId, Item> _items;
++	Totals _totals;
++	uint32 _selected = 0;
++	int _overChip = -1;
++	int _pressedChip = -1;
++	int _chipsTop = 0;
++	int _lastCount = 0;
++	bool _allLoaded = false;
++	bool _loading = false;
++	bool _pendingExport = false;
++	bool _anyTon = false;
++	Ui::MultiSelect *_select = nullptr;
++	Ui::IconButton *_menuToggle = nullptr;
++	Ui::FlatLabel *_status = nullptr;
++	base::unique_qptr<Ui::PopupMenu> _menu;
++
++};
++
++Bar::Bar(QWidget *parent, StarsToolsList list)
++: RpWidget(parent)
++, _list(std::move(list))
++, _select(Ui::CreateChild<Ui::MultiSelect>(
++	this,
++	st::defaultMultiSelect,
++	rpl::single(Lower(u"Search transactions"_q))))
++, _menuToggle(Ui::CreateChild<Ui::IconButton>(
++	this,
++	st::stickerSetBoxMenu))
++, _status(Ui::CreateChild<Ui::FlatLabel>(
++	this,
++	QString(),
++	st::boxDividerLabel)) {
++	for (const auto &descriptor : ChipDescriptors()) {
++		auto chip = Chip{ .flag = descriptor.flag };
++		chip.text.setText(st::giftBoxTabStyle, Lower(descriptor.name));
++		_chips.push_back(std::move(chip));
++	}
++	setMouseTracking(true);
++
++	_select->setQueryChangedCallback([=](const QString &query) {
++		queryChanged(query);
++	});
++	_select->setCancelledCallback([=] {
++		_select->clearQuery();
++	});
++	_menuToggle->setClickedCallback([=] {
++		showMenu();
++	});
++	auto applied = std::move(_list.sliceApplied);
++	std::move(applied) | rpl::on_next([=](bool allLoaded) {
++		sliceApplied(allLoaded);
++	}, lifetime());
++
++	refreshStatus();
++}
++
++int Bar::fullCount() const {
++	const auto delegate = _list.delegate();
++	return delegate ? delegate->peerListFullRowsCount() : 0;
++}
++
++void Bar::queryChanged(const QString &query) {
++	auto words = std::vector<Word>();
++	const auto list = query.simplified().toLower().split(
++		QChar(' '),
++		Qt::SkipEmptyParts);
++	for (const auto &word : list) {
++		words.push_back(ParseWord(word));
++	}
++	const auto same = ranges::equal(words, _words, [](
++			const Word &a,
++			const Word &b) {
++		return a.text == b.text;
++	});
++	if (same) {
++		return;
++	}
++	_words = std::move(words);
++	used();
++}
++
++void Bar::toggleChip(uint32 flag) {
++	_selected ^= flag;
++	update();
++	used();
++}
++
++void Bar::used() {
++	if (active()) {
++		startLoading();
++	}
++	apply();
++}
++
++bool Bar::active() const {
++	return _selected || !_words.empty();
++}
++
++void Bar::startLoading() {
++	if (_loading || _allLoaded) {
++		return;
++	}
++	_loading = true;
++	_lastCount = fullCount();
++	if (!_list.requesting()) {
++		_list.requestNext();
++	}
++	refreshStatus();
++}
++
++void Bar::cancelLoading() {
++	_loading = false;
++	_pendingExport = false;
++	refreshStatus();
++}
++
++void Bar::sliceApplied(bool allLoaded) {
++	_allLoaded = allLoaded;
++	const auto count = fullCount();
++	if (_loading) {
++		if (_allLoaded) {
++			_loading = false;
++		} else if (count <= _lastCount) {
++			_loading = false;
++			_pendingExport = false;
++			_list.show->showToast(
++				Lower(u"Couldn't load all transactions."_q));
++		} else if (!_list.requesting()) {
++			_list.requestNext();
++		}
++	}
++	_lastCount = count;
++	apply();
++	if (!_loading && _pendingExport && _allLoaded) {
++		_pendingExport = false;
++		exportCsv();
++	}
++}
++
++const Item &Bar::itemFor(not_null<PeerListRow*> row) {
++	const auto id = row->id();
++	const auto i = _items.find(id);
++	if (i != end(_items)) {
++		return i->second;
++	}
++	return _items.emplace(id, MakeItem(row, _list.entry(row))).first->second;
++}
++
++bool Bar::matches(const Item &item) const {
++	if (!item.entry) {
++		return false;
++	}
++	const auto types = (_selected & kTypeMask);
++	if (types && !(item.categories & types)) {
++		return false;
++	}
++	const auto directions = (_selected & kDirectionMask);
++	if (directions && !(item.categories & directions)) {
++		return false;
++	}
++	const auto amount = item.entry->credits.abs().value();
++	for (const auto &word : _words) {
++		if (word.number) {
++			const auto same = (std::abs(amount - *word.number) < 1e-9)
++				&& (!word.direction || (item.categories & word.direction));
++			if (!same && (word.direction || !item.text.contains(word.text))) {
++				return false;
++			}
++		} else if (!item.text.contains(word.text)) {
++			return false;
++		}
++	}
++	return true;
++}
++
++void Bar::apply() {
++	const auto delegate = _list.delegate();
++	if (!delegate) {
++		return;
++	}
++	const auto filtering = active();
++	const auto count = delegate->peerListFullRowsCount();
++	for (auto i = 0; i != count; ++i) {
++		const auto row = delegate->peerListRowAt(i);
++		const auto &item = itemFor(row);
++		delegate->peerListSetRowHidden(row, filtering && !matches(item));
++	}
++	delegate->peerListRefreshRows();
++
++	_totals = Totals();
++	for (auto i = 0; i != count; ++i) {
++		const auto row = delegate->peerListRowAt(i);
++		const auto &item = itemFor(row);
++		if (row->hidden() || !item.entry) {
++			continue;
++		}
++		const auto &entry = *item.entry;
++		const auto abs = entry.credits.abs();
++		++_totals.count;
++		if (entry.credits.ton()) {
++			_totals.ton = true;
++			(entry.in ? _totals.inTon : _totals.outTon) += abs;
++		} else {
++			_totals.stars = true;
++			(entry.in ? _totals.inStars : _totals.outStars) += abs;
++		}
++		_anyTon = _anyTon || entry.credits.ton();
++	}
++	refreshStatus();
++	_list.container->resizeToWidth(_list.container->width());
++}
++
++void Bar::refreshStatus() {
++	auto text = TextWithEntities();
++	if (_loading) {
++		text.append(Lower(u"Loading transactions... %1 loaded"_q).arg(
++			Lang::FormatCountDecimal(fullCount())));
++		text.append(u" \xb7 "_q);
++		text.append(Ui::Text::Link(Lower(u"Cancel"_q), 1));
++	} else {
++		const auto count = _totals.count;
++		text.append(Lower(u"In"_q) + QChar(' ') + FormatSide(_totals, true));
++		text.append(u" \xb7 "_q);
++		text.append(Lower(u"Out"_q) + QChar(' ') + FormatSide(_totals, false));
++		text.append(u" \xb7 "_q);
++		const auto noun = (count == 1)
++			? u"transaction"_q
++			: u"transactions"_q;
++		text.append(Lang::FormatCountDecimal(count)
++			+ QChar(' ')
++			+ Lower(noun));
++		if (!_allLoaded) {
++			text.append(u" \xb7 "_q);
++			text.append(Ui::Text::Link(Lower(u"Load all"_q), 1));
++		}
++	}
++	_status->setMarkedText(text);
++	_status->setLink(1, std::make_shared<LambdaClickHandler>([=] {
++		if (_loading) {
++			cancelLoading();
++		} else {
++			startLoading();
++		}
++	}));
++	relayout();
++}
++
++void Bar::relayout() {
++	if (width() > 0) {
++		resizeToWidth(width());
++	}
++}
++
++int Bar::resizeGetHeight(int newWidth) {
++	const auto &padding = st::boxRowPadding;
++	const auto toggle = _menuToggle->width();
++	_select->resizeToWidth(std::max(newWidth - toggle, 1));
++	_select->moveToLeft(0, 0, newWidth);
++	const auto selectHeight = _select->height();
++	_menuToggle->moveToLeft(
++		newWidth - toggle,
++		(selectHeight - _menuToggle->height()) / 2,
++		newWidth);
++
++	const auto &tab = st::giftBoxTabPadding;
++	const auto skip = st::giftBoxResaleTabSkip;
++	const auto chipHeight = st::giftBoxTabStyle.font->height
++		+ tab.top()
++		+ tab.bottom();
++	const auto right = newWidth - padding.right();
++	_chipsTop = selectHeight + skip;
++	auto x = padding.left();
++	auto y = _chipsTop;
++	for (auto &chip : _chips) {
++		const auto chipWidth = chip.text.maxWidth() + tab.left() + tab.right();
++		if (x > padding.left() && x + chipWidth > right) {
++			x = padding.left();
++			y += chipHeight + skip;
++		}
++		chip.geometry = QRect(x, y, chipWidth, chipHeight);
++		x += chipWidth + skip;
++	}
++	y += chipHeight + skip;
++
++	_status->resizeToWidth(std::max(
++		newWidth - padding.left() - padding.right(),
++		1));
++	_status->moveToLeft(padding.left(), y, newWidth);
++	return y + _status->height() + skip;
++}
++
++void Bar::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	auto hq = PainterHighQualityEnabler(p);
++	const auto &tab = st::giftBoxTabPadding;
++	for (auto i = 0, count = int(_chips.size()); i != count; ++i) {
++		const auto &chip = _chips[i];
++		const auto selected = (_selected & chip.flag) != 0;
++		if (selected || i == _overChip) {
++			const auto radius = chip.geometry.height() / 2.;
++			p.setPen(Qt::NoPen);
++			p.setBrush(selected ? st::giftBoxTabBgActive : st::windowBgOver);
++			p.drawRoundedRect(chip.geometry, radius, radius);
++		}
++		p.setPen(selected ? st::giftBoxTabFgActive : st::giftBoxTabFg);
++		chip.text.draw(p, {
++			.position = chip.geometry.marginsRemoved(tab).topLeft(),
++			.availableWidth = chip.text.maxWidth(),
++		});
++	}
++}
++
++void Bar::selectChip(QPoint position) {
++	auto index = -1;
++	for (auto i = 0, count = int(_chips.size()); i != count; ++i) {
++		if (_chips[i].geometry.contains(position)) {
++			index = i;
++			break;
++		}
++	}
++	if (_overChip == index) {
++		return;
++	}
++	setCursor((index >= 0) ? style::cur_pointer : style::cur_default);
++	_overChip = index;
++	update();
++}
++
++void Bar::mouseMoveEvent(QMouseEvent *e) {
++	selectChip(e->pos());
++}
++
++void Bar::mousePressEvent(QMouseEvent *e) {
++	if (e->button() == Qt::LeftButton) {
++		selectChip(e->pos());
++		_pressedChip = _overChip;
++	}
++}
++
++void Bar::mouseReleaseEvent(QMouseEvent *e) {
++	if (e->button() != Qt::LeftButton) {
++		return;
++	}
++	const auto pressed = std::exchange(_pressedChip, -1);
++	if (pressed >= 0 && pressed == _overChip) {
++		toggleChip(_chips[pressed].flag);
++	}
++}
++
++void Bar::leaveEventHook(QEvent *e) {
++	selectChip(QPoint(-1, -1));
++}
++
++void Bar::showMenu() {
++	if (_menu) {
++		return;
++	}
++	_menu = base::make_unique_q<Ui::PopupMenu>(
++		this,
++		st::popupMenuWithIcons);
++	_menu->addAction(Lower(u"Export CSV"_q), [=] {
++		exportRequested();
++	}, &st::menuIconExport);
++	_menu->popup(QCursor::pos());
++}
++
++void Bar::exportRequested() {
++	if (_allLoaded) {
++		exportCsv();
++		return;
++	}
++	_pendingExport = true;
++	startLoading();
++}
++
++void Bar::exportCsv() {
++	const auto delegate = _list.delegate();
++	if (!delegate) {
++		return;
++	}
++	auto lines = QStringList{ CsvHeader() };
++	const auto count = delegate->peerListFullRowsCount();
++	for (auto i = 0; i != count; ++i) {
++		const auto row = delegate->peerListRowAt(i);
++		const auto &item = itemFor(row);
++		if (!row->hidden() && item.entry) {
++			lines.push_back(CsvLine(row, item));
++		}
++	}
++	const auto bytes = QByteArray("\xef\xbb\xbf")
++		+ lines.join(u"\r\n"_q).toUtf8()
++		+ QByteArray("\r\n");
++	const auto show = _list.show;
++	const auto name = u"%1-transactions-%2.csv"_q.arg(
++		_anyTon ? u"ton"_q : u"stars"_q,
++		QDate::currentDate().toString(u"yyyy-MM-dd"_q));
++	FileDialog::GetWritePath(
++		this,
++		Lower(u"Export transactions"_q),
++		u"CSV (*.csv);;"_q + FileDialog::AllFilesFilter(),
++		name,
++		crl::guard(this, [=](QString &&path) {
++			auto file = QFile(path);
++			if (!file.open(QIODevice::WriteOnly)
++				|| file.write(bytes) != bytes.size()) {
++				show->showToast(Lower(u"Couldn't write the file."_q));
++				return;
++			}
++			file.close();
++			show->showToast(Lower(u"Saved %1 to %2."_q).arg(
++				Lang::FormatCountDecimal(int(lines.size()) - 1),
++				QFileInfo(path).fileName()));
++		}));
++}
++
++} // namespace
++
++void SetupStarsTools(StarsToolsList list) {
++	if (!StarsTools()) {
++		return;
++	}
++	const auto container = list.container;
++	container->add(object_ptr<Bar>(container, std::move(list)));
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_stars_tools.h b/Telegram/SourceFiles/tele/tele_stars_tools.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4dae335d24d7a94424104dcbd25f408fbd9d95d7
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_stars_tools.h
+@@ -0,0 +1,32 @@
++#pragma once
++
++class PeerListDelegate;
++class PeerListRow;
++
++namespace Data {
++struct CreditsHistoryEntry;
++} // namespace Data
++
++namespace Main {
++class SessionShow;
++} // namespace Main
++
++namespace Ui {
++class VerticalLayout;
++} // namespace Ui
++
++namespace Tele {
++
++struct StarsToolsList {
++	not_null<Ui::VerticalLayout*> container;
++	std::shared_ptr<Main::SessionShow> show;
++	Fn<PeerListDelegate*()> delegate;
++	Fn<const Data::CreditsHistoryEntry*(not_null<PeerListRow*>)> entry;
++	Fn<bool()> requesting;
++	Fn<void()> requestNext;
++	rpl::producer<bool> sliceApplied;
++};
++
++void SetupStarsTools(StarsToolsList list);
++
++} // namespace Tele

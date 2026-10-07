@@ -1,0 +1,1495 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 20:24:06 +0300
+Subject: [PATCH] feat: forward protected messages as copies
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/apiwrap.cpp              |   2 +
+ .../SourceFiles/core/click_handler_types.cpp  |   5 +-
+ Telegram/SourceFiles/data/data_media_types.h  |  13 +
+ .../history/history_inner_widget.cpp          |  22 +-
+ .../view/history_view_context_menu.cpp        |   7 +-
+ .../history/view/history_view_list_widget.cpp |  18 +-
+ .../history/view/history_view_message.cpp     |   3 +-
+ .../downloads/info_downloads_provider.cpp     |   3 +-
+ .../info_global_media_provider.cpp            |   5 +-
+ .../info/media/info_media_provider.cpp        |   7 +-
+ Telegram/SourceFiles/main/main_session.cpp    |   2 +
+ .../media/view/media_view_overlay_widget.cpp  |  15 +-
+ .../menu/menu_item_download_files.cpp         |   3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  12 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ Telegram/SourceFiles/tele/tele_protected.cpp  | 830 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_protected.h    |  31 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 20 files changed, 946 insertions(+), 38 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_protected.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_protected.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 30b070f2f8ff809943f47215def6c7dd303181bc..6cdeefe7e5500111846e3155c1b9b557954fc9ee 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2333,6 +2333,8 @@ PRIVATE
+     tele/tele_peer_id.h
+     tele/tele_phones.cpp
+     tele/tele_phones.h
++    tele/tele_protected.cpp
++    tele/tele_protected.h
+     tele/tele_punctual_scheduled.cpp
+     tele/tele_punctual_scheduled.h
+     tele/tele_rich_timestamps.cpp
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index ec031311527584f719fc9c9e45fdeee356d8086c..6766ee89f330541932326ae34b94871cf3dfbd8a 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_username_aliases.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_protected.h"
+ #include "tele/tele_docked_media.h"
+ 
+ namespace {
+@@ -3853,6 +3854,7 @@ void ApiWrap::forwardMessages(
+ 
+ 	auto &histories = _session->data().histories();
+ 
++	Tele::SendProtectedCopies(draft, action);
+ 	for (auto i = begin(draft.items); i != end(draft.items);) {
+ 		const auto item = *i;
+ 		if (item->isSavedMusicItem()) {
+diff --git a/Telegram/SourceFiles/core/click_handler_types.cpp b/Telegram/SourceFiles/core/click_handler_types.cpp
+index ebf5f5199f8ee5b2cde63465359299d58116d9af..a2670afbc0f606bcab7abd647ee191430aeb98fb 100644
+--- a/Telegram/SourceFiles/core/click_handler_types.cpp
++++ b/Telegram/SourceFiles/core/click_handler_types.cpp
+@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_session_controller.h"
+ #include "tele/tele_links.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_protected.h"
+ #include "window/window_session_controller_link_info.h"
+ #include "apiwrap.h"
+ #include "history/view/history_view_schedule_box.h"
+@@ -660,8 +661,8 @@ void FormattedDateClickHandler::onClick(ClickContext context) const {
+ 		&st::menuIconSchedule);
+ 
+ 	const auto canForward = item
+-		&& !item->forbidsForward()
+-		&& item->history()->peer->allowsForwarding();
++		&& !Tele::ForbidsForward(item)
++		&& Tele::AllowsForwarding(item->history()->peer);
+ 	if (canForward) {
+ 		menu->addAction(
+ 			tr::lng_context_set_reminder(tr::now),
+diff --git a/Telegram/SourceFiles/data/data_media_types.h b/Telegram/SourceFiles/data/data_media_types.h
+index 862c1ba7b121e13e203e6ffc9ed4141356383090..3f7af3638c7fea077fc506e23b2279ae7aba6cf4 100644
+--- a/Telegram/SourceFiles/data/data_media_types.h
++++ b/Telegram/SourceFiles/data/data_media_types.h
+@@ -468,6 +468,19 @@ public:
+ 
+ 	std::unique_ptr<Media> clone(not_null<HistoryItem*> parent) override;
+ 
++	[[nodiscard]] const LocationPoint &point() const {
++		return _point;
++	}
++	[[nodiscard]] TimeId livePeriod() const {
++		return _livePeriod;
++	}
++	[[nodiscard]] const QString &title() const {
++		return _title;
++	}
++	[[nodiscard]] const QString &description() const {
++		return _description;
++	}
++
+ 	CloudImage *location() const override;
+ 	ItemPreview toPreview(ToPreviewOptions options) const override;
+ 	TextWithEntities notificationText() const override;
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index f9da378041111c31c2ef1093ac0d998a4a594da0..bc1c1a2e0cb69e9760844094f2df0b723c687ac9 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_shot.h"
+ #include "tele/tele_message_menu.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_protected.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -827,7 +828,7 @@ bool HistoryInner::hasSelectRestriction() const {
+ 		return false;
+ 	} else if (session().frozen()) {
+ 		return true;
+-	} else if (!_sharingDisallowed.current()) {
++	} else if (!_sharingDisallowed.current() || Tele::CopyProtected()) {
+ 		return false;
+ 	} else if (const auto chat = _peer->asChat()) {
+ 		return !chat->canDeleteMessages();
+@@ -2413,7 +2414,7 @@ std::unique_ptr<QMimeData> HistoryInner::prepareDrag() {
+ 			forwardIds = getSelectedForwardItems();
+ 		} else if (_mouseCursorState == CursorState::Date) {
+ 			const auto item = _mouseActionItem;
+-			if (item && item->allowsForward()) {
++			if (item && Tele::AllowsForward(item)) {
+ 				forwardIds = session().data().itemOrItsGroup(item);
+ 			}
+ 		} else if ((pressedView->isHiddenByGroup() && pressedHandler)
+@@ -2422,7 +2423,7 @@ std::unique_ptr<QMimeData> HistoryInner::prepareDrag() {
+ 			const auto item = _dragStateItem
+ 				? _dragStateItem
+ 				: _mouseActionItem;
+-			if (item && item->allowsForward()) {
++			if (item && Tele::AllowsForward(item)) {
+ 				forwardIds = MessageIdsList(1, item->fullId());
+ 			}
+ 		}
+@@ -3469,7 +3470,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			const auto itemId = item->fullId();
+ 			const auto blockSender = item->history()->peer->isRepliesChat();
+ 			if (isUponSelected != -2) {
+-				if (item->allowsForward() && !IsAnchoredEphemeral(item)) {
++				if (Tele::AllowsForward(item) && !IsAnchoredEphemeral(item)) {
+ 					_menu->addAction(tr::lng_context_forward_msg(tr::now), [=] {
+ 						forwardItem(itemId);
+ 					}, &st::menuIconForward);
+@@ -3540,7 +3541,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			&& item->canDelete()
+ 			&& (item->isRegular() || !item->isService());
+ 		const auto canForward = item
+-			&& item->allowsForward()
++			&& Tele::AllowsForward(item)
+ 			&& !IsAnchoredEphemeral(item);
+ 		const auto canReport = item && item->suggestReport();
+ 		const auto canBlockSender = item && item->history()->peer->isRepliesChat();
+@@ -3960,12 +3961,13 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ }
+ 
+ bool HistoryInner::hasCopyRestriction(HistoryItem *item) const {
+-	return !_peer->allowsForwarding() || (item && item->forbidsForward());
++	return !Tele::AllowsForwarding(_peer)
++		|| (item && Tele::ForbidsForward(item));
+ }
+ 
+ bool HistoryInner::hasCopyMediaRestriction(
+ 		not_null<HistoryItem*> item) const {
+-	return hasCopyRestriction(item) || item->forbidsSaving();
++	return hasCopyRestriction(item) || Tele::ForbidsSaving(item);
+ }
+ 
+ bool HistoryInner::showCopyRestriction(HistoryItem *item) {
+@@ -3997,13 +3999,13 @@ bool HistoryInner::hasCopyRestrictionForSelected() const {
+ 		return true;
+ 	}
+ 	for (const auto &item : _selected) {
+-		if (item && item->forbidsForward()) {
++		if (item && Tele::ForbidsForward(item)) {
+ 			return true;
+ 		}
+ 	}
+ 	return hasSelectedText()
+ 		&& _selectedTextItem
+-		&& _selectedTextItem->forbidsForward();
++		&& Tele::ForbidsForward(_selectedTextItem);
+ }
+ 
+ bool HistoryInner::showCopyRestrictionForSelected() {
+@@ -5298,7 +5300,7 @@ auto HistoryInner::getSelectionState() const
+ 		if (item->isEphemeral() || item->canDelete()) {
+ 			++result.canDeleteCount;
+ 		}
+-		if (item->allowsForward()) {
++		if (Tele::AllowsForward(item)) {
+ 			++result.canForwardCount;
+ 		}
+ 	}
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 896f05a23461c09c6ea3fc02a03884df579ab5e7..5fc410eb9fd512480b171ce9a4e56ff779f272ef 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_shot.h"
+ #include "tele/tele_message_menu.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_protected.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_layers.h"
+@@ -605,7 +606,7 @@ bool AddForwardMessageAction(
+ 	if (!request.selectedItems.empty()) {
+ 		return false;
+ 	} else if (!item
+-		|| !item->allowsForward()
++		|| !Tele::AllowsForward(item)
+ 		|| IsAnchoredEphemeral(item)) {
+ 		return false;
+ 	}
+@@ -2380,7 +2381,7 @@ void AddPollActions(
+ 					item->history()->peer,
+ 					MsgId(),
+ 					std::move(text),
+-					item->forbidsForward()));
++					Tele::ForbidsForward(item)));
+ 			}, &st::menuIconTranslate);
+ 		}
+ 	}
+@@ -2981,7 +2982,7 @@ void AddSelectRestrictionAction(
+ 		not_null<HistoryItem*> item,
+ 		bool addIcon) {
+ 	const auto peer = item->history()->peer;
+-	if ((peer->allowsForwarding() && !item->forbidsForward())
++	if ((Tele::AllowsForwarding(peer) && !Tele::ForbidsForward(item))
+ 		|| item->isSponsored()) {
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index 42985fbab7436e434ab3a0f7a2bcb1b34f07d124..427f7b707cf36491da58d07529617366b71c6872 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_protected.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_window.h" // columnMaximalWidthLeft
+ 
+@@ -1809,7 +1810,7 @@ bool ListWidget::addToSelection(
+ 		return false;
+ 	}
+ 	iterator->second.canDelete = item->canDelete() || item->isEphemeral();
+-	iterator->second.canForward = item->allowsForward();
++	iterator->second.canForward = Tele::AllowsForward(item);
+ 	iterator->second.canSendNow = item->allowsSendNow();
+ 	iterator->second.canReschedule = item->allowsReschedule();
+ 	iterator->second.ephemeral = item->isEphemeral();
+@@ -2198,13 +2199,13 @@ bool ListWidget::hasCopyRestrictionForSelected() const {
+ 		return true;
+ 	}
+ 	if (_selected.empty()) {
+-		if (_selectedTextItem && _selectedTextItem->forbidsForward()) {
++		if (_selectedTextItem && Tele::ForbidsForward(_selectedTextItem)) {
+ 			return true;
+ 		}
+ 	}
+ 	for (const auto &[itemId, selection] : _selected) {
+ 		if (const auto item = session().data().message(itemId)) {
+-			if (item->forbidsForward()) {
++			if (Tele::ForbidsForward(item)) {
+ 				return true;
+ 			}
+ 		}
+@@ -5418,16 +5419,16 @@ std::unique_ptr<QMimeData> ListWidget::prepareDrag() {
+ 			? _pressItemExact
+ 			: pressedItem;
+ 		if (_mouseCursorState == CursorState::Date) {
+-			if (_overElement->data()->allowsForward()) {
++			if (Tele::AllowsForward(_overElement->data())) {
+ 				forwardIds = session().data().itemOrItsGroup(
+ 					_overElement->data());
+ 			}
+ 		} else if (_pressState.pointState == PointState::GroupPart) {
+-			if (exactItem->allowsForward()) {
++			if (Tele::AllowsForward(exactItem)) {
+ 				forwardIds = MessageIdsList(1, exactItem->fullId());
+ 			}
+ 		} else if (const auto media = pressedView->media()) {
+-			if (pressedView->data()->allowsForward()
++			if (Tele::AllowsForward(pressedView->data())
+ 				&& media->dragItemByHandler(pressedHandler)) {
+ 				forwardIds = MessageIdsList(1, exactItem->fullId());
+ 			}
+@@ -6770,7 +6771,8 @@ void ConfirmSendNowSelectedItems(not_null<ListWidget*> widget) {
+ CopyRestrictionType CopyRestrictionTypeFor(
+ 		not_null<PeerData*> peer,
+ 		HistoryItem *item) {
+-	return (peer->allowsForwarding() && (!item || !item->forbidsForward()))
++	return (Tele::AllowsForwarding(peer)
++		&& (!item || !Tele::ForbidsForward(item)))
+ 		? CopyRestrictionType::None
+ 		: peer->isUser()
+ 		? CopyRestrictionType::User
+@@ -6786,7 +6788,7 @@ CopyRestrictionType CopyMediaRestrictionTypeFor(
+ 		; all != CopyRestrictionType::None) {
+ 		return all;
+ 	}
+-	return !item->forbidsSaving()
++	return !Tele::ForbidsSaving(item)
+ 		? CopyRestrictionType::None
+ 		: peer->isUser()
+ 		? CopyRestrictionType::User
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index a0d0da6410de1cae40de1da1142cf691a053bf42..a0d2530057bfb315984851e100992eb91f10450a 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_protected.h"
+ #include "tele/tele_shot.h"
+ #include "tele/tele_shot_sharp.h"
+ #include "styles/style_chat.h"
+@@ -6049,7 +6050,7 @@ std::optional<QSize> Message::rightActionSize() const {
+ bool Message::displayFastShare() const {
+ 	const auto item = data();
+ 	const auto peer = item->history()->peer;
+-	if (!item->allowsForward() || IsAnchoredEphemeral(item)) {
++	if (!Tele::AllowsForward(item) || IsAnchoredEphemeral(item)) {
+ 		return false;
+ 	} else if (peer->isChannel()) {
+ 		return !peer->isMegagroup();
+diff --git a/Telegram/SourceFiles/info/downloads/info_downloads_provider.cpp b/Telegram/SourceFiles/info/downloads/info_downloads_provider.cpp
+index 78cb2b1469af748857575b7411fc47ef4948d83a..e1204491090a92c1c7e0fe7ff02e860270b7c3c8 100644
+--- a/Telegram/SourceFiles/info/downloads/info_downloads_provider.cpp
++++ b/Telegram/SourceFiles/info/downloads/info_downloads_provider.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history.h"
+ #include "core/application.h"
+ #include "storage/storage_shared_media.h"
++#include "tele/tele_protected.h"
+ #include "layout/layout_selection.h"
+ #include "styles/style_overview.h"
+ 
+@@ -489,7 +490,7 @@ ListItemSelectionData Provider::computeSelectionData(
+ 		TextSelection selection) {
+ 	auto result = ListItemSelectionData(selection);
+ 	result.canDelete = true;
+-	result.canForward = item->allowsForward()
++	result.canForward = Tele::AllowsForward(item)
+ 		&& (&item->history()->session() == &_controller->session());
+ 	return result;
+ }
+diff --git a/Telegram/SourceFiles/info/global_media/info_global_media_provider.cpp b/Telegram/SourceFiles/info/global_media/info_global_media_provider.cpp
+index 55954b6c70eae52e09b40139a5a314da3ab060b2..dbfd4a8bb4221ca1854fb3b4301080d666b35c8b 100644
+--- a/Telegram/SourceFiles/info/global_media/info_global_media_provider.cpp
++++ b/Telegram/SourceFiles/info/global_media/info_global_media_provider.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history.h"
+ #include "core/application.h"
+ #include "storage/storage_shared_media.h"
++#include "tele/tele_protected.h"
+ #include "layout/layout_selection.h"
+ #include "styles/style_overview.h"
+ 
+@@ -715,14 +716,14 @@ Media::ListItemSelectionData Provider::computeSelectionData(
+ 		TextSelection selection) {
+ 	auto result = Media::ListItemSelectionData(selection);
+ 	result.canDelete = item->canDelete();
+-	result.canForward = item->allowsForward();
++	result.canForward = Tele::AllowsForward(item);
+ 	return result;
+ }
+ 
+ bool Provider::allowSaveFileAs(
+ 		not_null<const HistoryItem*> item,
+ 		not_null<DocumentData*> document) {
+-	return item->allowsForward();
++	return Tele::AllowsForward(item);
+ }
+ 
+ QString Provider::showInFolderPath(
+diff --git a/Telegram/SourceFiles/info/media/info_media_provider.cpp b/Telegram/SourceFiles/info/media/info_media_provider.cpp
+index 056b91a977055ab35647a9cbddc26c745f50affa..1f74d40867fbcaafcd6cea8576b9c955ed102f61 100644
+--- a/Telegram/SourceFiles/info/media/info_media_provider.cpp
++++ b/Telegram/SourceFiles/info/media/info_media_provider.cpp
+@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_saved_sublist.h"
+ #include "storage/storage_facade.h"
+ #include "storage/storage_shared_media.h"
++#include "tele/tele_protected.h"
+ #include "styles/style_overview.h"
+ 
+ namespace Info::Media {
+@@ -81,7 +82,7 @@ Type Provider::type() {
+ bool Provider::hasSelectRestriction() {
+ 	if (_peer->session().frozen()) {
+ 		return true;
+-	} else if (_peer->allowsForwarding()) {
++	} else if (Tele::AllowsForwarding(_peer)) {
+ 		return false;
+ 	} else if (const auto chat = _peer->asChat()) {
+ 		return !chat->canDeleteMessages();
+@@ -571,14 +572,14 @@ ListItemSelectionData Provider::computeSelectionData(
+ 		TextSelection selection) {
+ 	auto result = ListItemSelectionData(selection);
+ 	result.canDelete = item->canDelete();
+-	result.canForward = item->allowsForward();
++	result.canForward = Tele::AllowsForward(item);
+ 	return result;
+ }
+ 
+ bool Provider::allowSaveFileAs(
+ 		not_null<const HistoryItem*> item,
+ 		not_null<DocumentData*> document) {
+-	return item->allowsForward();
++	return Tele::AllowsForward(item);
+ }
+ 
+ QString Provider::showInFolderPath(
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index 5196d850a2bd6bd5c648b46bff0b451446a7e416..1cd1c2095cb60889bc9f7d7b2e57a23121ade8db 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -60,6 +60,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/application.h"
+ #include "ui/text/text_utilities.h"
+ #include "ui/layers/generic_box.h"
++#include "tele/tele_protected.h"
+ #include "tele/tele_punctual_scheduled.h"
+ #include "styles/style_layers.h"
+ 
+@@ -275,6 +276,7 @@ Session::Session(
+ 	}, _lifetime);
+ 
+ 	Tele::SetupPunctualScheduled(this);
++	Tele::SetupProtectedCopies(this);
+ }
+ 
+ void Session::appConfigRefreshed() {
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index a04a65709bfa03bc7d07c04ed6b3cdea3a36dba3..5da379f73db487c1b6b2dc9f47bebd345ac9f500 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "platform/platform_text_recognition.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_protected.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_spoilers.h"
+ #include "tele/tele_view_tl.h"
+@@ -1454,8 +1455,8 @@ bool OverlayWidget::hasCopyMediaRestriction(bool skipPremiumCheck) const {
+ 			? !story->canDownloadIfPremium()
+ 			: !story->canDownloadChecked();
+ 	}
+-	return (_history && !_history->peer->allowsForwarding())
+-		|| (_message && _message->forbidsSaving());
++	return (_history && !Tele::AllowsForwarding(_history->peer))
++		|| (_message && Tele::ForbidsSaving(_message));
+ }
+ 
+ bool OverlayWidget::showCopyMediaRestriction(bool skipPRemiumCheck) {
+@@ -1585,7 +1586,7 @@ void OverlayWidget::documentUpdated(not_null<DocumentData*> document) {
+ 		return;
+ 	} else if (documentBubbleShown()) {
+ 		if (_message
+-			&& _message->forbidsSaving()
++			&& Tele::ForbidsSaving(_message)
+ 			&& _documentMedia->loaded(true)) {
+ 			redisplayContent();
+ 		} else if ((_document->loading() && _docCancel->isHidden())
+@@ -1727,7 +1728,7 @@ void OverlayWidget::updateControls() {
+ 			_docSaveAs->hide();
+ 			_docCancel->moveToLeft(_docRect.x() + 2 * st::mediaviewFilePadding + st::mediaviewFileIconSize, _docRect.y() + st::mediaviewFilePadding + st::mediaviewFileLinksTop);
+ 			_docCancel->show();
+-		} else if (_message && _message->forbidsSaving()) {
++		} else if (_message && Tele::ForbidsSaving(_message)) {
+ 			_docDownload->hide();
+ 			_docSaveAs->hide();
+ 			_docCancel->hide();
+@@ -2290,7 +2291,7 @@ void OverlayWidget::fillContextMenuActions(
+ 	if ((!story || story->canDownloadChecked())
+ 		&& _document
+ 		&& !_document->filepath(true).isEmpty()
+-		&& !(_message && _message->forbidsSaving())) {
++		&& !(_message && Tele::ForbidsSaving(_message))) {
+ 		const auto text = Platform::IsMac()
+ 			? tr::lng_context_show_in_finder(tr::now)
+ 			: tr::lng_context_show_in_folder(tr::now);
+@@ -2323,7 +2324,7 @@ void OverlayWidget::fillContextMenuActions(
+ 			[=] { showAttachedStickers(); },
+ 			&st::mediaMenuIconStickers);
+ 	}
+-	if (_message && _message->allowsForward()) {
++	if (_message && Tele::AllowsForward(_message)) {
+ 		addAction(
+ 			tr::lng_mediaview_forward(tr::now),
+ 			[=] { forwardMedia(); },
+@@ -3596,7 +3597,7 @@ void OverlayWidget::forwardMedia() {
+ 	if (active.empty()) {
+ 		return;
+ 	}
+-	const auto id = (_message && _message->allowsForward())
++	const auto id = (_message && Tele::AllowsForward(_message))
+ 		? _message->fullId()
+ 		: FullMsgId();
+ 	if (id) {
+diff --git a/Telegram/SourceFiles/menu/menu_item_download_files.cpp b/Telegram/SourceFiles/menu/menu_item_download_files.cpp
+index 2d35114a47d12b164a36ca703807892d29115a0d..e515e79159e75b73a3c421ef86d0f30ceb28d886 100644
+--- a/Telegram/SourceFiles/menu/menu_item_download_files.cpp
++++ b/Telegram/SourceFiles/menu/menu_item_download_files.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "mainwindow.h"
+ #include "storage/storage_account.h"
++#include "tele/tele_protected.h"
+ #include "ui/text/text_utilities.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/popup_menu.h"
+@@ -46,7 +47,7 @@ using Photos = std::vector<std::pair<not_null<PhotoData*>, FullMsgId>>;
+ 		Photos &photos) {
+ 	if (!item) {
+ 		return false;
+-	} else if (item->forbidsSaving()) {
++	} else if (Tele::ForbidsSaving(item)) {
+ 		return true;
+ 	} else if (const auto media = item->media()) {
+ 		if (const auto photo = media->photo()) {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 3375c1a9255c742f93e12226ac3819c2ee98a5c1..c25c28967a5a43a880e754a504a7bf6a6690180d 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1694,6 +1694,7 @@ void FillChats(SectionBuilder &builder) {
+ 		},
+ 		{ u"reply"_q, u"quote"_q, u"deleted"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
++	AddOptionToggle(builder, ::Tele::kOptionCopyProtected);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Sending"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionParallelUploads);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 318eb162dc1b5fcd6bb6ae991174fd32bb89ea5c..12e88514843df0b5a2615aba3cea5cdf31e6cf13 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -60,6 +60,7 @@ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+ const char kOptionDeletedIcon[] = "tele-deleted-icon";
+ const char kOptionDeletedReply[] = "tele-deleted-reply";
+ const char kOptionRevealSpoilers[] = "tele-reveal-spoilers";
++const char kOptionCopyProtected[] = "tele-copy-protected";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionAllowScreenCapture[] = "tele-allow-screen-capture";
+@@ -438,6 +439,13 @@ base::options::toggle RevealSpoilersOption({
+ 	.name = "Reveal spoilers automatically",
+ });
+ 
++base::options::toggle CopyProtectedOption({
++	.id = kOptionCopyProtected,
++	.name = "Forward protected messages as copies",
++	.description = "Media is re-uploaded, there is no forwarded header, "
++		"and copying and saving get unlocked too.",
++});
++
+ base::options::toggle KeepSecretMediaOption({
+ 	.id = kOptionKeepSecretMedia,
+ 	.name = "Open disappearing media without burning it",
+@@ -1101,6 +1109,10 @@ rpl::producer<> RevealSpoilersChanges() {
+ 	return RevealSpoilersOption.changes();
+ }
+ 
++bool CopyProtected() {
++	return CopyProtectedOption.value();
++}
++
+ bool KeepSecretMedia() {
+ 	return KeepSecretMediaOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 710d665f218a3db8cdcd84b171b7dd94240f0b9b..244e0844e82cc5f67becabc51c422a644e3b7975 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -56,6 +56,7 @@ extern const char kOptionKeepDeleted[];
+ extern const char kOptionDeletedIcon[];
+ extern const char kOptionDeletedReply[];
+ extern const char kOptionRevealSpoilers[];
++extern const char kOptionCopyProtected[];
+ extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionAllowScreenCapture[];
+@@ -174,6 +175,7 @@ void SetDeletedReply(const QString &value);
+ [[nodiscard]] rpl::producer<QString> DeletedReplyValue();
+ [[nodiscard]] bool RevealSpoilers();
+ [[nodiscard]] rpl::producer<> RevealSpoilersChanges();
++[[nodiscard]] bool CopyProtected();
+ [[nodiscard]] bool KeepSecretMedia();
+ [[nodiscard]] bool ScreenshotSecretMedia();
+ [[nodiscard]] bool AllowScreenCapture();
+diff --git a/Telegram/SourceFiles/tele/tele_protected.cpp b/Telegram/SourceFiles/tele/tele_protected.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..28aea28062ab5a1ebd8a582fa9c70967e9bd3698
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_protected.cpp
+@@ -0,0 +1,830 @@
++#include "tele/tele_protected.h"
++
++#include "api/api_common.h"
++#include "api/api_polls.h"
++#include "api/api_sending.h"
++#include "apiwrap.h"
++#include "base/random.h"
++#include "base/timer.h"
++#include "core/mime_type.h"
++#include "data/data_document.h"
++#include "data/data_document_media.h"
++#include "data/data_drafts.h"
++#include "data/data_file_origin.h"
++#include "data/data_location.h"
++#include "data/data_media_types.h"
++#include "data/data_peer.h"
++#include "data/data_photo.h"
++#include "data/data_photo_media.h"
++#include "data/data_poll.h"
++#include "data/data_session.h"
++#include "data/data_types.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "main/main_session.h"
++#include "storage/localimageloader.h"
++#include "storage/storage_account.h"
++#include "storage/storage_media_prepare.h"
++#include "tele/tele_deleted.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/image/image.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++
++#include <QtCore/QDir>
++#include <QtCore/QFile>
++#include <QtCore/QFileInfo>
++#include <QtCore/QRegularExpression>
++
++namespace Tele {
++namespace {
++
++constexpr auto kCheckInterval = crl::time(500);
++constexpr auto kSendTimeout = crl::time(60000);
++
++enum class Kind {
++	Text,
++	Photo,
++	Visual,
++	File,
++	Sticker,
++	ExistingSticker,
++	Voice,
++	Round,
++	Poll,
++	Contact,
++	Location,
++	Venue,
++};
++
++struct Entry {
++	FullMsgId id;
++	Kind kind = Kind::Text;
++	DocumentData *document = nullptr;
++	PhotoData *photo = nullptr;
++	std::shared_ptr<Data::DocumentMedia> documentMedia;
++	std::shared_ptr<Data::PhotoMedia> photoMedia;
++	QString path;
++	QString temp;
++	QByteArray content;
++	bool memory = false;
++	bool started = false;
++	bool failed = false;
++};
++
++struct Step {
++	MessageGroupId groupId;
++	std::vector<Entry> entries;
++};
++
++struct Job {
++	Job(not_null<Main::Session*> session, const Api::SendAction &action);
++	~Job();
++
++	not_null<Main::Session*> session;
++	Api::SendAction action;
++	std::vector<Step> steps;
++	base::flat_set<HistoryItem*> known;
++	base::flat_set<HistoryItem*> mine;
++	crl::time changed = 0;
++	int index = 0;
++	int expected = 0;
++	int failed = 0;
++	bool dropCaptions = false;
++	bool waiting = false;
++	bool processing = false;
++	bool repeat = false;
++	bool finished = false;
++	base::Timer timer;
++	rpl::lifetime lifetime;
++};
++
++void RemoveTemp(Entry &entry) {
++	if (!entry.temp.isEmpty()) {
++		QDir(QFileInfo(entry.temp).absolutePath()).removeRecursively();
++		entry.temp = QString();
++	}
++	entry.documentMedia = nullptr;
++	entry.photoMedia = nullptr;
++}
++
++Job::Job(not_null<Main::Session*> session, const Api::SendAction &action)
++: session(session)
++, action(action) {
++}
++
++Job::~Job() {
++	for (auto &step : steps) {
++		for (auto &entry : step.entries) {
++			RemoveTemp(entry);
++		}
++	}
++}
++
++[[nodiscard]] std::vector<std::unique_ptr<Job>> &Jobs() {
++	static auto result = std::vector<std::unique_ptr<Job>>();
++	return result;
++}
++
++[[nodiscard]] base::flat_set<not_null<Main::Session*>> &Tracked() {
++	static auto result = base::flat_set<not_null<Main::Session*>>();
++	return result;
++}
++
++void Remove(not_null<Job*> job) {
++	auto &jobs = Jobs();
++	const auto i = ranges::find(jobs, job.get(), &std::unique_ptr<Job>::get);
++	if (i != end(jobs)) {
++		auto taken = std::move(*i);
++		jobs.erase(i);
++	}
++}
++
++[[nodiscard]] QString CopiesFolder(not_null<Main::Session*> session) {
++	return session->local().tempDirectory() + u"tele-copies"_q;
++}
++
++void Track(not_null<Main::Session*> session) {
++	if (!Tracked().emplace(session).second) {
++		return;
++	}
++	const auto folder = CopiesFolder(session);
++	const auto clear = [=] {
++		auto &jobs = Jobs();
++		auto taken = std::vector<std::unique_ptr<Job>>();
++		for (auto i = begin(jobs); i != end(jobs);) {
++			if ((*i)->session == session) {
++				taken.push_back(std::move(*i));
++				i = jobs.erase(i);
++			} else {
++				++i;
++			}
++		}
++	};
++	session->data().sessionDataAboutToBeCleared(
++	) | rpl::on_next(clear, session->lifetime());
++	session->lifetime().add([=] {
++		Tracked().remove(session);
++		clear();
++		QDir(folder).removeRecursively();
++	});
++}
++
++void ShowToast(not_null<Job*> job, const QString &text) {
++	const auto peer = job->action.history->peer;
++	if (const auto window = job->session->tryResolveWindow(peer)) {
++		window->showToast(Lower(text));
++	}
++}
++
++[[nodiscard]] bool Protected(not_null<const HistoryItem*> item) {
++	return item->forbidsForward() || !item->history()->peer->allowsForwarding();
++}
++
++[[nodiscard]] bool Copyable(not_null<const HistoryItem*> item) {
++	if (!CopyProtected()
++		|| !Protected(item)
++		|| item->isService()
++		|| !item->isRegular()
++		|| item->isSponsored()
++		|| IsKeptDeleted(item)) {
++		return false;
++	}
++	const auto media = item->media();
++	return !media || media->allowsForward();
++}
++
++[[nodiscard]] bool HasFileMedia(const PollMedia &media) {
++	return media.photo || media.document;
++}
++
++[[nodiscard]] std::optional<Kind> Classify(
++		not_null<HistoryItem*> item,
++		QString &skipped) {
++	const auto media = item->media();
++	if (!media || media->webpage()) {
++		if (item->originalText().empty()) {
++			return std::nullopt;
++		}
++		return Kind::Text;
++	} else if (const auto invoice = media->invoice()) {
++		skipped = Data::HasExtendedMedia(*invoice)
++			? u"paid media"_q
++			: u"invoices"_q;
++		return std::nullopt;
++	} else if (media->game()) {
++		skipped = u"games"_q;
++		return std::nullopt;
++	} else if (media->storyId()) {
++		skipped = u"stories"_q;
++		return std::nullopt;
++	} else if (media->photo()) {
++		return Kind::Photo;
++	} else if (const auto document = media->document()) {
++		if (const auto sticker = document->sticker()) {
++			return sticker->isWebm() ? Kind::ExistingSticker : Kind::Sticker;
++		} else if (document->isVoiceMessage()) {
++			return Kind::Voice;
++		} else if (document->isVideoMessage()) {
++			return Kind::Round;
++		} else if (document->isVideoFile() || document->isAnimation()) {
++			return Kind::Visual;
++		}
++		return Kind::File;
++	} else if (const auto poll = media->poll()) {
++		const auto answerMedia = ranges::any_of(
++			poll->answers,
++			[](const PollAnswer &answer) {
++				return HasFileMedia(answer.media);
++			});
++		if (answerMedia
++			|| HasFileMedia(poll->attachedMedia)
++			|| HasFileMedia(poll->solutionMedia)) {
++			skipped = u"polls with media"_q;
++			return std::nullopt;
++		} else if (poll->quiz()
++			&& ranges::none_of(poll->answers, &PollAnswer::correct)) {
++			skipped = u"unanswered quizzes"_q;
++			return std::nullopt;
++		}
++		return Kind::Poll;
++	} else if (media->sharedContact()) {
++		return Kind::Contact;
++	} else if (const auto location = dynamic_cast<const Data::MediaLocation*>(
++			media)) {
++		if (location->livePeriod()) {
++			skipped = u"live locations"_q;
++			return std::nullopt;
++		}
++		return location->title().isEmpty() ? Kind::Location : Kind::Venue;
++	}
++	skipped = dynamic_cast<const Data::MediaDice*>(media)
++		? u"dice"_q
++		: media->todolist()
++		? u"checklists"_q
++		: (media->giveawayStart() || media->giveawayResults())
++		? u"giveaways"_q
++		: media->gift()
++		? u"gifts"_q
++		: u"unsupported media"_q;
++	return std::nullopt;
++}
++
++[[nodiscard]] bool Visual(Kind kind) {
++	return (kind == Kind::Photo) || (kind == Kind::Visual);
++}
++
++[[nodiscard]] bool Groupable(Kind a, Kind b) {
++	return (Visual(a) && Visual(b)) || (a == Kind::File && b == Kind::File);
++}
++
++[[nodiscard]] QString TempPath(
++		not_null<Main::Session*> session,
++		not_null<DocumentData*> document) {
++	const auto sticker = document->sticker();
++	auto name = !sticker
++		? document->filename()
++		: sticker->isLottie()
++		? u"sticker.tgs"_q
++		: u"sticker.webp"_q;
++	name.replace(QRegularExpression(u"[\\\\/:*?\"<>|]"_q), u"_"_q);
++	if (name.isEmpty() || name.startsWith('.')) {
++		const auto patterns = Core::MimeTypeForName(
++			document->mimeString()).globPatterns();
++		auto suffix = patterns.isEmpty() ? QString() : patterns.front();
++		suffix.remove('*');
++		name = u"file"_q + (suffix.startsWith('.') ? suffix : QString());
++	}
++	const auto folder = CopiesFolder(session)
++		+ '/'
++		+ QString::number(base::RandomValue<uint64>(), 16);
++	return QDir().mkpath(folder) ? (folder + '/' + name) : QString();
++}
++
++[[nodiscard]] bool Ready(not_null<Main::Session*> session, Entry &entry) {
++	if (entry.failed) {
++		return true;
++	}
++	const auto origin = Data::FileOrigin(entry.id);
++	if (const auto photo = entry.photo) {
++		if (!entry.photoMedia) {
++			entry.photoMedia = photo->createMediaView();
++			entry.photoMedia->wanted(Data::PhotoSize::Large, origin);
++		}
++		if (entry.photoMedia->image(Data::PhotoSize::Large)) {
++			return true;
++		} else if (photo->failed(Data::PhotoSize::Large)) {
++			entry.failed = true;
++			return true;
++		}
++		return false;
++	}
++	const auto document = entry.document;
++	if (!document || entry.kind == Kind::ExistingSticker) {
++		return true;
++	}
++	if (!entry.started) {
++		entry.started = true;
++		entry.documentMedia = document->createMediaView();
++		entry.path = document->filepath(true);
++		if (!entry.path.isEmpty()) {
++			return true;
++		}
++		const auto sticker = document->sticker();
++		if (document->saveToCache() && !(sticker && sticker->isLottie())) {
++			entry.memory = true;
++			if (entry.documentMedia->bytes().isEmpty()) {
++				document->save(origin, QString());
++			}
++		} else {
++			entry.temp = TempPath(session, document);
++			if (entry.temp.isEmpty()) {
++				entry.failed = true;
++				return true;
++			}
++			document->save(origin, entry.temp);
++		}
++	}
++	if (!entry.path.isEmpty() || !entry.content.isEmpty()) {
++		return true;
++	} else if (entry.memory) {
++		entry.content = entry.documentMedia->bytes();
++		if (entry.content.isEmpty() && !document->loading()) {
++			entry.failed = true;
++		}
++		return entry.failed || !entry.content.isEmpty();
++	} else if (entry.temp.isEmpty()) {
++		return true;
++	} else if (document->loading()) {
++		return false;
++	}
++	const auto info = QFileInfo(entry.temp);
++	if (info.exists() && info.size() > 0) {
++		entry.path = entry.temp;
++	} else {
++		entry.failed = true;
++	}
++	return true;
++}
++
++[[nodiscard]] TextWithTags ToTags(const TextWithEntities &text) {
++	return {
++		text.text,
++		TextUtilities::ConvertEntitiesToTextTags(text.entities),
++	};
++}
++
++[[nodiscard]] std::optional<Ui::PreparedFile> PrepareFile(
++		not_null<Job*> job,
++		const Entry &entry,
++		not_null<HistoryItem*> item) {
++	auto list = Ui::PreparedList();
++	if (entry.photo) {
++		const auto image = entry.photoMedia
++			? entry.photoMedia->image(Data::PhotoSize::Large)
++			: nullptr;
++		if (!image) {
++			return std::nullopt;
++		}
++		auto copy = image->original();
++		list = Storage::PrepareMediaFromImage(
++			std::move(copy),
++			entry.photoMedia->imageBytes(Data::PhotoSize::Large),
++			st::sendMediaPreviewSize);
++	} else if (!entry.path.isEmpty()) {
++		list = Storage::PrepareMediaList(
++			QStringList(entry.path),
++			st::sendMediaPreviewSize,
++			job->session->premium());
++	} else if (!entry.content.isEmpty()) {
++		auto file = Ui::PreparedFile(QString());
++		file.content = entry.content;
++		file.size = entry.content.size();
++		Storage::PrepareDetails(
++			file,
++			st::sendMediaPreviewSize,
++			PhotoSideLimit());
++		list.files.push_back(std::move(file));
++	}
++	if (list.error != Ui::PreparedList::Error::None
++		|| list.files.size() != 1) {
++		return std::nullopt;
++	}
++	auto result = std::move(list.files.front());
++	if (!job->dropCaptions) {
++		result.caption = ToTags(item->originalText());
++	}
++	const auto media = item->media();
++	result.spoiler = media && media->hasSpoiler();
++	if (entry.photo) {
++		result.sendLargePhotos = true;
++	} else if (!entry.document->sticker()
++		&& !entry.document->filename().isEmpty()) {
++		result.displayName = entry.document->filename();
++	}
++	return result;
++}
++
++void Snapshot(not_null<Job*> job, int expected) {
++	job->known.clear();
++	job->mine.clear();
++	for (const auto &item : job->action.history->clientSideMessages()) {
++		job->known.emplace(item.get());
++	}
++	job->expected = expected;
++	job->changed = crl::now();
++	job->waiting = !job->action.options.scheduled
++		&& !job->action.options.shortcutId;
++}
++
++[[nodiscard]] bool Sent(not_null<Job*> job) {
++	const auto &list = job->action.history->clientSideMessages();
++	for (const auto &item : list) {
++		const auto raw = item.get();
++		if (raw->isSending()
++			&& !job->known.contains(raw)
++			&& job->mine.emplace(raw).second) {
++			job->changed = crl::now();
++		}
++	}
++	if (int(job->mine.size()) < job->expected
++		&& crl::now() - job->changed < kSendTimeout) {
++		return false;
++	}
++	for (const auto &item : list) {
++		if (item->isSending() && job->mine.contains(item.get())) {
++			return false;
++		}
++	}
++	return true;
++}
++
++void SendUploads(
++		not_null<Job*> job,
++		Step &step,
++		const std::vector<not_null<HistoryItem*>> &items) {
++	auto list = Ui::PreparedList();
++	auto visual = false;
++	for (auto i = 0, count = int(items.size()); i != count; ++i) {
++		auto &entry = step.entries[i];
++		if (entry.failed) {
++			continue;
++		}
++		auto file = PrepareFile(job, entry, items[i]);
++		if (!file) {
++			++job->failed;
++			continue;
++		}
++		visual = Visual(entry.kind);
++		list.files.push_back(std::move(*file));
++	}
++	if (list.files.empty()) {
++		return;
++	}
++	const auto count = int(list.files.size());
++	auto action = job->action;
++	action.options.invertCaption = items.front()->invertMedia();
++	const auto album = (count > 1)
++		? std::make_shared<SendingAlbum>()
++		: nullptr;
++	Snapshot(job, count);
++	job->session->api().sendFiles(
++		std::move(list),
++		visual ? SendMediaType::Photo : SendMediaType::File,
++		album,
++		action);
++}
++
++void SendVoice(
++		not_null<Job*> job,
++		const Entry &entry,
++		not_null<HistoryItem*> item) {
++	auto bytes = entry.content;
++	if (bytes.isEmpty()) {
++		auto file = QFile(entry.path);
++		if (file.open(QIODevice::ReadOnly)) {
++			bytes = file.readAll();
++		}
++	}
++	if (bytes.isEmpty()) {
++		++job->failed;
++		return;
++	}
++	const auto document = entry.document;
++	const auto voice = document->voice();
++	Snapshot(job, 1);
++	job->session->api().sendVoiceMessage(
++		std::move(bytes),
++		voice ? voice->waveform : VoiceWaveform(),
++		document->duration(),
++		(entry.kind == Kind::Round),
++		job->action);
++}
++
++void SendPoll(not_null<Job*> job, not_null<HistoryItem*> item) {
++	const auto source = item->media()->poll();
++	auto poll = PollData(&source->owner(), base::RandomValue<PollId>());
++	poll.question = source->question;
++	poll.solution = source->solution;
++	poll.answers.reserve(source->answers.size());
++	for (const auto &answer : source->answers) {
++		poll.answers.push_back(PollAnswer{
++			.text = answer.text,
++			.option = answer.option,
++			.media = answer.media,
++			.correct = answer.correct,
++		});
++	}
++	poll.attachedMedia = source->attachedMedia;
++	poll.solutionMedia = source->solutionMedia;
++	using Flag = PollData::Flag;
++	poll.setFlags(source->flags()
++		& (Flag::PublicVotes
++			| Flag::MultiChoice
++			| Flag::Quiz
++			| Flag::ShuffleAnswers
++			| Flag::RevotingDisabled
++			| Flag::OpenAnswers));
++	job->session->api().polls().create(
++		poll,
++		item->originalText(),
++		job->action,
++		[] {},
++		[](bool) {});
++}
++
++void SendSingle(
++		not_null<Job*> job,
++		Entry &entry,
++		not_null<HistoryItem*> item) {
++	auto &api = job->session->api();
++	const auto &action = job->action;
++	const auto media = item->media();
++	switch (entry.kind) {
++	case Kind::Text: {
++		auto message = Api::MessageToSend(action);
++		message.textWithTags = ToTags(item->originalText());
++		message.webPage = Data::WebPageDraft::FromItem(item);
++		api.sendMessage(std::move(message));
++	} break;
++	case Kind::ExistingSticker:
++		Api::SendExistingDocument(Api::MessageToSend(action), entry.document);
++		break;
++	case Kind::Voice:
++	case Kind::Round:
++		SendVoice(job, entry, item);
++		break;
++	case Kind::Poll:
++		SendPoll(job, item);
++		break;
++	case Kind::Contact: {
++		const auto contact = media->sharedContact();
++		api.shareContact(
++			contact->phoneNumber,
++			contact->firstName,
++			contact->lastName,
++			action);
++	} break;
++	case Kind::Location:
++	case Kind::Venue: {
++		const auto location = static_cast<const Data::MediaLocation*>(media);
++		const auto &point = location->point();
++		if (entry.kind == Kind::Location) {
++			Api::SendLocation(action, point.lat(), point.lon());
++		} else {
++			Api::SendVenue(action, Data::InputVenue{
++				.lat = point.lat(),
++				.lon = point.lon(),
++				.title = location->title(),
++				.address = location->description(),
++			});
++		}
++	} break;
++	default:
++		break;
++	}
++}
++
++void Send(not_null<Job*> job, Step &step) {
++	const auto &owner = job->session->data();
++	auto items = std::vector<not_null<HistoryItem*>>();
++	auto entries = std::vector<Entry>();
++	for (auto &entry : step.entries) {
++		const auto item = owner.message(entry.id);
++		if (!item || entry.failed) {
++			job->failed += (item && entry.failed) ? 1 : 0;
++			RemoveTemp(entry);
++			continue;
++		}
++		items.push_back(item);
++		entries.push_back(std::move(entry));
++	}
++	step.entries = std::move(entries);
++	if (items.empty()) {
++		return;
++	}
++	const auto kind = step.entries.front().kind;
++	if (Visual(kind) || kind == Kind::File || kind == Kind::Sticker) {
++		SendUploads(job, step, items);
++	} else {
++		SendSingle(job, step.entries.front(), items.front());
++	}
++}
++
++void Cleanup(Step &step, bool remove) {
++	for (auto &entry : step.entries) {
++		if (!remove) {
++			entry.temp = QString();
++		}
++		entry.content = QByteArray();
++		RemoveTemp(entry);
++	}
++}
++
++void Finish(not_null<Job*> job) {
++	job->finished = true;
++	job->timer.cancel();
++	if (job->failed) {
++		ShowToast(job, (job->failed == 1)
++			? u"One protected media could not be copied."_q
++			: (QString::number(job->failed)
++				+ u" protected media could not be copied."_q));
++	}
++	crl::on_main([=] {
++		Remove(job);
++	});
++}
++
++void Advance(not_null<Job*> job) {
++	while (job->index < int(job->steps.size())) {
++		auto &step = job->steps[job->index];
++		if (job->waiting) {
++			if (!Sent(job)) {
++				return;
++			}
++			job->waiting = false;
++			Cleanup(step, int(job->mine.size()) >= job->expected);
++			++job->index;
++			continue;
++		}
++		auto ready = true;
++		for (auto i = job->index, count = int(job->steps.size())
++			; i != count
++			; ++i) {
++			for (auto &entry : job->steps[i].entries) {
++				if (!Ready(job->session, entry) && i == job->index) {
++					ready = false;
++				}
++			}
++		}
++		if (!ready) {
++			return;
++		}
++		job->expected = 0;
++		Send(job, step);
++		if (!job->waiting) {
++			Cleanup(step, !job->expected);
++			++job->index;
++		}
++	}
++	Finish(job);
++}
++
++void Process(not_null<Job*> job) {
++	if (job->finished) {
++		return;
++	} else if (job->processing) {
++		job->repeat = true;
++		return;
++	}
++	job->processing = true;
++	do {
++		job->repeat = false;
++		Advance(job);
++	} while (job->repeat && !job->finished);
++	job->processing = false;
++}
++
++} // namespace
++
++void SetupProtectedCopies(not_null<Main::Session*> session) {
++	static auto legacy = true;
++	if (base::take(legacy)) {
++		QDir(QDir::tempPath() + u"/tele-copies"_q).removeRecursively();
++	}
++	if (!Tracked().contains(session)) {
++		QDir(CopiesFolder(session)).removeRecursively();
++	}
++}
++
++bool AllowsForwarding(not_null<PeerData*> peer) {
++	return CopyProtected() || peer->allowsForwarding();
++}
++
++bool ForbidsForward(not_null<const HistoryItem*> item) {
++	return !CopyProtected() && item->forbidsForward();
++}
++
++bool ForbidsSaving(not_null<const HistoryItem*> item) {
++	if (!CopyProtected() || !item->forbidsForward()) {
++		return item->forbidsSaving();
++	}
++	const auto media = item->media();
++	if (!media) {
++		return false;
++	} else if (media->ttlSeconds()) {
++		return true;
++	}
++	const auto invoice = media->invoice();
++	return invoice && Data::HasExtendedMedia(*invoice);
++}
++
++bool AllowsForward(not_null<const HistoryItem*> item) {
++	return item->allowsForward() || Copyable(item);
++}
++
++void SendProtectedCopies(
++		Data::ResolvedForwardDraft &draft,
++		const Api::SendAction &action) {
++	if (!CopyProtected()) {
++		return;
++	}
++	auto taken = std::vector<not_null<HistoryItem*>>();
++	for (auto i = begin(draft.items); i != end(draft.items);) {
++		const auto item = *i;
++		if (!item->allowsForward() && Copyable(item)) {
++			taken.push_back(item);
++			i = draft.items.erase(i);
++		} else {
++			++i;
++		}
++	}
++	if (taken.empty()) {
++		return;
++	}
++	const auto session = &action.history->session();
++	auto owned = std::make_unique<Job>(session, action);
++	const auto job = owned.get();
++	job->action.replyTo = FullReplyTo{
++		.topicRootId = action.replyTo.topicRootId,
++		.monoforumPeerId = action.replyTo.monoforumPeerId,
++	};
++	job->action.clearDraft = false;
++	job->dropCaptions = (draft.options
++		== Data::ForwardOptions::NoNamesAndCaptions);
++	auto skipped = QStringList();
++	for (const auto item : taken) {
++		auto reason = QString();
++		const auto kind = Classify(item, reason);
++		if (!kind) {
++			if (!reason.isEmpty() && !skipped.contains(reason)) {
++				skipped.push_back(reason);
++			}
++			continue;
++		}
++		const auto media = item->media();
++		auto entry = Entry{
++			.id = item->fullId(),
++			.kind = *kind,
++			.document = media ? media->document() : nullptr,
++			.photo = (media && *kind == Kind::Photo)
++				? media->photo()
++				: nullptr,
++		};
++		const auto groupId = item->groupId();
++		auto &steps = job->steps;
++		if (groupId
++			&& !steps.empty()
++			&& steps.back().groupId == groupId
++			&& Groupable(steps.back().entries.back().kind, *kind)) {
++			steps.back().entries.push_back(std::move(entry));
++		} else {
++			steps.push_back({ .groupId = groupId });
++			steps.back().entries.push_back(std::move(entry));
++		}
++	}
++	if (!skipped.isEmpty()) {
++		ShowToast(job, u"Not copied: "_q + skipped.join(u", "_q) + '.');
++	}
++	if (job->steps.empty()) {
++		return;
++	}
++	Track(session);
++	job->timer.setCallback([=] {
++		Process(job);
++	});
++	job->timer.callEach(kCheckInterval);
++	session->downloaderTaskFinished(
++	) | rpl::on_next([=] {
++		Process(job);
++	}, job->lifetime);
++	Jobs().push_back(std::move(owned));
++	Process(job);
++	if (!job->finished && !job->waiting) {
++		ShowToast(job, u"Downloading protected media to send copies."_q);
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_protected.h b/Telegram/SourceFiles/tele/tele_protected.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..cab69ff5639a7b5b3e1a9a32196b4939b312ced1
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_protected.h
+@@ -0,0 +1,31 @@
++#pragma once
++
++class HistoryItem;
++class PeerData;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Api {
++struct SendAction;
++} // namespace Api
++
++namespace Data {
++struct ResolvedForwardDraft;
++} // namespace Data
++
++namespace Tele {
++
++void SetupProtectedCopies(not_null<Main::Session*> session);
++
++[[nodiscard]] bool AllowsForwarding(not_null<PeerData*> peer);
++[[nodiscard]] bool ForbidsForward(not_null<const HistoryItem*> item);
++[[nodiscard]] bool ForbidsSaving(not_null<const HistoryItem*> item);
++[[nodiscard]] bool AllowsForward(not_null<const HistoryItem*> item);
++
++void SendProtectedCopies(
++	Data::ResolvedForwardDraft &draft,
++	const Api::SendAction &action);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 91b8b682dfa6912e92ccdd098ad5971c02fd4094..59f363d533e276f111e6c4cb25901d2ea506e11a 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -135,6 +135,7 @@ struct Spec {
+ 		Toggle(kOptionKeepDeleted),
+ 		Toggle(kOptionDeletedIcon),
+ 		Toggle(kOptionRevealSpoilers),
++		Toggle(kOptionCopyProtected),
+ 		Toggle(kOptionKeepSecretMedia),
+ 		Toggle(kOptionScreenshotSecretMedia),
+ 		Toggle(kOptionAllowScreenCapture),

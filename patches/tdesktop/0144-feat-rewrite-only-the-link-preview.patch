@@ -1,0 +1,292 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 04:05:39 +0300
+Subject: [PATCH] feat: rewrite only the link preview
+
+---
+ .../SourceFiles/settings/settings_tele.cpp    |   5 +
+ .../SourceFiles/tele/tele_link_previews.cpp   | 103 ++++++++++++++----
+ .../SourceFiles/tele/tele_link_previews.h     |   3 +
+ .../SourceFiles/tele/tele_link_rewrites.cpp   |  13 +++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  10 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 7 files changed, 115 insertions(+), 22 deletions(-)
+
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d0df640eca19fa7e50ff6bc1592ee9afc7b99b82..461da97add897e22658adce43915fb9c9a7e8739 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1603,6 +1603,11 @@ void AddLinkRewrites(SectionBuilder &builder) {
+ 		SetupLink(button, option.id());
+ 	}
+ 	AddAbout(builder, option.id(), description);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionRewritePreviewOnly,
++		{ u"link preview"_q, u"embed"_q },
++		::Tele::kOptionLinkRewrites);
+ }
+ 
+ class LocalNameRow final : public PeerListRowWithLink {
+diff --git a/Telegram/SourceFiles/tele/tele_link_previews.cpp b/Telegram/SourceFiles/tele/tele_link_previews.cpp
+index 8e2fee06f71f4cf788412ef035af3e07c26fe630..eec72f5778819e3d0e9cc758743d2966fc58af99 100644
+--- a/Telegram/SourceFiles/tele/tele_link_previews.cpp
++++ b/Telegram/SourceFiles/tele/tele_link_previews.cpp
+@@ -46,6 +46,7 @@ struct FieldPaste {
+ 
+ struct ProcessorState {
+ 	not_null<Ui::InputField*> field;
++	not_null<Processor*> processor;
+ 	std::optional<QStringList> before;
+ 	bool pasted = false;
+ };
+@@ -184,41 +185,62 @@ void ShowCustomLinkBox(
+ 	}));
+ }
+ 
+-void AddLinkPreview(
+-		std::shared_ptr<ChatHelpers::Show> show,
+-		not_null<HistoryView::Controls::WebpageProcessor*> processor,
+-		const QString &link) {
+-	const auto apply = [=](WebPageData *page) {
+-		const auto now = base::unixtime::now();
+-		if (!page
+-			|| page->failed
+-			|| (page->pendingTill > 0 && page->pendingTill < now)) {
+-			show->showToast(tr::lng_preview_cant(tr::now));
+-			return;
+-		}
+-		processor->apply({
+-			.id = page->id,
+-			.url = page->url,
+-			.manual = true,
+-		});
+-	};
++[[nodiscard]] bool Previewable(WebPageData *page) {
++	const auto now = base::unixtime::now();
++	return page
++		&& !page->failed
++		&& !(page->pendingTill > 0 && page->pendingTill < now);
++}
++
++void ResolveLink(
++		not_null<Processor*> processor,
++		const QString &link,
++		Fn<void(WebPageData*)> done) {
+ 	const auto resolver = processor->resolver();
+ 	if (const auto value = resolver->lookup(link)) {
+-		apply(*value);
++		done(*value);
+ 		return;
+ 	} else if (OfflineForLaunch()) {
+-		apply(nullptr);
++		done(nullptr);
+ 		return;
+ 	}
+ 	resolver->resolved(
+ 	) | rpl::filter([=](const QString &resolved) {
+ 		return (resolved == link);
+ 	}) | rpl::take(1) | rpl::on_next([=] {
+-		apply(resolver->lookup(link).value_or(nullptr));
++		done(resolver->lookup(link).value_or(nullptr));
+ 	}, processor->lifetime());
+ 	resolver->request(link);
+ }
+ 
++void ApplyManualPreview(
++		not_null<Processor*> processor,
++		not_null<WebPageData*> page) {
++	processor->apply({
++		.id = page->id,
++		.url = page->url,
++		.manual = true,
++	});
++}
++
++[[nodiscard]] bool AutoPreview(not_null<Processor*> processor) {
++	const auto draft = processor->draft();
++	return !draft.manual && !draft.removed;
++}
++
++void AddLinkPreview(
++		std::shared_ptr<ChatHelpers::Show> show,
++		not_null<HistoryView::Controls::WebpageProcessor*> processor,
++		const QString &link) {
++	ResolveLink(processor, link, [=](WebPageData *page) {
++		if (!Previewable(page)) {
++			show->showToast(tr::lng_preview_cant(tr::now));
++			return;
++		}
++		ApplyManualPreview(processor, page);
++	});
++}
++
+ } // namespace
+ 
+ void NotifyFieldPaste(not_null<Ui::InputField*> field, QString text) {
+@@ -239,7 +261,7 @@ void SetupLinkPreviews(
+ 		not_null<Ui::InputField*> field,
+ 		not_null<Processor*> processor) {
+ 	const auto state = processor->lifetime().make_state<ProcessorState>(
+-		ProcessorState{ .field = field });
++		ProcessorState{ .field = field, .processor = processor });
+ 	const auto raw = processor.get();
+ 	States()[raw] = state;
+ 	processor->lifetime().add([=] {
+@@ -337,6 +359,43 @@ bool SkipAutoLinkPreview(not_null<Processor*> processor) {
+ 	return true;
+ }
+ 
++void PreviewRewrittenLinks(
++		not_null<Ui::InputField*> field,
++		const base::flat_map<QString, QString> &rewritten) {
++	const auto i = ranges::find_if(States(), [&](const auto &pair) {
++		return (pair.second->field == field);
++	});
++	if (i == end(States())) {
++		return;
++	}
++	const auto processor = i->second->processor;
++	const auto resolver = processor->resolver();
++	auto link = QString();
++	auto url = QString();
++	for (const auto &current : CurrentLinks(field, processor)) {
++		if (const auto j = rewritten.find(current); j != end(rewritten)) {
++			link = current;
++			url = j->second;
++			break;
++		} else if (const auto page = resolver->lookup(current)) {
++			if (!*page) {
++				continue;
++			}
++		}
++		return;
++	}
++	if (url.isEmpty() || !AutoPreview(processor)) {
++		return;
++	}
++	ResolveLink(processor, url, [=](WebPageData *page) {
++		if (Previewable(page)
++			&& AutoPreview(processor)
++			&& CurrentLinks(field, processor).contains(link)) {
++			ApplyManualPreview(processor, page);
++		}
++	});
++}
++
+ void AddCustomLinkPreviewButtons(
+ 		not_null<Ui::VerticalLayout*> container,
+ 		CustomLinkPreviewArgs &&args) {
+diff --git a/Telegram/SourceFiles/tele/tele_link_previews.h b/Telegram/SourceFiles/tele/tele_link_previews.h
+index d1d0801eefb95a8284f3681773cd20ceb10ce20d..95a93cae2be558a704027578f6526a243adce2ea 100644
+--- a/Telegram/SourceFiles/tele/tele_link_previews.h
++++ b/Telegram/SourceFiles/tele/tele_link_previews.h
+@@ -37,6 +37,9 @@ void ApplyLinkPreviewDraft(
+ 	Data::WebPageDraft draft);
+ [[nodiscard]] bool SkipAutoLinkPreview(
+ 	not_null<HistoryView::Controls::WebpageProcessor*> processor);
++void PreviewRewrittenLinks(
++	not_null<Ui::InputField*> field,
++	const base::flat_map<QString, QString> &rewritten);
+ 
+ struct CustomLinkPreviewArgs {
+ 	std::shared_ptr<Ui::Show> show;
+diff --git a/Telegram/SourceFiles/tele/tele_link_rewrites.cpp b/Telegram/SourceFiles/tele/tele_link_rewrites.cpp
+index 4ce9d64dddefb1c54ae2ece8c9a636fdcb904c1e..1cdaa791816de55c5c5598e8c6eded2eb9091663 100644
+--- a/Telegram/SourceFiles/tele/tele_link_rewrites.cpp
++++ b/Telegram/SourceFiles/tele/tele_link_rewrites.cpp
+@@ -403,6 +403,16 @@ void ShowChangesToast(
+ 	}
+ }
+ 
++[[nodiscard]] base::flat_map<QString, QString> Rewritten(const Memo &memo) {
++	auto result = base::flat_map<QString, QString>();
++	for (const auto &[url, rewritten] : memo) {
++		if (rewritten) {
++			result.emplace(url, *rewritten);
++		}
++	}
++	return result;
++}
++
+ void RewritePasted(
+ 		not_null<Ui::InputField*> field,
+ 		int start,
+@@ -433,6 +443,9 @@ void RewritePasted(
+ 	const auto urls = RewriteUrls(full, head, till, memo, changes);
+ 	if (!tags && !urls) {
+ 		return;
++	} else if (RewritePreviewOnly()) {
++		PreviewRewrittenLinks(field, Rewritten(memo));
++		return;
+ 	}
+ 	const auto tail = after - end;
+ 	field->setTextWithTags(full, Ui::InputField::HistoryAction::NewEntry);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index ca1cc3bf8be0b6414758b323b182948d3f230ef2..4d8a6e5ac3b1c0c23bc6ec9337524d985e76e039 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -107,6 +107,7 @@ const char kOptionUsernameAliases[] = "tele-username-aliases";
+ const char kOptionNoPhoneInHeader[] = "tele-no-phone-in-header";
+ const char kOptionNftPurchasePrice[] = "tele-nft-purchase-price";
+ const char kOptionLinkRewrites[] = "tele-link-rewrites";
++const char kOptionRewritePreviewOnly[] = "tele-rewrite-preview-only";
+ const char kOptionLocalNames[] = "tele-local-names";
+ const char kOptionAppIcon[] = "tele-app-icon";
+ const char kOptionTrayIcon[] = "tele-tray-icon";
+@@ -750,6 +751,11 @@ base::options::option<QString> LinkRewritesOption({
+ 	.description = "Applies to links you paste into a message.",
+ });
+ 
++base::options::toggle RewritePreviewOnlyOption({
++	.id = kOptionRewritePreviewOnly,
++	.name = "Rewrite only the preview",
++});
++
+ base::options::option<QString> LocalNamesOption({
+ 	.id = kOptionLocalNames,
+ 	.name = "Custom names",
+@@ -1655,6 +1661,10 @@ rpl::producer<QString> LinkRewritesValue() {
+ 	});
+ }
+ 
++bool RewritePreviewOnly() {
++	return RewritePreviewOnlyOption.value();
++}
++
+ void SetLocalNames(const QString &value) {
+ 	LocalNamesOption.set(value);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 84396e62ed6df3516bd3499766314843b1414c40..811cff225d26fa3cbc03724bf0cc105f3d40cab0 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -103,6 +103,7 @@ extern const char kOptionUsernameAliases[];
+ extern const char kOptionNoPhoneInHeader[];
+ extern const char kOptionNftPurchasePrice[];
+ extern const char kOptionLinkRewrites[];
++extern const char kOptionRewritePreviewOnly[];
+ extern const char kOptionLocalNames[];
+ extern const char kOptionAppIcon[];
+ extern const char kOptionTrayIcon[];
+@@ -280,6 +281,7 @@ void SetUsernameAliases(const QString &value);
+ [[nodiscard]] QString LinkRewrites();
+ void SetLinkRewrites(const QString &value);
+ [[nodiscard]] rpl::producer<QString> LinkRewritesValue();
++[[nodiscard]] bool RewritePreviewOnly();
+ void SetLocalNames(const QString &value);
+ [[nodiscard]] rpl::producer<QString> LocalNamesValue();
+ [[nodiscard]] QString AppIcon();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 101b70b6dcb55b2859e93f1ffc0cf7eac263f7c2..81c2d7af564bf9e9adfe5ef250da06596afa6a9a 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -111,6 +111,7 @@ struct Spec {
+ 		Toggle(kOptionNoLinkWarning),
+ 		Toggle(kOptionCleanOpenedLinks),
+ 		Toggle(kOptionCleanSentLinks),
++		Toggle(kOptionRewritePreviewOnly),
+ 		Toggle(kOptionHideAllChats),
+ 		Toggle(kOptionHideCommunities),
+ 		Toggle(kOptionHideSimilar),

@@ -1,0 +1,579 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 29 Sep 2026 06:29:22 +0300
+Subject: [PATCH] feat: pin sticker and emoji sets
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../chat_helpers/emoji_list_widget.cpp        |   5 +-
+ .../chat_helpers/stickers_list_footer.cpp     |   9 +
+ .../chat_helpers/stickers_list_widget.cpp     |   5 +-
+ .../chat_helpers/tabbed_selector.cpp          |   4 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  15 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ Telegram/SourceFiles/tele/tele_pin_sets.cpp   | 330 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_pin_sets.h     |  23 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 11 files changed, 395 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_pin_sets.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_pin_sets.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 2abff08d60ec7357721e2301514f288bc297d081..35b4219290419273cc6a10993d7c70c4d24fe39f 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2343,6 +2343,8 @@ PRIVATE
+     tele/tele_peer_id.h
+     tele/tele_phones.cpp
+     tele/tele_phones.h
++    tele/tele_pin_sets.cpp
++    tele/tele_pin_sets.h
+     tele/tele_protected.cpp
+     tele/tele_protected.h
+     tele/tele_punctual_scheduled.cpp
+diff --git a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
+index 08e004a6d7356d82c548f8dfcfd7f819f1a22431..9a8781678fc29ca135c296470adc84f3c116b9ad 100644
+--- a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
+@@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_premium.h"
+ #include "window/window_session_controller.h"
+ #include "tele/tele_message_menu.h"
++#include "tele/tele_pin_sets.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_menu_icons.h"
+@@ -3624,7 +3625,9 @@ void EmojiListWidget::refreshCustom() {
+ 	};
+ 	refreshEmojiStatusCollectibles();
+ 	refreshMegagroupStickers(push, GroupStickersPlace::Visible);
+-	for (const auto setId : owner->stickers().emojiSetsOrder()) {
++	for (const auto setId : Tele::PinnedSetsFirst(
++			session,
++			owner->stickers().emojiSetsOrder())) {
+ 		push(setId, true);
+ 	}
+ 	for (const auto setId : owner->stickers().featuredEmojiSetsOrder()) {
+diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_footer.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_footer.cpp
+index 9ff963c8cb94ab26d303543d400c9a1f8b8f7d80..d882b336dd669195565b05c0b8907be9836bc221 100644
+--- a/Telegram/SourceFiles/chat_helpers/stickers_list_footer.cpp
++++ b/Telegram/SourceFiles/chat_helpers/stickers_list_footer.cpp
+@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/widgets/buttons.h"
+ #include "ui/painter.h"
+ #include "ui/rect_part.h"
++#include "tele/tele_pin_sets.h"
+ #include "styles/style_chat_helpers.h"
+ 
+ #include <QtWidgets/QApplication>
+@@ -953,6 +954,14 @@ bool StickersListFooter::eventHook(QEvent *e) {
+ 			&& (_pressed == SpecialOver::None)) {
+ 			scrollByWheelEvent(static_cast<QWheelEvent*>(e));
+ 		}
++	} else if (e->type() == QEvent::ContextMenu
++		&& v::is<IconId>(_selected)
++		&& Tele::ShowPinSetMenu(
++			this,
++			st().menu,
++			_session,
++			_icons[v::get<IconId>(_selected).index].setId)) {
++		return true;
+ 	}
+ 	return InnerFooter::eventHook(e);
+ }
+diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
+index b6b7334d622ae53dfbb1ad36408e2ec8d3d91580..f30b2fdfe1e01f56676121a771d2e36c2722b1f1 100644
+--- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
+@@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "api/api_toggling_media.h" // Api::ToggleFavedSticker
+ #include "api/api_premium.h"
++#include "tele/tele_pin_sets.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_window.h"
+@@ -3126,7 +3127,9 @@ void StickersListWidget::refreshMySets() {
+ 	refreshRecentStickers(false);
+ 	refreshMegagroupStickers(GroupStickersPlace::Visible);
+ 
+-	for (const auto setId : defaultSetsOrder()) {
++	for (const auto setId : Tele::PinnedSetsFirst(
++			&session(),
++			defaultSetsOrder())) {
+ 		const auto externalLayout = false;
+ 		appendSet(_mySets, setId, externalLayout, AppendSkip::Archived);
+ 	}
+diff --git a/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp b/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp
+index 65fc07c80b80b2ee8a8a737eb00c1bca1b5506de..2e98bae86486e25baf2c4117b857befe6357b3b1 100644
+--- a/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp
++++ b/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp
+@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "mainwindow.h"
+ #include "apiwrap.h"
++#include "tele/tele_pin_sets.h"
+ #include "styles/style_chat_helpers.h"
+ 
+ namespace ChatHelpers {
+@@ -1024,7 +1025,8 @@ bool TabbedSelector::preventAutoHide() const {
+ 	return (hasStickersTab() && stickers()->preventAutoHide())
+ 		|| (hasMasksTab() && masks()->preventAutoHide())
+ 		|| (hasEmojiTab() && emoji()->preventAutoHide())
+-		|| hasMenu();
++		|| hasMenu()
++		|| Tele::PinSetMenuShown(this);
+ }
+ 
+ bool TabbedSelector::hasMenu() const {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 8e2d38cdfb490dc838e62ea83671f217cfc44c93..41134ea96b21ef893784db5297a4bec19c572aae 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1888,6 +1888,7 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionEmojiPanelClick,
+ 		{ u"hover"_q, u"stickers"_q, u"gifs"_q });
++	AddOptionToggle(builder, ::Tele::kOptionPinSets, { u"sticker"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionAttachMenuClick,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index ee5e91a0b8844733a83eeec40df849c6e7afa789..7b61ecf5f65cb879d3c18850df2e29cf20bba380 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -45,6 +45,7 @@ const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
+ const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
+ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
+ const char kOptionAttachMenuClick[] = "tele-attach-menu-click";
++const char kOptionPinSets[] = "tele-pin-sets";
+ const char kOptionShowGiftIds[] = "tele-show-gift-ids";
+ const char kOptionShowRegularGiftIds[] = "tele-show-regular-gift-ids";
+ const char kOptionSeeTgButton[] = "tele-seetg-button";
+@@ -358,6 +359,12 @@ base::options::toggle AttachMenuClickOption({
+ 	.description = "Applies to chats opened after the change.",
+ });
+ 
++base::options::toggle PinSetsOption({
++	.id = kOptionPinSets,
++	.name = "Pin sticker and emoji sets",
++	.description = "Right-click a set in the panel footer.",
++});
++
+ base::options::toggle ShowGiftIdsOption({
+ 	.id = kOptionShowGiftIds,
+ 	.name = "IDs on collectible gifts",
+@@ -1018,6 +1025,14 @@ bool AttachMenuClick() {
+ 	return AttachMenuClickOption.value();
+ }
+ 
++bool PinSets() {
++	return PinSetsOption.value();
++}
++
++rpl::producer<> PinSetsChanges() {
++	return PinSetsOption.changes();
++}
++
+ bool ShowGiftIds() {
+ 	return ShowGiftIdsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 61fda25282fb0b8976a6cbb571fcb1cbd7f71ae1..f12cdf3637f1623401ae179f8e09b952130188c4 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -41,6 +41,7 @@ extern const char kOptionHideMentionsButton[];
+ extern const char kOptionHideReactionsButton[];
+ extern const char kOptionEmojiPanelClick[];
+ extern const char kOptionAttachMenuClick[];
++extern const char kOptionPinSets[];
+ extern const char kOptionShowGiftIds[];
+ extern const char kOptionShowRegularGiftIds[];
+ extern const char kOptionSeeTgButton[];
+@@ -160,6 +161,8 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] rpl::producer<> HideReactionsButtonChanges();
+ [[nodiscard]] bool EmojiPanelClick();
+ [[nodiscard]] bool AttachMenuClick();
++[[nodiscard]] bool PinSets();
++[[nodiscard]] rpl::producer<> PinSetsChanges();
+ [[nodiscard]] bool ShowGiftIds();
+ [[nodiscard]] bool ShowRegularGiftIds();
+ [[nodiscard]] bool SeeTgButton();
+diff --git a/Telegram/SourceFiles/tele/tele_pin_sets.cpp b/Telegram/SourceFiles/tele/tele_pin_sets.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b68586c9e1643934e859d2be6617a6bee57e099b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_pin_sets.cpp
+@@ -0,0 +1,330 @@
++#include "tele/tele_pin_sets.h"
++
++#include "data/data_session.h"
++#include "data/stickers/data_stickers.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/storage_account.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/widgets/popup_menu.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++using namespace Storage::details;
++
++constexpr auto kMagic = quint32(0x7E1E5E75);
++constexpr auto kVersion = qint32(1);
++constexpr auto kMaxSets = 4096;
++
++enum class Kind : uchar {
++	Stickers,
++	Emoji,
++};
++constexpr auto kKinds = 2;
++
++QPointer<Ui::PopupMenu> ShownMenu;
++
++class State final : public base::has_weak_ptr {
++public:
++	explicit State(not_null<Main::Session*> session);
++	~State();
++
++	[[nodiscard]] static not_null<State*> Get(
++		not_null<Main::Session*> session);
++
++	[[nodiscard]] const QList<uint64> &ordered(
++		Kind kind,
++		const QList<uint64> &order);
++	[[nodiscard]] std::vector<uint64> shown(Kind kind);
++	void toggle(Kind kind, uint64 setId);
++	void move(Kind kind, uint64 setId, int delta);
++
++private:
++	[[nodiscard]] static base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &Registry();
++
++	[[nodiscard]] QString folder() const;
++	[[nodiscard]] const QList<uint64> &order(Kind kind) const;
++	void load();
++	void read();
++	void write() const;
++	void changed(Kind kind);
++	void notify(Kind kind) const;
++
++	const not_null<Main::Session*> _session;
++	std::array<std::vector<uint64>, kKinds> _pinned;
++	std::array<QList<uint64>, kKinds> _ordered;
++	bool _loaded = false;
++	rpl::lifetime _lifetime;
++
++};
++
++State::State(not_null<Main::Session*> session)
++: _session(session) {
++	Registry().emplace(session, this);
++
++	PinSetsChanges(
++	) | rpl::on_next([=] {
++		notify(Kind::Stickers);
++		notify(Kind::Emoji);
++	}, _lifetime);
++}
++
++State::~State() {
++	Registry().remove(_session);
++}
++
++base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &State::Registry() {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>>();
++	return result;
++}
++
++not_null<State*> State::Get(not_null<Main::Session*> session) {
++	const auto &registry = Registry();
++	const auto i = registry.find(session);
++	if (i != end(registry)) {
++		return i->second;
++	}
++	return session->lifetime().make_state<State>(session);
++}
++
++QString State::folder() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + '/';
++}
++
++const QList<uint64> &State::order(Kind kind) const {
++	const auto &stickers = _session->data().stickers();
++	return (kind == Kind::Emoji)
++		? stickers.emojiSetsOrder()
++		: stickers.setsOrder();
++}
++
++void State::load() {
++	if (!_loaded) {
++		_loaded = true;
++		read();
++	}
++}
++
++void State::read() {
++	auto file = FileReadDescriptor();
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || !ReadEncryptedFile(file, u"tele_pin_sets"_q, folder(), key)) {
++		return;
++	}
++	auto magic = quint32();
++	auto version = qint32();
++	auto owner = quint64();
++	file.stream >> magic >> version >> owner;
++	if (file.stream.status() != QDataStream::Ok
++		|| magic != kMagic
++		|| version != kVersion
++		|| owner != _session->uniqueId()) {
++		return;
++	}
++	auto result = std::array<std::vector<uint64>, kKinds>();
++	for (auto &pinned : result) {
++		auto count = quint32();
++		file.stream >> count;
++		if (file.stream.status() != QDataStream::Ok || count > kMaxSets) {
++			return;
++		}
++		pinned.reserve(count);
++		for (auto i = quint32(); i != count; ++i) {
++			auto id = quint64();
++			file.stream >> id;
++			if (file.stream.status() != QDataStream::Ok) {
++				return;
++			} else if (!ranges::contains(pinned, uint64(id))) {
++				pinned.push_back(id);
++			}
++		}
++	}
++	_pinned = std::move(result);
++}
++
++void State::write() const {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		return;
++	}
++	auto size = sizeof(quint32) + sizeof(qint32) + sizeof(quint64);
++	for (const auto &pinned : _pinned) {
++		size += sizeof(quint32) + pinned.size() * sizeof(quint64);
++	}
++	auto data = EncryptedDescriptor(size);
++	data.stream
++		<< kMagic
++		<< kVersion
++		<< quint64(_session->uniqueId());
++	for (const auto &pinned : _pinned) {
++		data.stream << quint32(pinned.size());
++		for (const auto id : pinned) {
++			data.stream << quint64(id);
++		}
++	}
++	auto file = FileWriteDescriptor(u"tele_pin_sets"_q, folder());
++	file.writeEncrypted(data, key);
++}
++
++const QList<uint64> &State::ordered(
++		Kind kind,
++		const QList<uint64> &order) {
++	load();
++	const auto &pinned = _pinned[int(kind)];
++	auto &result = _ordered[int(kind)];
++	result.clear();
++	for (const auto id : pinned) {
++		if (order.contains(id)) {
++			result.push_back(id);
++		}
++	}
++	if (result.isEmpty()) {
++		return order;
++	}
++	result.reserve(order.size());
++	for (const auto id : order) {
++		if (!ranges::contains(pinned, id)) {
++			result.push_back(id);
++		}
++	}
++	return result;
++}
++
++std::vector<uint64> State::shown(Kind kind) {
++	load();
++	const auto &all = order(kind);
++	auto result = std::vector<uint64>();
++	for (const auto id : _pinned[int(kind)]) {
++		if (all.contains(id)) {
++			result.push_back(id);
++		}
++	}
++	return result;
++}
++
++void State::toggle(Kind kind, uint64 setId) {
++	load();
++	auto &pinned = _pinned[int(kind)];
++	const auto i = ranges::find(pinned, setId);
++	if (i != end(pinned)) {
++		pinned.erase(i);
++	} else if (pinned.size() < kMaxSets) {
++		pinned.push_back(setId);
++	} else {
++		return;
++	}
++	changed(kind);
++}
++
++void State::move(Kind kind, uint64 setId, int delta) {
++	const auto list = shown(kind);
++	const auto i = ranges::find(list, setId);
++	if (i == end(list)) {
++		return;
++	}
++	const auto index = int(i - begin(list)) + delta;
++	if (index < 0 || index >= int(list.size())) {
++		return;
++	}
++	auto &pinned = _pinned[int(kind)];
++	const auto from = ranges::find(pinned, setId);
++	const auto to = ranges::find(pinned, list[index]);
++	std::iter_swap(from, to);
++	changed(kind);
++}
++
++void State::changed(Kind kind) {
++	write();
++	notify(kind);
++}
++
++void State::notify(Kind kind) const {
++	_session->data().stickers().notifyUpdated((kind == Kind::Emoji)
++		? Data::StickersType::Emoji
++		: Data::StickersType::Stickers);
++}
++
++[[nodiscard]] std::optional<Kind> KindOf(
++		not_null<Main::Session*> session,
++		uint64 setId) {
++	const auto &stickers = session->data().stickers();
++	if (stickers.setsOrder().contains(setId)) {
++		return Kind::Stickers;
++	} else if (stickers.emojiSetsOrder().contains(setId)) {
++		return Kind::Emoji;
++	}
++	return std::nullopt;
++}
++
++} // namespace
++
++const QList<uint64> &PinnedSetsFirst(
++		not_null<Main::Session*> session,
++		const QList<uint64> &order) {
++	const auto state = State::Get(session);
++	if (!PinSets()) {
++		return order;
++	}
++	const auto &stickers = session->data().stickers();
++	if (&order == &stickers.setsOrder()) {
++		return state->ordered(Kind::Stickers, order);
++	} else if (&order == &stickers.emojiSetsOrder()) {
++		return state->ordered(Kind::Emoji, order);
++	}
++	return order;
++}
++
++bool ShowPinSetMenu(
++		not_null<QWidget*> parent,
++		const style::PopupMenu &st,
++		not_null<Main::Session*> session,
++		uint64 setId) {
++	if (!PinSets()) {
++		return false;
++	}
++	const auto kind = KindOf(session, setId);
++	if (!kind) {
++		return false;
++	}
++	const auto state = State::Get(session);
++	const auto list = state->shown(*kind);
++	const auto index = int(ranges::find(list, setId) - begin(list));
++	const auto pinned = (index < int(list.size()));
++	const auto menu = Ui::CreateChild<Ui::PopupMenu>(parent.get(), st);
++	menu->addAction(
++		Lower(pinned ? u"Unpin"_q : u"Pin"_q),
++		crl::guard(state.get(), [=] { state->toggle(*kind, setId); }),
++		pinned ? &st::menuIconUnpin : &st::menuIconPin);
++	if (pinned && index > 0) {
++		menu->addAction(
++			Lower(u"Move left"_q),
++			crl::guard(state.get(), [=] { state->move(*kind, setId, -1); }),
++			&st::menuIconReorder);
++	}
++	if (pinned && index + 1 < int(list.size())) {
++		menu->addAction(
++			Lower(u"Move right"_q),
++			crl::guard(state.get(), [=] { state->move(*kind, setId, 1); }),
++			&st::menuIconReorder);
++	}
++	ShownMenu = menu;
++	menu->popup(QCursor::pos());
++	return true;
++}
++
++bool PinSetMenuShown(not_null<const QWidget*> selector) {
++	const auto menu = ShownMenu.data();
++	return menu && selector->isAncestorOf(menu->parentWidget());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_pin_sets.h b/Telegram/SourceFiles/tele/tele_pin_sets.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..b78ad2762bf22d080b6ebb3c00fdf6b4f566ac1b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_pin_sets.h
+@@ -0,0 +1,23 @@
++#pragma once
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace style {
++struct PopupMenu;
++} // namespace style
++
++namespace Tele {
++
++[[nodiscard]] const QList<uint64> &PinnedSetsFirst(
++	not_null<Main::Session*> session,
++	const QList<uint64> &order);
++[[nodiscard]] bool ShowPinSetMenu(
++	not_null<QWidget*> parent,
++	const style::PopupMenu &st,
++	not_null<Main::Session*> session,
++	uint64 setId);
++[[nodiscard]] bool PinSetMenuShown(not_null<const QWidget*> selector);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index aa4469beb7d8a5af437d98b3f9cb74965d484344..bb1a3bd86d840ef2b3c6a8a11f9e32faf2457c9a 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -122,6 +122,7 @@ struct Spec {
+ 		Toggle(kOptionHideReactionsButton),
+ 		Toggle(kOptionEmojiPanelClick),
+ 		Toggle(kOptionAttachMenuClick),
++		Toggle(kOptionPinSets),
+ 		Toggle(kOptionShowGiftIds),
+ 		Toggle(kOptionShowRegularGiftIds),
+ 		Toggle(kOptionSeeTgButton),

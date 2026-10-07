@@ -187,7 +187,7 @@ index ee42faab20b039a07644c60cb67292777f2d25d3..fd16672872cda51f4aeb2f4239792338
  	Ui::AddDivider(content);
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index ab170d4adc6cfd45635a61f19a0d34b78c5e5236..ac179dcc5e41fdf61deda28d84b4235693e4ce2d 100644
+index 8f0dba04e7649271c518ccbebf15266ae1c1455c..e5468c25b9ac16e91c59790f5ef48dd09d13a29f 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -25,6 +25,8 @@ const char kOptionHideProxySponsor[] = "tele-hide-proxy-sponsor";
@@ -221,7 +221,7 @@ index ab170d4adc6cfd45635a61f19a0d34b78c5e5236..ac179dcc5e41fdf61deda28d84b42356
  base::options::toggle ShowGiftIdsOption({
  	.id = kOptionShowGiftIds,
  	.name = "Show gift IDs",
-@@ -484,6 +501,22 @@ bool JumpToFirst() {
+@@ -483,6 +500,22 @@ bool JumpToFirst() {
  	return JumpToFirstOption.value();
  }
  

@@ -1,0 +1,369 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Fri, 2 Oct 2026 20:54:49 +0300
+Subject: [PATCH] feat: page keys in lists and safer box edges
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/core/application.cpp     |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |   6 +
+ Telegram/SourceFiles/tele/tele_list_keys.cpp  | 207 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_list_keys.h    |   7 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  18 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 8 files changed, 245 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_list_keys.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_list_keys.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index ec01e59d8b4f64e3a7a5981e86c64b27f5de792e..dbade0413979b38c0cff00fe5f44b53f77e52847 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2333,6 +2333,8 @@ PRIVATE
+     tele/tele_inline_via.h
+     tele/tele_kept_store.cpp
+     tele/tele_kept_store.h
++    tele/tele_list_keys.cpp
++    tele/tele_list_keys.h
+     tele/tele_local_drafts.cpp
+     tele/tele_local_drafts.h
+     tele/tele_local_folders.cpp
+diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
+index bf909aae3d4294c40fa123ded6498ddcfbbbefac..b98f168354b99710a77fc576f9444fb7aabaafd8 100644
+--- a/Telegram/SourceFiles/core/application.cpp
++++ b/Telegram/SourceFiles/core/application.cpp
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_changelog.h"
+ #include "tele/tele_badges.h"
+ #include "tele/tele_reduce_motion.h"
++#include "tele/tele_list_keys.h"
+ #include "tele/tele_counters.h"
+ 
+ #include <QtCore/QStandardPaths>
+@@ -358,6 +359,7 @@ void Application::run() {
+ 	Tele::StartChangelog();
+ 	Tele::StartBadges();
+ 	Tele::StartReduceMotion();
++	Tele::StartListKeys();
+ 
+ 	if (MediaControlsManager::Supported()) {
+ 		_mediaControlsManager = std::make_unique<MediaControlsManager>();
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 239db30261a825f659f744585942f00f3f03e50d..14be39f87f5a0ffec6bdfc5fa29737cf10cbaae1 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2481,6 +2481,12 @@ void FillInterface(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Text"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionLowercase);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Scrolling"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionListKeys,
++		{ u"page up"_q, u"page down"_q, u"keyboard"_q, u"misclick"_q });
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chat list"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideAllChats);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideCommunities);
+diff --git a/Telegram/SourceFiles/tele/tele_list_keys.cpp b/Telegram/SourceFiles/tele/tele_list_keys.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..561e346a04687467df10483a40746bbfaf315290
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_list_keys.cpp
+@@ -0,0 +1,207 @@
++#include "tele/tele_list_keys.h"
++
++#include "history/view/history_view_list_widget.h"
++#include "tele/tele_options.h"
++#include "ui/layers/layer_widget.h"
++#include "ui/widgets/elastic_scroll.h"
++#include "ui/widgets/scroll_area.h"
++#include "window/section_widget.h"
++
++#include <QtCore/QPointer>
++#include <QtGui/QCursor>
++#include <QtWidgets/QApplication>
++
++namespace Tele {
++namespace {
++
++constexpr auto kEdgeSkip = 24;
++
++class Filter final : public QObject {
++public:
++	using QObject::QObject;
++
++protected:
++	bool eventFilter(QObject *watched, QEvent *event) override;
++
++private:
++	bool handleKey(not_null<QWidget*> widget, not_null<QKeyEvent*> e);
++	bool handleMouse(not_null<QWidget*> widget, not_null<QMouseEvent*> e);
++
++};
++
++[[nodiscard]] bool IsListKey(not_null<QKeyEvent*> e) {
++	const auto key = e->key();
++	const auto modifiers = e->modifiers()
++		& ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
++	return (modifiers == Qt::NoModifier)
++		&& (key == Qt::Key_PageUp
++			|| key == Qt::Key_PageDown
++			|| key == Qt::Key_Home
++			|| key == Qt::Key_End);
++}
++
++[[nodiscard]] bool InSection(not_null<QWidget*> widget) {
++	for (auto w = widget->parentWidget(); w; w = w->parentWidget()) {
++		if (dynamic_cast<Window::SectionWidget*>(w)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++template <typename Scroll>
++[[nodiscard]] bool Suitable(not_null<Scroll*> scroll) {
++	return scroll->isVisible()
++		&& (scroll->scrollTopMax() > 0)
++		&& !dynamic_cast<HistoryView::ListWidget*>(scroll->widget());
++}
++
++[[nodiscard]] bool Suitable(not_null<QWidget*> widget, bool section) {
++	if (section && !InSection(widget)) {
++		return false;
++	} else if (const auto area = dynamic_cast<Ui::ScrollArea*>(
++			widget.get())) {
++		return Suitable(not_null(area));
++	} else if (const auto elastic = dynamic_cast<Ui::ElasticScroll*>(
++			widget.get())) {
++		return Suitable(not_null(elastic));
++	}
++	return false;
++}
++
++template <typename Scroll>
++void ScrollByKey(not_null<Scroll*> scroll, int key) {
++	const auto top = scroll->scrollTop();
++	const auto max = scroll->scrollTopMax();
++	const auto page = scroll->height();
++	scroll->scrollToY((key == Qt::Key_Home)
++		? 0
++		: (key == Qt::Key_End)
++		? max
++		: (key == Qt::Key_PageUp)
++		? std::max(top - page, 0)
++		: std::min(top + page, max));
++}
++
++void ScrollByKey(not_null<QWidget*> widget, int key) {
++	if (const auto area = dynamic_cast<Ui::ScrollArea*>(widget.get())) {
++		ScrollByKey(not_null(area), key);
++	} else if (const auto elastic = dynamic_cast<Ui::ElasticScroll*>(
++			widget.get())) {
++		ScrollByKey(not_null(elastic), key);
++	}
++}
++
++[[nodiscard]] QWidget *FindUp(
++		QWidget *from,
++		not_null<QWidget*> bound,
++		bool section) {
++	if (!from || (from != bound && !bound->isAncestorOf(from))) {
++		return nullptr;
++	}
++	for (auto w = from; w; w = w->parentWidget()) {
++		if (Suitable(w, section)) {
++			return w;
++		} else if (w == bound) {
++			break;
++		}
++	}
++	return nullptr;
++}
++
++[[nodiscard]] QWidget *FindLargest(not_null<QWidget*> bound) {
++	auto result = (QWidget*)nullptr;
++	for (const auto child : bound->findChildren<QWidget*>()) {
++		if (Suitable(child, false)
++			&& (!result || child->height() > result->height())) {
++			result = child;
++		}
++	}
++	return result;
++}
++
++bool Filter::eventFilter(QObject *watched, QEvent *event) {
++	const auto type = event->type();
++	if (type != QEvent::KeyPress
++		&& type != QEvent::MouseButtonPress
++		&& type != QEvent::MouseButtonDblClick) {
++		return false;
++	}
++	const auto widget = qobject_cast<QWidget*>(watched);
++	if (!widget) {
++		return false;
++	} else if (type == QEvent::KeyPress) {
++		return handleKey(widget, static_cast<QKeyEvent*>(event));
++	}
++	return handleMouse(widget, static_cast<QMouseEvent*>(event));
++}
++
++bool Filter::handleKey(not_null<QWidget*> widget, not_null<QKeyEvent*> e) {
++	if (!IsListKey(e)) {
++		return false;
++	}
++	const auto stack = dynamic_cast<Ui::LayerStackWidget*>(widget.get());
++	const auto layer = stack ? stack->topShownLayer() : nullptr;
++	const auto section = !stack;
++	const auto bound = layer
++		? const_cast<Ui::LayerWidget*>(layer)
++		: section
++		? widget.get()
++		: nullptr;
++	if (!bound || (section && !widget->isWindow())) {
++		return false;
++	}
++	auto scroll = FindUp(
++		QApplication::widgetAt(QCursor::pos()),
++		bound,
++		section);
++	if (!scroll) {
++		scroll = FindUp(QApplication::focusWidget(), bound, section);
++	}
++	if (!scroll && !section) {
++		scroll = FindLargest(bound);
++	}
++	if (!scroll) {
++		return false;
++	}
++	ScrollByKey(scroll, e->key());
++	e->accept();
++	return true;
++}
++
++bool Filter::handleMouse(
++		not_null<QWidget*> widget,
++		not_null<QMouseEvent*> e) {
++	const auto stack = dynamic_cast<Ui::LayerStackWidget*>(widget.get());
++	const auto layer = stack ? stack->topShownLayer() : nullptr;
++	if (!layer || !layer->isVisible()) {
++		return false;
++	}
++	const auto skip = style::ConvertScale(kEdgeSkip);
++	const auto rect = QRect(
++		layer->mapToGlobal(QPoint()),
++		layer->size()
++	).marginsAdded({ skip, skip, skip, skip });
++	if (!rect.contains(e->globalPos())) {
++		return false;
++	}
++	e->accept();
++	return true;
++}
++
++} // namespace
++
++void StartListKeys() {
++	static auto lifetime = rpl::lifetime();
++	static auto filter = QPointer<QObject>();
++	ListKeysValue() | rpl::on_next([](bool enabled) {
++		if (!enabled) {
++			delete filter.data();
++		} else if (!filter) {
++			filter = new Filter(qApp);
++			qApp->installEventFilter(filter);
++		}
++	}, lifetime);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_list_keys.h b/Telegram/SourceFiles/tele/tele_list_keys.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..effab9f7d9c7d7fd0ff045ec3ac4c4911682c926
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_list_keys.h
+@@ -0,0 +1,7 @@
++#pragma once
++
++namespace Tele {
++
++void StartListKeys();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 030d181cd4497aab0070aac62efd3de79002b678..0401455b3d82e3b90f19c9c6fcf578967ffa4bed 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -51,6 +51,7 @@ const char kOptionHideListPreviews[] = "tele-hide-list-previews";
+ const char kOptionChatListNoReorderAnimation[] = "tele-chat-list-no-reorder-animation";
+ const char kOptionReduceMotion[] = "tele-reduce-motion";
+ const char kOptionReduceMotionSaved[] = "tele-reduce-motion-saved";
++const char kOptionListKeys[] = "tele-list-keys";
+ const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
+ const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
+ const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
+@@ -478,6 +479,13 @@ base::options::option<QString> ReduceMotionSavedOption({
+ 		"turned off.",
+ });
+ 
++base::options::toggle ListKeysOption({
++	.id = kOptionListKeys,
++	.name = "Easier scrolling in lists",
++	.description = "Page Up, Page Down, Home and End scroll boxes and "
++		"sections, and a click just outside a box doesn't close it.",
++});
++
+ base::options::toggle StaticUserpicsChatsOption({
+ 	.id = kOptionStaticUserpicsChats,
+ 	.name = "Static userpics in chats and profiles",
+@@ -1652,6 +1660,16 @@ void SetReduceMotionSaved(const QString &value) {
+ 	ReduceMotionSavedOption.set(value);
+ }
+ 
++rpl::producer<bool> ListKeysValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ListKeysOption.changes()
++	) | rpl::map([] {
++		return ListKeysOption.value();
++	});
++}
++
+ bool StaticUserpicsChats() {
+ 	return StaticUserpicsChatsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index f8a01009433c444a76319185d23ee0feec3509ad..5c313c92cecae68066a8dde8ed03bda11bed0e34 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -45,6 +45,7 @@ extern const char kOptionHideListPreviews[];
+ extern const char kOptionChatListNoReorderAnimation[];
+ extern const char kOptionReduceMotion[];
+ extern const char kOptionReduceMotionSaved[];
++extern const char kOptionListKeys[];
+ extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionHideMentionsButton[];
+@@ -251,6 +252,7 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] rpl::producer<> ReduceMotionChanges();
+ [[nodiscard]] QString ReduceMotionSaved();
+ void SetReduceMotionSaved(const QString &value);
++[[nodiscard]] rpl::producer<bool> ListKeysValue();
+ [[nodiscard]] bool StaticUserpicsChats();
+ [[nodiscard]] rpl::producer<> StaticUserpicsChatsChanges();
+ [[nodiscard]] bool HideMentionsButton();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 2a55ee0329632b674eb16d166dcfad74c11dcaf8..96796702885992c6bcb9bc53505c40140680fa88 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -128,6 +128,7 @@ struct Spec {
+ 		Toggle(kOptionHideListPreviews),
+ 		Toggle(kOptionChatListNoReorderAnimation),
+ 		Toggle(kOptionReduceMotion),
++		Toggle(kOptionListKeys),
+ 		Toggle(kOptionLocalFolders),
+ 		Toggle(kOptionUnsortedFolder),
+ 		Toggle(kOptionSelectChats),

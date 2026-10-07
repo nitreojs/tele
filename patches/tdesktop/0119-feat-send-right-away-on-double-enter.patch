@@ -1,0 +1,246 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 21:26:06 +0300
+Subject: [PATCH] feat: send right away on double enter
+
+---
+ .../SourceFiles/history/history_widget.cpp    |  5 +-
+ .../history_view_compose_controls.cpp         |  4 ++
+ .../SourceFiles/settings/settings_tele.cpp    |  5 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 10 ++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 +
+ Telegram/SourceFiles/tele/tele_send_order.cpp | 49 ++++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_send_order.h   |  1 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 8 files changed, 75 insertions(+), 2 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 8b50b3f47c3defe68dbaefb5092a50774ceca4ff..4b6df68606b24c104a5a2c0a7c4e4f4733ca6edc 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -177,6 +177,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_emoji_panel.h"
+ #include "tele/tele_inline_text.h"
++#include "tele/tele_send_order.h"
+ #include "media/audio/media_audio.h"
+ #include "media/audio/media_audio_capture.h"
+ #include "media/player/media_player_instance.h"
+@@ -472,7 +473,9 @@ HistoryWidget::HistoryWidget(
+ 	_reportMessages->addClickHandler([=] { reportSelectedMessages(); });
+ 	_field->submits(
+ 	) | rpl::on_next([=](Qt::KeyboardModifiers modifiers) {
+-		sendWithModifiers(modifiers);
++		if (!Tele::SendHeldOnDoubleEnter(_history, _field->empty())) {
++			sendWithModifiers(modifiers);
++		}
+ 	}, _field->lifetime());
+ 	_field->cancelled(
+ 	) | rpl::on_next([=] {
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 6c05a5e5929471d645d9428d2cc1994624490ed7..813c4b9d01228fe1ae63cd504575c28176f3a778 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_docked_media.h"
+ #include "tele/tele_emoji_panel.h"
+ #include "tele/tele_inline_text.h"
++#include "tele/tele_send_order.h"
+ #include "support/support_helper.h"
+ #include "ui/item_text_options.h"
+ #include "ui/text/text_options.h"
+@@ -3172,6 +3173,9 @@ void ComposeControls::initField() {
+ 	updateSubmitSettings();
+ 	_field->submits(
+ 	) | rpl::on_next([=](Qt::KeyboardModifiers modifiers) {
++		if (Tele::SendHeldOnDoubleEnter(_history, _field->empty())) {
++			return;
++		}
+ 		// Classify each submit once, before anyone handles it: a send
+ 		// clears the field, so checking emptiness later would see an
+ 		// empty field and send once more (marking as read).
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 3a720274fc9946d07faddbde912a6d7b3eafdb21..8e747a31e4968abf6ff4c866b514afb974ae8eb9 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1934,6 +1934,11 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionSendOlderReplies,
+ 		{ u"reply"_q, u"queue"_q },
+ 		::Tele::kOptionQueueBehindMedia);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionDoubleEnterSend,
++		{ u"queue"_q },
++		::Tele::kOptionQueueBehindMedia);
+ 	AddOptionToggle(builder, ::Tele::kOptionPunctualScheduled);
+ 	AddOptionToggle(builder, ::Tele::kOptionHdPhotos);
+ 	AddOptionToggle(
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index c12ac3347220d6f760c3d38483fce14ba27613d7..fe38469030ae60a6b800609f103cd8286d578729 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -80,6 +80,7 @@ const char kOptionMessageMenuLayout[] = "tele-message-menu";
+ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
+ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ const char kOptionSendOlderReplies[] = "tele-send-older-replies";
++const char kOptionDoubleEnterSend[] = "tele-double-enter-send";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionPunctualScheduled[] = "tele-punctual-scheduled";
+@@ -567,6 +568,11 @@ base::options::toggle SendOlderRepliesOption({
+ 	.description = "Older than the uploading media.",
+ });
+ 
++base::options::toggle DoubleEnterSendOption({
++	.id = kOptionDoubleEnterSend,
++	.name = "Send right away on double Enter",
++});
++
+ base::options::toggle InlineWithoutViaOption({
+ 	.id = kOptionInlineWithoutVia,
+ 	.name = "Send inline results without via",
+@@ -1281,6 +1287,10 @@ rpl::producer<> SendOlderRepliesChanges() {
+ 	return SendOlderRepliesOption.changes();
+ }
+ 
++bool DoubleEnterSend() {
++	return DoubleEnterSendOption.value();
++}
++
+ bool InlineWithoutVia() {
+ 	return InlineWithoutViaOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 0e2e3133385b94156796bd8259a4a411d9aa98be..4efddfc799c58e5dab363ec28843b9fc6efb8c84 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -76,6 +76,7 @@ extern const char kOptionMessageMenuLayout[];
+ extern const char kOptionSentToBottom[];
+ extern const char kOptionQueueBehindMedia[];
+ extern const char kOptionSendOlderReplies[];
++extern const char kOptionDoubleEnterSend[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionPunctualScheduled[];
+@@ -211,6 +212,7 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] rpl::producer<> QueueBehindMediaChanges();
+ [[nodiscard]] bool SendOlderReplies();
+ [[nodiscard]] rpl::producer<> SendOlderRepliesChanges();
++[[nodiscard]] bool DoubleEnterSend();
+ [[nodiscard]] bool InlineWithoutVia();
+ [[nodiscard]] bool NoRichPastePrompt();
+ [[nodiscard]] bool PunctualScheduled();
+diff --git a/Telegram/SourceFiles/tele/tele_send_order.cpp b/Telegram/SourceFiles/tele/tele_send_order.cpp
+index 5dd28474eb9e395be0f7f5c11a680ba28709599e..d18599c4698ffe5b22068d7c4ddd9db81bae0930 100644
+--- a/Telegram/SourceFiles/tele/tele_send_order.cpp
++++ b/Telegram/SourceFiles/tele/tele_send_order.cpp
+@@ -12,6 +12,8 @@
+ #include "storage/file_upload.h"
+ #include "tele/tele_options.h"
+ 
++#include <QtWidgets/QApplication>
++
+ namespace Tele {
+ namespace {
+ 
+@@ -134,6 +136,7 @@ struct Held {
+ 	not_null<History*> history;
+ 	std::vector<FullMsgId> ids;
+ 	FullMsgId reply;
++	crl::time at = 0;
+ 	Fn<void()> send;
+ };
+ 
+@@ -147,6 +150,8 @@ struct QueueState {
+ 	QueueState();
+ 
+ 	base::flat_map<not_null<Main::Session*>, Queue> sessions;
++	crl::time lastEnter = 0;
++	bool releasing = false;
+ 	rpl::lifetime lifetime;
+ };
+ 
+@@ -394,7 +399,7 @@ bool HoldBehindMedia(
+ 		uint64 randomId,
+ 		const Data::Histories::PreparedMessage &message,
+ 		Fn<void()> send) {
+-	if (!QueueBehindMedia()) {
++	if (!QueueBehindMedia() || Queues().releasing) {
+ 		return false;
+ 	}
+ 	const auto session = &history->session();
+@@ -425,9 +430,51 @@ bool HoldBehindMedia(
+ 		.history = history,
+ 		.ids = std::move(ids),
+ 		.reply = reply,
++		.at = crl::now(),
+ 		.send = std::move(send),
+ 	});
+ 	return true;
+ }
+ 
++bool SendHeldOnDoubleEnter(History *history, bool empty) {
++	auto &state = Queues();
++	const auto now = crl::now();
++	const auto since = std::exchange(state.lastEnter, now);
++	if (!history
++		|| !empty
++		|| !DoubleEnterSend()
++		|| !QueueBehindMedia()
++		|| (now - since > QApplication::doubleClickInterval())) {
++		return false;
++	}
++	const auto session = &history->session();
++	const auto i = state.sessions.find(session);
++	if (i == end(state.sessions)) {
++		return false;
++	}
++	auto &held = i->second.held;
++	auto taken = std::vector<Held>();
++	for (auto j = begin(held); j != end(held);) {
++		if (j->history == history && j->at >= since) {
++			taken.push_back(std::move(*j));
++			j = held.erase(j);
++		} else {
++			++j;
++		}
++	}
++	if (taken.empty()) {
++		return false;
++	}
++	state.lastEnter = 0;
++	state.releasing = true;
++	for (const auto &entry : taken) {
++		if (AnyAlive(entry)) {
++			entry.send();
++		}
++	}
++	state.releasing = false;
++	Schedule(session);
++	return true;
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_send_order.h b/Telegram/SourceFiles/tele/tele_send_order.h
+index 1aa68c75b576255ac3a096400d99222c65ff8143..32d6d51bf268c7d37340c96857d49649bd30192d 100644
+--- a/Telegram/SourceFiles/tele/tele_send_order.h
++++ b/Telegram/SourceFiles/tele/tele_send_order.h
+@@ -14,5 +14,6 @@ void MoveSentToBottom(not_null<HistoryItem*> item);
+ 	uint64 randomId,
+ 	const Data::Histories::PreparedMessage &message,
+ 	Fn<void()> send);
++[[nodiscard]] bool SendHeldOnDoubleEnter(History *history, bool empty);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 17b8c8b2a91c2bc85f1672a8944aa1acad3dff84..fc7333aab5545af34b83cc85677a9bb227c6cd34 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -150,6 +150,7 @@ struct Spec {
+ 		Toggle(kOptionSentToBottom),
+ 		Toggle(kOptionQueueBehindMedia),
+ 		Toggle(kOptionSendOlderReplies),
++		Toggle(kOptionDoubleEnterSend),
+ 		Toggle(kOptionInlineWithoutVia),
+ 		Toggle(kOptionNoRichPastePrompt),
+ 		Toggle(kOptionPunctualScheduled),

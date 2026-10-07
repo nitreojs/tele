@@ -1,0 +1,1061 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 19:04:17 +0300
+Subject: [PATCH] feat: markdown renders as you type
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/boxes/edit_caption_box.cpp    |   8 +-
+ Telegram/SourceFiles/boxes/send_files_box.cpp |   7 +-
+ .../chat_helpers/message_field.cpp            |   4 +
+ .../SourceFiles/history/history_widget.cpp    |  16 +-
+ .../history_view_compose_controls.cpp         |   4 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ .../SourceFiles/tele/tele_live_markdown.cpp   | 672 ++++++++++++++++++
+ .../SourceFiles/tele/tele_live_markdown.h     |  24 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  19 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 12 files changed, 750 insertions(+), 13 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_live_markdown.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_live_markdown.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index b4eaac3745f5322dca47918fac32721b98ac214e..3635d262f1b71b2a5e5ee539706b38c39ee5a2a4 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2462,6 +2462,8 @@ PRIVATE
+     tele/tele_list_dates.h
+     tele/tele_list_previews.cpp
+     tele/tele_list_previews.h
++    tele/tele_live_markdown.cpp
++    tele/tele_live_markdown.h
+     tele/tele_name_badges.cpp
+     tele/tele_name_badges.h
+     tele/tele_options.cpp
+diff --git a/Telegram/SourceFiles/boxes/edit_caption_box.cpp b/Telegram/SourceFiles/boxes/edit_caption_box.cpp
+index b9d33d7db237ec6cc6207a52f70fcbf36b3ec12c..81a649ba1af2732354c8b6cef728f820c20e1ed1 100644
+--- a/Telegram/SourceFiles/boxes/edit_caption_box.cpp
++++ b/Telegram/SourceFiles/boxes/edit_caption_box.cpp
+@@ -51,6 +51,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "platform/platform_specific.h"
+ #include "storage/localimageloader.h" // SendMediaType
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_live_markdown.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/attach/attach_item_single_file_preview.h"
+ #include "ui/chat/attach/attach_item_single_media_preview.h"
+@@ -591,6 +592,7 @@ void EditCaptionBox::setupField() {
+ 		},
+ 		.allowPremiumEmoji = allow,
+ 	});
++	Tele::SetupLiveQuotes(_field.get());
+ 	setupFieldAutocomplete();
+ 	Ui::Emoji::SuggestionsController::Init(
+ 		getDelegate()->outerContainer(),
+@@ -695,7 +697,7 @@ void EditCaptionBox::setInitialText() {
+ 	_field->setTextCursor(cursor);
+ 
+ 	_checkChangedTimer.setCallback([=] {
+-		if (_field->getTextWithAppliedMarkdown() == _initialText
++		if (Tele::LiveMarkdownText(_field.get()) == _initialText
+ 			&& _preparedList.files.empty()) {
+ 			setCloseByOutsideClick(true);
+ 		}
+@@ -1301,7 +1303,7 @@ void EditCaptionBox::save() {
+ 		return;
+ 	}
+ 
+-	const auto textWithTags = _field->getTextWithAppliedMarkdown();
++	const auto textWithTags = Tele::LiveMarkdownText(_field.get());
+ 	if (!validateLength(textWithTags.text)) {
+ 		return;
+ 	}
+@@ -1340,7 +1342,7 @@ void EditCaptionBox::save() {
+ 		_controller->session().api().editMedia(
+ 			std::move(_preparedList),
+ 			(compressed ? SendMediaType::Photo : SendMediaType::File),
+-			_field->getTextWithAppliedMarkdown(),
++			Tele::LiveMarkdownText(_field.get()),
+ 			action);
+ 		closeAfterSave();
+ 		return;
+diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
+index 8c5c2dcd9b28ee327f17d3c3cbc7e5108f7279b6..5e8fdc5f65ed562a7b254b032fead4afb6f6c05d 100644
+--- a/Telegram/SourceFiles/boxes/send_files_box.cpp
++++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/mime_type.h"
+ #include "core/ui_integration.h"
+ #include "tele/tele_gif_video.h"
++#include "tele/tele_live_markdown.h"
+ #include "tele/tele_audio_voice.h"
+ #include "tele/tele_drafts_compose.h"
+ #include "tele/tele_link_rewrites.h"
+@@ -251,6 +252,7 @@ void EditFileCaptionBox(
+ 				.allowPremiumEmoji = allow,
+ 				.fieldStyle = &st.files.caption,
+ 			});
++			Tele::SetupLiveQuotes(field);
+ 			const auto aiButton = Ui::SetupCaptionAiButton({
+ 				.parent = field->parentWidget(),
+ 				.field = field,
+@@ -273,7 +275,7 @@ void EditFileCaptionBox(
+ 		field->setFocusFast();
+ 	});
+ 	const auto save = [=] {
+-		const auto text = field->getTextWithAppliedMarkdown();
++		const auto text = Tele::LiveMarkdownText(field);
+ 		if (!apply(text)) {
+ 			return;
+ 		}
+@@ -2049,6 +2051,7 @@ void SendFilesBox::setupCaption() {
+ 		.allowPremiumEmoji = allow,
+ 		.fieldStyle = &_st.files.caption,
+ 	});
++	Tele::SetupLiveQuotes(_caption.data());
+ 	setupCaptionAutocomplete();
+ 	Ui::Emoji::SuggestionsController::Init(
+ 		getDelegate()->outerContainer(),
+@@ -2172,7 +2175,7 @@ void SendFilesBox::setupCaptionAutocomplete() {
+ 
+ TextWithTags SendFilesBox::fieldText() const {
+ 	return !_caption->isHidden()
+-		? _caption->getTextWithAppliedMarkdown()
++		? Tele::LiveMarkdownText(_caption.data())
+ 		: TextWithTags();
+ }
+ 
+diff --git a/Telegram/SourceFiles/chat_helpers/message_field.cpp b/Telegram/SourceFiles/chat_helpers/message_field.cpp
+index 24086b0eafcc572bf9d9950229efc184f21c22c1..7012bd080f2e5c3f1a37b87eb507192eddeaff23 100644
+--- a/Telegram/SourceFiles/chat_helpers/message_field.cpp
++++ b/Telegram/SourceFiles/chat_helpers/message_field.cpp
+@@ -49,6 +49,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/settings_common.h"
+ #include "settings/sections/settings_premium.h"
+ #include "tele/tele_link_rewrites.h"
++#include "tele/tele_live_markdown.h"
+ #include "tele/tele_username_aliases.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_boxes.h"
+@@ -599,6 +600,9 @@ auto InitMessageFieldHandlers(MessageFieldHandlersArgs &&args)
+ 		const auto colorIndex = session->user()->colorIndex();
+ 		return style->coloredQuoteCache(false, colorIndex).get();
+ 	});
++	if (args.allowTypedMarkdown && !args.instantMarkdown) {
++		Tele::SetupLiveMarkdown(field, style, session);
++	}
+ 	return style;
+ }
+ 
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 6aeb6a81fdb023060ad35bfdda70f28294cb05e8..cd7f5d364b3a79cc06f8b070d3a7a72658e932ee 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -170,6 +170,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula_preview.h"
+ #include "tele/tele_calcmula_inline.h"
+ #include "tele/tele_link_previews.h"
++#include "tele/tele_live_markdown.h"
+ #include "tele/tele_translate_out.h"
+ #include "tele/tele_calls.h"
+ #include "tele/tele_start_param.h"
+@@ -708,6 +709,7 @@ HistoryWidget::HistoryWidget(
+ 		showPremiumToast(document);
+ 		return false;
+ 	});
++	Tele::SetupLiveQuotes(_field);
+ 	InitMessageFieldFade(_field, st::historyComposeField.textBg);
+ 
+ 	setupFastButtonMode();
+@@ -1690,7 +1692,7 @@ void HistoryWidget::showRichEditor() {
+ 				window,
+ 				item,
+ 				prepareSendAction({}),
+-				_field->getTextWithAppliedMarkdown(),
++				Tele::LiveMarkdownText(_field),
+ 				crl::guard(this, [=] {
+ 					cancelEdit();
+ 				}));
+@@ -1712,7 +1714,7 @@ void HistoryWidget::showRichEditor() {
+ 		_history->peer,
+ 		prepareSendAction({}),
+ 		sendMenuDetails(),
+-		_field->getTextWithAppliedMarkdown(),
++		Tele::LiveMarkdownText(_field),
+ 		crl::guard(this, [=] {
+ 			if (support) {
+ 				migrateSupportFieldToRichEditor();
+@@ -3764,7 +3766,7 @@ void HistoryWidget::refreshAttachBotsMenu() {
+ 		[=] { return sendMenuDetails(); },
+ 		[=](bool compress) { chooseAttach(compress); },
+ 		crl::guard(this, [=] {
+-			return _field->getTextWithAppliedMarkdown();
++			return Tele::LiveMarkdownText(_field);
+ 		}),
+ 		crl::guard(this, [=] {
+ 			migrateFieldToRichEditor();
+@@ -5476,7 +5478,7 @@ void HistoryWidget::windowIsVisibleChanged() {
+ }
+ 
+ TextWithEntities HistoryWidget::prepareTextForEditMsg() const {
+-	const auto textWithTags = _field->getTextWithAppliedMarkdown();
++	const auto textWithTags = Tele::LiveMarkdownText(_field);
+ 	const auto prepareFlags = Ui::ItemTextOptions(
+ 		_history,
+ 		session().user()).flags;
+@@ -5833,7 +5835,7 @@ void HistoryWidget::send(Api::SendOptions options) {
+ 		auto action = Api::SendAction(_history, options);
+ 		action.replyTo = replyTo();
+ 		auto message = Api::MessageToSend(std::move(action));
+-		message.textWithTags = _field->getTextWithAppliedMarkdown();
++		message.textWithTags = Tele::LiveMarkdownText(_field);
+ 		if (!session().ephemeralMessages().wouldSend(message)
+ 			&& showSlowmodeError()) {
+ 			return;
+@@ -5845,7 +5847,7 @@ void HistoryWidget::send(Api::SendOptions options) {
+ 	}
+ 
+ 	sendTextWithTags(
+-		_field->getTextWithAppliedMarkdown(),
++		Tele::LiveMarkdownText(_field),
+ 		true,
+ 		options,
+ 		nullptr);
+@@ -6072,7 +6074,7 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
+ 	if (shownRichMessage()
+ 		? showSendRichDraftError(ignoreSlowmodeCountdown)
+ 		: showSendMessageError(
+-			_field->getTextWithAppliedMarkdown(),
++			Tele::LiveMarkdownText(_field),
+ 			ignoreSlowmodeCountdown)) {
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 248f82fc032c3d297bd239685d089486b099b590..d46f4b1b98cfe98c3edd7ee59376b5db451608e1 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula_preview.h"
+ #include "tele/tele_calcmula_inline.h"
+ #include "tele/tele_link_previews.h"
++#include "tele/tele_live_markdown.h"
+ #include "tele/tele_translate_out.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_rich_quote.h"
+@@ -2558,7 +2559,7 @@ void ComposeControls::showForGrab() {
+ }
+ 
+ TextWithTags ComposeControls::getTextWithAppliedMarkdown() const {
+-	return _field->getTextWithAppliedMarkdown();
++	return Tele::LiveMarkdownText(_field);
+ }
+ 
+ void ComposeControls::clear(bool keepReply) {
+@@ -3309,6 +3310,7 @@ void ComposeControls::initField() {
+ 		}
+ 		return false;
+ 	});
++	Tele::SetupLiveQuotes(_field);
+ 	InitMessageFieldFade(_field, _st.field.textBg);
+ 	_field->setEditLinkCallback(
+ 		DefaultEditLinkCallback(_show, _field, &_st.boxField));
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c719e1f100f08c0868ca4217c8c85ab80eed8fc0..8d8a96342b68d76062b6b18ad793bb1044f61d0a 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3179,6 +3179,10 @@ void FillSending(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionNoRichPastePrompt,
+ 		{ u"formatted"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionLiveMarkdown,
++		{ u"markdown"_q, u"bold"_q, u"italic"_q, u"code block"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionHideGiftButton,
+diff --git a/Telegram/SourceFiles/tele/tele_live_markdown.cpp b/Telegram/SourceFiles/tele/tele_live_markdown.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..cdbad6fbaae89167530052abeda42fa4965acdc5
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_live_markdown.cpp
+@@ -0,0 +1,672 @@
++#include "tele/tele_live_markdown.h"
++
++#include "base/event_filter.h"
++#include "base/qt_signal_producer.h"
++#include "data/data_user.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++#include "ui/chat/chat_style.h"
++#include "ui/text/text.h"
++#include "ui/text/text_entity.h"
++#include "ui/widgets/fields/input_field.h"
++#include "styles/style_basic.h"
++#include "styles/style_widgets.h"
++
++#include <QtCore/QRegularExpression>
++#include <QtGui/QAbstractTextDocumentLayout>
++#include <QtGui/QPainter>
++#include <QtGui/QTextBlock>
++#include <QtGui/QTextDocument>
++#include <QtGui/QTextLayout>
++#include <QtWidgets/QScrollBar>
++#include <QtWidgets/QTextEdit>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMarkerProperty = QTextFormat::UserProperty + 0x7e1e;
++constexpr auto kSoftLine = QChar(QChar::LineSeparator);
++constexpr auto kHardLine = QChar(QChar::ParagraphSeparator);
++
++using Field = Ui::InputField;
++
++enum class Kind {
++	Dim,
++	Bold,
++	Italic,
++	Strike,
++	Spoiler,
++	Code,
++	Count,
++};
++
++struct Span {
++	int from = 0;
++	int till = 0;
++	Kind kind = Kind::Dim;
++};
++
++struct Area {
++	int from = 0;
++	int till = 0;
++	bool pre = false;
++	bool collapsed = false;
++
++	friend inline bool operator==(const Area &, const Area &) = default;
++};
++
++struct Applied {
++	int from = 0;
++	int till = 0;
++	int open = 0;
++	int close = 0;
++	QString tag;
++};
++
++[[nodiscard]] int QuotePrefix(QStringView line) {
++	const auto size = line.startsWith(u">! "_q)
++		? 3
++		: line.startsWith(u"> "_q)
++		? 2
++		: 0;
++	return (line.size() > size) ? size : 0;
++}
++
++[[nodiscard]] bool IsLineBreak(QChar ch) {
++	return (ch == kSoftLine) || (ch == kHardLine) || (ch == QChar('\n'));
++}
++
++[[nodiscard]] style::QuoteStyle PreStyle(not_null<const Ui::InputField*> field) {
++	auto result = field->st().style.pre;
++	result.header = 0;
++	return result;
++}
++
++[[nodiscard]] int PreLanguageLength(const QString &text, int from, int length) {
++	static const auto expression = QRegularExpression(
++		"^([a-zA-Z0-9\\+\\-]+)[\\r\\n]");
++	const auto match = expression.match(QStringView(text).mid(from, length));
++	return match.hasMatch() ? int(match.capturedLength(1)) : 0;
++}
++
++[[nodiscard]] std::optional<Kind> InnerKind(const QString &tag) {
++	if (tag == Field::kTagBold) {
++		return Kind::Bold;
++	} else if (tag == Field::kTagItalic) {
++		return Kind::Italic;
++	} else if (tag == Field::kTagStrikeOut) {
++		return Kind::Strike;
++	} else if (tag == Field::kTagSpoiler) {
++		return Kind::Spoiler;
++	} else if (tag == Field::kTagCode || tag == Field::kTagPre) {
++		return Kind::Code;
++	}
++	return std::nullopt;
++}
++
++[[nodiscard]] bool IsBlockTag(QStringView id) {
++	for (const auto &tag : TextUtilities::SplitTags(id)) {
++		if (tag == Field::kTagBlockquote
++			|| tag == Field::kTagBlockquoteCollapsed
++			|| tag.startsWith(Field::kTagPre)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] bool Covered(
++		const TextWithTags::Tags &tags,
++		int from,
++		int till) {
++	return ranges::any_of(tags, [&](const TextWithTags::Tag &tag) {
++		return (tag.offset < till) && (tag.offset + tag.length > from);
++	});
++}
++
++[[nodiscard]] std::vector<Applied> AppliedTags(
++		not_null<const Field*> field) {
++	auto result = std::vector<Applied>();
++	const auto &markdown = field->getMarkdownTags();
++	if (!field->markdownEnabledState().typedTagsEnabled()
++		|| markdown.empty()) {
++		return result;
++	}
++	const auto &text = field->getTextWithTags();
++	const auto links = TextUtilities::ParseEntities(text.text, 0).entities;
++	auto original = text.tags.begin();
++	const auto originalEnd = text.tags.end();
++	auto link = links.begin();
++	const auto linksEnd = links.end();
++	auto from = 0;
++	for (const auto &tag : markdown) {
++		const auto edge = int(tag.tag.size());
++		if (!tag.closed
++			|| tag.adjustedStart < from
++			|| tag.adjustedLength <= 2 * edge) {
++			continue;
++		}
++		const auto end = tag.adjustedStart + tag.adjustedLength;
++		while (original != originalEnd
++			&& original->offset + original->length <= tag.adjustedStart) {
++			++original;
++		}
++		if (original != originalEnd && original->offset < end) {
++			continue;
++		}
++		while (link != linksEnd
++			&& link->offset() + link->length() <= tag.adjustedStart) {
++			++link;
++		}
++		if (link != linksEnd
++			&& link->offset() < end
++			&& (link->offset() + link->length() > end
++				|| link->offset() < tag.adjustedStart)) {
++			continue;
++		}
++		const auto language = (tag.tag == Field::kTagPre)
++			? PreLanguageLength(
++				text.text,
++				tag.adjustedStart + edge,
++				tag.adjustedLength - 2 * edge)
++			: 0;
++		result.push_back({
++			.from = tag.internalStart,
++			.till = tag.internalStart + tag.internalLength,
++			.open = edge + language,
++			.close = edge,
++			.tag = tag.tag,
++		});
++		from = end;
++	}
++	return result;
++}
++
++[[nodiscard]] TextWithTags::Tags WithTagAdded(
++		const TextWithTags::Tags &tags,
++		int from,
++		int till,
++		const QString &id) {
++	auto result = TextWithTags::Tags();
++	auto position = from;
++	const auto fill = [&](int upto) {
++		if (upto > position) {
++			result.push_back({ position, upto - position, id });
++			position = upto;
++		}
++	};
++	for (const auto &tag : tags) {
++		const auto start = tag.offset;
++		const auto end = tag.offset + tag.length;
++		if (end <= from || start >= till) {
++			if (start >= till) {
++				fill(till);
++			}
++			result.push_back(tag);
++			continue;
++		}
++		if (start < from) {
++			result.push_back({ start, from - start, tag.id });
++		}
++		const auto a = std::max(start, from);
++		const auto b = std::min(end, till);
++		fill(a);
++		result.push_back({
++			a,
++			b - a,
++			TextUtilities::TagWithAdded(tag.id, id),
++		});
++		position = b;
++		if (end > till) {
++			result.push_back({ till, end - till, tag.id });
++		}
++	}
++	fill(till);
++	return result;
++}
++
++[[nodiscard]] TextWithTags WithQuotes(TextWithTags text) {
++	struct Line {
++		int from = 0;
++		int till = 0;
++		int prefix = 0;
++	};
++	auto lines = std::vector<Line>();
++	const auto &original = text.text;
++	const auto size = int(original.size());
++	for (auto from = 0; from <= size;) {
++		auto till = int(original.indexOf(QChar('\n'), from));
++		if (till < 0) {
++			till = size;
++		}
++		const auto prefix = QuotePrefix(
++			QStringView(original).mid(from, till - from));
++		if (prefix && !Covered(text.tags, from, from + prefix)) {
++			lines.push_back({ from, till, prefix });
++		}
++		from = till + 1;
++	}
++	if (lines.empty()) {
++		return text;
++	}
++	const auto shifted = [&](int position) {
++		auto result = position;
++		for (const auto &line : lines) {
++			if (line.from >= position) {
++				break;
++			}
++			result -= line.prefix;
++		}
++		return result;
++	};
++	auto result = TextWithTags();
++	result.text.reserve(size);
++	auto copied = 0;
++	for (const auto &line : lines) {
++		result.text.append(QStringView(original).mid(copied, line.from - copied));
++		copied = line.from + line.prefix;
++	}
++	result.text.append(QStringView(original).mid(copied));
++	result.tags = std::move(text.tags);
++	for (auto &tag : result.tags) {
++		tag.offset = shifted(tag.offset);
++	}
++	for (auto i = begin(lines); i != end(lines);) {
++		const auto collapsed = (i->prefix == 3);
++		auto j = i + 1;
++		while (j != end(lines)
++			&& j->from == (j - 1)->till + 1
++			&& (j->prefix == 3) == collapsed) {
++			++j;
++		}
++		result.tags = WithTagAdded(
++			result.tags,
++			shifted(i->from + i->prefix),
++			shifted((j - 1)->till),
++			(collapsed
++				? Field::kTagBlockquoteCollapsed
++				: Field::kTagBlockquote));
++		i = j;
++	}
++	result.tags = TextUtilities::SimplifyTags(std::move(result.tags));
++	return result;
++}
++
++class LiveMarkdown final {
++public:
++	LiveMarkdown(
++		not_null<Field*> field,
++		std::shared_ptr<Ui::ChatStyle> style,
++		not_null<Main::Session*> session);
++	~LiveMarkdown();
++
++	void enableQuotes();
++	[[nodiscard]] bool quotes() const;
++
++private:
++	void setup();
++	void prepareFormats();
++	void refresh();
++	void applyFormats(const std::vector<Span> &spans);
++	void collectQuotes(
++		const std::vector<Applied> &applied,
++		std::vector<Span> &spans,
++		std::vector<Area> &areas) const;
++	void paint(not_null<QPaintEvent*> e);
++	[[nodiscard]] int lineTop(int position) const;
++	[[nodiscard]] int lineBottom(int position) const;
++
++	const not_null<Field*> _field;
++	const not_null<QTextDocument*> _document;
++	const std::shared_ptr<Ui::ChatStyle> _style;
++	const not_null<Main::Session*> _session;
++	std::array<QTextCharFormat, int(Kind::Count)> _formats;
++	const style::QuoteStyle _preSt;
++	Ui::Text::QuotePaintCache _preCache;
++	std::vector<Area> _areas;
++	bool _enabled = false;
++	bool _quotes = false;
++	rpl::lifetime _lifetime;
++
++};
++
++base::flat_map<not_null<const Field*>, not_null<LiveMarkdown*>> &Registry() {
++	static auto result = base::flat_map<
++		not_null<const Field*>,
++		not_null<LiveMarkdown*>>();
++	return result;
++}
++
++LiveMarkdown::LiveMarkdown(
++	not_null<Field*> field,
++	std::shared_ptr<Ui::ChatStyle> style,
++	not_null<Main::Session*> session)
++: _field(field)
++, _document(field->document())
++, _style(std::move(style))
++, _session(session)
++, _preSt(PreStyle(field)) {
++	Registry().emplace(_field, this);
++	prepareFormats();
++	setup();
++}
++
++LiveMarkdown::~LiveMarkdown() {
++	Registry().remove(_field);
++}
++
++void LiveMarkdown::enableQuotes() {
++	if (!_quotes) {
++		_quotes = true;
++		refresh();
++	}
++}
++
++bool LiveMarkdown::quotes() const {
++	return _enabled && _quotes;
++}
++
++void LiveMarkdown::setup() {
++	LiveMarkdownValue(
++	) | rpl::on_next([=](bool enabled) {
++		_enabled = enabled;
++		refresh();
++	}, _lifetime);
++
++	style::PaletteChanged(
++	) | rpl::on_next([=] {
++		prepareFormats();
++		refresh();
++	}, _lifetime);
++
++	base::qt_signal_producer(
++		_document.get(),
++		&QTextDocument::contentsChanged
++	) | rpl::on_next([=] {
++		refresh();
++	}, _lifetime);
++
++	const auto viewport = _field->rawTextEdit()->viewport();
++	base::install_event_filter(viewport, [=](not_null<QEvent*> e) {
++		if (e->type() == QEvent::Paint && !_areas.empty()) {
++			paint(static_cast<QPaintEvent*>(e.get()));
++		}
++		return base::EventFilterResult::Continue;
++	}, _lifetime);
++}
++
++void LiveMarkdown::prepareFormats() {
++	const auto &font = _field->st().style.font;
++	const auto make = [&](Kind kind) {
++		auto result = QTextCharFormat();
++		result.setProperty(kMarkerProperty, true);
++		switch (kind) {
++		case Kind::Dim:
++			result.setForeground(_field->st().placeholderFg->c);
++			break;
++		case Kind::Bold:
++			result.setFont(font->bold()->f);
++			break;
++		case Kind::Italic:
++			result.setFont(font->italic()->f);
++			break;
++		case Kind::Strike:
++			result.setFont(font->strikeout()->f);
++			break;
++		case Kind::Spoiler:
++			result.setBackground(st::windowBgOver->c);
++			break;
++		case Kind::Code:
++			result.setFont(font->monospace()->f);
++			result.setForeground(st::defaultTextPalette.monoFg->c);
++			break;
++		case Kind::Count:
++			break;
++		}
++		return result;
++	};
++	for (auto i = 0; i != int(Kind::Count); ++i) {
++		_formats[i] = make(Kind(i));
++	}
++}
++
++void LiveMarkdown::refresh() {
++	auto spans = std::vector<Span>();
++	auto areas = std::vector<Area>();
++	if (_enabled) {
++		const auto applied = AppliedTags(_field);
++		for (const auto &tag : applied) {
++			spans.push_back({ tag.from, tag.from + tag.open, Kind::Dim });
++			if (const auto kind = InnerKind(tag.tag)) {
++				spans.push_back({
++					tag.from + tag.open,
++					tag.till - tag.close,
++					*kind,
++				});
++			}
++			spans.push_back({ tag.till - tag.close, tag.till, Kind::Dim });
++			const auto inner = tag.from + tag.open;
++			const auto outer = tag.till - tag.close - 1;
++			if (tag.tag == Field::kTagPre
++				&& outer > inner + 1
++				&& IsLineBreak(_document->characterAt(inner))
++				&& IsLineBreak(_document->characterAt(outer))) {
++				areas.push_back({ inner + 1, outer, true });
++			}
++		}
++		if (_quotes) {
++			collectQuotes(applied, spans, areas);
++		}
++		ranges::sort(spans, ranges::less(), &Span::from);
++		ranges::sort(areas, ranges::less(), &Area::from);
++	}
++	applyFormats(spans);
++	if (_areas != areas) {
++		_areas = std::move(areas);
++		_field->rawTextEdit()->viewport()->update();
++	}
++}
++
++void LiveMarkdown::collectQuotes(
++		const std::vector<Applied> &applied,
++		std::vector<Span> &spans,
++		std::vector<Area> &areas) const {
++	auto last = -1;
++	for (auto block = _document->begin(); block.isValid(); block = block.next()) {
++		const auto position = block.position();
++		const auto text = block.text();
++		auto blockChecked = false;
++		auto realBlock = false;
++		for (auto from = 0; from <= text.size();) {
++			auto till = int(text.indexOf(kSoftLine, from));
++			if (till < 0) {
++				till = int(text.size());
++			}
++			const auto line = QStringView(text).mid(from, till - from);
++			const auto start = position + from;
++			const auto end = position + till;
++			from = till + 1;
++			const auto prefix = QuotePrefix(line);
++			if (!prefix) {
++				last = -1;
++				continue;
++			}
++			if (!blockChecked) {
++				blockChecked = true;
++				const auto tags = _field->getTextWithTagsPart(
++					position,
++					position + block.length() - 1).tags;
++				realBlock = ranges::any_of(tags, [](const auto &tag) {
++					return IsBlockTag(tag.id);
++				});
++			}
++			const auto inMarkdown = ranges::any_of(applied, [&](
++					const Applied &tag) {
++				return (tag.from < start + prefix) && (tag.till > start);
++			});
++			if (realBlock
++				|| inMarkdown
++				|| !_field->getTextWithTagsPart(
++					start,
++					start + prefix).tags.isEmpty()) {
++				last = -1;
++				continue;
++			}
++			const auto collapsed = (prefix == 3);
++			spans.push_back({ start, start + prefix, Kind::Dim });
++			if (last >= 0
++				&& areas[last].collapsed == collapsed
++				&& areas[last].till + 1 == start) {
++				areas[last].till = end;
++			} else {
++				last = int(areas.size());
++				areas.push_back({ start, end, false, collapsed });
++			}
++		}
++	}
++}
++
++void LiveMarkdown::applyFormats(const std::vector<Span> &spans) {
++	auto span = begin(spans);
++	const auto spansEnd = end(spans);
++	for (auto block = _document->begin(); block.isValid(); block = block.next()) {
++		const auto from = block.position();
++		const auto till = from + block.length() - 1;
++		const auto layout = block.layout();
++		if (!layout) {
++			continue;
++		}
++		const auto preeditStart = layout->preeditAreaPosition();
++		const auto preeditLength = int(layout->preeditAreaText().size());
++		auto existing = layout->formats();
++		auto mine = decltype(existing)();
++		auto others = decltype(existing)();
++		for (const auto &range : existing) {
++			(range.format.hasProperty(kMarkerProperty)
++				? mine
++				: others).push_back(range);
++		}
++		auto wanted = decltype(existing)();
++		while (span != spansEnd && span->till <= from) {
++			++span;
++		}
++		for (auto i = span; i != spansEnd && i->from < till; ++i) {
++			const auto a = std::max(i->from, from) - from;
++			const auto b = std::min(i->till, till) - from;
++			if (b <= a) {
++				continue;
++			}
++			auto range = QTextLayout::FormatRange();
++			range.start = a;
++			range.length = b - a;
++			range.format = _formats[int(i->kind)];
++			if (preeditLength > 0) {
++				if (range.start >= preeditStart) {
++					range.start += preeditLength;
++				} else if (range.start + range.length >= preeditStart) {
++					range.length += preeditLength;
++				}
++			}
++			wanted.push_back(range);
++		}
++		if (mine == wanted) {
++			continue;
++		}
++		others.append(wanted);
++		layout->setFormats(others);
++		_document->markContentsDirty(from, block.length());
++	}
++}
++
++int LiveMarkdown::lineTop(int position) const {
++	const auto block = _document->findBlock(position);
++	const auto rect = _document->documentLayout()->blockBoundingRect(block);
++	const auto layout = block.layout();
++	const auto line = layout
++		? layout->lineForTextPosition(position - block.position())
++		: QTextLine();
++	return int(std::floor(rect.top() + (line.isValid() ? line.y() : 0.)));
++}
++
++int LiveMarkdown::lineBottom(int position) const {
++	const auto block = _document->findBlock(position);
++	const auto rect = _document->documentLayout()->blockBoundingRect(block);
++	const auto layout = block.layout();
++	const auto line = layout
++		? layout->lineForTextPosition(position - block.position())
++		: QTextLine();
++	const auto next = line.lineNumber() + 1;
++	return (line.isValid() && next < layout->lineCount())
++		? int(std::ceil(rect.top() + layout->lineAt(next).y()))
++		: int(std::ceil(rect.bottom()));
++}
++
++void LiveMarkdown::paint(not_null<QPaintEvent*> e) {
++	const auto raw = _field->rawTextEdit();
++	const auto viewport = raw->viewport();
++	const auto shift = -raw->verticalScrollBar()->value();
++	const auto clip = e->rect();
++	auto p = std::optional<QPainter>();
++	for (const auto &area : _areas) {
++		const auto top = lineTop(area.from) + shift;
++		const auto bottom = lineBottom(std::max(area.till, area.from))
++			+ shift;
++		const auto rect = QRect(0, top, viewport->width(), bottom - top);
++		if (rect.isEmpty() || !rect.intersects(clip)) {
++			continue;
++		}
++		if (!p) {
++			p.emplace(viewport);
++		}
++		const auto &st = area.pre
++			? _preSt
++			: _field->st().style.blockquote;
++		if (area.pre) {
++			const auto shared = _style->messageStyle(
++				false,
++				false).preCache.get();
++			_preCache.bg = shared->bg;
++			_preCache.outlines = shared->outlines;
++			_preCache.header = shared->header;
++			_preCache.icon = shared->icon;
++		}
++		const auto cache = area.pre
++			? &_preCache
++			: _style->coloredQuoteCache(
++				false,
++				_session->user()->colorIndex()).get();
++		Ui::Text::ValidateQuotePaintCache(*cache, st);
++		Ui::Text::FillQuotePaint(*p, rect, *cache, st, {
++			.expandIcon = area.collapsed,
++		});
++	}
++}
++
++} // namespace
++
++void SetupLiveMarkdown(
++		not_null<Ui::InputField*> field,
++		std::shared_ptr<Ui::ChatStyle> style,
++		not_null<Main::Session*> session) {
++	field->lifetime().make_state<LiveMarkdown>(
++		field,
++		std::move(style),
++		session);
++}
++
++void SetupLiveQuotes(not_null<Ui::InputField*> field) {
++	const auto i = Registry().find(field);
++	if (i != end(Registry())) {
++		i->second->enableQuotes();
++	}
++}
++
++TextWithTags LiveMarkdownText(not_null<const Ui::InputField*> field) {
++	auto result = field->getTextWithAppliedMarkdown();
++	const auto i = Registry().find(field);
++	return (i != end(Registry()) && i->second->quotes())
++		? WithQuotes(std::move(result))
++		: result;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_live_markdown.h b/Telegram/SourceFiles/tele/tele_live_markdown.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..2d61b77a24559954377247864b94f8552784d401
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_live_markdown.h
+@@ -0,0 +1,24 @@
++#pragma once
++
++struct TextWithTags;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class ChatStyle;
++class InputField;
++} // namespace Ui
++
++namespace Tele {
++
++void SetupLiveMarkdown(
++	not_null<Ui::InputField*> field,
++	std::shared_ptr<Ui::ChatStyle> style,
++	not_null<Main::Session*> session);
++void SetupLiveQuotes(not_null<Ui::InputField*> field);
++[[nodiscard]] TextWithTags LiveMarkdownText(
++	not_null<const Ui::InputField*> field);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index ec9dcc94a6d06c560bea5c248ad91f55fc647777..71ff2c3876bf8426697e9055afa67d30887fd07c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -137,6 +137,7 @@ const char kOptionStartParam[] = "tele-start-param";
+ const char kOptionHideBotEdited[] = "tele-hide-bot-edited";
+ const char kOptionTrustedAppLinks[] = "tele-trusted-app-links";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
++const char kOptionLiveMarkdown[] = "tele-live-markdown";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+ const char kOptionSilentPerChat[] = "tele-silent-per-chat";
+@@ -1024,6 +1025,14 @@ base::options::toggle NoRichPastePromptOption({
+ 	.name = "No rich message prompt on paste",
+ });
+ 
++base::options::toggle LiveMarkdownOption({
++	.id = kOptionLiveMarkdown,
++	.name = "Render markdown as you type",
++	.description = "**Bold**, __italic__, ~~strike~~, ||spoiler||, `code` and "
++		"``` blocks keep their markers but look formatted. Lines starting "
++		"with > are sent as quotes, with >! as expandable quotes.",
++});
++
+ base::options::toggle HideGiftButtonOption({
+ 	.id = kOptionHideGiftButton,
+ 	.name = "Hide the gift button in the message field",
+@@ -2549,6 +2558,16 @@ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+ 
++rpl::producer<bool> LiveMarkdownValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		LiveMarkdownOption.changes()
++	) | rpl::map([] {
++		return LiveMarkdownOption.value();
++	});
++}
++
+ bool HideGiftButton() {
+ 	return HideGiftButtonOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index e0af5e52a2680f669825d1aa1a79299621015e08..f2726c86f84150b13b0c4f0c288a54c75fa39076 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -132,6 +132,7 @@ extern const char kOptionStartParam[];
+ extern const char kOptionHideBotEdited[];
+ extern const char kOptionTrustedAppLinks[];
+ extern const char kOptionNoRichPastePrompt[];
++extern const char kOptionLiveMarkdown[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+ extern const char kOptionSilentPerChat[];
+@@ -416,6 +417,7 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] rpl::producer<> HideBotEditedChanges();
+ [[nodiscard]] bool TrustedAppLinks();
+ [[nodiscard]] bool NoRichPastePrompt();
++[[nodiscard]] rpl::producer<bool> LiveMarkdownValue();
+ [[nodiscard]] bool HideGiftButton();
+ [[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+ [[nodiscard]] bool SilentByDefault();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 8510ce14e296f2dce40558b6c0e8054e1f4b75d2..ad6174320296be87de16f90cbbedcf3e61422289 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -213,6 +213,7 @@ struct Spec {
+ 		Toggle(kOptionDoubleEnterSend),
+ 		Toggle(kOptionInlineWithoutVia),
+ 		Toggle(kOptionNoRichPastePrompt),
++		Toggle(kOptionLiveMarkdown),
+ 		Toggle(kOptionHideGiftButton),
+ 		Toggle(kOptionSilentByDefault),
+ 		Toggle(kOptionSilentPerChat),

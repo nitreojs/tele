@@ -1,0 +1,306 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 05:48:44 +0300
+Subject: [PATCH] feat: reduce motion
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ Telegram/SourceFiles/core/application.cpp     |  2 +
+ .../view/history_view_emoji_interactions.cpp  |  4 ++
+ .../view/reactions/history_view_reactions.cpp |  4 ++
+ .../SourceFiles/settings/settings_tele.cpp    |  6 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 32 +++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  6 ++
+ .../SourceFiles/tele/tele_reduce_motion.cpp   | 72 +++++++++++++++++++
+ .../SourceFiles/tele/tele_reduce_motion.h     |  7 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  2 +
+ 10 files changed, 137 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_reduce_motion.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_reduce_motion.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 2e40043eac649dc54d0042356c1800354900fbf4..5bd6be5d9e6ccc1938be74d142d188d7489d8dc4 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2367,6 +2367,8 @@ PRIVATE
+     tele/tele_read_log.h
+     tele/tele_recent_emoji.cpp
+     tele/tele_recent_emoji.h
++    tele/tele_reduce_motion.cpp
++    tele/tele_reduce_motion.h
+     tele/tele_rich_timestamps.cpp
+     tele/tele_rich_timestamps.h
+     tele/tele_rmb_beside_bubble.cpp
+diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
+index 62875dcfb2c6b41b9feff6af1862bdc30bd69b23..bf909aae3d4294c40fa123ded6498ddcfbbbefac 100644
+--- a/Telegram/SourceFiles/core/application.cpp
++++ b/Telegram/SourceFiles/core/application.cpp
+@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_updater.h"
+ #include "tele/tele_changelog.h"
+ #include "tele/tele_badges.h"
++#include "tele/tele_reduce_motion.h"
+ #include "tele/tele_counters.h"
+ 
+ #include <QtCore/QStandardPaths>
+@@ -356,6 +357,7 @@ void Application::run() {
+ 	Tele::StartUpdater();
+ 	Tele::StartChangelog();
+ 	Tele::StartBadges();
++	Tele::StartReduceMotion();
+ 
+ 	if (MediaControlsManager::Supported()) {
+ 		_mediaControlsManager = std::make_unique<MediaControlsManager>();
+diff --git a/Telegram/SourceFiles/history/view/history_view_emoji_interactions.cpp b/Telegram/SourceFiles/history/view/history_view_emoji_interactions.cpp
+index 0c4d384765be47a16aad39907d1a6a2577ab82c2..cbe4d4f0eff46eae4acdda2b45fe1566fe0c5aea 100644
+--- a/Telegram/SourceFiles/history/view/history_view_emoji_interactions.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_emoji_interactions.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "base/random.h"
+ #include "ui/power_saving.h"
+ #include "ui/ui_utility.h"
++#include "tele/tele_options.h"
+ 
+ namespace HistoryView {
+ namespace {
+@@ -173,6 +174,9 @@ void EmojiInteractions::playEffectOnRead(not_null<const Element*> view) {
+ }
+ 
+ void EmojiInteractions::playEffect(not_null<const Element*> view) {
++	if (Tele::ReduceMotion()) {
++		return;
++	}
+ 	if (const auto resolved = resolveEffect(view)) {
+ 		playEffect(view, resolved);
+ 	} else if (view->data()->effectId()) {
+diff --git a/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp b/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp
+index e16d927a1016b36d5404d521e048c2f4404906f5..93623fda2cc760b074cd07744319a7ea16fd03ac 100644
+--- a/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp
++++ b/Telegram/SourceFiles/history/view/reactions/history_view_reactions.cpp
+@@ -29,6 +29,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/painter.h"
+ #include "ui/rect.h"
+ #include "ui/power_saving.h"
++#include "tele/tele_options.h"
+ #include "tele/tele_shot_sharp.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+@@ -831,6 +832,9 @@ void InlineList::clickHandlerPressedChanged(
+ void InlineList::animate(
+ 		Ui::ReactionFlyAnimationArgs &&args,
+ 		Fn<void()> repaint) {
++	if (Tele::ReduceMotion()) {
++		return;
++	}
+ 	const auto i = ranges::find(_buttons, args.id, &Button::id);
+ 	if (i == end(_buttons)) {
+ 		return;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 427ca5e96442cf6ba0741b9f1e864e599cc8d343..6630f1ba86a6ddfb53ed75daff0d7fb6f1d68644 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1965,6 +1965,12 @@ void FillInterface(SectionBuilder &builder) {
+ 		::Tele::kOptionScaleOnePercent,
+ 		{ u"zoom"_q, u"size"_q, u"interface"_q });
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Animations"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionReduceMotion,
++		{ u"effects"_q, u"reactions"_q, u"power"_q, u"battery"_q });
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Text"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionLowercase);
+ 	AddSkip(builder);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 4edca38d74050be4b87b6d9e48cb1a40205efbb0..2b39103cbeb389dd5f876c58f95e0210d1186e23 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -46,6 +46,8 @@ const char kOptionJumpToFirst[] = "tele-jump-to-first";
+ const char kOptionStaticUserpicsList[] = "tele-static-userpics-list";
+ const char kOptionHideListPreviews[] = "tele-hide-list-previews";
+ const char kOptionChatListNoReorderAnimation[] = "tele-chat-list-no-reorder-animation";
++const char kOptionReduceMotion[] = "tele-reduce-motion";
++const char kOptionReduceMotionSaved[] = "tele-reduce-motion-saved";
+ const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
+ const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
+ const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
+@@ -390,6 +392,20 @@ base::options::toggle ChatListNoReorderAnimationOption({
+ 		"a chat is pressed.",
+ });
+ 
++base::options::toggle ReduceMotionOption({
++	.id = kOptionReduceMotion,
++	.name = "Reduce motion",
++	.description = "Switches on every limit in Battery and animations and "
++		"stops sticker loops until it's turned off.",
++});
++
++base::options::option<QString> ReduceMotionSavedOption({
++	.id = kOptionReduceMotionSaved,
++	.name = "Reduce motion saved state",
++	.description = "Animation settings to restore when reduce motion is "
++		"turned off.",
++});
++
+ base::options::toggle StaticUserpicsChatsOption({
+ 	.id = kOptionStaticUserpicsChats,
+ 	.name = "Static userpics in chats and profiles",
+@@ -1232,6 +1248,22 @@ bool ChatListNoReorderAnimation() {
+ 	return ChatListNoReorderAnimationOption.value();
+ }
+ 
++bool ReduceMotion() {
++	return ReduceMotionOption.value();
++}
++
++rpl::producer<> ReduceMotionChanges() {
++	return ReduceMotionOption.changes();
++}
++
++QString ReduceMotionSaved() {
++	return ReduceMotionSavedOption.value();
++}
++
++void SetReduceMotionSaved(const QString &value) {
++	ReduceMotionSavedOption.set(value);
++}
++
+ bool StaticUserpicsChats() {
+ 	return StaticUserpicsChatsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index f95c5153fa639e19c75bdbffeaf608d5ae0d8b60..9e4dadc6225c42c24ab9be96ba9ca02b60f554bb 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -40,6 +40,8 @@ extern const char kOptionJumpToFirst[];
+ extern const char kOptionStaticUserpicsList[];
+ extern const char kOptionHideListPreviews[];
+ extern const char kOptionChatListNoReorderAnimation[];
++extern const char kOptionReduceMotion[];
++extern const char kOptionReduceMotionSaved[];
+ extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionHideMentionsButton[];
+@@ -189,6 +191,10 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] bool HideListPreviews();
+ [[nodiscard]] rpl::producer<> HideListPreviewsChanges();
+ [[nodiscard]] bool ChatListNoReorderAnimation();
++[[nodiscard]] bool ReduceMotion();
++[[nodiscard]] rpl::producer<> ReduceMotionChanges();
++[[nodiscard]] QString ReduceMotionSaved();
++void SetReduceMotionSaved(const QString &value);
+ [[nodiscard]] bool StaticUserpicsChats();
+ [[nodiscard]] rpl::producer<> StaticUserpicsChatsChanges();
+ [[nodiscard]] bool HideMentionsButton();
+diff --git a/Telegram/SourceFiles/tele/tele_reduce_motion.cpp b/Telegram/SourceFiles/tele/tele_reduce_motion.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..8daec75973bfc0cb64e20f099caf40602f20f079
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reduce_motion.cpp
+@@ -0,0 +1,72 @@
++#include "tele/tele_reduce_motion.h"
++
++#include "core/application.h"
++#include "core/core_settings.h"
++#include "tele/tele_options.h"
++#include "ui/power_saving.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kMotionFlags = PowerSaving::Flags(PowerSaving::kAnimations)
++	| PowerSaving::kStickersPanel
++	| PowerSaving::kStickersChat
++	| PowerSaving::kEmojiPanel
++	| PowerSaving::kEmojiReactions
++	| PowerSaving::kEmojiChat
++	| PowerSaving::kEmojiStatus
++	| PowerSaving::kChatBackground
++	| PowerSaving::kChatSpoiler
++	| PowerSaving::kChatEffects;
++
++void Apply() {
++	if (!ReduceMotionSaved().isEmpty()) {
++		return;
++	}
++	auto &settings = Core::App().settings();
++	const auto current = PowerSaving::Current();
++	SetReduceMotionSaved(u"%1 %2"_q
++		.arg((current & kMotionFlags).value())
++		.arg(settings.loopAnimatedStickers() ? 1 : 0));
++	PowerSaving::Set(current | kMotionFlags);
++	settings.setLoopAnimatedStickers(false);
++	Core::App().saveSettingsDelayed();
++}
++
++void Restore() {
++	const auto saved = ReduceMotionSaved().split(' ');
++	if (saved.size() != 2) {
++		SetReduceMotionSaved(QString());
++		return;
++	}
++	auto &settings = Core::App().settings();
++	const auto previous = PowerSaving::Flags::from_raw(saved[0].toUInt());
++	const auto current = PowerSaving::Current();
++	PowerSaving::Set((current & ~kMotionFlags)
++		| (current & previous & kMotionFlags));
++	if (!settings.loopAnimatedStickers()) {
++		settings.setLoopAnimatedStickers(saved[1] == u"1"_q);
++	}
++	SetReduceMotionSaved(QString());
++	Core::App().saveSettingsDelayed();
++}
++
++void Sync() {
++	if (ReduceMotion()) {
++		Apply();
++	} else if (!ReduceMotionSaved().isEmpty()) {
++		Restore();
++	}
++}
++
++} // namespace
++
++void StartReduceMotion() {
++	static auto lifetime = rpl::lifetime();
++	Sync();
++	ReduceMotionChanges() | rpl::on_next([] {
++		Sync();
++	}, lifetime);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_reduce_motion.h b/Telegram/SourceFiles/tele/tele_reduce_motion.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4125dff15541ce2044c0af82fa47df55742376a8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_reduce_motion.h
+@@ -0,0 +1,7 @@
++#pragma once
++
++namespace Tele {
++
++void StartReduceMotion();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index e124b6a32454124f5bcc86d28afa18aa2e8234fb..9cc1ad360ac4b428ad802144323843ad16a8ef52 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -122,6 +122,7 @@ struct Spec {
+ 		Toggle(kOptionStaticUserpicsList),
+ 		Toggle(kOptionHideListPreviews),
+ 		Toggle(kOptionChatListNoReorderAnimation),
++		Toggle(kOptionReduceMotion),
+ 		Toggle(kOptionLocalFolders),
+ 		Toggle(kOptionStaticUserpicsChats),
+ 		Toggle(kOptionHideMentionsButton),
+@@ -230,6 +231,7 @@ struct Spec {
+ 		Internal(kOptionShotView),
+ 		Internal(kOptionViewerLoop),
+ 		Internal(kOptionTitleBuildHash),
++		Internal(kOptionReduceMotionSaved),
+ 	};
+ 	return result;
+ }

@@ -1,0 +1,5834 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 3 Oct 2026 15:40:06 +0300
+Subject: [PATCH] feat: gift grid builder
+
+---
+ Telegram/CMakeLists.txt                       |   10 +
+ .../SourceFiles/settings/settings_tele.cpp    |   42 +
+ .../tele/tele_gift_fake_upgrade.cpp           |    8 +
+ .../SourceFiles/tele/tele_gift_fake_upgrade.h |    5 +
+ Telegram/SourceFiles/tele/tele_gift_grid.cpp  | 1270 +++++++++++++++++
+ Telegram/SourceFiles/tele/tele_gift_grid.h    |   15 +
+ .../SourceFiles/tele/tele_gift_grid_cell.cpp  |  735 ++++++++++
+ .../SourceFiles/tele/tele_gift_grid_cell.h    |  181 +++
+ .../tele/tele_gift_grid_editor.cpp            | 1089 ++++++++++++++
+ .../SourceFiles/tele/tele_gift_grid_editor.h  |   45 +
+ .../tele/tele_gift_grid_export.cpp            |  908 ++++++++++++
+ .../SourceFiles/tele/tele_gift_grid_export.h  |   45 +
+ Telegram/SourceFiles/tele/tele_gift_list.cpp  |   22 +-
+ Telegram/SourceFiles/tele/tele_gift_list.h    |    2 +
+ .../SourceFiles/tele/tele_gift_studio.cpp     |  468 +-----
+ .../tele/tele_gift_studio_export.cpp          |   28 +-
+ .../tele/tele_gift_studio_export.h            |    7 +
+ .../tele/tele_gift_studio_store.cpp           |   49 +-
+ .../SourceFiles/tele/tele_gift_studio_store.h |   10 +
+ .../tele/tele_gift_studio_widgets.cpp         |  415 ++++++
+ .../tele/tele_gift_studio_widgets.h           |   97 ++
+ 21 files changed, 4998 insertions(+), 453 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_cell.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_editor.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_export.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_export.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index effa3cfb06c42fe80f658bdd96fb012b14713652..c0af0924a9f6ce9062ef41fc4a8887a8ec210f50 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2317,6 +2317,14 @@ PRIVATE
+     tele/tele_gif_video.h
+     tele/tele_gift_fake_upgrade.cpp
+     tele/tele_gift_fake_upgrade.h
++    tele/tele_gift_grid.cpp
++    tele/tele_gift_grid.h
++    tele/tele_gift_grid_cell.cpp
++    tele/tele_gift_grid_cell.h
++    tele/tele_gift_grid_editor.cpp
++    tele/tele_gift_grid_editor.h
++    tele/tele_gift_grid_export.cpp
++    tele/tele_gift_grid_export.h
+     tele/tele_gift_quantity.cpp
+     tele/tele_gift_quantity.h
+     tele/tele_gift_roll_number.cpp
+@@ -2343,6 +2351,8 @@ PRIVATE
+     tele/tele_gift_studio_sweep.h
+     tele/tele_gift_studio_video.cpp
+     tele/tele_gift_studio_video.h
++    tele/tele_gift_studio_widgets.cpp
++    tele/tele_gift_studio_widgets.h
+     tele/tele_gift_list.cpp
+     tele/tele_gift_list.h
+     tele/tele_gift_search.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 06b7e54944095b3ed633e9cc5bbf8653a606da00..0fc52d6ae022aadbe3867ec39b9f62d0b6eb5f2f 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -30,6 +30,7 @@
+ #include "tele/tele_drafts.h"
+ #include "tele/tele_drafts_box.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_gift_grid.h"
+ #include "tele/tele_gift_studio.h"
+ #include "tele/tele_hidden_words.h"
+ #include "tele/tele_ignored.h"
+@@ -2398,6 +2399,46 @@ void AddGiftStudio(SectionBuilder &builder) {
+ 	AddAbout(builder, id, description);
+ }
+ 
++void AddGiftGrid(SectionBuilder &builder) {
++	const auto id = u"tele-gift-grid"_q;
++	const auto controller = builder.controller();
++	const auto offline = ::Tele::OfflineForLaunch();
++	const auto button = AddButton(builder, {
++		.id = id,
++		.title = rpl::single(::Tele::Lower(u"Gift grid"_q)),
++		.st = &st::settingsButtonNoIcon,
++		.onClick = [=] {
++			if (!::Tele::OfflineForLaunch()) {
++				::Tele::ShowGiftGrid(controller, nullptr);
++			}
++		},
++		.keywords = {
++			u"grid"_q,
++			u"profile"_q,
++			u"gifts"_q,
++			u"studio"_q,
++		},
++	});
++	if (button) {
++		SetupLink(button, id);
++		if (offline) {
++			rpl::single(rpl::empty) | rpl::then(
++				style::PaletteChanged()
++			) | rpl::on_next([=] {
++				button->setDisabled(true);
++				button->setColorOverride(st::windowSubTextFg->c);
++			}, button->lifetime());
++		}
++	}
++	if (offline) {
++		AddAbout(
++			builder,
++			id,
++			::Tele::Lower(u"Off for this launch: it downloads the parts "
++				"from api.changes.tg."_q));
++	}
++}
++
+ void ChooseIconFile(
+ 		not_null<Window::SessionController*> controller,
+ 		::Tele::IconSlot slot) {
+@@ -3306,6 +3347,7 @@ void FillProfiles(SectionBuilder &builder) {
+ 		::Tele::kOptionGiftSelect,
+ 		{ u"bulk"_q, u"hide"_q, u"transfer"_q, u"pin"_q });
+ 	AddGiftStudio(builder);
++	AddGiftGrid(builder);
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionGiftStudioMenu,
+diff --git a/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.cpp b/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.cpp
+index 21d22bd6db465c529403ed399a6f86e68de6025c..8e988b641fbb73c2b3fe893b52b24bd40fe70fcd 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.cpp
+@@ -463,4 +463,12 @@ void ClearFakeUpgrades(not_null<Main::Session*> session) {
+ 	}
+ }
+ 
++void RequestGiftCatalog(
++		not_null<Main::Session*> session,
++		Fn<void(const std::vector<Data::StarGift>&)> done) {
++	RequestCatalog(session, [=] {
++		done(StateFor(session).catalog);
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.h b/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.h
+index 6aa6ded316f0fe07b72023239f9c1d6f6b1b69cf..e2676712324fcb0b96dc58120574077d8a357465 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.h
++++ b/Telegram/SourceFiles/tele/tele_gift_fake_upgrade.h
+@@ -7,6 +7,7 @@ class Show;
+ namespace Data {
+ struct CreditsHistoryEntry;
+ struct GiftUpgradeResult;
++struct StarGift;
+ struct UniqueGift;
+ class SavedStarGiftId;
+ } // namespace Data
+@@ -46,4 +47,8 @@ void AddFakeUpgradeAction(
+ 	not_null<Main::Session*> session);
+ void ClearFakeUpgrades(not_null<Main::Session*> session);
+ 
++void RequestGiftCatalog(
++	not_null<Main::Session*> session,
++	Fn<void(const std::vector<Data::StarGift>&)> done);
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid.cpp b/Telegram/SourceFiles/tele/tele_gift_grid.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ad120ed7e28f2a20410de94bb20a1bbfa45eea18
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid.cpp
+@@ -0,0 +1,1270 @@
++#include "tele/tele_gift_grid.h"
++
++#include "chat_helpers/compose/compose_show.h"
++#include "core/application.h"
++#include "core/file_utilities.h"
++#include "data/data_star_gift.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "settings/settings_common.h"
++#include "tele/tele_gift_grid_cell.h"
++#include "tele/tele_gift_grid_editor.h"
++#include "tele/tele_gift_grid_export.h"
++#include "tele/tele_gift_studio_export.h"
++#include "tele/tele_gift_studio_video.h"
++#include "tele/tele_gift_studio_widgets.h"
++#include "tele/tele_launch_flags.h"
++#include "tele/tele_lowercase.h"
++#include "ui/layers/generic_box.h"
++#include "ui/painter.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/checkbox.h"
++#include "ui/widgets/discrete_sliders.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/wrap/slide_wrap.h"
++#include "ui/wrap/vertical_layout.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_credits.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++#include "styles/style_widgets.h"
++
++#include <QtCore/QBuffer>
++#include <QtCore/QFile>
++#include <QtCore/QJsonArray>
++#include <QtGui/QClipboard>
++#include <QtGui/QGuiApplication>
++#include <QtWidgets/QApplication>
++
++#include <atomic>
++
++namespace Tele {
++namespace {
++
++using namespace GiftGrid;
++using GiftStudio::SavedGrid;
++
++constexpr auto kMaxRows = 50;
++constexpr auto kDefaultScale = 2;
++constexpr auto kScales = std::array{ 1, 2, 3, 4 };
++
++enum class Background {
++	Transparent,
++	Profile,
++};
++
++[[nodiscard]] QJsonArray SerializeCells(const std::vector<Cell> &cells) {
++	auto result = QJsonArray();
++	for (const auto &cell : cells) {
++		result.append(SerializeCell(cell));
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<Cell> ParseCells(const QJsonArray &array) {
++	auto result = std::vector<Cell>();
++	for (const auto &value : array) {
++		result.push_back(ParseCell(value.toObject()));
++	}
++	const auto rows = std::clamp(
++		(int(result.size()) + kColumns - 1) / kColumns,
++		1,
++		kMaxRows);
++	result.resize(rows * kColumns);
++	return result;
++}
++
++void PaintPlaceholder(
++		QPainter &p,
++		QRect rect,
++		bool over,
++		const QString &text) {
++	auto hq = PainterHighQualityEnabler(p);
++	const auto color = over
++		? st::windowActiveTextFg->c
++		: st::windowSubTextFg->c;
++	const auto radius = st::giftBoxGiftRadius;
++	auto pen = QPen(color);
++	pen.setWidthF(style::ConvertScaleExact(1.5));
++	pen.setDashPattern({ 4., 3. });
++	p.setPen(pen);
++	p.setBrush(over ? st::windowBgOver->c : QColor(0, 0, 0, 0));
++	const auto half = pen.widthF() / 2.;
++	p.drawRoundedRect(
++		QRectF(rect).marginsRemoved({ half, half, half, half }),
++		radius,
++		radius);
++	if (!text.isEmpty()) {
++		p.setFont(st::normalFont);
++		p.setPen(st::windowSubTextFg);
++		p.drawText(rect, text, style::al_center);
++		return;
++	}
++	const auto size = style::ConvertScaleExact(18.);
++	const auto center = QRectF(rect).center();
++	auto plus = QPen(color);
++	plus.setWidthF(style::ConvertScaleExact(2.));
++	plus.setCapStyle(Qt::RoundCap);
++	p.setPen(plus);
++	p.drawLine(
++		center - QPointF(size / 2., 0.),
++		center + QPointF(size / 2., 0.));
++	p.drawLine(
++		center - QPointF(0., size / 2.),
++		center + QPointF(0., size / 2.));
++}
++
++class GridWidget final : public Ui::RpWidget {
++public:
++	GridWidget(QWidget *parent, std::shared_ptr<Library> library);
++
++	void setCells(std::vector<Cell> cells);
++	[[nodiscard]] std::vector<Cell> cells() const;
++	[[nodiscard]] const Cell &cell(int index) const;
++	[[nodiscard]] int count() const;
++	[[nodiscard]] int rows() const;
++	[[nodiscard]] bool rowEmpty(int row) const;
++	void setCell(int index, Cell cell);
++	void addRow();
++	void removeRow(int row);
++	void collect(Fn<void(std::vector<ExportItem>)> done);
++
++	[[nodiscard]] rpl::producer<int> clicks() const;
++	[[nodiscard]] rpl::producer<std::pair<int, QPoint>> menus() const;
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++	void mousePressEvent(QMouseEvent *e) override;
++	void mouseMoveEvent(QMouseEvent *e) override;
++	void mouseReleaseEvent(QMouseEvent *e) override;
++	void contextMenuEvent(QContextMenuEvent *e) override;
++	void leaveEventHook(QEvent *e) override;
++	void leaveToChildEvent(QEvent *e, QWidget *child) override;
++
++private:
++	struct View {
++		Cell cell;
++		Cell source;
++		Resolved resolved;
++		bool ready = false;
++		uint64 token = 0;
++		std::unique_ptr<CellDelegate> delegate;
++		std::unique_ptr<Info::PeerGifts::GiftButton> button;
++	};
++
++	[[nodiscard]] QRect cellRect(int position) const;
++	[[nodiscard]] QRect removeRect(int row) const;
++	[[nodiscard]] int positionAt(QPoint point, bool clamp) const;
++	[[nodiscard]] int removeAt(QPoint point) const;
++	[[nodiscard]] int displayPosition(int index) const;
++	[[nodiscard]] int indexOf(not_null<QWidget*> button) const;
++	void refresh(int index);
++	void apply(int index);
++	void createButton(View &view);
++	void layout();
++	void press(int index, QPoint global);
++	void drag(QPoint global);
++	void release(QPoint global);
++	void setOver(int over, int overRemove);
++
++	const std::shared_ptr<Library> _library;
++	std::vector<View> _views;
++	rpl::event_stream<int> _clicks;
++	rpl::event_stream<std::pair<int, QPoint>> _menus;
++	QSize _single;
++	int _over = -1;
++	int _overRemove = -1;
++	int _pressed = -1;
++	int _pressedRemove = -1;
++	QPoint _pressGlobal;
++	QPoint _dragShift;
++	int _dragTarget = -1;
++	bool _dragging = false;
++	uint64 _tokens = 0;
++
++};
++
++GridWidget::GridWidget(QWidget *parent, std::shared_ptr<Library> library)
++: RpWidget(parent)
++, _library(std::move(library))
++, _single(_library->single()) {
++	setMouseTracking(true);
++}
++
++void GridWidget::setCells(std::vector<Cell> cells) {
++	const auto rows = std::clamp(
++		(int(cells.size()) + kColumns - 1) / kColumns,
++		1,
++		kMaxRows);
++	cells.resize(rows * kColumns);
++	_pressed = _pressedRemove = _dragTarget = -1;
++	_dragging = false;
++	_views.clear();
++	_views.reserve(cells.size());
++	for (auto &cell : cells) {
++		_views.push_back({ .cell = std::move(cell) });
++	}
++	for (auto i = 0; i != int(_views.size()); ++i) {
++		refresh(i);
++	}
++	resizeToWidth(width());
++	layout();
++	update();
++}
++
++std::vector<Cell> GridWidget::cells() const {
++	return _views | ranges::views::transform(
++		&View::cell
++	) | ranges::to_vector;
++}
++
++const Cell &GridWidget::cell(int index) const {
++	Expects(index >= 0 && index < int(_views.size()));
++
++	return _views[index].cell;
++}
++
++int GridWidget::count() const {
++	return int(_views.size());
++}
++
++int GridWidget::rows() const {
++	return count() / kColumns;
++}
++
++bool GridWidget::rowEmpty(int row) const {
++	for (auto i = row * kColumns; i != (row + 1) * kColumns; ++i) {
++		if (i < count() && _views[i].cell.kind != CellKind::Empty) {
++			return false;
++		}
++	}
++	return true;
++}
++
++void GridWidget::setCell(int index, Cell cell) {
++	if (index < 0 || index >= count()) {
++		return;
++	}
++	_views[index].cell = std::move(cell);
++	refresh(index);
++}
++
++void GridWidget::addRow() {
++	for (auto i = 0; i != kColumns; ++i) {
++		_views.push_back(View());
++	}
++	resizeToWidth(width());
++	layout();
++	update();
++}
++
++void GridWidget::removeRow(int row) {
++	if (row < 0 || row >= rows()) {
++		return;
++	} else if (rows() == 1) {
++		for (auto i = 0; i != kColumns; ++i) {
++			setCell(i, Cell());
++		}
++		return;
++	}
++	const auto from = begin(_views) + row * kColumns;
++	_views.erase(from, from + kColumns);
++	setOver(-1, -1);
++	resizeToWidth(width());
++	layout();
++	update();
++}
++
++void GridWidget::collect(Fn<void(std::vector<ExportItem>)> done) {
++	struct Pending {
++		std::vector<ExportItem> items;
++		int left = 1;
++	};
++	const auto pending = std::make_shared<Pending>();
++	const auto finish = [=] {
++		if (--pending->left) {
++			return;
++		}
++		auto items = std::move(pending->items);
++		ranges::sort(items, ranges::less(), &ExportItem::index);
++		done(std::move(items));
++	};
++	const auto library = _library;
++	for (auto i = 0; i != count(); ++i) {
++		const auto &view = _views[i];
++		const auto cell = view.cell;
++		if (cell.kind == CellKind::Empty) {
++			continue;
++		}
++		++pending->left;
++		const auto withResolved = [=](Resolved resolved) {
++			if (resolved.failed || !resolved.gift) {
++				finish();
++				return;
++			} else if (cell.kind == CellKind::Unique) {
++				pending->items.push_back({
++					.index = i,
++					.cell = cell,
++					.resolved = resolved,
++					.sticker = resolved.modelJson,
++				});
++				finish();
++				return;
++			}
++			library->stickerBytes(resolved.gift->document, [=](
++					QByteArray bytes) {
++				pending->items.push_back({
++					.index = i,
++					.cell = cell,
++					.resolved = resolved,
++					.sticker = std::move(bytes),
++				});
++				finish();
++			});
++		};
++		if (view.ready && SameSource(view.source, cell)) {
++			withResolved(view.resolved);
++		} else {
++			library->resolve(cell, withResolved);
++		}
++	}
++	finish();
++}
++
++rpl::producer<int> GridWidget::clicks() const {
++	return _clicks.events();
++}
++
++rpl::producer<std::pair<int, QPoint>> GridWidget::menus() const {
++	return _menus.events();
++}
++
++QRect GridWidget::cellRect(int position) const {
++	const auto padding = st::giftBoxPadding;
++	const auto skip = st::giftBoxGiftSkip;
++	const auto available = width() - padding.left() - padding.right();
++	const auto full = kColumns * _single.width() + (kColumns - 1) * skip.x();
++	const auto left = padding.left() + (available - full) / 2;
++	return QRect(
++		left + (position % kColumns) * (_single.width() + skip.x()),
++		padding.bottom()
++			+ (position / kColumns) * (_single.height() + skip.y()),
++		_single.width(),
++		_single.height());
++}
++
++QRect GridWidget::removeRect(int row) const {
++	const auto cell = cellRect(row * kColumns + kColumns - 1);
++	const auto size = style::ConvertScale(22);
++	const auto skip = style::ConvertScale(6);
++	return QRect(
++		cell.x() + cell.width() - size - skip,
++		cell.y() + skip,
++		size,
++		size);
++}
++
++int GridWidget::positionAt(QPoint point, bool clamp) const {
++	if (!count()) {
++		return -1;
++	}
++	const auto first = cellRect(0);
++	const auto skip = st::giftBoxGiftSkip;
++	const auto stepx = _single.width() + skip.x();
++	const auto stepy = _single.height() + skip.y();
++	const auto x = point.x() - first.x() + skip.x() / 2;
++	const auto y = point.y() - first.y() + skip.y() / 2;
++	auto column = (x >= 0) ? (x / stepx) : -1;
++	auto row = (y >= 0) ? (y / stepy) : -1;
++	if (clamp) {
++		column = std::clamp(column, 0, kColumns - 1);
++		row = std::clamp(row, 0, rows() - 1);
++	} else if (column < 0
++		|| column >= kColumns
++		|| row < 0
++		|| row >= rows()) {
++		return -1;
++	}
++	const auto result = row * kColumns + column;
++	return (clamp || cellRect(result).contains(point)) ? result : -1;
++}
++
++int GridWidget::removeAt(QPoint point) const {
++	if (rows() < 2 || _dragging) {
++		return -1;
++	}
++	for (auto row = 0; row != rows(); ++row) {
++		if (rowEmpty(row) && removeRect(row).contains(point)) {
++			return row;
++		}
++	}
++	return -1;
++}
++
++int GridWidget::displayPosition(int index) const {
++	if (!_dragging || _pressed < 0 || _dragTarget < 0) {
++		return index;
++	} else if (index == _pressed) {
++		return _dragTarget;
++	}
++	const auto skipped = (index < _pressed) ? index : (index - 1);
++	return (skipped < _dragTarget) ? skipped : (skipped + 1);
++}
++
++int GridWidget::indexOf(not_null<QWidget*> button) const {
++	for (auto i = 0; i != count(); ++i) {
++		if (_views[i].button.get() == button.get()) {
++			return i;
++		}
++	}
++	return -1;
++}
++
++void GridWidget::refresh(int index) {
++	auto &view = _views[index];
++	if (view.cell.kind == CellKind::Empty) {
++		view.ready = false;
++		view.token = 0;
++		if (view.button) {
++			view.button->hide();
++		}
++		update();
++		return;
++	} else if (view.ready && SameSource(view.cell, view.source)) {
++		apply(index);
++		return;
++	}
++	const auto token = ++_tokens;
++	view.token = token;
++	view.ready = false;
++	if (view.button) {
++		view.button->hide();
++	}
++	update();
++	const auto cell = view.cell;
++	_library->resolve(cell, crl::guard(this, [=](Resolved resolved) {
++		const auto i = ranges::find(_views, token, &View::token);
++		if (i == end(_views)) {
++			return;
++		}
++		i->source = cell;
++		i->resolved = std::move(resolved);
++		i->ready = true;
++		apply(int(i - begin(_views)));
++	}));
++}
++
++void GridWidget::apply(int index) {
++	auto &view = _views[index];
++	if (!view.ready || view.resolved.failed || !view.resolved.gift) {
++		if (view.button) {
++			view.button->hide();
++		}
++		update();
++		return;
++	}
++	if (!view.button) {
++		createButton(view);
++	}
++	view.delegate->setCell(view.cell, view.resolved);
++	view.button->setDescriptor(
++		Descriptor(view.cell, view.resolved),
++		Info::PeerGifts::GiftButtonMode::Minimal);
++	view.button->setGeometry(
++		cellRect(displayPosition(index)),
++		_library->extend());
++	view.button->show();
++	view.button->update();
++	update();
++}
++
++void GridWidget::createButton(View &view) {
++	view.delegate = std::make_unique<CellDelegate>(_library.get());
++	view.button = std::make_unique<Info::PeerGifts::GiftButton>(
++		this,
++		view.delegate.get());
++	const auto raw = view.button.get();
++	raw->mouseEvents() | rpl::on_next([=](QMouseEvent *e) {
++		const auto index = indexOf(raw);
++		if (index < 0) {
++			return;
++		}
++		switch (e->type()) {
++		case QEvent::MouseButtonPress:
++			press(index, e->globalPos());
++			grabMouse();
++			break;
++		case QEvent::MouseButtonRelease:
++			release(e->globalPos());
++			break;
++		default:
++			break;
++		}
++	}, raw->lifetime());
++	raw->contextMenuRequests() | rpl::on_next([=](QPoint global) {
++		if (const auto index = indexOf(raw); index >= 0 && !_dragging) {
++			_menus.fire({ index, global });
++		}
++	}, raw->lifetime());
++}
++
++void GridWidget::layout() {
++	const auto extend = _library->extend();
++	for (auto i = 0; i != count(); ++i) {
++		const auto &view = _views[i];
++		if (view.button && !(_dragging && i == _pressed)) {
++			view.button->setGeometry(
++				cellRect(displayPosition(i)),
++				extend);
++		}
++	}
++}
++
++int GridWidget::resizeGetHeight(int newWidth) {
++	const auto padding = st::giftBoxPadding;
++	const auto skip = st::giftBoxGiftSkip.y();
++	const auto rows = std::max(this->rows(), 1);
++	crl::on_main(this, [=] {
++		layout();
++	});
++	return 2 * padding.bottom() + rows * (_single.height() + skip) - skip;
++}
++
++void GridWidget::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	p.fillRect(e->rect(), st::boxDividerBg);
++	for (auto i = 0; i != count(); ++i) {
++		const auto &view = _views[i];
++		if (_dragging && i == _pressed) {
++			continue;
++		}
++		const auto rect = cellRect(displayPosition(i));
++		if (view.cell.kind == CellKind::Empty) {
++			PaintPlaceholder(p, rect, (i == _over), QString());
++		} else if (!view.ready) {
++			PaintPlaceholder(p, rect, false, Lower(u"Loading\u2026"_q));
++		} else if (view.resolved.failed || !view.resolved.gift) {
++			PaintPlaceholder(p, rect, (i == _over), Lower(u"Unavailable"_q));
++		}
++	}
++	if (rows() < 2 || _dragging) {
++		return;
++	}
++	auto hq = PainterHighQualityEnabler(p);
++	for (auto row = 0; row != rows(); ++row) {
++		if (!rowEmpty(row)) {
++			continue;
++		}
++		const auto rect = removeRect(row);
++		const auto over = (row == _overRemove);
++		p.setPen(Qt::NoPen);
++		p.setBrush(over ? st::attentionButtonFg : st::windowSubTextFg);
++		p.drawEllipse(rect);
++		auto pen = QPen(st::windowBg->c);
++		pen.setWidthF(style::ConvertScaleExact(1.5));
++		pen.setCapStyle(Qt::RoundCap);
++		p.setPen(pen);
++		const auto inset = rect.width() / 3.;
++		const auto inner = QRectF(rect).marginsRemoved(
++			{ inset, inset, inset, inset });
++		p.drawLine(inner.topLeft(), inner.bottomRight());
++		p.drawLine(inner.topRight(), inner.bottomLeft());
++	}
++}
++
++void GridWidget::setOver(int over, int overRemove) {
++	if (_over == over && _overRemove == overRemove) {
++		return;
++	}
++	_over = over;
++	_overRemove = overRemove;
++	setCursor((over >= 0 || overRemove >= 0)
++		? style::cur_pointer
++		: style::cur_default);
++	update();
++}
++
++void GridWidget::mousePressEvent(QMouseEvent *e) {
++	if (e->button() != Qt::LeftButton) {
++		return;
++	}
++	if (const auto row = removeAt(e->pos()); row >= 0) {
++		_pressedRemove = row;
++		return;
++	}
++	if (const auto position = positionAt(e->pos(), false); position >= 0) {
++		press(position, e->globalPos());
++	}
++}
++
++void GridWidget::mouseMoveEvent(QMouseEvent *e) {
++	if (_pressed >= 0) {
++		drag(e->globalPos());
++		return;
++	}
++	const auto remove = removeAt(e->pos());
++	const auto position = (remove >= 0) ? -1 : positionAt(e->pos(), false);
++	const auto empty = (position >= 0)
++		&& (_views[position].cell.kind == CellKind::Empty
++			|| !_views[position].button
++			|| _views[position].button->isHidden());
++	setOver(empty ? position : -1, remove);
++}
++
++void GridWidget::mouseReleaseEvent(QMouseEvent *e) {
++	if (_pressedRemove >= 0) {
++		const auto row = std::exchange(_pressedRemove, -1);
++		if (removeAt(e->pos()) == row) {
++			removeRow(row);
++		}
++		return;
++	}
++	release(e->globalPos());
++}
++
++void GridWidget::contextMenuEvent(QContextMenuEvent *e) {
++	if (_dragging) {
++		return;
++	}
++	if (const auto position = positionAt(e->pos(), false); position >= 0) {
++		_menus.fire({ position, e->globalPos() });
++	}
++}
++
++void GridWidget::leaveEventHook(QEvent *e) {
++	if (_pressed < 0) {
++		setOver(-1, -1);
++	}
++}
++
++void GridWidget::leaveToChildEvent(QEvent *e, QWidget *child) {
++	if (_pressed < 0) {
++		setOver(-1, -1);
++	}
++}
++
++void GridWidget::press(int index, QPoint global) {
++	_pressed = index;
++	_pressGlobal = global;
++	_dragging = false;
++	_dragTarget = -1;
++}
++
++void GridWidget::drag(QPoint global) {
++	if (_pressed < 0 || _pressed >= count()) {
++		return;
++	}
++	auto &view = _views[_pressed];
++	if (!_dragging) {
++		if ((global - _pressGlobal).manhattanLength()
++				< QApplication::startDragDistance()
++			|| !view.button
++			|| view.button->isHidden()) {
++			return;
++		}
++		_dragging = true;
++		_dragTarget = _pressed;
++		_dragShift = mapFromGlobal(_pressGlobal) - cellRect(_pressed).topLeft();
++		view.button->raise();
++		setOver(-1, -1);
++	}
++	const auto topLeft = mapFromGlobal(global) - _dragShift;
++	const auto center = topLeft + QPoint(
++		_single.width() / 2,
++		_single.height() / 2);
++	const auto target = positionAt(center, true);
++	if (target != _dragTarget) {
++		_dragTarget = target;
++		layout();
++		update();
++	}
++	view.button->setGeometry(
++		QRect(topLeft, _single),
++		_library->extend());
++}
++
++void GridWidget::release(QPoint global) {
++	releaseMouse();
++	const auto pressed = std::exchange(_pressed, -1);
++	if (pressed < 0 || pressed >= count()) {
++		_dragging = false;
++		return;
++	}
++	if (_dragging) {
++		_dragging = false;
++		const auto target = std::exchange(_dragTarget, -1);
++		if (target >= 0 && target < count() && target != pressed) {
++			auto view = std::move(_views[pressed]);
++			_views.erase(begin(_views) + pressed);
++			_views.insert(begin(_views) + target, std::move(view));
++		}
++		layout();
++		update();
++		return;
++	}
++	if (positionAt(mapFromGlobal(global), false) == pressed) {
++		_clicks.fire_copy(pressed);
++	}
++}
++
++void SavedGridsBox(
++		not_null<Ui::GenericBox*> box,
++		Fn<void(SavedGrid)> load) {
++	box->setTitle(rpl::single(Lower(u"Saved grids"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto content = box->verticalLayout();
++	const auto list = content->add(object_ptr<Ui::VerticalLayout>(content));
++	const auto fill = [=] {
++		list->clear();
++		const auto &grids = GiftStudio::Grids();
++		if (grids.empty()) {
++			list->add(
++				object_ptr<Ui::FlatLabel>(
++					list,
++					Lower(u"Nothing saved yet."_q),
++					st::boxDividerLabel),
++				st::boxRowPadding);
++		}
++		for (auto i = 0; i != int(grids.size()); ++i) {
++			const auto grid = grids[i];
++			const auto button = list->add(object_ptr<Ui::SettingsButton>(
++				list,
++				rpl::single(grid.name),
++				st::settingsButtonNoIcon));
++			button->setClickedCallback([=] {
++				load(grid);
++				box->closeBox();
++			});
++			const auto cross = Ui::CreateChild<Ui::IconButton>(
++				button,
++				st::boxTitleClose);
++			button->widthValue() | rpl::on_next([=](int width) {
++				cross->moveToRight(
++					0,
++					(button->height() - cross->height()) / 2,
++					width);
++			}, cross->lifetime());
++			cross->setClickedCallback([=] {
++				GiftStudio::RemoveGrid(i);
++			});
++			const auto cells = ParseCells(grid.cells);
++			const auto gifts = ranges::count_if(cells, [](const Cell &cell) {
++				return (cell.kind != CellKind::Empty);
++			});
++			list->add(
++				object_ptr<Ui::FlatLabel>(
++					list,
++					Lower(u"%1 gifts in %2 rows"_q)
++						.arg(gifts)
++						.arg(cells.size() / kColumns),
++					st::boxDividerLabel),
++				st::boxRowPadding);
++		}
++		list->resizeToWidth(content->width());
++	};
++	fill();
++	GiftStudio::StoreChanges() | rpl::on_next([=] {
++		crl::on_main(list, fill);
++	}, list->lifetime());
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++}
++
++void ExportBox(
++		not_null<Ui::GenericBox*> box,
++		std::shared_ptr<ChatHelpers::Show> show,
++		std::shared_ptr<Library> library,
++		int count,
++		Fn<void(Fn<void(std::vector<ExportItem>)>)> collect) {
++	struct State {
++		int scale = kDefaultScale;
++		Background background = Background::Profile;
++		bool frame = false;
++		bool busy = false;
++		std::shared_ptr<std::atomic<bool>> alive
++			= std::make_shared<std::atomic<bool>>(true);
++		rpl::variable<QString> status;
++		Fn<void()> refresh;
++	};
++	const auto state = box->lifetime().make_state<State>();
++	box->lifetime().add([alive = state->alive] {
++		*alive = false;
++	});
++
++	box->setTitle(rpl::single(Lower(u"Export grid"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto content = box->verticalLayout();
++
++	Ui::AddSubsectionTitle(content, rpl::single(Lower(u"Scale"_q)));
++	const auto scales = content->add(
++		object_ptr<Ui::SettingsSlider>(content, st::defaultTabsSlider),
++		st::boxRowPadding);
++	auto labels = std::vector<QString>();
++	for (const auto scale : kScales) {
++		labels.push_back(QString::number(scale) + u"\u00D7"_q);
++	}
++	scales->setSections(labels);
++	scales->setActiveSectionFast(int(ranges::find(kScales, state->scale)
++		- begin(kScales)));
++	scales->sectionActivated() | rpl::on_next([=](int section) {
++		state->scale = kScales[std::clamp(section, 0, int(kScales.size()) - 1)];
++		state->refresh();
++	}, scales->lifetime());
++	Ui::AddSkip(content);
++
++	const auto frame = content->add(
++		object_ptr<Ui::Checkbox>(
++			content,
++			Lower(u"Profile frame"_q),
++			state->frame,
++			st::defaultBoxCheckbox),
++		st::boxRowPadding);
++	content->add(
++		object_ptr<Ui::FlatLabel>(
++			content,
++			Lower(u"Adds the Gifts tab header, like a profile screenshot."_q),
++			st::boxDividerLabel),
++		st::boxRowPadding);
++	const auto backgroundWrap = content->add(
++		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
++			content,
++			object_ptr<Ui::VerticalLayout>(content)));
++	const auto backgrounds = backgroundWrap->entity();
++	Ui::AddSkip(backgrounds);
++	Ui::AddSubsectionTitle(backgrounds, rpl::single(Lower(u"Background"_q)));
++	const auto group = std::make_shared<Ui::RadioenumGroup<Background>>(
++		state->background);
++	const auto radio = [&](Background value, const QString &text) {
++		backgrounds->add(
++			object_ptr<Ui::Radioenum<Background>>(
++				backgrounds,
++				group,
++				value,
++				Lower(text),
++				st::defaultBoxCheckbox),
++			st::boxRowPadding
++				+ QMargins(0, st::defaultVerticalListSkip, 0, 0));
++	};
++	radio(Background::Profile, u"Profile background"_q);
++	radio(Background::Transparent, u"Transparent"_q);
++	group->setChangedCallback([=](Background value) {
++		state->background = value;
++		state->refresh();
++	});
++	frame->checkedChanges() | rpl::on_next([=](bool checked) {
++		state->frame = checked;
++		backgroundWrap->toggle(!checked, anim::type::normal);
++		state->refresh();
++	}, frame->lifetime());
++
++	Ui::AddSkip(content);
++	const auto size = content->add(
++		object_ptr<Ui::FlatLabel>(content, QString(), st::boxDividerLabel),
++		st::boxRowPadding);
++	content->add(
++		object_ptr<Ui::FlatLabel>(
++			content,
++			state->status.value(),
++			st::boxDividerLabel),
++		st::boxRowPadding);
++	Ui::AddSkip(content);
++
++	const auto options = [=] {
++		return ExportOptions{
++			.scale = state->scale,
++			.transparent = !state->frame
++				&& (state->background == Background::Transparent),
++			.frame = state->frame,
++		};
++	};
++	state->refresh = [=] {
++		const auto now = options();
++		const auto still = ExportSize(library.get(), count, now);
++		const auto mp4 = GiftStudio::Mp4Size(still);
++		auto text = Lower(u"PNG and GIF: %1 \u00D7 %2 px, MP4: %3 \u00D7 %4 px."_q)
++			.arg(still.width())
++			.arg(still.height())
++			.arg(mp4.width())
++			.arg(mp4.height());
++		if (now.transparent) {
++			text += ' ' + Lower(u"MP4 can't be transparent, "
++				"so it gets the profile background."_q);
++		}
++		size->setText(text);
++	};
++	state->refresh();
++
++	const auto writeFile = [](const QString &path, const QByteArray &bytes) {
++		auto file = QFile(path);
++		return file.open(QIODevice::WriteOnly)
++			&& (file.write(bytes) == bytes.size());
++	};
++	const auto saveBytes = [=](
++			QByteArray bytes,
++			QString format,
++			QSize dimensions,
++			QString filter,
++			QString extension) {
++		FileDialog::GetWritePath(
++			Core::App().getFileDialogParent(),
++			Lower(u"Save %1 (%2 \u00D7 %3)"_q)
++				.arg(format)
++				.arg(dimensions.width())
++				.arg(dimensions.height()),
++			filter + u";;"_q + FileDialog::AllFilesFilter(),
++			filedialogDefaultName(u"gift grid"_q, extension),
++			crl::guard(box, [=](const QString &path) {
++				if (path.isEmpty()) {
++					return;
++				}
++				show->showToast(writeFile(path, bytes)
++					? Lower(u"Saved."_q)
++					: Lower(u"Couldn't save the file."_q));
++			}));
++	};
++	const auto prepare = [=](
++			bool opaque,
++			Fn<void(std::shared_ptr<const Scene>)> next) {
++		if (state->busy) {
++			show->showToast(Lower(u"Still rendering the previous file."_q));
++			return;
++		}
++		state->busy = true;
++		state->status = Lower(u"Preparing the gifts\u2026"_q);
++		auto now = options();
++		if (opaque) {
++			now.transparent = false;
++		}
++		collect(crl::guard(box, [=](std::vector<ExportItem> items) {
++			if (items.empty()) {
++				state->busy = false;
++				state->status = QString();
++				show->showToast(Lower(u"The grid has no gifts yet."_q));
++				return;
++			}
++			next(PrepareScene(library.get(), items, count, now));
++		}));
++	};
++	const auto still = [=](Fn<void(QImage)> done) {
++		const auto transparent = options().transparent;
++		prepare(false, [=](std::shared_ptr<const Scene> scene) {
++			auto image = RenderStill(scene);
++			state->busy = false;
++			state->status = QString();
++			if (!transparent) {
++				image = std::move(image).convertToFormat(
++					QImage::Format_RGB32);
++			}
++			done(std::move(image));
++		});
++	};
++	const auto animate = [=](bool gif) {
++		const auto format = gif ? u"GIF"_q : u"MP4"_q;
++		if (!gif
++			&& !GiftStudio::VideoFormatAvailable(
++				GiftStudio::VideoFormat::Mp4)) {
++			show->showToast(Lower(u"This build has no H.264 encoder."_q));
++			return;
++		}
++		prepare(!gif, [=](std::shared_ptr<const Scene> scene) {
++			const auto alive = state->alive;
++			const auto dimensions = gif
++				? SceneSize(scene)
++				: SceneMp4Size(scene);
++			state->status = Lower(u"Rendering the %1\u2026"_q).arg(format);
++			const auto progress = [=](int done, int total) {
++				crl::on_main([=] {
++					if (alive->load() && state->busy) {
++						state->status = Lower(u"Rendering the %1: %2%"_q)
++							.arg(format)
++							.arg(done * 100 / std::max(total, 1));
++					}
++				});
++			};
++			const auto check = [=] {
++				return alive->load();
++			};
++			crl::async([=] {
++				auto bytes = gif
++					? EncodeSceneGif(scene, progress, check)
++					: EncodeSceneMp4(scene, progress, check);
++				crl::on_main([=, bytes = std::move(bytes)] {
++					if (!alive->load()) {
++						return;
++					}
++					state->busy = false;
++					state->status = QString();
++					if (bytes.isEmpty()) {
++						show->showToast(
++							Lower(u"Couldn't render the %1."_q).arg(format));
++						return;
++					}
++					saveBytes(
++						bytes,
++						format,
++						dimensions,
++						gif ? u"GIF Image (*.gif)"_q : u"MP4 Video (*.mp4)"_q,
++						gif ? u".gif"_q : u".mp4"_q);
++				});
++			});
++		});
++	};
++
++	const auto action = [&](
++			const QString &text,
++			const style::icon &icon,
++			Fn<void()> callback) {
++		Settings::AddButtonWithIcon(
++			content,
++			rpl::single(Lower(text)),
++			st::settingsButton,
++			{ &icon }
++		)->setClickedCallback(std::move(callback));
++	};
++	action(u"Save PNG"_q, st::menuIconSaveImage, [=] {
++		still([=](QImage image) {
++			auto bytes = QByteArray();
++			auto buffer = QBuffer(&bytes);
++			buffer.open(QIODevice::WriteOnly);
++			image.save(&buffer, "PNG");
++			buffer.close();
++			if (bytes.isEmpty()) {
++				show->showToast(Lower(u"Couldn't render the PNG."_q));
++				return;
++			}
++			saveBytes(
++				bytes,
++				u"PNG"_q,
++				image.size(),
++				u"PNG Image (*.png)"_q,
++				u".png"_q);
++		});
++	});
++	action(u"Copy PNG"_q, st::menuIconCopy, [=] {
++		still([=](QImage image) {
++			QGuiApplication::clipboard()->setImage(image);
++			show->showToast(Lower(u"Copied to the clipboard."_q));
++		});
++	});
++	action(u"Save GIF"_q, st::menuIconGif, [=] {
++		animate(true);
++	});
++	action(u"Save MP4"_q, st::menuIconExport, [=] {
++		animate(false);
++	});
++
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++}
++
++void GiftGridBox(
++		not_null<Ui::GenericBox*> box,
++		not_null<Window::SessionController*> controller,
++		StudioCombo studio) {
++	struct State {
++		std::shared_ptr<Library> library;
++		QString name;
++		base::unique_qptr<Ui::PopupMenu> menu;
++	};
++	const auto state = box->lifetime().make_state<State>();
++	const auto show = controller->uiShow();
++	state->library = std::make_shared<Library>(&controller->session());
++	const auto library = state->library;
++
++	box->setTitle(rpl::single(Lower(u"Gift grid"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto grid = box->addRow(
++		object_ptr<GridWidget>(box, library),
++		style::margins());
++	grid->setCells(std::vector<Cell>(kColumns));
++	Ui::AddSkip(box->verticalLayout());
++	box->addRow(
++		object_ptr<Ui::FlatLabel>(
++			box,
++			Lower(u"Click a cell to set any gift, drag gifts to reorder "
++				"them, right-click for more."_q),
++			st::boxDividerLabel),
++		st::boxRowPadding);
++	Ui::AddSkip(box->verticalLayout());
++
++	const auto edit = [=](int index) {
++		if (index < 0 || index >= grid->count()) {
++			return;
++		}
++		show->showBox(Box(EditCellBox, EditorArgs{
++			.show = show,
++			.library = library,
++			.cell = grid->cell(index),
++			.studio = studio,
++			.done = crl::guard(grid, [=](Cell cell) {
++				grid->setCell(index, std::move(cell));
++			}),
++		}));
++	};
++	const auto update = [=](int index, Fn<void(Cell&)> change) {
++		if (index < 0 || index >= grid->count()) {
++			return;
++		}
++		auto cell = grid->cell(index);
++		change(cell);
++		grid->setCell(index, std::move(cell));
++	};
++	const auto duplicate = [=](int index) {
++		const auto cell = grid->cell(index);
++		auto target = -1;
++		for (auto i = index + 1; i < grid->count(); ++i) {
++			if (grid->cell(i).kind == CellKind::Empty) {
++				target = i;
++				break;
++			}
++		}
++		if (target < 0) {
++			if (grid->rows() >= kMaxRows) {
++				show->showToast(Lower(u"The grid is full."_q));
++				return;
++			}
++			target = grid->count();
++			grid->addRow();
++		}
++		grid->setCell(target, cell);
++	};
++	grid->clicks() | rpl::on_next(edit, grid->lifetime());
++	grid->menus() | rpl::on_next([=](std::pair<int, QPoint> request) {
++		const auto index = request.first;
++		if (index < 0 || index >= grid->count()) {
++			return;
++		}
++		const auto cell = grid->cell(index);
++		const auto row = index / kColumns;
++		state->menu = base::make_unique_q<Ui::PopupMenu>(
++			grid,
++			st::popupMenuWithIcons);
++		const auto menu = state->menu.get();
++		if (cell.kind == CellKind::Empty) {
++			menu->addAction(Lower(u"Set a gift"_q), [=] {
++				edit(index);
++			}, &st::menuIconAdd);
++		} else {
++			menu->addAction(Lower(u"Edit"_q), [=] {
++				edit(index);
++			}, &st::menuIconEdit);
++			menu->addAction(Lower(u"Duplicate"_q), [=] {
++				duplicate(index);
++			}, &st::menuIconCopy);
++			if (CanPin(cell)) {
++				menu->addAction(
++					cell.pinned ? Lower(u"Unpin"_q) : Lower(u"Pin"_q),
++					[=] { update(index, [](Cell &c) { c.pinned = !c.pinned; }); },
++					cell.pinned ? &st::menuIconUnpin : &st::menuIconPin);
++			}
++			menu->addAction(
++				cell.hidden
++					? Lower(u"Remove the hidden mark"_q)
++					: Lower(u"Mark as hidden"_q),
++				[=] { update(index, [](Cell &c) { c.hidden = !c.hidden; }); },
++				&st::menuIconStealth);
++			menu->addAction(Lower(u"Ribbon text\u2026"_q), [=] {
++				const auto now = grid->cell(index);
++				show->showBox(Box(
++					RibbonTextBox,
++					(now.ribbon == Ribbon::Custom) ? now.ribbonText : QString(),
++					crl::guard(grid, [=](QString text) {
++						update(index, [&](Cell &c) {
++							c.ribbonText = text;
++							c.ribbon = text.isEmpty()
++								? Ribbon::Auto
++								: Ribbon::Custom;
++						});
++					})));
++			}, &st::menuIconChangeColors);
++			menu->addAction(Lower(u"Remove"_q), [=] {
++				grid->setCell(index, Cell());
++			}, &st::menuIconDelete);
++		}
++		if (grid->rows() > 1) {
++			menu->addSeparator();
++			menu->addAction(Lower(u"Remove row"_q), [=] {
++				grid->removeRow(row);
++			}, &st::menuIconRemove);
++		}
++		menu->popup(request.second);
++	}, grid->lifetime());
++
++	box->addTopButton(st::boxTitleMenu, [=] {
++		state->menu = base::make_unique_q<Ui::PopupMenu>(
++			box,
++			st::popupMenuWithIcons);
++		const auto menu = state->menu.get();
++		menu->addAction(Lower(u"Save grid\u2026"_q), [=] {
++			show->showBox(Box(
++				GiftStudio::ChooseNameBox,
++				Lower(u"Save grid"_q),
++				state->name.isEmpty() ? Lower(u"My grid"_q) : state->name,
++				crl::guard(box, [=](QString name) {
++					state->name = name;
++					GiftStudio::SaveGrid({
++						.name = name,
++						.cells = SerializeCells(grid->cells()),
++					});
++					show->showToast(Lower(u"Grid saved."_q));
++				})));
++		}, &st::menuIconFave);
++		menu->addAction(Lower(u"Saved grids"_q), [=] {
++			show->showBox(Box(SavedGridsBox, crl::guard(box, [=](
++					SavedGrid saved) {
++				state->name = saved.name;
++				grid->setCells(ParseCells(saved.cells));
++			})));
++		}, &st::menuIconArchive);
++		menu->addSeparator();
++		menu->addAction(Lower(u"Clear grid"_q), [=] {
++			grid->setCells(std::vector<Cell>(kColumns));
++		}, &st::menuIconClear);
++		menu->popup(QCursor::pos());
++	});
++
++	box->addButton(rpl::single(Lower(u"Export"_q)), [=] {
++		const auto count = grid->count();
++		const auto weak = base::make_weak(grid);
++		show->showBox(Box(
++			ExportBox,
++			show,
++			library,
++			count,
++			[=](Fn<void(std::vector<ExportItem>)> done) {
++				if (const auto strong = weak.get()) {
++					strong->collect(std::move(done));
++				}
++			}));
++	});
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++	box->addLeftButton(rpl::single(Lower(u"Add row"_q)), [=] {
++		if (grid->rows() >= kMaxRows) {
++			show->showToast(Lower(u"The grid is full."_q));
++			return;
++		}
++		grid->addRow();
++	});
++}
++
++} // namespace
++
++void ShowGiftGrid(
++		not_null<Window::SessionController*> controller,
++		Fn<std::optional<GiftStudio::Combo>()> studio) {
++	if (OfflineForLaunch()) {
++		return;
++	}
++	controller->show(Box(GiftGridBox, controller, std::move(studio)));
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid.h b/Telegram/SourceFiles/tele/tele_gift_grid.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..85ade68066b59a2d7a4756ac997dcfbd43df1565
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid.h
+@@ -0,0 +1,15 @@
++#pragma once
++
++#include "tele/tele_gift_studio_store.h"
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++void ShowGiftGrid(
++	not_null<Window::SessionController*> controller,
++	Fn<std::optional<GiftStudio::Combo>()> studio);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp b/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..35a076a8b902bd4a2dd8b1a78a52f75a584e0c59
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp
+@@ -0,0 +1,735 @@
++#include "tele/tele_gift_grid_cell.h"
++
++#include "base/call_delayed.h"
++#include "base/random.h"
++#include "base/unixtime.h"
++#include "data/data_document.h"
++#include "data/data_document_media.h"
++#include "data/data_file_origin.h"
++#include "data/data_session.h"
++#include "data/data_star_gift.h"
++#include "lang/lang_keys.h"
++#include "lang/lang_tag.h"
++#include "lottie/details/lottie_instance.h"
++#include "lottie/lottie_common.h"
++#include "main/main_session.h"
++#include "tele/tele_gift_fake_upgrade.h"
++#include "ui/emoji_config.h"
++#include "ui/image/image_prepare.h"
++#include "ui/text/text_custom_emoji.h"
++
++#include <QtCore/QFile>
++
++namespace Tele::GiftGrid {
++namespace {
++
++constexpr auto kMaxName = 128;
++constexpr auto kMaxRibbon = 32;
++constexpr auto kMaxNumber = 999'999'999;
++constexpr auto kLoadTimeout = crl::time(15000);
++constexpr auto kStickerSide = 512;
++constexpr auto kReportedSize = int64(64 * 1024);
++
++[[nodiscard]] QString RibbonName(Ribbon ribbon) {
++	switch (ribbon) {
++	case Ribbon::Auto: return u"auto"_q;
++	case Ribbon::None: return u"none"_q;
++	case Ribbon::Limited: return u"limited"_q;
++	case Ribbon::SoldOut: return u"sold_out"_q;
++	case Ribbon::Custom: return u"custom"_q;
++	}
++	return u"auto"_q;
++}
++
++[[nodiscard]] Ribbon ParseRibbon(const QString &name) {
++	return (name == u"none"_q)
++		? Ribbon::None
++		: (name == u"limited"_q)
++		? Ribbon::Limited
++		: (name == u"sold_out"_q)
++		? Ribbon::SoldOut
++		: (name == u"custom"_q)
++		? Ribbon::Custom
++		: Ribbon::Auto;
++}
++
++template <typename List>
++[[nodiscard]] auto FindByName(const List &list, const QString &name)
++-> const typename List::value_type * {
++	for (const auto &item : list) {
++		if (item.name == name) {
++			return &item;
++		}
++	}
++	for (const auto &item : list) {
++		if (!item.name.compare(name, Qt::CaseInsensitive)) {
++			return &item;
++		}
++	}
++	return nullptr;
++}
++
++class SymbolEmoji final : public Ui::Text::CustomEmoji {
++public:
++	explicit SymbolEmoji(const QByteArray &json);
++
++	int width() override;
++	QString entityData() override;
++	void paint(QPainter &p, const Context &context) override;
++	void unload() override;
++	bool ready() override;
++	bool readyInDefaultState() override;
++
++private:
++	QImage _mask;
++	QImage _tinted;
++	QColor _color;
++
++};
++
++SymbolEmoji::SymbolEmoji(const QByteArray &json) {
++	const auto side = Ui::Emoji::GetSizeLarge();
++	_mask = RenderLottieFrame(json, QSize(side, side), 0);
++}
++
++int SymbolEmoji::width() {
++	return Ui::Emoji::GetSizeLarge() / style::DevicePixelRatio();
++}
++
++QString SymbolEmoji::entityData() {
++	return u"tele-gift-grid-symbol"_q;
++}
++
++void SymbolEmoji::paint(QPainter &p, const Context &context) {
++	if (_mask.isNull()) {
++		return;
++	}
++	const auto color = *context.textColor;
++	if (_tinted.isNull() || _color != color) {
++		_color = color;
++		_tinted = _mask;
++		auto q = QPainter(&_tinted);
++		q.setCompositionMode(QPainter::CompositionMode_SourceIn);
++		q.fillRect(QRect(QPoint(), _tinted.size()), color);
++		q.end();
++		_tinted.setDevicePixelRatio(style::DevicePixelRatio());
++	}
++	p.drawImage(context.position, _tinted);
++}
++
++void SymbolEmoji::unload() {
++	_tinted = QImage();
++}
++
++bool SymbolEmoji::ready() {
++	return !_mask.isNull();
++}
++
++bool SymbolEmoji::readyInDefaultState() {
++	return ready();
++}
++
++} // namespace
++
++QJsonObject SerializeCell(const Cell &cell) {
++	auto result = QJsonObject();
++	switch (cell.kind) {
++	case CellKind::Empty:
++		return result;
++	case CellKind::Unique:
++		result.insert(u"kind"_q, u"unique"_q);
++		result.insert(u"collection"_q, cell.collection);
++		result.insert(u"model"_q, cell.model);
++		result.insert(u"backdrop"_q, cell.backdrop);
++		result.insert(u"symbol"_q, cell.symbol);
++		result.insert(u"number"_q, cell.number);
++		break;
++	case CellKind::Regular:
++		result.insert(u"kind"_q, u"gift"_q);
++		result.insert(u"gift"_q, QString::number(cell.giftId));
++		result.insert(u"price"_q, cell.price);
++		break;
++	}
++	result.insert(u"ribbon"_q, RibbonName(cell.ribbon));
++	if (!cell.ribbonText.isEmpty()) {
++		result.insert(u"ribbon_text"_q, cell.ribbonText);
++	}
++	if (cell.ribbonColor.isValid()) {
++		result.insert(
++			u"ribbon_color"_q,
++			cell.ribbonColor.name(QColor::HexRgb));
++	}
++	if (cell.pinned) {
++		result.insert(u"pinned"_q, true);
++	}
++	if (cell.hidden) {
++		result.insert(u"hidden"_q, true);
++	}
++	return result;
++}
++
++Cell ParseCell(const QJsonObject &object) {
++	auto result = Cell();
++	const auto text = [&](const QString &key) {
++		return object.value(key).toString().left(kMaxName);
++	};
++	const auto kind = object.value(u"kind"_q).toString();
++	if (kind == u"unique"_q) {
++		result.kind = CellKind::Unique;
++		result.collection = text(u"collection"_q);
++		result.model = text(u"model"_q);
++		result.backdrop = text(u"backdrop"_q);
++		result.symbol = text(u"symbol"_q);
++		result.number = std::clamp(
++			object.value(u"number"_q).toInt(1),
++			0,
++			kMaxNumber);
++		if (result.collection.isEmpty()
++			|| result.model.isEmpty()
++			|| result.backdrop.isEmpty()
++			|| result.symbol.isEmpty()) {
++			return Cell();
++		}
++	} else if (kind == u"gift"_q) {
++		result.kind = CellKind::Regular;
++		result.giftId = object.value(u"gift"_q).toString().toULongLong();
++		result.price = object.value(u"price"_q).toBool(true);
++		if (!result.giftId) {
++			return Cell();
++		}
++	} else {
++		return Cell();
++	}
++	result.ribbon = ParseRibbon(object.value(u"ribbon"_q).toString());
++	result.ribbonText = object.value(
++		u"ribbon_text"_q).toString().left(kMaxRibbon);
++	const auto color = QColor(object.value(u"ribbon_color"_q).toString());
++	if (color.isValid()) {
++		result.ribbonColor = color;
++	}
++	result.pinned = object.value(u"pinned"_q).toBool()
++		&& (result.kind == CellKind::Unique);
++	result.hidden = object.value(u"hidden"_q).toBool();
++	return result;
++}
++
++int ParseNumber(const QString &text) {
++	auto digits = QString();
++	for (const auto &ch : text) {
++		if (ch.isDigit()) {
++			digits.append(ch);
++		}
++	}
++	if (digits.isEmpty()) {
++		return -1;
++	}
++	auto ok = false;
++	const auto value = digits.left(9).toInt(&ok);
++	return ok ? std::clamp(value, 0, kMaxNumber) : -1;
++}
++
++bool CanPin(const Cell &cell) {
++	return (cell.kind == CellKind::Unique);
++}
++
++bool SameSource(const Cell &a, const Cell &b) {
++	return (a.kind == b.kind)
++		&& (a.collection == b.collection)
++		&& (a.model == b.model)
++		&& (a.backdrop == b.backdrop)
++		&& (a.symbol == b.symbol)
++		&& (a.giftId == b.giftId);
++}
++
++RibbonLook ComputeRibbon(const Cell &cell, const Resolved &resolved) {
++	const auto unique = (cell.kind == CellKind::Unique);
++	auto kind = cell.ribbon;
++	if (kind == Ribbon::Auto && !unique) {
++		const auto &gift = resolved.gift;
++		kind = (!gift || !gift->limitedCount)
++			? Ribbon::None
++			: (gift->soldOut || !gift->limitedLeft)
++			? Ribbon::SoldOut
++			: Ribbon::Limited;
++	}
++	auto result = RibbonLook();
++	switch (kind) {
++	case Ribbon::None:
++		return result;
++	case Ribbon::Auto:
++		result.text = '#' + Lang::FormatCountDecimal(cell.number);
++		break;
++	case Ribbon::Limited:
++		result.text = tr::lng_gift_stars_limited(tr::now);
++		break;
++	case Ribbon::SoldOut:
++		result.text = tr::lng_gift_stars_sold_out(tr::now);
++		break;
++	case Ribbon::Custom:
++		result.text = cell.ribbonText.trimmed();
++		break;
++	}
++	if (result.text.isEmpty()) {
++		return RibbonLook();
++	}
++	const auto white = QColor(255, 255, 255);
++	const auto clear = QColor(0, 0, 0, 0);
++	if (cell.ribbonColor.isValid()) {
++		result.bg1 = cell.ribbonColor;
++		result.bg2 = clear;
++		result.fg = white;
++	} else if (unique
++		&& kind != Ribbon::Limited
++		&& kind != Ribbon::SoldOut) {
++		result.bg1 = resolved.colors.edge;
++		result.bg2 = resolved.colors.pattern;
++		result.fg = white;
++	} else {
++		result.bg1 = (kind == Ribbon::SoldOut)
++			? st::attentionButtonFg->c
++			: st::windowActiveTextFg->c;
++		result.bg2 = clear;
++		result.fg = st::windowBg->c;
++	}
++	return result;
++}
++
++Info::PeerGifts::GiftDescriptor Descriptor(
++		const Cell &cell,
++		const Resolved &resolved) {
++	Expects(resolved.gift.has_value());
++
++	auto info = *resolved.gift;
++	if (cell.kind == CellKind::Unique) {
++		return Info::PeerGifts::GiftTypeStars{
++			.info = std::move(info),
++			.pinned = cell.pinned,
++			.hidden = cell.hidden,
++			.mine = true,
++		};
++	}
++	info.limitedCount = std::max(info.limitedCount, 1);
++	if (cell.price) {
++		info.starsResellMin = info.stars;
++		info.resellCount = 1;
++	}
++	return Info::PeerGifts::GiftTypeStars{
++		.info = std::move(info),
++		.hidden = cell.hidden,
++		.resale = cell.price,
++	};
++}
++
++QString FormatStars(int64 stars) {
++	const auto onlyK = (stars < 100'000'000);
++	return (stars >= 1'000'000)
++		? Lang::FormatCountToShort(stars, onlyK).string
++		: Lang::FormatCountDecimal(stars);
++}
++
++std::unique_ptr<Lottie::Instance> MakeLottie(const QByteArray &bytes) {
++	if (bytes.isEmpty()) {
++		return nullptr;
++	}
++	auto result = Lottie::Instance::Create(
++		Lottie::ReadUtf8(Images::UnpackGzip(bytes)),
++		nullptr);
++	if (!result
++		|| result->framesCount() <= 0
++		|| result->frameRate() <= 0.
++		|| result->size().isEmpty()) {
++		return nullptr;
++	}
++	return result;
++}
++
++QImage RenderLottieFrame(const QByteArray &json, QSize size, int frame) {
++	auto instance = MakeLottie(json);
++	if (!instance || size.isEmpty()) {
++		return QImage();
++	}
++	auto result = QImage(size, QImage::Format_ARGB32_Premultiplied);
++	instance->renderToPrepared(
++		result,
++		std::clamp(frame, 0, instance->framesCount() - 1));
++	return result;
++}
++
++std::unique_ptr<Ui::Text::CustomEmoji> MakeSymbolEmoji(
++		const QByteArray &json) {
++	return std::make_unique<SymbolEmoji>(json);
++}
++
++Library::Library(not_null<Main::Session*> session)
++: _session(session)
++, _delegate(session, Info::PeerGifts::GiftButtonMode::Minimal) {
++}
++
++Library::~Library() = default;
++
++not_null<Main::Session*> Library::session() const {
++	return _session;
++}
++
++not_null<Info::PeerGifts::Delegate*> Library::delegate() {
++	return &_delegate;
++}
++
++QSize Library::single() {
++	return _delegate.buttonSize();
++}
++
++QMargins Library::extend() const {
++	return _delegate.buttonExtend();
++}
++
++void Library::collections(
++		Fn<void(const std::vector<QString>&)> done,
++		Fn<void()> fail) {
++	if (!_collections.empty()) {
++		done(_collections);
++		return;
++	}
++	GiftStudio::RequestGifts(crl::guard(this, [=](
++			std::vector<QString> list) {
++		_collections = std::move(list);
++		done(_collections);
++	}), crl::guard(this, fail));
++}
++
++void Library::parts(
++		const QString &collection,
++		Fn<void(const GiftStudio::Parts&)> done,
++		Fn<void()> fail) {
++	if (const auto i = _parts.find(collection); i != end(_parts)) {
++		done(i->second);
++		return;
++	}
++	GiftStudio::RequestParts(collection, crl::guard(this, [=](
++			GiftStudio::Parts parts) {
++		const auto i = _parts.emplace(collection, std::move(parts)).first;
++		done(i->second);
++	}), crl::guard(this, fail));
++}
++
++void Library::catalog(Fn<void(const std::vector<Data::StarGift>&)> done) {
++	if (_catalogLoaded) {
++		done(_catalog);
++		return;
++	}
++	RequestGiftCatalog(_session, crl::guard(this, [=](
++			const std::vector<Data::StarGift> &list) {
++		if (!list.empty()) {
++			_catalog = list;
++			_catalogLoaded = true;
++		}
++		done(_catalog);
++	}));
++}
++
++std::optional<Data::StarGift> Library::findGift(uint64 id) const {
++	for (const auto &gift : _catalog) {
++		if (gift.id == id) {
++			return gift;
++		}
++	}
++	return std::nullopt;
++}
++
++void Library::resolve(const Cell &cell, Fn<void(Resolved)> done) {
++	switch (cell.kind) {
++	case CellKind::Empty:
++		done(Resolved());
++		return;
++	case CellKind::Unique:
++		resolveUnique(cell, std::move(done));
++		return;
++	case CellKind::Regular:
++		resolveRegular(cell, std::move(done));
++		return;
++	}
++}
++
++void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
++	const auto fail = [=] {
++		done(Resolved{ .failed = true });
++	};
++	parts(cell.collection, [=](const GiftStudio::Parts &parts) {
++		const auto model = FindByName(parts.models, cell.model);
++		const auto backdrop = FindByName(parts.backdrops, cell.backdrop);
++		const auto symbol = FindByName(parts.symbols, cell.symbol);
++		if (!model || !backdrop || !symbol) {
++			fail();
++			return;
++		}
++		struct Pending {
++			QByteArray model;
++			QByteArray symbol;
++			int left = 2;
++			bool failed = false;
++		};
++		const auto pending = std::make_shared<Pending>();
++		const auto modelName = model->name;
++		const auto symbolName = symbol->name;
++		const auto backdropName = backdrop->name;
++		const auto colors = backdrop->colors;
++		const auto modelPermille = model->permille;
++		const auto symbolPermille = symbol->permille;
++		const auto backdropPermille = backdrop->permille;
++		const auto finish = crl::guard(this, [=] {
++			if (--pending->left) {
++				return;
++			} else if (pending->failed) {
++				fail();
++				return;
++			}
++			const auto key = cell.collection + '\n';
++			const auto document = localSticker(
++				u"model\n"_q + key + modelName,
++				pending->model);
++			const auto pattern = localSticker(
++				u"symbol\n"_q + key + symbolName,
++				pending->symbol);
++			auto unique = std::make_shared<Data::UniqueGift>(
++				Data::UniqueGift{
++					.id = base::RandomValue<CollectibleId>(),
++					.title = cell.collection,
++					.nanoTonForResale = 0,
++					.starsForResale = 0,
++					.number = cell.number,
++					.model = Data::UniqueGiftModel{
++						{ modelName, modelPermille },
++						document,
++					},
++					.pattern = Data::UniqueGiftPattern{
++						{ symbolName, symbolPermille },
++						pattern,
++					},
++					.backdrop = Data::UniqueGiftBackdrop{
++						{ backdropName, backdropPermille },
++						colors.center,
++						colors.edge,
++						colors.pattern,
++						colors.text,
++					},
++				});
++			done(Resolved{
++				.colors = colors,
++				.modelJson = pending->model,
++				.symbolJson = pending->symbol,
++				.gift = Data::StarGift{
++					.id = base::RandomValue<uint64>(),
++					.unique = std::move(unique),
++					.document = document,
++					.resellTitle = cell.collection,
++					.limitedCount = 1,
++				},
++			});
++		});
++		GiftStudio::RequestModel(cell.collection, modelName, [=](
++				QByteArray json) {
++			pending->model = std::move(json);
++			finish();
++		}, [=] {
++			pending->failed = true;
++			finish();
++		});
++		GiftStudio::RequestSymbol(cell.collection, symbolName, [=](
++				QByteArray json) {
++			pending->symbol = std::move(json);
++			finish();
++		}, [=] {
++			pending->failed = true;
++			finish();
++		});
++	}, fail);
++}
++
++void Library::resolveRegular(const Cell &cell, Fn<void(Resolved)> done) {
++	const auto id = cell.giftId;
++	catalog([=](const std::vector<Data::StarGift> &) {
++		auto gift = findGift(id);
++		if (!gift) {
++			done(Resolved{ .failed = true });
++			return;
++		}
++		gift->unique = nullptr;
++		gift->auctionSlug = QString();
++		gift->auctionStartDate = 0;
++		gift->requirePremium = false;
++		gift->lockedUntilDate = 0;
++		gift->perUserTotal = 0;
++		gift->perUserRemains = 0;
++		done(Resolved{ .gift = std::move(gift) });
++	});
++}
++
++not_null<DocumentData*> Library::localSticker(
++		const QString &key,
++		const QByteArray &json) {
++	static auto Ids = base::flat_map<QString, DocumentId>();
++	auto &id = Ids[key];
++	if (!id) {
++		id = base::RandomValue<DocumentId>();
++	}
++	const auto document = _session->data().document(
++		id,
++		0,
++		QByteArray(),
++		base::unixtime::now(),
++		QVector<MTPDocumentAttribute>{
++			MTP_documentAttributeSticker(
++				MTP_flags(0),
++				MTP_string(),
++				MTP_inputStickerSetEmpty(),
++				MTPMaskCoords()),
++			MTP_documentAttributeImageSize(
++				MTP_int(kStickerSide),
++				MTP_int(kStickerSide)),
++		},
++		u"application/x-tgsticker"_q,
++		InlineImageLocation(),
++		ImageWithLocation(),
++		ImageWithLocation(),
++		false,
++		0,
++		std::min(int64(json.size()), kReportedSize));
++	auto media = document->createMediaView();
++	media->setBytes(json);
++	_media[key] = std::move(media);
++	return document;
++}
++
++void Library::stickerBytes(
++		not_null<DocumentData*> document,
++		Fn<void(QByteArray)> done) {
++	const auto media = document->createMediaView();
++	const auto read = [=] {
++		auto bytes = media->bytes();
++		if (bytes.isEmpty()) {
++			auto file = QFile(document->filepath());
++			if (file.open(QIODevice::ReadOnly)) {
++				bytes = file.readAll();
++			}
++		}
++		return bytes;
++	};
++	if (media->loaded()) {
++		done(read());
++		return;
++	}
++	_loading.push_back(media);
++	const auto finished = std::make_shared<bool>(false);
++	const auto finish = [=](QByteArray bytes) {
++		if (!*finished) {
++			*finished = true;
++			done(std::move(bytes));
++		}
++	};
++	media->automaticLoad(document->stickerSetOrigin(), nullptr);
++	_session->downloaderTaskFinished(
++	) | rpl::filter([=] {
++		return !*finished && media->loaded();
++	}) | rpl::take(1) | rpl::on_next([=] {
++		finish(read());
++	}, _lifetime);
++	base::call_delayed(kLoadTimeout, this, [=] {
++		finish(media->loaded() ? read() : QByteArray());
++	});
++}
++
++CellDelegate::CellDelegate(not_null<Library*> library)
++: _library(library) {
++}
++
++void CellDelegate::setCell(const Cell &cell, const Resolved &resolved) {
++	_cell = cell;
++	_resolved = resolved;
++	const auto look = ComputeRibbon(cell, resolved);
++	if (look != _look) {
++		_look = look;
++		_badgeValid = false;
++	}
++}
++
++TextWithEntities CellDelegate::star() {
++	return _library->delegate()->star();
++}
++
++TextWithEntities CellDelegate::monostar() {
++	return _library->delegate()->monostar();
++}
++
++TextWithEntities CellDelegate::monoton() {
++	return _library->delegate()->monoton();
++}
++
++TextWithEntities CellDelegate::ministar() {
++	return _library->delegate()->ministar();
++}
++
++Ui::Text::MarkedContext CellDelegate::textContext() {
++	return _library->delegate()->textContext();
++}
++
++QSize CellDelegate::buttonSize() {
++	return _library->delegate()->buttonSize();
++}
++
++QMargins CellDelegate::buttonExtend() const {
++	return _library->delegate()->buttonExtend();
++}
++
++auto CellDelegate::buttonPatternEmoji(
++	not_null<Data::UniqueGift*> unique,
++	Fn<void()> repaint)
++-> std::unique_ptr<Ui::Text::CustomEmoji> {
++	return MakeSymbolEmoji(_resolved.symbolJson);
++}
++
++QImage CellDelegate::background() {
++	return _library->delegate()->background();
++}
++
++rpl::producer<not_null<DocumentData*>> CellDelegate::sticker(
++		const Info::PeerGifts::GiftDescriptor &descriptor) {
++	return _library->delegate()->sticker(descriptor);
++}
++
++not_null<StickerPremiumMark*> CellDelegate::hiddenMark() {
++	return _library->delegate()->hiddenMark();
++}
++
++QImage CellDelegate::cachedBadge(const Info::PeerGifts::GiftBadge &badge) {
++	if (!_badgeValid) {
++		_badge = _look.text.isEmpty()
++			? QImage()
++			: Info::PeerGifts::ValidateRotatedBadge({
++				.text = _look.text,
++				.bg1 = _look.bg1,
++				.bg2 = _look.bg2,
++				.fg = _look.fg,
++				.small = true,
++			}, QMargins());
++		_badgeValid = true;
++	}
++	return _badge;
++}
++
++bool CellDelegate::amPremium() {
++	return _library->delegate()->amPremium();
++}
++
++void CellDelegate::invalidateCache() {
++	_library->delegate()->invalidateCache();
++	_look = ComputeRibbon(_cell, _resolved);
++	_badgeValid = false;
++}
++
++QImage &CellDelegate::craftUnavailableFrameCache(
++		not_null<Info::PeerGifts::GiftButton*> button,
++		TimeId until) {
++	return _library->delegate()->craftUnavailableFrameCache(button, until);
++}
++
++} // namespace Tele::GiftGrid
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_cell.h b/Telegram/SourceFiles/tele/tele_gift_grid_cell.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e21f6473d5166bf2c4a47d4759aa014ebfbcd18c
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_cell.h
+@@ -0,0 +1,181 @@
++#pragma once
++
++#include "base/weak_ptr.h"
++#include "info/peer_gifts/info_peer_gifts_common.h"
++#include "tele/tele_gift_studio_data.h"
++
++#include <QtCore/QJsonObject>
++
++namespace Data {
++class DocumentMedia;
++} // namespace Data
++
++namespace Lottie {
++class Instance;
++} // namespace Lottie
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele::GiftGrid {
++
++inline constexpr auto kColumns = 3;
++
++enum class CellKind : uchar {
++	Empty,
++	Unique,
++	Regular,
++};
++
++enum class Ribbon : uchar {
++	Auto,
++	None,
++	Limited,
++	SoldOut,
++	Custom,
++};
++
++struct Cell {
++	CellKind kind = CellKind::Empty;
++	QString collection;
++	QString model;
++	QString backdrop;
++	QString symbol;
++	int number = 1;
++	uint64 giftId = 0;
++	bool price = true;
++	Ribbon ribbon = Ribbon::Auto;
++	QString ribbonText;
++	QColor ribbonColor;
++	bool pinned = false;
++	bool hidden = false;
++
++	friend inline bool operator==(const Cell &, const Cell &) = default;
++};
++
++struct Resolved {
++	GiftStudio::Colors colors;
++	QByteArray modelJson;
++	QByteArray symbolJson;
++	std::optional<Data::StarGift> gift;
++	bool failed = false;
++};
++
++struct RibbonLook {
++	QString text;
++	QColor bg1;
++	QColor bg2;
++	QColor fg;
++
++	friend inline bool operator==(
++		const RibbonLook &,
++		const RibbonLook &) = default;
++};
++
++[[nodiscard]] QJsonObject SerializeCell(const Cell &cell);
++[[nodiscard]] Cell ParseCell(const QJsonObject &object);
++[[nodiscard]] int ParseNumber(const QString &text);
++[[nodiscard]] bool CanPin(const Cell &cell);
++[[nodiscard]] bool SameSource(const Cell &a, const Cell &b);
++
++[[nodiscard]] RibbonLook ComputeRibbon(
++	const Cell &cell,
++	const Resolved &resolved);
++[[nodiscard]] Info::PeerGifts::GiftDescriptor Descriptor(
++	const Cell &cell,
++	const Resolved &resolved);
++[[nodiscard]] QString FormatStars(int64 stars);
++
++class Library final : public base::has_weak_ptr {
++public:
++	explicit Library(not_null<Main::Session*> session);
++	~Library();
++
++	[[nodiscard]] not_null<Main::Session*> session() const;
++	[[nodiscard]] not_null<Info::PeerGifts::Delegate*> delegate();
++	[[nodiscard]] QSize single();
++	[[nodiscard]] QMargins extend() const;
++
++	void collections(
++		Fn<void(const std::vector<QString>&)> done,
++		Fn<void()> fail);
++	void parts(
++		const QString &collection,
++		Fn<void(const GiftStudio::Parts&)> done,
++		Fn<void()> fail);
++	void catalog(Fn<void(const std::vector<Data::StarGift>&)> done);
++	[[nodiscard]] std::optional<Data::StarGift> findGift(uint64 id) const;
++
++	void resolve(const Cell &cell, Fn<void(Resolved)> done);
++	void stickerBytes(
++		not_null<DocumentData*> document,
++		Fn<void(QByteArray)> done);
++
++private:
++	[[nodiscard]] not_null<DocumentData*> localSticker(
++		const QString &key,
++		const QByteArray &json);
++	void resolveUnique(const Cell &cell, Fn<void(Resolved)> done);
++	void resolveRegular(const Cell &cell, Fn<void(Resolved)> done);
++
++	const not_null<Main::Session*> _session;
++	Info::PeerGifts::Delegate _delegate;
++	std::vector<QString> _collections;
++	base::flat_map<QString, GiftStudio::Parts> _parts;
++	std::vector<Data::StarGift> _catalog;
++	bool _catalogLoaded = false;
++	base::flat_map<QString, std::shared_ptr<Data::DocumentMedia>> _media;
++	std::vector<std::shared_ptr<Data::DocumentMedia>> _loading;
++	rpl::lifetime _lifetime;
++
++};
++
++class CellDelegate final : public Info::PeerGifts::GiftButtonDelegate {
++public:
++	explicit CellDelegate(not_null<Library*> library);
++
++	void setCell(const Cell &cell, const Resolved &resolved);
++
++	TextWithEntities star() override;
++	TextWithEntities monostar() override;
++	TextWithEntities monoton() override;
++	TextWithEntities ministar() override;
++	Ui::Text::MarkedContext textContext() override;
++	QSize buttonSize() override;
++	QMargins buttonExtend() const override;
++	auto buttonPatternEmoji(
++		not_null<Data::UniqueGift*> unique,
++		Fn<void()> repaint)
++	-> std::unique_ptr<Ui::Text::CustomEmoji> override;
++	QImage background() override;
++	rpl::producer<not_null<DocumentData*>> sticker(
++		const Info::PeerGifts::GiftDescriptor &descriptor) override;
++	not_null<StickerPremiumMark*> hiddenMark() override;
++	QImage cachedBadge(const Info::PeerGifts::GiftBadge &badge) override;
++	bool amPremium() override;
++	void invalidateCache() override;
++	QImage &craftUnavailableFrameCache(
++		not_null<Info::PeerGifts::GiftButton*> button,
++		TimeId until) override;
++
++private:
++	const not_null<Library*> _library;
++	Cell _cell;
++	Resolved _resolved;
++	RibbonLook _look;
++	QImage _badge;
++	bool _badgeValid = false;
++
++};
++
++[[nodiscard]] std::unique_ptr<Lottie::Instance> MakeLottie(
++	const QByteArray &bytes);
++[[nodiscard]] std::unique_ptr<Ui::Text::CustomEmoji> MakeSymbolEmoji(
++	const QByteArray &json);
++[[nodiscard]] QImage RenderLottieFrame(
++	const QByteArray &json,
++	QSize size,
++	int frame);
++
++} // namespace Tele::GiftGrid
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp b/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..30339a45e14c2bff9e3d5d6c5f03f4ad3a52e82d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+@@ -0,0 +1,1089 @@
++#include "tele/tele_gift_grid_editor.h"
++
++#include "chat_helpers/compose/compose_show.h"
++#include "data/data_star_gift.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "settings/settings_common.h"
++#include "tele/tele_gift_fake_upgrade.h"
++#include "tele/tele_gift_studio_widgets.h"
++#include "tele/tele_lowercase.h"
++#include "ui/layers/generic_box.h"
++#include "ui/painter.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/checkbox.h"
++#include "ui/widgets/discrete_sliders.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/multi_select.h"
++#include "ui/widgets/scroll_area.h"
++#include "ui/wrap/padding_wrap.h"
++#include "ui/wrap/slide_wrap.h"
++#include "ui/wrap/vertical_layout.h"
++#include "styles/style_boxes.h"
++#include "styles/style_credits.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++#include "styles/style_widgets.h"
++
++namespace Tele::GiftGrid {
++namespace {
++
++using namespace GiftStudio;
++
++constexpr auto kListedRows = 5;
++constexpr auto kMaxRibbon = 32;
++constexpr auto kMaxNumberLength = 11;
++constexpr auto kPreloadRows = 2;
++
++enum class Tab {
++	Collection,
++	Model,
++	Backdrop,
++	Symbol,
++};
++
++template <typename List>
++[[nodiscard]] int IndexOf(const List &list, const QString &name) {
++	for (auto i = 0; i != int(list.size()); ++i) {
++		if (list[i].name == name) {
++			return i;
++		}
++	}
++	return -1;
++}
++
++template <typename List>
++void FixName(QString &name, const List &list) {
++	if (list.empty()) {
++		name = QString();
++		return;
++	}
++	for (const auto &item : list) {
++		if (!item.name.compare(name, Qt::CaseInsensitive)) {
++			name = item.name;
++			return;
++		}
++	}
++	name = list.front().name;
++}
++
++[[nodiscard]] Ribbon AutoRibbon(const Data::StarGift &gift) {
++	return !gift.limitedCount
++		? Ribbon::None
++		: (gift.soldOut || !gift.limitedLeft)
++		? Ribbon::SoldOut
++		: Ribbon::Limited;
++}
++
++[[nodiscard]] QString GiftLabel(const Data::StarGift &gift) {
++	const auto title = gift.resellTitle.isEmpty()
++		? Lower(u"Gift"_q)
++		: gift.resellTitle;
++	return title + u" \u00B7 "_q + Lower(u"%1 stars"_q).arg(
++		FormatStars(gift.stars));
++}
++
++class Preview final : public Ui::RpWidget {
++public:
++	Preview(QWidget *parent, std::shared_ptr<Library> library);
++
++	void setCell(const Cell &cell);
++	void setStatus(const QString &status);
++	[[nodiscard]] const Resolved &resolved() const;
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++
++private:
++	void apply();
++	void place();
++
++	const std::shared_ptr<Library> _library;
++	CellDelegate _delegate;
++	std::unique_ptr<Info::PeerGifts::GiftButton> _button;
++	Cell _cell;
++	Cell _source;
++	Resolved _resolved;
++	QString _status;
++	uint64 _token = 0;
++	bool _ready = false;
++
++};
++
++Preview::Preview(QWidget *parent, std::shared_ptr<Library> library)
++: RpWidget(parent)
++, _library(std::move(library))
++, _delegate(_library.get())
++, _button(std::make_unique<Info::PeerGifts::GiftButton>(this, &_delegate)) {
++	_button->setAttribute(Qt::WA_TransparentForMouseEvents);
++	_button->hide();
++	widthValue() | rpl::on_next([=] {
++		place();
++	}, lifetime());
++}
++
++const Resolved &Preview::resolved() const {
++	return _resolved;
++}
++
++void Preview::setStatus(const QString &status) {
++	++_token;
++	_ready = false;
++	_status = status;
++	_button->hide();
++	update();
++}
++
++void Preview::setCell(const Cell &cell) {
++	_cell = cell;
++	if (_ready && SameSource(cell, _source)) {
++		apply();
++		return;
++	}
++	const auto token = ++_token;
++	_ready = false;
++	_status = Lower(u"Loading\u2026"_q);
++	_button->hide();
++	update();
++	_library->resolve(cell, crl::guard(this, [=](Resolved resolved) {
++		if (_token != token) {
++			return;
++		}
++		_source = cell;
++		_resolved = std::move(resolved);
++		_ready = true;
++		apply();
++	}));
++}
++
++void Preview::apply() {
++	if (_cell.kind == CellKind::Empty) {
++		_status = Lower(u"Pick a gift."_q);
++		_button->hide();
++	} else if (_resolved.failed || !_resolved.gift) {
++		_status = (_cell.kind == CellKind::Regular && !_cell.giftId)
++			? Lower(u"Choose a gift from the catalog."_q)
++			: Lower(u"Couldn't load this gift."_q);
++		_button->hide();
++	} else {
++		_status = QString();
++		_delegate.setCell(_cell, _resolved);
++		_button->setDescriptor(
++			Descriptor(_cell, _resolved),
++			Info::PeerGifts::GiftButtonMode::Minimal);
++		place();
++		_button->show();
++		_button->update();
++	}
++	update();
++}
++
++void Preview::place() {
++	const auto single = _library->single();
++	_button->setGeometry(
++		QRect(
++			(width() - single.width()) / 2,
++			st::giftBoxGiftSkip.y() * 2,
++			single.width(),
++			single.height()),
++		_library->extend());
++}
++
++int Preview::resizeGetHeight(int newWidth) {
++	return _library->single().height() + st::giftBoxGiftSkip.y() * 4;
++}
++
++void Preview::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	p.fillRect(rect(), st::boxDividerBg);
++	if (!_status.isEmpty()) {
++		p.setFont(st::normalFont);
++		p.setPen(st::windowSubTextFg);
++		p.drawText(rect(), _status, style::al_center);
++	}
++}
++
++class CatalogList final : public Ui::RpWidget {
++public:
++	CatalogList(
++		QWidget *parent,
++		not_null<Main::Session*> session,
++		Fn<void(Data::StarGift)> chosen);
++
++	void setGifts(std::vector<Data::StarGift> gifts);
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void visibleTopBottomUpdated(int visibleTop, int visibleBottom) override;
++	void paintEvent(QPaintEvent *e) override;
++
++private:
++	struct View {
++		std::unique_ptr<Info::PeerGifts::GiftButton> button;
++		int index = -1;
++	};
++
++	void refreshButtons();
++	[[nodiscard]] QRect cellRect(int index) const;
++
++	Info::PeerGifts::Delegate _delegate;
++	Fn<void(Data::StarGift)> _chosen;
++	std::vector<Data::StarGift> _gifts;
++	std::vector<View> _views;
++	QSize _single;
++	int _visibleTop = 0;
++	int _visibleBottom = 0;
++	bool _loaded = false;
++
++};
++
++CatalogList::CatalogList(
++	QWidget *parent,
++	not_null<Main::Session*> session,
++	Fn<void(Data::StarGift)> chosen)
++: RpWidget(parent)
++, _delegate(session, Info::PeerGifts::GiftButtonMode::Full)
++, _chosen(std::move(chosen))
++, _single(_delegate.buttonSize()) {
++}
++
++void CatalogList::setGifts(std::vector<Data::StarGift> gifts) {
++	_gifts = std::move(gifts);
++	_gifts.erase(ranges::remove_if(_gifts, [](const Data::StarGift &gift) {
++		return (gift.unique != nullptr);
++	}), end(_gifts));
++	_loaded = true;
++	resizeToWidth(width());
++	refreshButtons();
++	update();
++}
++
++QRect CatalogList::cellRect(int index) const {
++	const auto skip = st::giftBoxGiftSkip;
++	const auto full = kColumns * _single.width() + (kColumns - 1) * skip.x();
++	const auto left = (width() - full) / 2;
++	return QRect(
++		left + (index % kColumns) * (_single.width() + skip.x()),
++		skip.y() * 2 + (index / kColumns) * (_single.height() + skip.y()),
++		_single.width(),
++		_single.height());
++}
++
++int CatalogList::resizeGetHeight(int newWidth) {
++	const auto rows = (int(_gifts.size()) + kColumns - 1) / kColumns;
++	const auto skip = st::giftBoxGiftSkip.y();
++	return skip * 4 + (rows
++		? (rows * (_single.height() + skip) - skip)
++		: _single.height());
++}
++
++void CatalogList::visibleTopBottomUpdated(int visibleTop, int visibleBottom) {
++	_visibleTop = visibleTop;
++	_visibleBottom = visibleBottom;
++	refreshButtons();
++}
++
++void CatalogList::refreshButtons() {
++	const auto skip = st::giftBoxGiftSkip.y();
++	const auto row = _single.height() + skip;
++	const auto top = skip * 2;
++	const auto rows = (int(_gifts.size()) + kColumns - 1) / kColumns;
++	const auto from = std::clamp(
++		(_visibleTop - top) / row - kPreloadRows,
++		0,
++		rows) * kColumns;
++	const auto till = std::clamp(
++		(_visibleBottom - top) / row + 1 + kPreloadRows,
++		0,
++		rows) * kColumns;
++	const auto count = std::min(till, int(_gifts.size()));
++	auto free = std::vector<int>();
++	for (auto i = 0; i != int(_views.size()); ++i) {
++		auto &view = _views[i];
++		if (view.index < from || view.index >= count) {
++			view.index = -1;
++			view.button->hide();
++			free.push_back(i);
++		}
++	}
++	for (auto index = from; index < count; ++index) {
++		const auto shown = ranges::any_of(_views, [&](const View &view) {
++			return (view.index == index);
++		});
++		if (shown) {
++			continue;
++		}
++		auto slot = 0;
++		if (!free.empty()) {
++			slot = free.back();
++			free.pop_back();
++		} else {
++			slot = int(_views.size());
++			_views.push_back({
++				.button = std::make_unique<Info::PeerGifts::GiftButton>(
++					this,
++					&_delegate),
++			});
++		}
++		auto &view = _views[slot];
++		view.index = index;
++		const auto gift = _gifts[index];
++		view.button->setDescriptor(
++			Info::PeerGifts::GiftTypeStars{ .info = gift },
++			Info::PeerGifts::GiftButtonMode::Full);
++		view.button->setClickedCallback([=] {
++			_chosen(gift);
++		});
++		view.button->setGeometry(cellRect(index), _delegate.buttonExtend());
++		view.button->show();
++	}
++}
++
++void CatalogList::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	p.fillRect(e->rect(), st::boxDividerBg);
++	if (_gifts.empty()) {
++		p.setFont(st::normalFont);
++		p.setPen(st::windowSubTextFg);
++		p.drawText(
++			rect(),
++			_loaded
++				? Lower(u"Couldn't load the gift catalog."_q)
++				: Lower(u"Loading\u2026"_q),
++			style::al_center);
++	}
++}
++
++[[nodiscard]] not_null<Ui::Radioenum<Ribbon>*> AddRadio(
++		not_null<Ui::VerticalLayout*> container,
++		const std::shared_ptr<Ui::RadioenumGroup<Ribbon>> &group,
++		Ribbon value,
++		const QString &text) {
++	return container->add(
++		object_ptr<Ui::Radioenum<Ribbon>>(
++			container,
++			group,
++			value,
++			Lower(text),
++			st::defaultBoxCheckbox),
++		st::boxRowPadding + QMargins(0, st::defaultVerticalListSkip, 0, 0));
++}
++
++} // namespace
++
++Cell CellFromCombo(Cell cell, const GiftStudio::Combo &combo) {
++	cell.kind = CellKind::Unique;
++	cell.collection = combo.collection;
++	cell.model = combo.model;
++	cell.backdrop = combo.backdrop;
++	cell.symbol = combo.symbol;
++	cell.giftId = 0;
++	if (const auto number = ParseNumber(combo.number); number >= 0) {
++		cell.number = number;
++	}
++	if (cell.ribbon == Ribbon::Limited || cell.ribbon == Ribbon::SoldOut) {
++		cell.ribbon = Ribbon::Auto;
++	}
++	return cell;
++}
++
++void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
++	struct State {
++		Cell draft;
++		std::vector<QString> collections;
++		Parts parts;
++		QString partsFor;
++		Tab tab = Tab::Collection;
++		QString query;
++		bool syncing = false;
++		Fn<void()> loadParts;
++		Fn<void(bool)> refreshList;
++		Fn<void()> syncControls;
++		Fn<void()> refresh;
++		Fn<void(Cell)> applyUnique;
++	};
++	const auto state = box->lifetime().make_state<State>();
++	state->draft = args.cell;
++	if (state->draft.kind == CellKind::Empty) {
++		state->draft.kind = CellKind::Unique;
++	}
++	const auto show = args.show;
++	const auto library = args.library;
++	const auto studio = args.studio;
++	const auto done = args.done;
++	const auto session = library->session();
++
++	box->setTitle(rpl::single(Lower(u"Edit gift"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto content = box->verticalLayout();
++
++	const auto preview = content->add(
++		object_ptr<Preview>(content, library),
++		style::margins());
++	Ui::AddSkip(content);
++	const auto kinds = content->add(
++		object_ptr<Ui::SettingsSlider>(content, st::defaultTabsSlider),
++		st::boxRowPadding);
++	kinds->setSections({
++		Lower(u"Collectible"_q),
++		Lower(u"Gift"_q),
++	});
++
++	const auto uniqueWrap = content->add(
++		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
++			content,
++			object_ptr<Ui::VerticalLayout>(content)));
++	const auto unique = uniqueWrap->entity();
++	const auto regularWrap = content->add(
++		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
++			content,
++			object_ptr<Ui::VerticalLayout>(content)));
++	const auto regular = regularWrap->entity();
++
++	Ui::AddSkip(unique);
++	if (studio) {
++		Settings::AddButtonWithIcon(
++			unique,
++			rpl::single(Lower(u"From the studio"_q)),
++			st::settingsButton,
++			{ &st::menuIconPalette }
++		)->setClickedCallback([=] {
++			if (const auto combo = studio()) {
++				state->applyUnique(CellFromCombo(state->draft, *combo));
++			} else {
++				show->showToast(Lower(u"Pick a gift in the studio first."_q));
++			}
++		});
++	}
++	Settings::AddButtonWithIcon(
++		unique,
++		rpl::single(Lower(u"From favorites"_q)),
++		st::settingsButton,
++		{ &st::menuIconFave }
++	)->setClickedCallback([=] {
++		show->showBox(Box(FavoritesBox, crl::guard(box, [=](Combo combo) {
++			state->applyUnique(CellFromCombo(state->draft, combo));
++		})));
++	});
++	Settings::AddButtonWithIcon(
++		unique,
++		rpl::single(Lower(u"From roll history"_q)),
++		st::settingsButton,
++		{ &st::menuIconUnique }
++	)->setClickedCallback([=] {
++		show->showBox(Box(RollHistoryBox, session, crl::guard(box, [=](
++				Cell cell) {
++			auto copy = state->draft;
++			copy.kind = CellKind::Unique;
++			copy.collection = cell.collection;
++			copy.model = cell.model;
++			copy.backdrop = cell.backdrop;
++			copy.symbol = cell.symbol;
++			copy.number = cell.number;
++			copy.giftId = 0;
++			state->applyUnique(copy);
++		})));
++	});
++	Ui::AddSkip(unique);
++
++	const auto tabs = unique->add(
++		object_ptr<Ui::SettingsSlider>(unique, st::defaultTabsSlider),
++		st::boxRowPadding);
++	tabs->setSections({
++		Lower(u"Collection"_q),
++		Lower(u"Model"_q),
++		Lower(u"Backdrop"_q),
++		Lower(u"Symbol"_q),
++	});
++	const auto search = unique->add(
++		object_ptr<Ui::MultiSelect>(
++			unique,
++			st::defaultMultiSelect,
++			rpl::single(Lower(u"Search"_q))),
++		style::margins());
++	const auto holder = unique->add(
++		object_ptr<Ui::FixedHeightWidget>(
++			unique,
++			kListedRows * RowHeight()),
++		style::margins());
++	const auto scroll = Ui::CreateChild<Ui::ScrollArea>(
++		holder,
++		st::boxScroll);
++	const auto list = scroll->setOwnedWidget(
++		object_ptr<PickerList>(scroll)).data();
++	holder->widthValue() | rpl::on_next([=](int width) {
++		scroll->setGeometry(0, 0, width, holder->height());
++		list->resizeToWidth(width);
++	}, holder->lifetime());
++	Ui::AddSkip(unique);
++	const auto numberField = unique->add(
++		object_ptr<Ui::InputField>(
++			unique,
++			st::defaultInputField,
++			rpl::single(Lower(u"Number"_q)),
++			QString::number(state->draft.number)),
++		st::boxRowPadding);
++	numberField->setMaxLength(kMaxNumberLength);
++
++	const auto ribbon = std::make_shared<Ui::RadioenumGroup<Ribbon>>(
++		state->draft.ribbon);
++	Ui::AddSkip(unique);
++	Ui::AddSubsectionTitle(unique, rpl::single(Lower(u"Ribbon"_q)));
++	AddRadio(unique, ribbon, Ribbon::Auto, u"Number"_q);
++	AddRadio(unique, ribbon, Ribbon::None, u"None"_q);
++	AddRadio(unique, ribbon, Ribbon::Custom, u"Custom text"_q);
++	Ui::AddSkip(unique);
++	const auto pinned = unique->add(
++		object_ptr<Ui::Checkbox>(
++			unique,
++			Lower(u"Pinned"_q),
++			state->draft.pinned,
++			st::defaultBoxCheckbox),
++		st::boxRowPadding);
++
++	Ui::AddSkip(regular);
++	Settings::AddButtonWithIcon(
++		regular,
++		rpl::single(Lower(u"Choose a gift"_q)),
++		st::settingsButton,
++		{ &st::menuIconGiftPremium }
++	)->setClickedCallback([=] {
++		show->showBox(Box(CatalogBox, library, crl::guard(box, [=](
++				Data::StarGift gift) {
++			auto &draft = state->draft;
++			draft.kind = CellKind::Regular;
++			draft.giftId = gift.id;
++			draft.ribbon = AutoRibbon(gift);
++			state->syncControls();
++			state->refresh();
++		})));
++	});
++	const auto chosenLabel = regular->add(
++		object_ptr<Ui::FlatLabel>(regular, QString(), st::boxDividerLabel),
++		st::boxRowPadding);
++	Ui::AddSkip(regular);
++	const auto price = regular->add(
++		object_ptr<Ui::Checkbox>(
++			regular,
++			Lower(u"Show the price"_q),
++			state->draft.price,
++			st::defaultBoxCheckbox),
++		st::boxRowPadding);
++	Ui::AddSkip(regular);
++	Ui::AddSubsectionTitle(regular, rpl::single(Lower(u"Ribbon"_q)));
++	AddRadio(regular, ribbon, Ribbon::None, u"None"_q);
++	AddRadio(regular, ribbon, Ribbon::Limited, u"Limited"_q);
++	AddRadio(regular, ribbon, Ribbon::SoldOut, u"Sold out"_q);
++	AddRadio(regular, ribbon, Ribbon::Custom, u"Custom text"_q);
++
++	const auto textWrap = content->add(
++		object_ptr<Ui::SlideWrap<Ui::InputField>>(
++			content,
++			object_ptr<Ui::InputField>(
++				content,
++				st::defaultInputField,
++				rpl::single(Lower(u"Ribbon text"_q)),
++				state->draft.ribbonText),
++			st::boxRowPadding));
++	const auto ribbonField = textWrap->entity();
++	ribbonField->setMaxLength(kMaxRibbon);
++	Ui::AddSkip(content);
++	const auto colorRow = content->add(
++		object_ptr<Ui::FixedHeightWidget>(
++			content,
++			style::ConvertScale(36)),
++		st::boxRowPadding);
++	const auto swatch = Ui::CreateChild<ColorSwatch>(
++		colorRow,
++		Lower(u"Ribbon colour"_q));
++	const auto reset = Ui::CreateChild<Ui::LinkButton>(
++		colorRow,
++		Lower(u"Default colour"_q));
++	colorRow->widthValue() | rpl::on_next([=](int width) {
++		const auto height = colorRow->height();
++		swatch->setGeometry(0, 0, width / 2, height);
++		reset->moveToRight(0, (height - reset->height()) / 2, width);
++	}, colorRow->lifetime());
++	Ui::AddSkip(content);
++	const auto hidden = content->add(
++		object_ptr<Ui::Checkbox>(
++			content,
++			Lower(u"Hidden from the profile"_q),
++			state->draft.hidden,
++			st::defaultBoxCheckbox),
++		st::boxRowPadding);
++	Ui::AddSkip(content);
++
++	state->refresh = [=] {
++		const auto &draft = state->draft;
++		if (draft.kind == CellKind::Unique
++			&& (state->partsFor != draft.collection
++				|| draft.collection.isEmpty())) {
++			preview->setStatus(Lower(u"Loading\u2026"_q));
++		} else {
++			preview->setCell(draft);
++		}
++		const auto custom = (draft.ribbon == Ribbon::Custom);
++		textWrap->toggle(custom, anim::type::normal);
++		const auto overridden = draft.ribbonColor.isValid();
++		const auto look = ComputeRibbon(draft, preview->resolved());
++		swatch->setColor(overridden
++			? draft.ribbonColor
++			: look.bg1.isValid()
++			? look.bg1
++			: st::windowActiveTextFg->c);
++		reset->setVisible(overridden);
++		const auto gift = draft.giftId
++			? library->findGift(draft.giftId)
++			: std::nullopt;
++		chosenLabel->setText(gift
++			? GiftLabel(*gift)
++			: Lower(u"No gift chosen yet."_q));
++	};
++
++	state->syncControls = [=] {
++		state->syncing = true;
++		const auto &draft = state->draft;
++		const auto isUnique = (draft.kind != CellKind::Regular);
++		kinds->setActiveSectionFast(isUnique ? 0 : 1);
++		uniqueWrap->toggle(isUnique, anim::type::instant);
++		regularWrap->toggle(!isUnique, anim::type::instant);
++		ribbon->setValue(draft.ribbon);
++		pinned->setChecked(draft.pinned);
++		price->setChecked(draft.price);
++		hidden->setChecked(draft.hidden);
++		if (ParseNumber(numberField->getLastText()) != draft.number) {
++			numberField->setText(QString::number(draft.number));
++		}
++		state->syncing = false;
++	};
++
++	state->refreshList = [=](bool scrollToSelected) {
++		auto rows = std::vector<PickerRow>();
++		const auto query = state->query.trimmed();
++		const auto add = [&](
++				const QString &name,
++				std::optional<int> permille,
++				int index) {
++			if (query.isEmpty() || name.contains(query, Qt::CaseInsensitive)) {
++				rows.push_back({
++					.name = name,
++					.rarity = permille ? RarityText(*permille) : QString(),
++					.index = index,
++				});
++			}
++		};
++		const auto &draft = state->draft;
++		const auto &parts = state->parts;
++		const auto ready = (state->partsFor == draft.collection);
++		auto selected = -1;
++		switch (state->tab) {
++		case Tab::Collection:
++			for (auto i = 0; i != int(state->collections.size()); ++i) {
++				add(state->collections[i], std::nullopt, i);
++				if (state->collections[i] == draft.collection) {
++					selected = i;
++				}
++			}
++			break;
++		case Tab::Model:
++			if (ready) {
++				for (auto i = 0; i != int(parts.models.size()); ++i) {
++					add(parts.models[i].name, parts.models[i].permille, i);
++				}
++				selected = IndexOf(parts.models, draft.model);
++			}
++			break;
++		case Tab::Backdrop:
++			if (ready) {
++				for (auto i = 0; i != int(parts.backdrops.size()); ++i) {
++					add(
++						parts.backdrops[i].name,
++						parts.backdrops[i].permille,
++						i);
++				}
++				selected = IndexOf(parts.backdrops, draft.backdrop);
++			}
++			break;
++		case Tab::Symbol:
++			if (ready) {
++				for (auto i = 0; i != int(parts.symbols.size()); ++i) {
++					add(parts.symbols[i].name, parts.symbols[i].permille, i);
++				}
++				selected = IndexOf(parts.symbols, draft.symbol);
++			}
++			break;
++		}
++		list->setRows(std::move(rows), selected);
++		if (scrollToSelected) {
++			scroll->scrollToY(
++				list->selectedTop() - (scroll->height() - RowHeight()) / 2);
++		}
++	};
++	list->setPreview([=](QPainter &p, QRect rect, int index) {
++		const auto &parts = state->parts;
++		const auto &collection = state->draft.collection;
++		switch (state->tab) {
++		case Tab::Collection:
++			if (index < int(state->collections.size())) {
++				PaintImagePreview(
++					p,
++					rect,
++					PreviewKind::Gift,
++					state->collections[index],
++					QString(),
++					list,
++					std::nullopt);
++			}
++			break;
++		case Tab::Model:
++			if (index < int(parts.models.size())) {
++				PaintImagePreview(
++					p,
++					rect,
++					PreviewKind::Model,
++					collection,
++					parts.models[index].name,
++					list,
++					std::nullopt);
++			}
++			break;
++		case Tab::Backdrop:
++			if (index < int(parts.backdrops.size())) {
++				PaintBackdropPreview(p, rect, parts.backdrops[index].colors);
++			}
++			break;
++		case Tab::Symbol:
++			if (index < int(parts.symbols.size())) {
++				PaintImagePreview(
++					p,
++					rect,
++					PreviewKind::Symbol,
++					collection,
++					parts.symbols[index].name,
++					list,
++					st::windowSubTextFg->c);
++			}
++			break;
++		}
++	});
++
++	state->loadParts = [=] {
++		const auto collection = state->draft.collection;
++		if (collection.isEmpty() || state->partsFor == collection) {
++			return;
++		}
++		library->parts(collection, crl::guard(box, [=](const Parts &parts) {
++			if (state->draft.collection != collection) {
++				return;
++			}
++			state->parts = parts;
++			state->partsFor = collection;
++			auto &draft = state->draft;
++			FixName(draft.model, parts.models);
++			FixName(draft.backdrop, parts.backdrops);
++			FixName(draft.symbol, parts.symbols);
++			state->refreshList(false);
++			state->refresh();
++		}), crl::guard(box, [=] {
++			if (state->draft.collection == collection) {
++				preview->setStatus(
++					Lower(u"Couldn't load this gift from api.changes.tg."_q));
++			}
++		}));
++	};
++
++	state->applyUnique = [=](Cell cell) {
++		state->draft = std::move(cell);
++		state->syncControls();
++		state->loadParts();
++		state->refreshList(true);
++		state->refresh();
++	};
++
++	const auto choose = [=](int index) {
++		auto &draft = state->draft;
++		const auto &parts = state->parts;
++		switch (state->tab) {
++		case Tab::Collection:
++			if (index >= 0
++				&& index < int(state->collections.size())
++				&& state->collections[index] != draft.collection) {
++				draft.collection = state->collections[index];
++				state->loadParts();
++			}
++			break;
++		case Tab::Model:
++			if (index >= 0 && index < int(parts.models.size())) {
++				draft.model = parts.models[index].name;
++			}
++			break;
++		case Tab::Backdrop:
++			if (index >= 0 && index < int(parts.backdrops.size())) {
++				draft.backdrop = parts.backdrops[index].name;
++			}
++			break;
++		case Tab::Symbol:
++			if (index >= 0 && index < int(parts.symbols.size())) {
++				draft.symbol = parts.symbols[index].name;
++			}
++			break;
++		}
++		state->refreshList(false);
++		state->refresh();
++	};
++	list->chosen() | rpl::on_next(choose, list->lifetime());
++	search->setQueryChangedCallback([=](const QString &query) {
++		state->query = query;
++		state->refreshList(false);
++		scroll->scrollToY(0);
++	});
++	search->setSubmittedCallback([=](Qt::KeyboardModifiers) {
++		if (const auto first = list->firstIndex(); first >= 0) {
++			choose(first);
++		}
++	});
++	search->setCancelledCallback([=] {
++		search->clearQuery();
++	});
++	tabs->sectionActivated() | rpl::on_next([=](int section) {
++		state->tab = Tab(section);
++		search->clearQuery();
++		state->query = QString();
++		state->refreshList(true);
++	}, tabs->lifetime());
++
++	kinds->sectionActivated() | rpl::on_next([=](int section) {
++		if (state->syncing) {
++			return;
++		}
++		auto &draft = state->draft;
++		draft.kind = section ? CellKind::Regular : CellKind::Unique;
++		if (draft.kind == CellKind::Regular) {
++			if (draft.ribbon == Ribbon::Auto) {
++				const auto gift = draft.giftId
++					? library->findGift(draft.giftId)
++					: std::nullopt;
++				draft.ribbon = gift ? AutoRibbon(*gift) : Ribbon::None;
++			}
++			draft.pinned = false;
++		} else if (draft.ribbon == Ribbon::Limited
++			|| draft.ribbon == Ribbon::SoldOut) {
++			draft.ribbon = Ribbon::Auto;
++		}
++		state->syncControls();
++		state->refresh();
++	}, kinds->lifetime());
++
++	ribbon->setChangedCallback([=](Ribbon value) {
++		if (!state->syncing) {
++			state->draft.ribbon = value;
++			state->refresh();
++		}
++	});
++	ribbonField->changes() | rpl::on_next([=] {
++		state->draft.ribbonText = ribbonField->getLastText().trimmed();
++		state->refresh();
++	}, ribbonField->lifetime());
++	numberField->changes() | rpl::on_next([=] {
++		if (state->syncing) {
++			return;
++		}
++		const auto number = ParseNumber(numberField->getLastText());
++		if (number >= 0 && number != state->draft.number) {
++			state->draft.number = number;
++			state->refresh();
++		}
++	}, numberField->lifetime());
++	pinned->checkedChanges() | rpl::on_next([=](bool checked) {
++		if (!state->syncing) {
++			state->draft.pinned = checked;
++			state->refresh();
++		}
++	}, pinned->lifetime());
++	price->checkedChanges() | rpl::on_next([=](bool checked) {
++		if (!state->syncing) {
++			state->draft.price = checked;
++			state->refresh();
++		}
++	}, price->lifetime());
++	hidden->checkedChanges() | rpl::on_next([=](bool checked) {
++		if (!state->syncing) {
++			state->draft.hidden = checked;
++			state->refresh();
++		}
++	}, hidden->lifetime());
++	swatch->setClickedCallback([=] {
++		show->showBox(Box(
++			ColorPickerBox,
++			Lower(u"Ribbon colour"_q),
++			swatch->color(),
++			crl::guard(box, [=](QColor color) {
++				state->draft.ribbonColor = color;
++				state->refresh();
++			})));
++	});
++	reset->setClickedCallback([=] {
++		state->draft.ribbonColor = QColor();
++		state->refresh();
++	});
++
++	box->addButton(tr::lng_settings_save(), [=] {
++		const auto &draft = state->draft;
++		if (draft.kind == CellKind::Regular && !draft.giftId) {
++			show->showToast(Lower(u"Choose a gift from the catalog."_q));
++			return;
++		} else if (draft.kind == CellKind::Unique
++			&& (draft.collection.isEmpty()
++				|| draft.model.isEmpty()
++				|| draft.backdrop.isEmpty()
++				|| draft.symbol.isEmpty())) {
++			show->showToast(Lower(u"The parts are still loading."_q));
++			return;
++		}
++		auto result = draft;
++		if (result.kind == CellKind::Regular) {
++			result.collection = result.model = QString();
++			result.backdrop = result.symbol = QString();
++			result.pinned = false;
++		} else {
++			result.giftId = 0;
++		}
++		done(result);
++		box->closeBox();
++	});
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++
++	state->syncControls();
++	textWrap->toggle(
++		state->draft.ribbon == Ribbon::Custom,
++		anim::type::instant);
++	state->refresh();
++	library->catalog(crl::guard(box, [=](const std::vector<Data::StarGift> &) {
++		state->refresh();
++	}));
++	library->collections(crl::guard(box, [=](
++			const std::vector<QString> &collections) {
++		state->collections = collections;
++		auto &draft = state->draft;
++		if (draft.collection.isEmpty() && !collections.empty()) {
++			draft.collection = collections.front();
++		}
++		state->loadParts();
++		state->refreshList(true);
++		state->refresh();
++	}), crl::guard(box, [=] {
++		if (state->draft.kind == CellKind::Unique) {
++			preview->setStatus(
++				Lower(u"Couldn't load gifts from api.changes.tg."_q));
++		}
++	}));
++}
++
++void CatalogBox(
++		not_null<Ui::GenericBox*> box,
++		std::shared_ptr<Library> library,
++		Fn<void(Data::StarGift)> chosen) {
++	box->setTitle(rpl::single(Lower(u"Choose a gift"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto list = box->addRow(
++		object_ptr<CatalogList>(
++			box,
++			library->session(),
++			crl::guard(box, [=](Data::StarGift gift) {
++				chosen(gift);
++				box->closeBox();
++			})),
++		style::margins());
++	library->catalog(crl::guard(list, [=](
++			const std::vector<Data::StarGift> &gifts) {
++		list->setGifts(gifts);
++	}));
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++}
++
++void RollHistoryBox(
++		not_null<Ui::GenericBox*> box,
++		not_null<Main::Session*> session,
++		Fn<void(Cell)> chosen) {
++	box->setTitle(rpl::single(Lower(u"Roll history"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto content = box->verticalLayout();
++	const auto list = FakeUpgrades(session);
++	if (list.empty()) {
++		content->add(
++			object_ptr<Ui::FlatLabel>(
++				content,
++				Lower(u"Fake upgrades show up here."_q),
++				st::boxDividerLabel),
++			st::boxRowPadding);
++	}
++	for (const auto &unique : list) {
++		auto cell = Cell{
++			.kind = CellKind::Unique,
++			.collection = unique->title,
++			.model = unique->model.name,
++			.backdrop = unique->backdrop.name,
++			.symbol = unique->pattern.name,
++			.number = unique->number,
++		};
++		const auto button = content->add(object_ptr<Ui::SettingsButton>(
++			content,
++			rpl::single(Data::UniqueGiftName(*unique)),
++			st::settingsButtonNoIcon));
++		button->setClickedCallback([=] {
++			chosen(cell);
++			box->closeBox();
++		});
++		content->add(
++			object_ptr<Ui::FlatLabel>(
++				content,
++				QStringList{
++					cell.model,
++					cell.backdrop,
++					cell.symbol,
++				}.join(u", "_q),
++				st::boxDividerLabel),
++			st::boxRowPadding);
++	}
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++}
++
++void RibbonTextBox(
++		not_null<Ui::GenericBox*> box,
++		QString text,
++		Fn<void(QString)> done) {
++	box->setTitle(rpl::single(Lower(u"Ribbon text"_q)));
++	const auto field = box->addRow(object_ptr<Ui::InputField>(
++		box,
++		st::defaultInputField,
++		rpl::single(Lower(u"Empty brings the default back"_q)),
++		text));
++	field->setMaxLength(kMaxRibbon);
++	const auto save = [=] {
++		done(field->getLastText().trimmed());
++		box->closeBox();
++	};
++	field->submits() | rpl::on_next([=](Qt::KeyboardModifiers) {
++		save();
++	}, field->lifetime());
++	box->setFocusCallback([=] {
++		field->setFocusFast();
++	});
++	box->addButton(tr::lng_settings_save(), save);
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++}
++
++} // namespace Tele::GiftGrid
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_editor.h b/Telegram/SourceFiles/tele/tele_gift_grid_editor.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..05fd1e1fe154f2b6af98c4b34b5c5c2e2c179089
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_editor.h
+@@ -0,0 +1,45 @@
++#pragma once
++
++#include "tele/tele_gift_grid_cell.h"
++#include "tele/tele_gift_studio_store.h"
++
++namespace ChatHelpers {
++class Show;
++} // namespace ChatHelpers
++
++namespace Ui {
++class GenericBox;
++} // namespace Ui
++
++namespace Tele::GiftGrid {
++
++using StudioCombo = Fn<std::optional<GiftStudio::Combo>()>;
++
++struct EditorArgs {
++	std::shared_ptr<ChatHelpers::Show> show;
++	std::shared_ptr<Library> library;
++	Cell cell;
++	StudioCombo studio;
++	Fn<void(Cell)> done;
++};
++
++void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args);
++
++void CatalogBox(
++	not_null<Ui::GenericBox*> box,
++	std::shared_ptr<Library> library,
++	Fn<void(Data::StarGift)> chosen);
++
++void RollHistoryBox(
++	not_null<Ui::GenericBox*> box,
++	not_null<Main::Session*> session,
++	Fn<void(Cell)> chosen);
++
++void RibbonTextBox(
++	not_null<Ui::GenericBox*> box,
++	QString text,
++	Fn<void(QString)> done);
++
++[[nodiscard]] Cell CellFromCombo(Cell cell, const GiftStudio::Combo &combo);
++
++} // namespace Tele::GiftGrid
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_export.cpp b/Telegram/SourceFiles/tele/tele_gift_grid_export.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..334624999bfe240515f995e2591a6a59356b1c44
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_export.cpp
+@@ -0,0 +1,908 @@
++#include "tele/tele_gift_grid_export.h"
++
++#include "boxes/sticker_set_box.h"
++#include "data/data_star_gift.h"
++#include "lang/lang_keys.h"
++#include "lottie/details/lottie_instance.h"
++#include "tele/tele_gift_list.h"
++#include "tele/tele_gift_studio_export.h"
++#include "tele/tele_gift_studio_video.h"
++#include "tele/tele_options.h"
++#include "ui/effects/credits_graphics.h"
++#include "ui/emoji_config.h"
++#include "ui/image/image_prepare.h"
++#include "ui/painter.h"
++#include "ui/text/text.h"
++#include "ui/text/text_custom_emoji.h"
++#include "ui/text/text_utilities.h"
++#include "ui/top_background_gradient.h"
++#include "styles/style_credits.h"
++#include "styles/style_info.h"
++#include "styles/style_layers.h"
++#include "styles/style_widgets.h"
++
++namespace Tele::GiftGrid {
++namespace {
++
++constexpr auto kMaxFrames = 1800;
++constexpr auto kGifFpsLimit = 50.;
++constexpr auto kMaxFps = 60.;
++constexpr auto kFallbackFps = 30.;
++
++struct Geometry {
++	QSize size;
++	QPoint origin;
++	int topBar = 0;
++	QSize single;
++	QMargins extend;
++	QPoint skip;
++	float64 factor = 1.;
++	int icons = 100;
++};
++
++[[nodiscard]] Geometry ComputeGeometry(
++		not_null<Library*> library,
++		int count,
++		const ExportOptions &options) {
++	const auto single = library->single();
++	const auto skip = st::giftBoxGiftSkip;
++	const auto padding = st::giftBoxPadding;
++	const auto rows = std::max((count + kColumns - 1) / kColumns, 1);
++	const auto gridWidth = kColumns * single.width()
++		+ (kColumns - 1) * skip.x();
++	const auto gridHeight = rows * single.height() + (rows - 1) * skip.y();
++	auto result = Geometry{
++		.single = single,
++		.extend = library->extend(),
++		.skip = skip,
++		.factor = std::clamp(options.scale, 1, 4) * 100. / style::Scale(),
++		.icons = std::clamp(options.scale, 1, 4) * 100,
++	};
++	if (options.frame) {
++		result.topBar = st::infoTopBar.height;
++		result.origin = QPoint(
++			padding.left(),
++			result.topBar + padding.bottom());
++		result.size = QSize(
++			padding.left() + gridWidth + padding.right(),
++			result.topBar + 2 * padding.bottom() + gridHeight);
++	} else {
++		const auto margin = padding.left();
++		result.origin = QPoint(margin, margin);
++		result.size = QSize(gridWidth + 2 * margin, gridHeight + 2 * margin);
++	}
++	return result;
++}
++
++[[nodiscard]] QSize PixelSize(const Geometry &geometry) {
++	return QSize(
++		std::max(int(base::SafeRound(
++			geometry.size.width() * geometry.factor)), 2),
++		std::max(int(base::SafeRound(
++			geometry.size.height() * geometry.factor)), 2));
++}
++
++[[nodiscard]] QRect InnerRect(const Geometry &geometry, int index) {
++	const auto column = index % kColumns;
++	const auto row = index / kColumns;
++	return QRect(
++		geometry.origin + QPoint(
++			column * (geometry.single.width() + geometry.skip.x()),
++			row * (geometry.single.height() + geometry.skip.y())),
++		geometry.single);
++}
++
++[[nodiscard]] QRect ToPixels(QRect rect, float64 factor) {
++	const auto left = int(base::SafeRound(rect.x() * factor));
++	const auto top = int(base::SafeRound(rect.y() * factor));
++	return QRect(
++		left,
++		top,
++		std::max(int(base::SafeRound(rect.width() * factor)), 1),
++		std::max(int(base::SafeRound(rect.height() * factor)), 1));
++}
++
++[[nodiscard]] QImage ShadowImage(
++		QSize single,
++		QMargins extend,
++		float64 factor) {
++	const auto size = single.grownBy(extend);
++	const auto ratio = style::DevicePixelRatio();
++	auto result = QImage(size * ratio, QImage::Format_ARGB32_Premultiplied);
++	result.setDevicePixelRatio(ratio);
++	result.fill(Qt::transparent);
++	const auto radius = st::giftBoxGiftRadius;
++	const auto rect = QRect(QPoint(), size).marginsRemoved(extend);
++	{
++		auto p = QPainter(&result);
++		auto hq = PainterHighQualityEnabler(p);
++		p.setOpacity(0.3);
++		p.setPen(Qt::NoPen);
++		p.setBrush(st::windowShadowFg);
++		p.drawRoundedRect(
++			QRectF(rect).translated(0, radius / 12.),
++			radius,
++			radius);
++	}
++	result = result.scaled(
++		(size * ratio) / 2,
++		Qt::IgnoreAspectRatio,
++		Qt::SmoothTransformation);
++	result = Images::Blur(std::move(result), true);
++	return result.scaled(
++		QSize(
++			std::max(int(std::ceil(size.width() * factor)), 1),
++			std::max(int(std::ceil(size.height() * factor)), 1)),
++		Qt::IgnoreAspectRatio,
++		Qt::SmoothTransformation);
++}
++
++[[nodiscard]] QImage Tinted(QImage image, QColor color) {
++	if (image.isNull()) {
++		return image;
++	}
++	auto p = QPainter(&image);
++	p.setCompositionMode(QPainter::CompositionMode_SourceIn);
++	p.fillRect(QRect(QPoint(), image.size()), color);
++	p.end();
++	return image;
++}
++
++void PaintIcon(
++		QPainter &p,
++		const style::icon &icon,
++		QColor color,
++		QPoint position,
++		int scale) {
++	auto hq = PainterHighQualityEnabler(p);
++	p.drawImage(
++		QRect(position, icon.size()),
++		icon.instance(color, scale, true));
++}
++
++[[nodiscard]] QString StarData() {
++	return u"tele-gift-grid-star"_q;
++}
++
++class StarEmoji final : public Ui::Text::CustomEmoji {
++public:
++	StarEmoji(int height, int ratio, QMargins padding)
++	: _image(Ui::GenerateStars(height, 1, ratio))
++	, _height(height)
++	, _padding(padding) {
++	}
++
++	int width() override {
++		return _padding.left() + _height + _padding.right();
++	}
++	QString entityData() override {
++		return StarData();
++	}
++	void paint(QPainter &p, const Context &context) override {
++		auto hq = PainterHighQualityEnabler(p);
++		p.drawImage(
++			QRect(
++				context.position + QPoint(_padding.left(), _padding.top()),
++				QSize(_height, _height)),
++			_image);
++	}
++	void unload() override {
++	}
++	bool ready() override {
++		return true;
++	}
++	bool readyInDefaultState() override {
++		return true;
++	}
++
++private:
++	QImage _image;
++	int _height = 0;
++	QMargins _padding;
++
++};
++
++void PaintFrame(
++		QPainter &p,
++		const Geometry &geometry,
++		const ExportOptions &options) {
++	const auto width = geometry.size.width();
++	if (!options.frame) {
++		if (!options.transparent) {
++			p.fillRect(QRect(QPoint(), geometry.size), st::boxDividerBg);
++		}
++		return;
++	}
++	const auto &bar = st::infoTopBar;
++	p.fillRect(QRect(0, 0, width, geometry.topBar), bar.bg);
++	p.fillRect(
++		QRect(
++			0,
++			geometry.topBar,
++			width,
++			geometry.size.height() - geometry.topBar),
++		st::boxDividerBg);
++	const auto &back = bar.back;
++	const auto &icon = back.icon;
++	auto position = back.iconPosition;
++	if (position.x() < 0) {
++		position.setX((back.width - icon.width()) / 2);
++	}
++	if (position.y() < 0) {
++		position.setY((back.height - icon.height()) / 2);
++	}
++	PaintIcon(p, icon, st::boxTitleCloseFg->c, position, geometry.icons);
++	const auto &font = bar.title.style.font;
++	p.setFont(font);
++	p.setPen(bar.title.textFg);
++	p.drawText(
++		back.width,
++		bar.titlePosition.y() + font->ascent,
++		font->elided(
++			tr::lng_peer_gifts_title(tr::now),
++			std::max(width - back.width - bar.titlePosition.x(), 1)));
++	p.fillRect(
++		QRect(0, geometry.topBar, width, st::lineWidth),
++		st::shadowFg);
++}
++
++void PaintPattern(
++		QPainter &p,
++		QRect inner,
++		QColor color,
++		const QByteArray &symbol,
++		float64 factor) {
++	if (symbol.isEmpty()) {
++		return;
++	}
++	auto images = base::flat_map<int, QImage>();
++	p.save();
++	p.setClipRect(inner, Qt::IntersectClip);
++	const auto skip = inner.width() / 3;
++	const auto rect = QRect(
++		inner.x() - skip,
++		inner.y(),
++		inner.width() + 2 * skip,
++		inner.height());
++	const auto large = Ui::Emoji::GetSizeLarge()
++		/ float64(style::DevicePixelRatio());
++	for (const auto &point : Ui::PatternBgPointsSmall()) {
++		const auto side = large * point.scale;
++		const auto pixels = std::max(int(base::SafeRound(side * factor)), 1);
++		auto &image = images[pixels];
++		if (image.isNull()) {
++			image = Tinted(
++				RenderLottieFrame(symbol, QSize(pixels, pixels), 0),
++				color);
++			if (image.isNull()) {
++				break;
++			}
++		}
++		const auto position = rect.topLeft() + QPoint(
++			int(point.position.x() * rect.width()),
++			int(point.position.y() * rect.height()));
++		p.setOpacity(point.opacity);
++		p.drawImage(
++			QRectF(
++				position.x() - side / 2.,
++				position.y() - side / 2.,
++				side,
++				side),
++			image);
++	}
++	p.setOpacity(1.);
++	p.restore();
++}
++
++void PaintCellBase(
++		QPainter &p,
++		QRect inner,
++		QMargins extend,
++		const QImage &shadow,
++		const ExportItem &item,
++		float64 factor) {
++	const auto button = inner.marginsAdded(extend);
++	p.drawImage(QRectF(button), shadow);
++	auto hq = PainterHighQualityEnabler(p);
++	const auto radius = st::giftBoxGiftRadius;
++	p.setPen(Qt::NoPen);
++	if (item.cell.kind != CellKind::Unique) {
++		p.setBrush(st::windowBg);
++		p.drawRoundedRect(inner, radius, radius);
++		return;
++	}
++	const auto &colors = item.resolved.colors;
++	auto gradient = QRadialGradient(inner.center(), inner.width() / 2);
++	gradient.setStops({
++		{ 0., colors.center },
++		{ 1., colors.edge },
++	});
++	p.setBrush(gradient);
++	p.drawRoundedRect(inner, radius, radius);
++	PaintPattern(p, inner, colors.pattern, item.resolved.symbolJson, factor);
++}
++
++void PaintRibbon(QPainter &p, QRect inner, const RibbonLook &look) {
++	const auto &font = st::giftBoxGiftBadgeFont;
++	const auto twidth = font->width(look.text);
++	const auto skip = int(std::ceil(twidth / M_SQRT2));
++	const auto size = twidth + font->height * 2;
++	const auto rubber = st::lineWidth;
++	const auto left = inner.x() + inner.width() + rubber - size;
++	const auto top = inner.y() - rubber;
++	p.save();
++	p.setClipRect(
++		inner.marginsAdded({ rubber, rubber, rubber, rubber }),
++		Qt::IntersectClip);
++	p.setClipRect(QRect(left, top, size, size), Qt::IntersectClip);
++	auto hq = PainterHighQualityEnabler(p);
++	p.translate(left + size - skip, top);
++	p.rotate(45.);
++	const auto rect = QRect(-5 * twidth, 0, twidth * 12, font->height);
++	p.setPen(Qt::NoPen);
++	p.setBrush(look.bg1);
++	p.drawRect(rect);
++	if (look.bg2.alpha() > 0) {
++		p.setOpacity(0.5);
++		p.setBrush(look.bg2);
++		p.drawRect(rect);
++		p.setOpacity(1.);
++	}
++	p.setFont(font);
++	p.setPen(look.fg);
++	p.drawText(QPoint(0, font->ascent), look.text);
++	p.restore();
++}
++
++void PaintPrice(
++		QPainter &p,
++		QRect button,
++		QSize single,
++		const ExportItem &item,
++		float64 factor) {
++	auto text = Ui::Text::SingleCustomEmoji(StarData());
++	text.append(' ').append(FormatStars(item.resolved.gift->stars));
++	const auto height = st::defaultTableLabel.style.font->height;
++	const auto ratio = std::max(int(std::ceil(factor)), 1);
++	const auto padding = QMargins(0, st::giftBoxByStarsSkip, 0, 0);
++	auto context = Ui::Text::MarkedContext();
++	context.customEmojiFactory = [=](
++			QStringView data,
++			const Ui::Text::MarkedContext &) {
++		return (data == StarData())
++			? std::make_unique<StarEmoji>(height, ratio, padding)
++			: std::unique_ptr<Ui::Text::CustomEmoji>();
++	};
++	auto price = Ui::Text::String();
++	price.setMarkedText(
++		st::semiboldTextStyle,
++		text,
++		kMarkupTextOptions,
++		context);
++	const auto margins = st::giftBoxButtonPadding;
++	const auto inner = QRect(
++		QPoint(),
++		QSize(price.maxWidth(), st::semiboldFont->height)
++	).marginsAdded(margins);
++	const auto pill = QRect(
++		button.x() + (button.width() - inner.width()) / 2,
++		button.y()
++			+ single.height()
++			- st::giftBoxButtonBottomSmall
++			- inner.height(),
++		inner.width(),
++		inner.height());
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(Qt::NoPen);
++	p.setBrush(st::creditsBg3);
++	p.setOpacity(0.12);
++	const auto radius = pill.height() / 2.;
++	p.drawRoundedRect(pill, radius, radius);
++	p.setOpacity(1.);
++	p.setPen(st::creditsFg);
++	price.draw(p, {
++		.position = pill.topLeft() + QPoint(margins.left(), margins.top()),
++		.availableWidth = price.maxWidth(),
++	});
++}
++
++void PaintHiddenMark(
++		QPainter &p,
++		QPoint position,
++		const QImage &frame,
++		not_null<Library*> library) {
++	const auto &icon = st::giftBoxHiddenMark;
++	const auto size = icon.size();
++	const auto ratio = style::DevicePixelRatio();
++	auto sample = QImage(size * ratio, QImage::Format_ARGB32_Premultiplied);
++	sample.setDevicePixelRatio(ratio);
++	sample.fill(Qt::transparent);
++	{
++		auto q = QPainter(&sample);
++		auto cache = QImage();
++		library->delegate()->hiddenMark()->paint(
++			q,
++			frame,
++			cache,
++			QPoint(),
++			size,
++			size.width());
++	}
++	auto color = sample.pixelColor(2 * ratio, sample.height() / 2);
++	color.setAlpha(255);
++	const auto sticker = st::giftBoxStickerSize;
++	const auto point = position + QPoint(
++		(sticker.width() - size.width()) / 2,
++		(sticker.height() - size.height()) / 2);
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(Qt::NoPen);
++	p.setBrush(color);
++	p.drawEllipse(QRect(point, size));
++	p.drawImage(
++		QRect(point, size),
++		icon.instance(st::premiumButtonFg->c));
++}
++
++void PaintCellOverlay(
++		QPainter &p,
++		QRect inner,
++		QMargins extend,
++		QSize single,
++		const ExportItem &item,
++		const QImage &frame,
++		not_null<Library*> library,
++		float64 factor,
++		int icons) {
++	const auto button = inner.marginsAdded(extend);
++	const auto width = button.width();
++	if (item.cell.hidden && !GiftHiddenDim()) {
++		const auto size = st::giftBoxStickerSize;
++		PaintHiddenMark(
++			p,
++			button.topLeft() + QPoint(
++				(width - size.width()) / 2,
++				st::giftBoxSmallStickerTop),
++			frame,
++			library);
++	}
++	const auto look = ComputeRibbon(item.cell, item.resolved);
++	if (!look.text.isEmpty()) {
++		PaintRibbon(p, inner, look);
++	}
++	if (item.cell.kind == CellKind::Unique && item.cell.pinned) {
++		auto hq = PainterHighQualityEnabler(p);
++		const auto &icon = st::giftBoxPinIcon;
++		const auto skip = st::giftBoxUserpicSkip;
++		const auto add = (st::giftBoxUserpicSize - icon.width()) / 2;
++		const auto rect = QRect(
++			inner.topLeft() + QPoint(skip, skip),
++			QSize(icon.width() + 2 * add, icon.height() + 2 * add));
++		p.setPen(Qt::NoPen);
++		p.setBrush(item.resolved.colors.pattern);
++		p.drawEllipse(rect);
++		PaintIcon(
++			p,
++			icon,
++			st::premiumButtonFg->c,
++			rect.topLeft() + QPoint(
++				(rect.width() - icon.width()) / 2,
++				(rect.height() - icon.height()) / 2),
++			icons);
++	}
++	if (item.cell.kind == CellKind::Regular && item.cell.price) {
++		PaintPrice(p, button, single, item, factor);
++	}
++}
++
++[[nodiscard]] QImage StillSticker(const QByteArray &bytes, QSize size) {
++	auto image = QImage::fromData(bytes);
++	if (image.isNull()) {
++		return image;
++	}
++	image = image.convertToFormat(
++		QImage::Format_ARGB32_Premultiplied
++	).scaled(size, Qt::KeepAspectRatio, Qt::SmoothTransformation);
++	auto result = QImage(size, QImage::Format_ARGB32_Premultiplied);
++	result.fill(Qt::transparent);
++	auto p = QPainter(&result);
++	p.drawImage(
++		(size.width() - image.width()) / 2,
++		(size.height() - image.height()) / 2,
++		image);
++	p.end();
++	return result;
++}
++
++class Composer final {
++public:
++	explicit Composer(std::shared_ptr<const Scene> scene);
++
++	[[nodiscard]] bool animated() const;
++	[[nodiscard]] float64 fps() const;
++	[[nodiscard]] int frames(float64 fps) const;
++	[[nodiscard]] QRect area() const;
++	[[nodiscard]] QImage compose(int index, float64 fps);
++
++private:
++	struct Track {
++		std::unique_ptr<Lottie::Instance> instance;
++		QImage frame;
++		int shown = -1;
++	};
++
++	[[nodiscard]] const QImage &trackFrame(Track &track, float64 time);
++
++	const std::shared_ptr<const Scene> _scene;
++	std::vector<Track> _tracks;
++
++};
++
++} // namespace
++
++struct SceneCell {
++	QRect sticker;
++	QByteArray lottie;
++	bool dimmed = false;
++	QPoint position;
++	QImage base;
++	QImage overlay;
++	QImage badge;
++	float64 opacity = 1.;
++};
++
++struct Scene {
++	QImage background;
++	QImage overlay;
++	std::vector<SceneCell> cells;
++};
++
++namespace {
++
++Composer::Composer(std::shared_ptr<const Scene> scene)
++: _scene(std::move(scene)) {
++	_tracks.reserve(_scene->cells.size());
++	for (const auto &cell : _scene->cells) {
++		auto track = Track{ .instance = MakeLottie(cell.lottie) };
++		if (track.instance) {
++			track.frame = QImage(
++				cell.sticker.size(),
++				QImage::Format_ARGB32_Premultiplied);
++		}
++		_tracks.push_back(std::move(track));
++	}
++}
++
++bool Composer::animated() const {
++	return ranges::any_of(_tracks, [](const Track &track) {
++		return track.instance && (track.instance->framesCount() > 1);
++	});
++}
++
++float64 Composer::fps() const {
++	auto result = 0.;
++	for (const auto &track : _tracks) {
++		if (track.instance) {
++			result = std::max(result, track.instance->frameRate());
++		}
++	}
++	return (result > 0.) ? std::min(result, kMaxFps) : kFallbackFps;
++}
++
++int Composer::frames(float64 fps) const {
++	auto result = 1;
++	for (const auto &track : _tracks) {
++		if (const auto instance = track.instance.get()) {
++			result = std::max(result, int(std::ceil(
++				instance->framesCount() * fps / instance->frameRate())));
++		}
++	}
++	return std::min(result, kMaxFrames);
++}
++
++QRect Composer::area() const {
++	auto result = QRect();
++	for (const auto &cell : _scene->cells) {
++		result |= cell.dimmed
++			? cell.sticker.translated(cell.position)
++			: cell.sticker;
++	}
++	return result.intersected(QRect(QPoint(), _scene->background.size()));
++}
++
++const QImage &Composer::trackFrame(Track &track, float64 time) {
++	const auto count = track.instance->framesCount();
++	const auto index = std::clamp(
++		int(time * track.instance->frameRate() + 0.001),
++		0,
++		count - 1);
++	if (track.shown != index) {
++		track.instance->renderToPrepared(track.frame, index);
++		track.shown = index;
++	}
++	return track.frame;
++}
++
++QImage Composer::compose(int index, float64 fps) {
++	auto result = _scene->background.copy();
++	auto p = QPainter(&result);
++	const auto time = index / fps;
++	for (auto i = 0; i != int(_tracks.size()); ++i) {
++		const auto &cell = _scene->cells[i];
++		auto &track = _tracks[i];
++		if (!cell.dimmed && track.instance) {
++			p.drawImage(cell.sticker.topLeft(), trackFrame(track, time));
++		}
++	}
++	p.drawImage(0, 0, _scene->overlay);
++	for (auto i = 0; i != int(_tracks.size()); ++i) {
++		const auto &cell = _scene->cells[i];
++		auto &track = _tracks[i];
++		if (!cell.dimmed) {
++			continue;
++		}
++		auto image = cell.base.copy();
++		auto q = QPainter(&image);
++		if (track.instance) {
++			q.drawImage(cell.sticker.topLeft(), trackFrame(track, time));
++		}
++		q.drawImage(0, 0, cell.overlay);
++		q.end();
++		p.setOpacity(cell.opacity);
++		p.drawImage(cell.position, image);
++		p.setOpacity(1.);
++		p.drawImage(cell.position, cell.badge);
++	}
++	p.end();
++	return result;
++}
++
++[[nodiscard]] Fn<void()> ProgressStep(
++		Fn<void(int, int)> progress,
++		int total) {
++	if (!progress || total <= 0) {
++		return [] {};
++	}
++	const auto done = std::make_shared<int>(0);
++	const auto shown = std::make_shared<int>(-1);
++	return [=] {
++		const auto now = ++*done;
++		const auto percent = now * 100 / total;
++		if (percent != *shown) {
++			*shown = percent;
++			progress(now, total);
++		}
++	};
++}
++
++} // namespace
++
++QSize ExportSize(
++		not_null<Library*> library,
++		int count,
++		const ExportOptions &options) {
++	return PixelSize(ComputeGeometry(library, count, options));
++}
++
++std::shared_ptr<const Scene> PrepareScene(
++		not_null<Library*> library,
++		const std::vector<ExportItem> &items,
++		int count,
++		const ExportOptions &options) {
++	const auto geometry = ComputeGeometry(library, count, options);
++	const auto factor = geometry.factor;
++	const auto pixels = PixelSize(geometry);
++	const auto ratio = style::DevicePixelRatio();
++	const auto stickerSize = st::giftBoxStickerSize;
++	const auto dim = GiftHiddenDim();
++	auto result = std::make_shared<Scene>();
++	const auto layer = [&](QSize size) {
++		auto image = QImage(size, QImage::Format_ARGB32_Premultiplied);
++		image.fill(Qt::transparent);
++		return image;
++	};
++	result->background = layer(pixels);
++	result->overlay = layer(pixels);
++	{
++		auto p = QPainter(&result->background);
++		p.scale(factor, factor);
++		PaintFrame(p, geometry, options);
++	}
++	const auto shadow = ShadowImage(
++		geometry.single,
++		geometry.extend,
++		factor);
++	for (const auto &item : items) {
++		if (item.cell.kind == CellKind::Empty
++			|| !item.resolved.gift
++			|| item.index < 0
++			|| item.index >= count) {
++			continue;
++		}
++		const auto inner = InnerRect(geometry, item.index);
++		const auto button = inner.marginsAdded(geometry.extend);
++		const auto sticker = ToPixels(
++			QRect(
++				button.x() + (button.width() - stickerSize.width()) / 2,
++				inner.y() + (inner.height() - stickerSize.height()) / 2,
++				stickerSize.width(),
++				stickerSize.height()),
++			factor);
++		auto instance = MakeLottie(item.sticker);
++		auto still = QImage();
++		auto frame = QImage();
++		if (instance) {
++			still = QImage(sticker.size(), QImage::Format_ARGB32_Premultiplied);
++			instance->renderToPrepared(still, 0);
++			frame = QImage(
++				stickerSize * ratio,
++				QImage::Format_ARGB32_Premultiplied);
++			instance->renderToPrepared(frame, 0);
++		} else if (!item.sticker.isEmpty()) {
++			still = StillSticker(item.sticker, sticker.size());
++			frame = StillSticker(item.sticker, stickerSize * ratio);
++		}
++		const auto animated = instance && (instance->framesCount() > 1);
++		const auto paintBase = [&](QPainter &p) {
++			PaintCellBase(p, inner, geometry.extend, shadow, item, factor);
++		};
++		const auto paintOverlay = [&](QPainter &p) {
++			PaintCellOverlay(
++				p,
++				inner,
++				geometry.extend,
++				geometry.single,
++				item,
++				frame,
++				library,
++				factor,
++				geometry.icons);
++		};
++		if (!item.cell.hidden || !dim) {
++			auto p = QPainter(&result->background);
++			p.save();
++			p.scale(factor, factor);
++			paintBase(p);
++			p.restore();
++			if (!animated && !still.isNull()) {
++				p.drawImage(sticker.topLeft(), still);
++			}
++			p.end();
++			auto q = QPainter(&result->overlay);
++			q.scale(factor, factor);
++			paintOverlay(q);
++			q.end();
++			if (animated) {
++				result->cells.push_back({
++					.sticker = sticker,
++					.lottie = item.sticker,
++				});
++			}
++			continue;
++		}
++		const auto position = QPoint(
++			int(std::floor(button.x() * factor)),
++			int(std::floor(button.y() * factor)));
++		const auto size = QSize(
++			int(std::ceil((button.x() + button.width()) * factor))
++				- position.x(),
++			int(std::ceil((button.y() + button.height()) * factor))
++				- position.y());
++		const auto paintLocal = [&](QImage &image, auto &&callback) {
++			auto p = QPainter(&image);
++			p.translate(-position);
++			p.scale(factor, factor);
++			callback(p);
++		};
++		auto base = layer(size);
++		paintLocal(base, paintBase);
++		auto overlay = layer(size);
++		paintLocal(overlay, paintOverlay);
++		auto badge = layer(size);
++		paintLocal(badge, [&](QPainter &p) {
++			PaintHiddenGiftBadge(p, inner, geometry.icons);
++		});
++		const auto local = sticker.translated(-position);
++		if (animated) {
++			result->cells.push_back({
++				.sticker = local,
++				.lottie = item.sticker,
++				.dimmed = true,
++				.position = position,
++				.base = std::move(base),
++				.overlay = std::move(overlay),
++				.badge = std::move(badge),
++				.opacity = HiddenGiftOpacity(),
++			});
++			continue;
++		}
++		{
++			auto q = QPainter(&base);
++			if (!still.isNull()) {
++				q.drawImage(local.topLeft(), still);
++			}
++			q.drawImage(0, 0, overlay);
++		}
++		auto p = QPainter(&result->background);
++		p.setOpacity(HiddenGiftOpacity());
++		p.drawImage(position, base);
++		p.setOpacity(1.);
++		p.drawImage(position, badge);
++	}
++	return result;
++}
++
++bool SceneAnimated(const std::shared_ptr<const Scene> &scene) {
++	return !scene->cells.empty();
++}
++
++QSize SceneSize(const std::shared_ptr<const Scene> &scene) {
++	return scene->background.size();
++}
++
++QImage RenderStill(const std::shared_ptr<const Scene> &scene) {
++	return Composer(scene).compose(0, kFallbackFps);
++}
++
++QByteArray EncodeSceneGif(
++		const std::shared_ptr<const Scene> &scene,
++		Fn<void(int, int)> progress,
++		Fn<bool()> alive) {
++	auto composer = Composer(scene);
++	auto fps = composer.fps();
++	if (fps > kGifFpsLimit) {
++		fps /= 2.;
++	}
++	const auto count = composer.animated() ? composer.frames(fps) : 1;
++	const auto base = composer.compose(0, fps);
++	auto area = composer.area();
++	if (area.isEmpty()) {
++		area = QRect(0, 0, 1, 1);
++	}
++	const auto step = ProgressStep(progress, 2 * count);
++	auto gif = GiftStudio::EncodeGifSequence(
++		base,
++		area,
++		count,
++		fps,
++		[&](int index) {
++			step();
++			return composer.compose(index, fps).copy(area);
++		},
++		alive);
++	return GiftStudio::VerifyGif(gif) ? gif.bytes : QByteArray();
++}
++
++QSize SceneMp4Size(const std::shared_ptr<const Scene> &scene) {
++	return GiftStudio::Mp4Size(scene->background.size());
++}
++
++QByteArray EncodeSceneMp4(
++		const std::shared_ptr<const Scene> &scene,
++		Fn<void(int, int)> progress,
++		Fn<bool()> alive) {
++	const auto composer = std::make_shared<Composer>(scene);
++	const auto fps = composer->fps();
++	const auto count = composer->animated()
++		? composer->frames(fps)
++		: int(std::ceil(fps));
++	const auto size = SceneMp4Size(scene);
++	const auto step = ProgressStep(progress, count);
++	return GiftStudio::EncodeVideo({
++		.format = GiftStudio::VideoFormat::Mp4,
++		.size = size,
++		.fps = fps,
++		.frames = count,
++		.frame = [=](int index) {
++			step();
++			auto image = composer->compose(index, fps);
++			return (image.size() == size)
++				? image
++				: image.scaled(
++					size,
++					Qt::IgnoreAspectRatio,
++					Qt::SmoothTransformation);
++		},
++	}, std::move(alive));
++}
++
++} // namespace Tele::GiftGrid
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_export.h b/Telegram/SourceFiles/tele/tele_gift_grid_export.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..ce6fe432525ef8dd70f3fe950e5f2907d4618a54
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_export.h
+@@ -0,0 +1,45 @@
++#pragma once
++
++#include "tele/tele_gift_grid_cell.h"
++
++namespace Tele::GiftGrid {
++
++struct ExportItem {
++	int index = 0;
++	Cell cell;
++	Resolved resolved;
++	QByteArray sticker;
++};
++
++struct ExportOptions {
++	int scale = 1;
++	bool transparent = false;
++	bool frame = false;
++};
++
++struct Scene;
++
++[[nodiscard]] QSize ExportSize(
++	not_null<Library*> library,
++	int count,
++	const ExportOptions &options);
++[[nodiscard]] std::shared_ptr<const Scene> PrepareScene(
++	not_null<Library*> library,
++	const std::vector<ExportItem> &items,
++	int count,
++	const ExportOptions &options);
++[[nodiscard]] bool SceneAnimated(const std::shared_ptr<const Scene> &scene);
++[[nodiscard]] QSize SceneSize(const std::shared_ptr<const Scene> &scene);
++
++[[nodiscard]] QImage RenderStill(const std::shared_ptr<const Scene> &scene);
++[[nodiscard]] QByteArray EncodeSceneGif(
++	const std::shared_ptr<const Scene> &scene,
++	Fn<void(int, int)> progress,
++	Fn<bool()> alive);
++[[nodiscard]] QByteArray EncodeSceneMp4(
++	const std::shared_ptr<const Scene> &scene,
++	Fn<void(int, int)> progress,
++	Fn<bool()> alive);
++[[nodiscard]] QSize SceneMp4Size(const std::shared_ptr<const Scene> &scene);
++
++} // namespace Tele::GiftGrid
+diff --git a/Telegram/SourceFiles/tele/tele_gift_list.cpp b/Telegram/SourceFiles/tele/tele_gift_list.cpp
+index e8c95d59c3e6c0eda45c8683358be442c1fc4f16..901c2e04940d59d217469929a3b5d3976c6fe0ae 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_list.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_list.cpp
+@@ -364,9 +364,8 @@ using Gift = Data::SavedStarGift;
+ 	return result;
+ }
+ 
+-void PaintHiddenBadge(QPainter &p, QRect inner) {
+-	const auto icon = HiddenIcon();
+-	const auto size = icon.size() / icon.devicePixelRatio();
++void PaintHiddenBadge(QPainter &p, QRect inner, const QImage &icon) {
++	const auto size = st::menuIconStealth.size();
+ 	const auto padding = style::ConvertScale(4);
+ 	const auto skip = st::giftBoxUserpicSkip;
+ 	const auto badge = QRect(
+@@ -379,7 +378,9 @@ void PaintHiddenBadge(QPainter &p, QRect inner) {
+ 	p.setBrush(QColor(0, 0, 0, 160));
+ 	const auto radius = badge.height() / 4.;
+ 	p.drawRoundedRect(badge, radius, radius);
+-	p.drawImage(badge.x() + padding, badge.y() + padding, icon);
++	p.drawImage(
++		QRect(QPoint(badge.x() + padding, badge.y() + padding), size),
++		icon);
+ }
+ 
+ void UpdateChecks(not_null<State*> state, const Data::SavedStarGiftId &id) {
+@@ -1449,7 +1450,7 @@ bool PaintGiftButton(
+ 			cache,
+ 			QRect(QPoint(), size));
+ 		p.setOpacity(1.);
+-		PaintHiddenBadge(p, inner);
++		PaintHiddenBadge(p, inner, HiddenIcon());
+ 	} else {
+ 		paint(p);
+ 	}
+@@ -1465,6 +1466,17 @@ bool PaintGiftButton(
+ 	return true;
+ }
+ 
++float64 HiddenGiftOpacity() {
++	return kHiddenOpacity;
++}
++
++void PaintHiddenGiftBadge(QPainter &p, QRect inner, int scale) {
++	PaintHiddenBadge(
++		p,
++		inner,
++		st::menuIconStealth.instance(QColor(255, 255, 255), scale, true));
++}
++
+ void SetupGiftSelection(
+ 		not_null<Ui::RpWidget*> list,
+ 		Ui::ScrollArea *scroll,
+diff --git a/Telegram/SourceFiles/tele/tele_gift_list.h b/Telegram/SourceFiles/tele/tele_gift_list.h
+index 5ef1563ce0c9241df924c3fe4868c02d7aca5a0d..663c68276933e75a95900abace52d2c947acc82c 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_list.h
++++ b/Telegram/SourceFiles/tele/tele_gift_list.h
+@@ -31,6 +31,8 @@ namespace Tele {
+ 	QRect inner,
+ 	const Info::PeerGifts::GiftDescriptor &descriptor,
+ 	Fn<void(QPainter&)> paint);
++[[nodiscard]] float64 HiddenGiftOpacity();
++void PaintHiddenGiftBadge(QPainter &p, QRect inner, int scale);
+ 
+ void SetupGiftSelection(
+ 	not_null<Ui::RpWidget*> list,
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio.cpp b/Telegram/SourceFiles/tele/tele_gift_studio.cpp
+index ed59f564b3a70d2bc8d71b34001e4b6bfe7415ae..ff0010f3d68f52fdf968683b4972b86bc5ddc873 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio.cpp
+@@ -13,6 +13,7 @@
+ #include "lang/lang_keys.h"
+ #include "lang/lang_tag.h"
+ #include "main/main_session.h"
++#include "tele/tele_gift_grid.h"
+ #include "tele/tele_gift_studio_data.h"
+ #include "tele/tele_gift_studio_export.h"
+ #include "tele/tele_gift_studio_owned.h"
+@@ -21,6 +22,7 @@
+ #include "tele/tele_gift_studio_sticker.h"
+ #include "tele/tele_gift_studio_store.h"
+ #include "tele/tele_gift_studio_sweep.h"
++#include "tele/tele_gift_studio_widgets.h"
+ #include "tele/tele_gift_studio_video.h"
+ #include "tele/tele_lowercase.h"
+ #include "ui/effects/animations.h"
+@@ -95,37 +97,6 @@ constexpr auto kPreferredHeight = 640;
+ constexpr auto kSectionHeight = 36;
+ constexpr auto kTooltipDelay = 600;
+ 
+-struct PickerRow {
+-	QString name;
+-	QString rarity;
+-	int index = 0;
+-};
+-
+-[[nodiscard]] int RowHeight() {
+-	return style::ConvertScale(40);
+-}
+-
+-[[nodiscard]] QString RarityText(int permille) {
+-	auto attribute = Data::UniqueGiftAttribute();
+-	attribute.rarityValue = permille;
+-	return Data::UniqueGiftAttributeText(attribute);
+-}
+-
+-[[nodiscard]] QString NumberText(QString text) {
+-	text = text.trimmed();
+-	while (text.startsWith('#')) {
+-		text = text.mid(1).trimmed();
+-	}
+-	if (text.isEmpty()) {
+-		return QString();
+-	}
+-	auto ok = false;
+-	const auto value = text.toLongLong(&ok);
+-	return '#' + ((ok && value >= 0 && text[0].isDigit())
+-		? Lang::FormatCountDecimal(value)
+-		: text);
+-}
+-
+ [[nodiscard]] QString FilePrefix(const QString &gift, const QString &model) {
+ 	static const auto kBad = QRegularExpression(
+ 		u"[\\\\/:*?\"<>|\\x00-\\x1F]"_q);
+@@ -134,208 +105,6 @@ struct PickerRow {
+ 	return result.isEmpty() ? u"gift"_q : result;
+ }
+ 
+-void PaintBackdropPreview(QPainter &p, QRect rect, const Colors &colors) {
+-	auto hq = PainterHighQualityEnabler(p);
+-	auto gradient = QRadialGradient(QRectF(rect).center(), rect.width() / 2.);
+-	gradient.setStops({
+-		{ 0., colors.center },
+-		{ 1., colors.edge },
+-	});
+-	p.setPen(Qt::NoPen);
+-	p.setBrush(gradient);
+-	p.drawEllipse(rect);
+-}
+-
+-void PaintImagePreview(
+-		QPainter &p,
+-		QRect rect,
+-		PreviewKind kind,
+-		const QString &gift,
+-		const QString &name,
+-		not_null<Ui::RpWidget*> list,
+-		std::optional<QColor> tint) {
+-	auto hq = PainterHighQualityEnabler(p);
+-	auto image = LookupPreview(kind, gift, name);
+-	if (image.isNull()) {
+-		RequestPreview(kind, gift, name, crl::guard(list.get(), [=] {
+-			list->update();
+-		}));
+-		p.setPen(Qt::NoPen);
+-		p.setBrush(st::windowBgOver);
+-		p.drawEllipse(rect);
+-		return;
+-	}
+-	if (tint) {
+-		auto colored = QImage(
+-			image.size(),
+-			QImage::Format_ARGB32_Premultiplied);
+-		colored.fill(Qt::transparent);
+-		auto q = QPainter(&colored);
+-		q.drawImage(0, 0, image);
+-		q.setCompositionMode(QPainter::CompositionMode_SourceIn);
+-		q.fillRect(colored.rect(), *tint);
+-		q.end();
+-		image = std::move(colored);
+-	}
+-	p.drawImage(rect, image);
+-}
+-
+-class PickerList final : public Ui::RpWidget {
+-public:
+-	explicit PickerList(QWidget *parent);
+-
+-	void setRows(std::vector<PickerRow> rows, int selected);
+-	void setPreview(Fn<void(QPainter&, QRect, int)> preview);
+-	[[nodiscard]] int selectedTop() const;
+-	[[nodiscard]] int firstIndex() const;
+-	[[nodiscard]] rpl::producer<int> chosen() const;
+-
+-protected:
+-	int resizeGetHeight(int newWidth) override;
+-	void paintEvent(QPaintEvent *e) override;
+-	void mouseMoveEvent(QMouseEvent *e) override;
+-	void mousePressEvent(QMouseEvent *e) override;
+-	void mouseReleaseEvent(QMouseEvent *e) override;
+-	void leaveEventHook(QEvent *e) override;
+-
+-private:
+-	[[nodiscard]] int rowAt(QPoint position) const;
+-	void setOver(int row);
+-
+-	std::vector<PickerRow> _rows;
+-	Fn<void(QPainter&, QRect, int)> _preview;
+-	rpl::event_stream<int> _chosen;
+-	int _selected = -1;
+-	int _over = -1;
+-	int _pressed = -1;
+-
+-};
+-
+-PickerList::PickerList(QWidget *parent) : RpWidget(parent) {
+-	setMouseTracking(true);
+-}
+-
+-void PickerList::setRows(std::vector<PickerRow> rows, int selected) {
+-	_rows = std::move(rows);
+-	_selected = selected;
+-	_pressed = -1;
+-	setOver(-1);
+-	resizeToWidth(width());
+-	update();
+-}
+-
+-void PickerList::setPreview(Fn<void(QPainter&, QRect, int)> preview) {
+-	_preview = std::move(preview);
+-}
+-
+-int PickerList::selectedTop() const {
+-	for (auto i = 0; i != int(_rows.size()); ++i) {
+-		if (_rows[i].index == _selected) {
+-			return i * RowHeight();
+-		}
+-	}
+-	return 0;
+-}
+-
+-int PickerList::firstIndex() const {
+-	return _rows.empty() ? -1 : _rows.front().index;
+-}
+-
+-rpl::producer<int> PickerList::chosen() const {
+-	return _chosen.events();
+-}
+-
+-int PickerList::resizeGetHeight(int newWidth) {
+-	return int(_rows.size()) * RowHeight();
+-}
+-
+-int PickerList::rowAt(QPoint position) const {
+-	if (!rect().contains(position)) {
+-		return -1;
+-	}
+-	const auto row = position.y() / RowHeight();
+-	return (row < int(_rows.size())) ? row : -1;
+-}
+-
+-void PickerList::setOver(int row) {
+-	if (_over == row) {
+-		return;
+-	}
+-	const auto height = RowHeight();
+-	if (_over >= 0) {
+-		update(0, _over * height, width(), height);
+-	}
+-	_over = row;
+-	if (_over >= 0) {
+-		update(0, _over * height, width(), height);
+-	}
+-	setCursor((_over >= 0) ? style::cur_pointer : style::cur_default);
+-}
+-
+-void PickerList::paintEvent(QPaintEvent *e) {
+-	auto p = QPainter(this);
+-	const auto clip = e->rect();
+-	const auto height = RowHeight();
+-	const auto padding = st::boxRowPadding.left() / 2;
+-	const auto preview = style::ConvertScale(28);
+-	const auto &font = st::normalFont;
+-	const auto from = std::max(clip.y() / height, 0);
+-	const auto till = std::min(
+-		(clip.y() + clip.height() + height - 1) / height,
+-		int(_rows.size()));
+-	for (auto i = from; i < till; ++i) {
+-		const auto &row = _rows[i];
+-		const auto top = i * height;
+-		const auto selected = (row.index == _selected);
+-		if (selected) {
+-			p.fillRect(0, top, width(), height, st::lightButtonBgOver);
+-		} else if (i == _over) {
+-			p.fillRect(0, top, width(), height, st::windowBgOver);
+-		}
+-		const auto image = QRect(
+-			padding,
+-			top + (height - preview) / 2,
+-			preview,
+-			preview);
+-		if (_preview) {
+-			_preview(p, image, row.index);
+-		}
+-		const auto left = image.x() + image.width() + padding;
+-		const auto right = width() - padding;
+-		const auto rarity = row.rarity.isEmpty() ? 0 : font->width(row.rarity);
+-		const auto baseline = top + (height - font->height) / 2 + font->ascent;
+-		p.setFont(font->f);
+-		p.setPen(selected ? st::lightButtonFg : st::windowFg);
+-		const auto available = right
+-			- left
+-			- (rarity ? (rarity + padding) : 0);
+-		p.drawText(left, baseline, font->elided(row.name, available));
+-		if (rarity) {
+-			p.setPen(st::windowSubTextFg);
+-			p.drawText(right - rarity, baseline, row.rarity);
+-		}
+-	}
+-}
+-
+-void PickerList::mouseMoveEvent(QMouseEvent *e) {
+-	setOver(rowAt(e->pos()));
+-}
+-
+-void PickerList::mousePressEvent(QMouseEvent *e) {
+-	_pressed = (e->button() == Qt::LeftButton) ? rowAt(e->pos()) : -1;
+-}
+-
+-void PickerList::mouseReleaseEvent(QMouseEvent *e) {
+-	const auto pressed = std::exchange(_pressed, -1);
+-	if (pressed >= 0 && pressed == rowAt(e->pos())) {
+-		_chosen.fire_copy(_rows[pressed].index);
+-	}
+-}
+-
+-void PickerList::leaveEventHook(QEvent *e) {
+-	setOver(-1);
+-}
+-
+ [[nodiscard]] QString NormalizeName(QString text, bool loose) {
+ 	static constexpr auto kApostrophes = std::array<char16_t, 6>{
+ 		u'\u2019',
+@@ -616,99 +385,6 @@ void SectionHeader::paintEvent(QPaintEvent *e) {
+ 	p.drawPath(path);
+ }
+ 
+-class ColorSwatch final : public Ui::AbstractButton {
+-public:
+-	ColorSwatch(QWidget *parent, QString label);
+-
+-	void setColor(QColor color);
+-	[[nodiscard]] QColor color() const;
+-
+-protected:
+-	void paintEvent(QPaintEvent *e) override;
+-	void onStateChanged(State was, StateChangeSource source) override;
+-
+-private:
+-	QString _label;
+-	QColor _color;
+-
+-};
+-
+-ColorSwatch::ColorSwatch(QWidget *parent, QString label)
+-: AbstractButton(parent)
+-, _label(std::move(label)) {
+-	setAccessibleName(_label);
+-}
+-
+-void ColorSwatch::setColor(QColor color) {
+-	if (_color != color) {
+-		_color = color;
+-		update();
+-	}
+-}
+-
+-QColor ColorSwatch::color() const {
+-	return _color;
+-}
+-
+-void ColorSwatch::onStateChanged(State was, StateChangeSource source) {
+-	update();
+-}
+-
+-void ColorSwatch::paintEvent(QPaintEvent *e) {
+-	auto p = QPainter(this);
+-	auto hq = PainterHighQualityEnabler(p);
+-	const auto radius = height() / 2.;
+-	p.setPen(Qt::NoPen);
+-	p.setBrush(st::windowBgOver);
+-	p.setOpacity((isOver() || isDown()) ? 1. : 0.6);
+-	p.drawRoundedRect(rect(), radius, radius);
+-	p.setOpacity(1.);
+-	const auto inset = style::ConvertScale(5);
+-	const auto side = height() - 2 * inset;
+-	auto pen = st::shadowFg->p;
+-	pen.setWidthF(style::ConvertScaleExact(1.));
+-	p.setPen(pen);
+-	p.setBrush(_color);
+-	p.drawEllipse(QRect(inset, inset, side, side));
+-	const auto &font = st::normalFont;
+-	const auto left = inset + side + inset;
+-	p.setFont(font->f);
+-	p.setPen(st::windowFg);
+-	p.drawText(
+-		left,
+-		(height() - font->height) / 2 + font->ascent,
+-		font->elided(
+-			_label + u" "_q + _color.name(),
+-			std::max(width() - left - inset, 1)));
+-}
+-
+-void ColorPickerBox(
+-		not_null<Ui::GenericBox*> box,
+-		QString title,
+-		QColor current,
+-		Fn<void(QColor)> done) {
+-	box->setTitle(rpl::single(title));
+-	const auto editor = box->addRow(object_ptr<ColorEditor>(
+-		box,
+-		ColorEditor::Mode::HSL,
+-		current));
+-	const auto save = [=] {
+-		auto color = editor->color();
+-		color.setAlpha(255);
+-		done(color);
+-		box->closeBox();
+-	};
+-	editor->submitRequests() | rpl::on_next(save, editor->lifetime());
+-	box->setFocusCallback([=] {
+-		editor->setInnerFocus();
+-	});
+-	box->addButton(tr::lng_settings_save(), save);
+-	box->addButton(tr::lng_cancel(), [=] {
+-		box->closeBox();
+-	});
+-	box->setWidth(editor->width());
+-}
+-
+ struct Pending {
+ 	QString model;
+ 	QString backdrop;
+@@ -800,120 +476,6 @@ struct State {
+ 	bool rollMode = false;
+ };
+ 
+-void ChooseNameBox(
+-		not_null<Ui::GenericBox*> box,
+-		QString initial,
+-		Fn<void(QString)> done) {
+-	box->setTitle(rpl::single(Lower(u"Save to favorites"_q)));
+-	const auto field = box->addRow(object_ptr<Ui::InputField>(
+-		box,
+-		st::defaultInputField,
+-		rpl::single(Lower(u"Name"_q)),
+-		initial));
+-	field->setMaxLength(kMaxTitle);
+-	const auto save = [=] {
+-		const auto name = field->getLastText().trimmed();
+-		if (name.isEmpty()) {
+-			field->showError();
+-			return;
+-		}
+-		done(name);
+-		box->closeBox();
+-	};
+-	field->submits() | rpl::on_next([=](Qt::KeyboardModifiers) {
+-		save();
+-	}, field->lifetime());
+-	box->setFocusCallback([=] {
+-		field->setFocusFast();
+-	});
+-	box->addButton(tr::lng_settings_save(), save);
+-	box->addButton(tr::lng_cancel(), [=] {
+-		box->closeBox();
+-	});
+-}
+-
+-void FavoritesBox(
+-		not_null<Ui::GenericBox*> box,
+-		Fn<void(Combo)> apply) {
+-	box->setTitle(rpl::single(Lower(u"Favorites and history"_q)));
+-	box->setWidth(st::boxWideWidth);
+-	const auto content = box->verticalLayout();
+-	const auto list = content->add(object_ptr<Ui::VerticalLayout>(content));
+-	const auto fill = [=] {
+-		list->clear();
+-		const auto entry = [&](
+-				const QString &title,
+-				const Combo &combo,
+-				Fn<void()> remove) {
+-			const auto button = list->add(object_ptr<Ui::SettingsButton>(
+-				list,
+-				rpl::single(title),
+-				st::settingsButtonNoIcon));
+-			button->setClickedCallback([=] {
+-				apply(combo);
+-				box->closeBox();
+-			});
+-			if (remove) {
+-				const auto cross = Ui::CreateChild<Ui::IconButton>(
+-					button,
+-					st::boxTitleClose);
+-				button->widthValue() | rpl::on_next([=](int width) {
+-					cross->moveToRight(
+-						0,
+-						(button->height() - cross->height()) / 2,
+-						width);
+-				}, cross->lifetime());
+-				cross->setClickedCallback(remove);
+-			}
+-			auto details = object_ptr<Ui::FlatLabel>(
+-				list,
+-				ComboLabel(combo),
+-				st::boxDividerLabel);
+-			list->add(std::move(details), st::boxRowPadding);
+-		};
+-		Ui::AddSubsectionTitle(list, rpl::single(Lower(u"Favorites"_q)));
+-		const auto &favorites = Favorites();
+-		if (favorites.empty()) {
+-			list->add(
+-				object_ptr<Ui::FlatLabel>(
+-					list,
+-					Lower(u"Nothing saved yet."_q),
+-					st::boxDividerLabel),
+-				st::boxRowPadding);
+-		}
+-		for (auto i = 0; i != int(favorites.size()); ++i) {
+-			entry(favorites[i].name, favorites[i].combo, [=] {
+-				RemoveFavorite(i);
+-			});
+-		}
+-		Ui::AddSkip(list);
+-		Ui::AddSubsectionTitle(list, rpl::single(Lower(u"History"_q)));
+-		const auto &history = History();
+-		if (history.empty()) {
+-			list->add(
+-				object_ptr<Ui::FlatLabel>(
+-					list,
+-					Lower(u"Exports show up here."_q),
+-					st::boxDividerLabel),
+-				st::boxRowPadding);
+-		}
+-		for (const auto &combo : history) {
+-			entry(combo.collection, combo, nullptr);
+-		}
+-		list->resizeToWidth(content->width());
+-	};
+-	fill();
+-	StoreChanges() | rpl::on_next([=] {
+-		crl::on_main(list, fill);
+-	}, list->lifetime());
+-	box->addButton(tr::lng_close(), [=] {
+-		box->closeBox();
+-	});
+-	box->addLeftButton(rpl::single(Lower(u"Clear history"_q)), [=] {
+-		ClearHistory();
+-	});
+-}
+-
+ void SweepBox(
+ 		not_null<Ui::GenericBox*> box,
+ 		Fn<void(SweepKind, SweepOutput)> start) {
+@@ -1053,7 +615,11 @@ void GiftStudioBox(
+ 	const auto modes = root->add(
+ 		object_ptr<Ui::SettingsSlider>(root, st::defaultTabsSlider),
+ 		style::margins());
+-	modes->setSections({ Lower(u"Studio"_q), Lower(u"Roll"_q) });
++	modes->setSections({
++		Lower(u"Studio"_q),
++		Lower(u"Roll"_q),
++		Lower(u"Grid"_q),
++	});
+ 	modes->setActiveSectionFast(0);
+ 	const auto studioWrap = root->add(
+ 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+@@ -2551,7 +2117,25 @@ void GiftStudioBox(
+ 		},
+ 		.width = previewWidth,
+ 	});
++	const auto openGrid = [=] {
++		const auto weak = base::make_weak(box);
++		ShowGiftGrid(controller, [=]() -> std::optional<Combo> {
++			if (!weak || state->gift.isEmpty()) {
++				return std::nullopt;
++			}
++			return currentCombo();
++		});
++	};
+ 	modes->sectionActivated() | rpl::on_next([=](int section) {
++		if (section == 2) {
++			crl::on_main(box, [=] {
++				modes->setActiveSectionFast(state->rollMode ? 1 : 0);
++			});
++			openGrid();
++			return;
++		} else if ((section == 1) == state->rollMode) {
++			return;
++		}
+ 		state->rollMode = (section == 1);
+ 		studioWrap->toggle(!state->rollMode, anim::type::instant);
+ 		rollWrap->toggle(state->rollMode, anim::type::instant);
+@@ -3187,6 +2771,7 @@ void GiftStudioBox(
+ 			const auto combo = currentCombo();
+ 			show->showBox(Box(
+ 				ChooseNameBox,
++				Lower(u"Save to favorites"_q),
+ 				ComboLabel(combo),
+ 				[=](QString name) {
+ 					AddFavorite({ .name = name, .combo = combo });
+@@ -3198,6 +2783,7 @@ void GiftStudioBox(
+ 				applyCombo(combo);
+ 			}));
+ 		}, &st::menuIconArchive);
++		menu->addAction(Lower(u"Gift grid"_q), openGrid, &st::menuIconPhotoSet);
+ 		menu->setForcedOrigin(Ui::PanelAnimation::Origin::TopRight);
+ 		menu->popup(more->mapToGlobal(QPoint(
+ 			more->width(),
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_export.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_export.cpp
+index 947801523aed7963ba2393c00689c1efaf15fdf3..134e0db6881d3acc04944b24dc772d702cf35104 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_export.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_export.cpp
+@@ -1871,20 +1871,36 @@ Encoded EncodeGif(const Animation &animation, Fn<bool()> alive) {
+ 		auto p = QPainter(&composed);
+ 		p.drawImage(0, 0, animation.overlay);
+ 	}
++	return EncodeGifSequence(
++		composed,
++		area,
++		count,
++		animation.fps,
++		[&](int index) { return composer.compose(index, area); },
++		std::move(alive));
++}
++
++Encoded EncodeGifSequence(
++		const QImage &base,
++		QRect area,
++		int count,
++		float64 fps,
++		Fn<QImage(int)> frame,
++		Fn<bool()> alive) {
++	if (fps <= 0. || count <= 0) {
++		return {};
++	}
+ 	const auto time = [&](int index) {
+-		return int(base::SafeRound(index * 100. / animation.fps));
++		return int(base::SafeRound(index * 100. / fps));
+ 	};
+ 	auto delays = std::vector<int>();
+ 	delays.reserve(count);
+ 	for (auto index = 0; index != count; ++index) {
+ 		delays.push_back(std::max(time(index + 1) - time(index), 2));
+ 	}
+-	const auto frame = [&](int index) {
+-		return composer.compose(index, area);
+-	};
+ 	return {
+-		.bytes = EncodeGifFrames(composed, area, count, frame, delays, alive),
+-		.size = composed.size(),
++		.bytes = EncodeGifFrames(base, area, count, frame, delays, alive),
++		.size = base.size(),
+ 		.frames = count,
+ 	};
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_export.h b/Telegram/SourceFiles/tele/tele_gift_studio_export.h
+index 7f613098580ec454286fcd65550efad6dc2e0fb4..61be6d454ab614db20573fc504164eae5743c1d7 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_export.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_export.h
+@@ -35,6 +35,13 @@ inline constexpr auto kStickerDuration = crl::time(3000);
+ [[nodiscard]] Encoded EncodeGif(
+ 	const Animation &animation,
+ 	Fn<bool()> alive);
++[[nodiscard]] Encoded EncodeGifSequence(
++	const QImage &base,
++	QRect area,
++	int count,
++	float64 fps,
++	Fn<QImage(int)> frame,
++	Fn<bool()> alive);
+ [[nodiscard]] bool VerifyGif(const Encoded &gif);
+ [[nodiscard]] QByteArray EncodeMp4(
+ 	const Animation &animation,
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp
+index 96c3dbc2e3ce9e6afa7c63eb92fab3392130d89d..d926a21a777d3398f6a1d41780bedd2e5be39f47 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp
+@@ -16,7 +16,9 @@ namespace {
+ constexpr auto kPrefix = "tg://tele_giftstudio?";
+ constexpr auto kMarker = "tele_giftstudio?";
+ constexpr auto kFavoritesLimit = 200;
+-constexpr auto kMaxFile = 1024 * 1024;
++constexpr auto kGridsLimit = 100;
++constexpr auto kGridCellsLimit = 300;
++constexpr auto kMaxFile = 8 * 1024 * 1024;
+ constexpr auto kHideTitle = 1;
+ constexpr auto kHideNumber = 2;
+ constexpr auto kHideSubtitle = 4;
+@@ -27,6 +29,7 @@ struct Store {
+ 	bool loaded = false;
+ 	std::vector<Favorite> favorites;
+ 	std::vector<Combo> history;
++	std::vector<SavedGrid> grids;
+ 	base::flat_set<QString> expanded;
+ 	rpl::event_stream<> changes;
+ };
+@@ -85,10 +88,18 @@ void Save() {
+ 	for (const auto &id : data.expanded) {
+ 		expanded.append(id);
+ 	}
++	auto grids = QJsonArray();
++	for (const auto &grid : data.grids) {
++		grids.append(QJsonObject{
++			{ u"name"_q, grid.name },
++			{ u"cells"_q, grid.cells },
++		});
++	}
+ 	const auto bytes = QJsonDocument(QJsonObject{
+ 		{ u"favorites"_q, favorites },
+ 		{ u"history"_q, history },
+ 		{ u"expanded"_q, expanded },
++		{ u"grids"_q, grids },
+ 	}).toJson(QJsonDocument::Compact);
+ 	QDir().mkpath(cWorkingDir() + u"tdata"_q);
+ 	auto file = QSaveFile(FilePath());
+@@ -131,6 +142,17 @@ void Load() {
+ 			data.expanded.emplace(id);
+ 		}
+ 	}
++	for (const auto &value : object.value(u"grids"_q).toArray()) {
++		const auto entry = value.toObject();
++		const auto name = entry.value(u"name"_q).toString();
++		const auto cells = entry.value(u"cells"_q).toArray();
++		if (!name.isEmpty()
++			&& !cells.isEmpty()
++			&& cells.size() <= kGridCellsLimit
++			&& int(data.grids.size()) < kGridsLimit) {
++			data.grids.push_back({ .name = name, .cells = cells });
++		}
++	}
+ 	if (int(data.history.size()) > kHistoryLimit) {
+ 		data.history.resize(kHistoryLimit);
+ 	}
+@@ -348,6 +370,31 @@ void ClearHistory() {
+ 	Save();
+ }
+ 
++const std::vector<SavedGrid> &Grids() {
++	Load();
++	return Data().grids;
++}
++
++void SaveGrid(SavedGrid grid) {
++	Load();
++	auto &list = Data().grids;
++	list.erase(ranges::remove(list, grid.name, &SavedGrid::name), end(list));
++	list.insert(begin(list), std::move(grid));
++	if (int(list.size()) > kGridsLimit) {
++		list.resize(kGridsLimit);
++	}
++	Save();
++}
++
++void RemoveGrid(int index) {
++	Load();
++	auto &list = Data().grids;
++	if (index >= 0 && index < int(list.size())) {
++		list.erase(begin(list) + index);
++		Save();
++	}
++}
++
+ rpl::producer<> StoreChanges() {
+ 	return Data().changes.events();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_store.h b/Telegram/SourceFiles/tele/tele_gift_studio_store.h
+index 8ce53c0d91617a498463518ad6b4db39662ae700..941bfa2df59bc2d0d3474f4bf2f433d0c1a2e9e0 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_store.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_store.h
+@@ -2,6 +2,8 @@
+ 
+ #include "tele/tele_gift_studio_render.h"
+ 
++#include <QtCore/QJsonArray>
++
+ namespace Tele::GiftStudio {
+ 
+ struct Combo {
+@@ -20,6 +22,11 @@ struct Favorite {
+ 	Combo combo;
+ };
+ 
++struct SavedGrid {
++	QString name;
++	QJsonArray cells;
++};
++
+ inline constexpr auto kHistoryLimit = 20;
+ 
+ [[nodiscard]] QString ComboCode(const Combo &combo);
+@@ -32,6 +39,9 @@ void AddFavorite(Favorite favorite);
+ void RemoveFavorite(int index);
+ void AddHistory(Combo combo);
+ void ClearHistory();
++[[nodiscard]] const std::vector<SavedGrid> &Grids();
++void SaveGrid(SavedGrid grid);
++void RemoveGrid(int index);
+ [[nodiscard]] rpl::producer<> StoreChanges();
+ [[nodiscard]] bool SectionExpanded(const QString &id);
+ void SetSectionExpanded(const QString &id, bool expanded);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..a899d9119c15f7b67e763e69cd4edbe4948387e5
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+@@ -0,0 +1,415 @@
++#include "tele/tele_gift_studio_widgets.h"
++
++#include "data/data_star_gift.h"
++#include "lang/lang_keys.h"
++#include "lang/lang_tag.h"
++#include "tele/tele_gift_studio_store.h"
++#include "tele/tele_lowercase.h"
++#include "ui/layers/generic_box.h"
++#include "ui/painter.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/color_editor.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/labels.h"
++#include "ui/wrap/vertical_layout.h"
++#include "styles/style_boxes.h"
++#include "styles/style_layers.h"
++#include "styles/style_settings.h"
++#include "styles/style_widgets.h"
++
++namespace Tele::GiftStudio {
++namespace {
++
++constexpr auto kMaxName = 64;
++
++} // namespace
++
++int RowHeight() {
++	return style::ConvertScale(40);
++}
++
++QString RarityText(int permille) {
++	auto attribute = Data::UniqueGiftAttribute();
++	attribute.rarityValue = permille;
++	return Data::UniqueGiftAttributeText(attribute);
++}
++
++QString NumberText(QString text) {
++	text = text.trimmed();
++	while (text.startsWith('#')) {
++		text = text.mid(1).trimmed();
++	}
++	if (text.isEmpty()) {
++		return QString();
++	}
++	auto ok = false;
++	const auto value = text.toLongLong(&ok);
++	return '#' + ((ok && value >= 0 && text[0].isDigit())
++		? Lang::FormatCountDecimal(value)
++		: text);
++}
++
++void PaintBackdropPreview(QPainter &p, QRect rect, const Colors &colors) {
++	auto hq = PainterHighQualityEnabler(p);
++	auto gradient = QRadialGradient(QRectF(rect).center(), rect.width() / 2.);
++	gradient.setStops({
++		{ 0., colors.center },
++		{ 1., colors.edge },
++	});
++	p.setPen(Qt::NoPen);
++	p.setBrush(gradient);
++	p.drawEllipse(rect);
++}
++
++void PaintImagePreview(
++		QPainter &p,
++		QRect rect,
++		PreviewKind kind,
++		const QString &gift,
++		const QString &name,
++		not_null<Ui::RpWidget*> list,
++		std::optional<QColor> tint) {
++	auto hq = PainterHighQualityEnabler(p);
++	auto image = LookupPreview(kind, gift, name);
++	if (image.isNull()) {
++		RequestPreview(kind, gift, name, crl::guard(list.get(), [=] {
++			list->update();
++		}));
++		p.setPen(Qt::NoPen);
++		p.setBrush(st::windowBgOver);
++		p.drawEllipse(rect);
++		return;
++	}
++	if (tint) {
++		auto colored = QImage(
++			image.size(),
++			QImage::Format_ARGB32_Premultiplied);
++		colored.fill(Qt::transparent);
++		auto q = QPainter(&colored);
++		q.drawImage(0, 0, image);
++		q.setCompositionMode(QPainter::CompositionMode_SourceIn);
++		q.fillRect(colored.rect(), *tint);
++		q.end();
++		image = std::move(colored);
++	}
++	p.drawImage(rect, image);
++}
++
++PickerList::PickerList(QWidget *parent) : RpWidget(parent) {
++	setMouseTracking(true);
++}
++
++void PickerList::setRows(std::vector<PickerRow> rows, int selected) {
++	_rows = std::move(rows);
++	_selected = selected;
++	_pressed = -1;
++	setOver(-1);
++	resizeToWidth(width());
++	update();
++}
++
++void PickerList::setPreview(Fn<void(QPainter&, QRect, int)> preview) {
++	_preview = std::move(preview);
++}
++
++int PickerList::selectedTop() const {
++	for (auto i = 0; i != int(_rows.size()); ++i) {
++		if (_rows[i].index == _selected) {
++			return i * RowHeight();
++		}
++	}
++	return 0;
++}
++
++int PickerList::firstIndex() const {
++	return _rows.empty() ? -1 : _rows.front().index;
++}
++
++rpl::producer<int> PickerList::chosen() const {
++	return _chosen.events();
++}
++
++int PickerList::resizeGetHeight(int newWidth) {
++	return int(_rows.size()) * RowHeight();
++}
++
++int PickerList::rowAt(QPoint position) const {
++	if (!rect().contains(position)) {
++		return -1;
++	}
++	const auto row = position.y() / RowHeight();
++	return (row < int(_rows.size())) ? row : -1;
++}
++
++void PickerList::setOver(int row) {
++	if (_over == row) {
++		return;
++	}
++	const auto height = RowHeight();
++	if (_over >= 0) {
++		update(0, _over * height, width(), height);
++	}
++	_over = row;
++	if (_over >= 0) {
++		update(0, _over * height, width(), height);
++	}
++	setCursor((_over >= 0) ? style::cur_pointer : style::cur_default);
++}
++
++void PickerList::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	const auto clip = e->rect();
++	const auto height = RowHeight();
++	const auto padding = st::boxRowPadding.left() / 2;
++	const auto preview = style::ConvertScale(28);
++	const auto &font = st::normalFont;
++	const auto from = std::max(clip.y() / height, 0);
++	const auto till = std::min(
++		(clip.y() + clip.height() + height - 1) / height,
++		int(_rows.size()));
++	for (auto i = from; i < till; ++i) {
++		const auto &row = _rows[i];
++		const auto top = i * height;
++		const auto selected = (row.index == _selected);
++		if (selected) {
++			p.fillRect(0, top, width(), height, st::lightButtonBgOver);
++		} else if (i == _over) {
++			p.fillRect(0, top, width(), height, st::windowBgOver);
++		}
++		const auto image = QRect(
++			padding,
++			top + (height - preview) / 2,
++			preview,
++			preview);
++		if (_preview) {
++			_preview(p, image, row.index);
++		}
++		const auto left = image.x() + image.width() + padding;
++		const auto right = width() - padding;
++		const auto rarity = row.rarity.isEmpty() ? 0 : font->width(row.rarity);
++		const auto baseline = top + (height - font->height) / 2 + font->ascent;
++		p.setFont(font->f);
++		p.setPen(selected ? st::lightButtonFg : st::windowFg);
++		const auto available = right
++			- left
++			- (rarity ? (rarity + padding) : 0);
++		p.drawText(left, baseline, font->elided(row.name, available));
++		if (rarity) {
++			p.setPen(st::windowSubTextFg);
++			p.drawText(right - rarity, baseline, row.rarity);
++		}
++	}
++}
++
++void PickerList::mouseMoveEvent(QMouseEvent *e) {
++	setOver(rowAt(e->pos()));
++}
++
++void PickerList::mousePressEvent(QMouseEvent *e) {
++	_pressed = (e->button() == Qt::LeftButton) ? rowAt(e->pos()) : -1;
++}
++
++void PickerList::mouseReleaseEvent(QMouseEvent *e) {
++	const auto pressed = std::exchange(_pressed, -1);
++	if (pressed >= 0 && pressed == rowAt(e->pos())) {
++		_chosen.fire_copy(_rows[pressed].index);
++	}
++}
++
++void PickerList::leaveEventHook(QEvent *e) {
++	setOver(-1);
++}
++
++ColorSwatch::ColorSwatch(QWidget *parent, QString label)
++: AbstractButton(parent)
++, _label(std::move(label)) {
++	setAccessibleName(_label);
++}
++
++void ColorSwatch::setColor(QColor color) {
++	if (_color != color) {
++		_color = color;
++		update();
++	}
++}
++
++QColor ColorSwatch::color() const {
++	return _color;
++}
++
++void ColorSwatch::onStateChanged(State was, StateChangeSource source) {
++	update();
++}
++
++void ColorSwatch::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	auto hq = PainterHighQualityEnabler(p);
++	const auto radius = height() / 2.;
++	p.setPen(Qt::NoPen);
++	p.setBrush(st::windowBgOver);
++	p.setOpacity((isOver() || isDown()) ? 1. : 0.6);
++	p.drawRoundedRect(rect(), radius, radius);
++	p.setOpacity(1.);
++	const auto inset = style::ConvertScale(5);
++	const auto side = height() - 2 * inset;
++	auto pen = st::shadowFg->p;
++	pen.setWidthF(style::ConvertScaleExact(1.));
++	p.setPen(pen);
++	p.setBrush(_color);
++	p.drawEllipse(QRect(inset, inset, side, side));
++	const auto &font = st::normalFont;
++	const auto left = inset + side + inset;
++	p.setFont(font->f);
++	p.setPen(st::windowFg);
++	p.drawText(
++		left,
++		(height() - font->height) / 2 + font->ascent,
++		font->elided(
++			_label + u" "_q + _color.name(),
++			std::max(width() - left - inset, 1)));
++}
++
++void ColorPickerBox(
++		not_null<Ui::GenericBox*> box,
++		QString title,
++		QColor current,
++		Fn<void(QColor)> done) {
++	box->setTitle(rpl::single(title));
++	const auto editor = box->addRow(object_ptr<ColorEditor>(
++		box,
++		ColorEditor::Mode::HSL,
++		current));
++	const auto save = [=] {
++		auto color = editor->color();
++		color.setAlpha(255);
++		done(color);
++		box->closeBox();
++	};
++	editor->submitRequests() | rpl::on_next(save, editor->lifetime());
++	box->setFocusCallback([=] {
++		editor->setInnerFocus();
++	});
++	box->addButton(tr::lng_settings_save(), save);
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++	box->setWidth(editor->width());
++}
++
++void ChooseNameBox(
++		not_null<Ui::GenericBox*> box,
++		QString title,
++		QString initial,
++		Fn<void(QString)> done) {
++	box->setTitle(rpl::single(title));
++	const auto field = box->addRow(object_ptr<Ui::InputField>(
++		box,
++		st::defaultInputField,
++		rpl::single(Lower(u"Name"_q)),
++		initial));
++	field->setMaxLength(kMaxName);
++	const auto save = [=] {
++		const auto name = field->getLastText().trimmed();
++		if (name.isEmpty()) {
++			field->showError();
++			return;
++		}
++		done(name);
++		box->closeBox();
++	};
++	field->submits() | rpl::on_next([=](Qt::KeyboardModifiers) {
++		save();
++	}, field->lifetime());
++	box->setFocusCallback([=] {
++		field->setFocusFast();
++	});
++	box->addButton(tr::lng_settings_save(), save);
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++}
++
++void FavoritesBox(
++		not_null<Ui::GenericBox*> box,
++		Fn<void(Combo)> apply) {
++	box->setTitle(rpl::single(Lower(u"Favorites and history"_q)));
++	box->setWidth(st::boxWideWidth);
++	const auto content = box->verticalLayout();
++	const auto list = content->add(object_ptr<Ui::VerticalLayout>(content));
++	const auto fill = [=] {
++		list->clear();
++		const auto entry = [&](
++				const QString &title,
++				const Combo &combo,
++				Fn<void()> remove) {
++			const auto button = list->add(object_ptr<Ui::SettingsButton>(
++				list,
++				rpl::single(title),
++				st::settingsButtonNoIcon));
++			button->setClickedCallback([=] {
++				apply(combo);
++				box->closeBox();
++			});
++			if (remove) {
++				const auto cross = Ui::CreateChild<Ui::IconButton>(
++					button,
++					st::boxTitleClose);
++				button->widthValue() | rpl::on_next([=](int width) {
++					cross->moveToRight(
++						0,
++						(button->height() - cross->height()) / 2,
++						width);
++				}, cross->lifetime());
++				cross->setClickedCallback(remove);
++			}
++			auto details = object_ptr<Ui::FlatLabel>(
++				list,
++				ComboLabel(combo),
++				st::boxDividerLabel);
++			list->add(std::move(details), st::boxRowPadding);
++		};
++		Ui::AddSubsectionTitle(list, rpl::single(Lower(u"Favorites"_q)));
++		const auto &favorites = Favorites();
++		if (favorites.empty()) {
++			list->add(
++				object_ptr<Ui::FlatLabel>(
++					list,
++					Lower(u"Nothing saved yet."_q),
++					st::boxDividerLabel),
++				st::boxRowPadding);
++		}
++		for (auto i = 0; i != int(favorites.size()); ++i) {
++			entry(favorites[i].name, favorites[i].combo, [=] {
++				RemoveFavorite(i);
++			});
++		}
++		Ui::AddSkip(list);
++		Ui::AddSubsectionTitle(list, rpl::single(Lower(u"History"_q)));
++		const auto &history = History();
++		if (history.empty()) {
++			list->add(
++				object_ptr<Ui::FlatLabel>(
++					list,
++					Lower(u"Exports show up here."_q),
++					st::boxDividerLabel),
++				st::boxRowPadding);
++		}
++		for (const auto &combo : history) {
++			entry(combo.collection, combo, nullptr);
++		}
++		list->resizeToWidth(content->width());
++	};
++	fill();
++	StoreChanges() | rpl::on_next([=] {
++		crl::on_main(list, fill);
++	}, list->lifetime());
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++	box->addLeftButton(rpl::single(Lower(u"Clear history"_q)), [=] {
++		ClearHistory();
++	});
++}
++
++} // namespace Tele::GiftStudio
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e08e0df3e01ef5ce5ceef9119c04dfa5c43448e1
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+@@ -0,0 +1,97 @@
++#pragma once
++
++#include "tele/tele_gift_studio_data.h"
++#include "ui/abstract_button.h"
++#include "ui/rp_widget.h"
++
++namespace Ui {
++class GenericBox;
++} // namespace Ui
++
++namespace Tele::GiftStudio {
++
++struct Combo;
++
++struct PickerRow {
++	QString name;
++	QString rarity;
++	int index = 0;
++};
++
++[[nodiscard]] int RowHeight();
++[[nodiscard]] QString RarityText(int permille);
++[[nodiscard]] QString NumberText(QString text);
++
++void PaintBackdropPreview(QPainter &p, QRect rect, const Colors &colors);
++void PaintImagePreview(
++	QPainter &p,
++	QRect rect,
++	PreviewKind kind,
++	const QString &gift,
++	const QString &name,
++	not_null<Ui::RpWidget*> list,
++	std::optional<QColor> tint);
++
++class PickerList final : public Ui::RpWidget {
++public:
++	explicit PickerList(QWidget *parent);
++
++	void setRows(std::vector<PickerRow> rows, int selected);
++	void setPreview(Fn<void(QPainter&, QRect, int)> preview);
++	[[nodiscard]] int selectedTop() const;
++	[[nodiscard]] int firstIndex() const;
++	[[nodiscard]] rpl::producer<int> chosen() const;
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++	void mouseMoveEvent(QMouseEvent *e) override;
++	void mousePressEvent(QMouseEvent *e) override;
++	void mouseReleaseEvent(QMouseEvent *e) override;
++	void leaveEventHook(QEvent *e) override;
++
++private:
++	[[nodiscard]] int rowAt(QPoint position) const;
++	void setOver(int row);
++
++	std::vector<PickerRow> _rows;
++	Fn<void(QPainter&, QRect, int)> _preview;
++	rpl::event_stream<int> _chosen;
++	int _selected = -1;
++	int _over = -1;
++	int _pressed = -1;
++
++};
++
++class ColorSwatch final : public Ui::AbstractButton {
++public:
++	ColorSwatch(QWidget *parent, QString label);
++
++	void setColor(QColor color);
++	[[nodiscard]] QColor color() const;
++
++protected:
++	void paintEvent(QPaintEvent *e) override;
++	void onStateChanged(State was, StateChangeSource source) override;
++
++private:
++	QString _label;
++	QColor _color;
++
++};
++
++void ColorPickerBox(
++	not_null<Ui::GenericBox*> box,
++	QString title,
++	QColor current,
++	Fn<void(QColor)> done);
++void ChooseNameBox(
++	not_null<Ui::GenericBox*> box,
++	QString title,
++	QString initial,
++	Fn<void(QString)> done);
++void FavoritesBox(
++	not_null<Ui::GenericBox*> box,
++	Fn<void(Combo)> apply);
++
++} // namespace Tele::GiftStudio

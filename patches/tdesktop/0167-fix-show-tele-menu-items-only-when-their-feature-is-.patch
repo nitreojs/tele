@@ -1,0 +1,1333 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 08:11:05 +0300
+Subject: [PATCH] fix: show tele menu items only when their feature is on
+
+---
+ .../SourceFiles/settings/settings_tele.cpp    |  64 ++++++
+ .../SourceFiles/tele/tele_audio_voice.cpp     |   7 +-
+ .../SourceFiles/tele/tele_button_payload.cpp  |   2 +-
+ .../tele/tele_chat_backgrounds.cpp            |   2 +-
+ Telegram/SourceFiles/tele/tele_counters.cpp   |   7 +-
+ .../tele/tele_download_folders.cpp            |  15 +-
+ .../SourceFiles/tele/tele_drafts_compose.cpp  |   6 +-
+ Telegram/SourceFiles/tele/tele_ghost.cpp      |  21 ++
+ Telegram/SourceFiles/tele/tele_gif_video.cpp  |  10 +-
+ Telegram/SourceFiles/tele/tele_ignored.cpp    |   4 +-
+ .../SourceFiles/tele/tele_inline_text.cpp     |   3 +-
+ .../SourceFiles/tele/tele_link_previews.cpp   |   2 +-
+ .../SourceFiles/tele/tele_local_names.cpp     |   2 +-
+ Telegram/SourceFiles/tele/tele_mute.cpp       |  18 +-
+ Telegram/SourceFiles/tele/tele_options.cpp    | 195 +++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_options.h      |  33 +++
+ Telegram/SourceFiles/tele/tele_read_log.cpp   |   4 +-
+ .../SourceFiles/tele/tele_settings_io.cpp     |  16 ++
+ .../SourceFiles/tele/tele_show_pinned.cpp     |   3 +-
+ .../SourceFiles/tele/tele_translate_out.cpp   |   2 +-
+ .../tele/tele_username_aliases.cpp            |   2 +-
+ 21 files changed, 387 insertions(+), 31 deletions(-)
+
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index cf1bfb71b328b8d95909f0886ca2464b1dd83d4a..5c693d471c66669a347e79f890b16b2e1b0fce6c 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1980,6 +1980,10 @@ void FillInterface(SectionBuilder &builder) {
+ 		::Tele::kOptionCounterSkipArchive,
+ 		{ u"archived"_q },
+ 		::Tele::kOptionHideCounters);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCounterAccounts,
++		{ u"unread"_q, u"badge"_q, u"multiple accounts"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats and profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionBubbleBadges);
+@@ -2061,6 +2065,10 @@ void FillChats(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Messages"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageSeconds);
+ 	AddOptionToggle(builder, ::Tele::kOptionEditHistory);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionReadLog,
++		{ u"seen"_q, u"read receipt"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(
+ 		builder,
+@@ -2131,6 +2139,14 @@ void FillChats(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Uploads"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionParallelUploads);
+ 	AddOptionToggle(builder, ::Tele::kOptionHdPhotos);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionGifVideo,
++		{ u"animation"_q, u"resend"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionAudioVoice,
++		{ u"voice message"_q, u"music"_q, u"mp3"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Downloads"_q);
+ 	AddOptionToggle(
+@@ -2173,6 +2189,10 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionCalcmulaPreview,
+ 		{},
+ 		::Tele::kOptionCalcmula);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionTranslateOut,
++		{ u"language"_q, u"translation"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Confirmations"_q);
+ 	AddOptionToggle(
+@@ -2200,9 +2220,21 @@ void FillChats(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Drafts"_q);
+ 	AddSavedDrafts(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionDraftsMenu,
++		{ u"save"_q, u"discarded"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Notifications"_q);
+ 	AddOnlineNotify(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionSilenceChats,
++		{ u"mute"_q, u"notifications"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionMuteFolders,
++		{ u"filters"_q, u"notifications"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+@@ -2224,8 +2256,20 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideSponsored);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideProxySponsor);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionPinnedBarMenu,
++		{ u"pinned messages"_q });
+ 	AddChatBackgrounds(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionBackgroundMenu,
++		{ u"wallpaper"_q });
+ 	AddUsernameAliases(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionAliasMenu,
++		{ u"username"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Links"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
+@@ -2243,6 +2287,10 @@ void FillChats(SectionBuilder &builder) {
+ 			{ u"added"_q, u"Only ones you add"_q },
+ 		},
+ 		{ u"preview"_q, u"paste"_q, u"webpage"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionLinkPreviewMenu,
++		{ u"webpage"_q, u"right click"_q });
+ 	AddAppLinks(builder);
+ 	AddLinkRewrites(builder);
+ 	AddSkip(builder);
+@@ -2303,6 +2351,10 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	AddIgnoredUsers(builder);
+ 	AddHiddenWords(builder);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideIgnored);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionIgnoreInMenu,
++		{ u"right click"_q, u"block"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Screen capture"_q);
+ 	AddOptionToggle(
+@@ -2353,6 +2405,10 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionNoPhoneInHeader);
+ 	AddOptionToggle(builder, ::Tele::kOptionNftPurchasePrice);
+ 	AddLocalNames(builder);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionLocalNameMenu,
++		{ u"custom name"_q, u"nickname"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Gifts"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
+@@ -2368,7 +2424,15 @@ void FillProfiles(SectionBuilder &builder) {
+ void FillBots(SectionBuilder &builder) {
+ 	AddSkip(builder);
+ 	AddOptionToggle(builder, ::Tele::kOptionButtonPayloads);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCopyButtonData,
++		{ u"callback"_q, u"clipboard"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionInlineWithoutVia);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionInlineAsText,
++		{ u"inline bot"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_audio_voice.cpp b/Telegram/SourceFiles/tele/tele_audio_voice.cpp
+index 12fb9b2736605445e0e9686f002fd5a1d15c06e8..82c2344b6a8dc434c816ef4f497fc61d94753f49 100644
+--- a/Telegram/SourceFiles/tele/tele_audio_voice.cpp
++++ b/Telegram/SourceFiles/tele/tele_audio_voice.cpp
+@@ -22,6 +22,7 @@
+ #include "media/audio/media_audio.h"
+ #include "menu/menu_send.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/fields/input_field.h"
+@@ -731,7 +732,9 @@ void AddSendAsVoiceAction(
+ 		not_null<SendFilesBox*> box,
+ 		not_null<Ui::PopupMenu*> menu,
+ 		int index) {
+-	SendFilesVoiceAccess::AddAction(box, menu, index);
++	if (AudioVoice()) {
++		SendFilesVoiceAccess::AddAction(box, menu, index);
++	}
+ }
+ 
+ void AddDockedVoiceAction(
+@@ -741,7 +744,7 @@ void AddDockedVoiceAction(
+ 		Fn<Data::Thread*()> thread,
+ 		const Ui::PreparedFile &file,
+ 		Fn<void()> sent) {
+-	const auto current = thread();
++	const auto current = AudioVoice() ? thread() : nullptr;
+ 	if (!current
+ 		|| !IsAudio(file)
+ 		|| !Data::CanSend(current, ChatRestriction::SendVoiceMessages)) {
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+index 915c21c0bc356fd58250e78c58984d3ac20555a3..1149b101ba7510a731f75d8910650027dc9c276e 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.cpp
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -288,7 +288,7 @@ void AddCopyButtonPayloadAction(
+ 	AddOpenRealUsernameAction(menu, show, link);
+ 	const auto handler = dynamic_cast<ReplyMarkupClickHandler*>(link.get());
+ 	const auto button = handler ? handler->getButton() : nullptr;
+-	if (!button) {
++	if (!button || !CopyButtonData()) {
+ 		return;
+ 	}
+ 	const auto &data = button->data;
+diff --git a/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp b/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp
+index 03956bfae11a1c29279e403c6e7979ef77de35ac..31dc86fc21ea69d52782e7005f965e9a5696e7f8 100644
+--- a/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp
++++ b/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp
+@@ -465,7 +465,7 @@ void AddChatBackgroundAction(
+ 		not_null<Window::SessionController*> controller,
+ 		PeerData *peer,
+ 		const Ui::Menu::MenuCallback &addAction) {
+-	if (!peer) {
++	if (!peer || !BackgroundMenu()) {
+ 		return;
+ 	}
+ 	const auto now = PeerSpec(peer);
+diff --git a/Telegram/SourceFiles/tele/tele_counters.cpp b/Telegram/SourceFiles/tele/tele_counters.cpp
+index 6a01a9856653392c6b21fb71e9256c4fd6adc577..5eda81f041344e6ff9c29069e6b5e5b0e598ff49 100644
+--- a/Telegram/SourceFiles/tele/tele_counters.cpp
++++ b/Telegram/SourceFiles/tele/tele_counters.cpp
+@@ -38,7 +38,9 @@ namespace {
+ }
+ 
+ [[nodiscard]] bool Uncounted(not_null<Main::Session*> session) {
+-	const auto value = UncountedAccounts();
++	const auto value = CounterAccounts()
++		? UncountedAccounts()
++		: QString();
+ 	return !value.isEmpty() && ParseAccounts(value).contains(
+ 		session->uniqueId());
+ }
+@@ -106,6 +108,9 @@ bool UnreadBadgeMuted(not_null<Data::Session*> data) {
+ void AddAccountCounterAction(
+ 		not_null<Main::Session*> session,
+ 		const Ui::Menu::MenuCallback &addAction) {
++	if (!CounterAccounts()) {
++		return;
++	}
+ 	const auto uncounted = Uncounted(session);
+ 	addAction({ .make = [=](not_null<Ui::PopupMenu*> menu) {
+ 		auto result = base::make_unique_q<Ui::Menu::Toggle>(
+diff --git a/Telegram/SourceFiles/tele/tele_download_folders.cpp b/Telegram/SourceFiles/tele/tele_download_folders.cpp
+index 62f39881132d32c2735ca4b7c3a94d623dd8faf2..e181ee5b4475262485ab9e6c10378e7d8abdefbc 100644
+--- a/Telegram/SourceFiles/tele/tele_download_folders.cpp
++++ b/Telegram/SourceFiles/tele/tele_download_folders.cpp
+@@ -311,14 +311,13 @@ QString ChatDownloadPath(
+ 		not_null<Main::Session*> session,
+ 		PeerId peer,
+ 		const QString &path) {
+-	if (!peer || path.isEmpty()) {
++	if (!peer || path.isEmpty() || !DownloadsPerChat()) {
+ 		return path;
+ 	}
+ 	const auto custom = CustomFolder(session, peer);
+ 	if (!custom.isEmpty()) {
+ 		return custom;
+-	} else if (!DownloadsPerChat()
+-		|| (WithSlash(path) == WithSlash(session->local().tempDirectory()))) {
++	} else if (WithSlash(path) == WithSlash(session->local().tempDirectory())) {
+ 		return path;
+ 	}
+ 	return WithSlash(path) + ChatFolderName(session, peer) + '/';
+@@ -333,18 +332,16 @@ QString AutoDownloadFileName(
+ 		return filename;
+ 	}
+ 	const auto chat = DownloadChat(origin);
+-	const auto session = &document->session();
+-	const auto applies = CurrentChat
+-		&& (DownloadsPerChat()
+-			|| !Store::Get(session).folder(CurrentChat).isEmpty());
+-	return applies ? DocumentFileNameForSave(document) : filename;
++	return (CurrentChat && DownloadsPerChat())
++		? DocumentFileNameForSave(document)
++		: filename;
+ }
+ 
+ void AddDownloadFolderAction(
+ 		not_null<Window::SessionController*> controller,
+ 		PeerData *peer,
+ 		const Ui::Menu::MenuCallback &addAction) {
+-	if (!peer) {
++	if (!peer || !DownloadsPerChat()) {
+ 		return;
+ 	}
+ 	const auto id = peer->id;
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_compose.cpp b/Telegram/SourceFiles/tele/tele_drafts_compose.cpp
+index 292ee1c2f48008f225179d8da56648faffa94ebb..8284fe9879fb64ec9c2704377faade29f3a825c2 100644
+--- a/Telegram/SourceFiles/tele/tele_drafts_compose.cpp
++++ b/Telegram/SourceFiles/tele/tele_drafts_compose.cpp
+@@ -25,6 +25,7 @@
+ #include "tele/tele_drafts_box.h"
+ #include "tele/tele_drafts_section.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/effects/ripple_animation.h"
+ #include "ui/painter.h"
+@@ -728,7 +729,7 @@ bool ComposeDrafts::setAllowed(bool allowed) {
+ }
+ 
+ void ComposeDrafts::fillMenuDetails(SendMenu::Details &details) {
+-	if (!currentThread() || _editing()) {
++	if (!currentThread() || _editing() || (!DraftsMenu() && !editingId())) {
+ 		return;
+ 	}
+ 	details.teleMenu = crl::guard(_button.get(), [=](
+@@ -1226,7 +1227,8 @@ void SendFilesBoxAccess::AddButton(not_null<SendFilesBox*> box) {
+ void SendFilesDraftMenu(
+ 		not_null<SendFilesBox*> box,
+ 		SendMenu::Details &details) {
+-	if (!SendFilesBoxAccess::Allowed(box)) {
++	if (!SendFilesBoxAccess::Allowed(box)
++		|| (!DraftsMenu() && !SendFilesBoxAccess::Editing(box))) {
+ 		return;
+ 	}
+ 	const auto normal = details;
+diff --git a/Telegram/SourceFiles/tele/tele_ghost.cpp b/Telegram/SourceFiles/tele/tele_ghost.cpp
+index fcfa48c504e30df6ce4ef9f7b0b41af493902c36..ccc1adea686eded6e18fe1b3ae1b2b6bfc6f9454 100644
+--- a/Telegram/SourceFiles/tele/tele_ghost.cpp
++++ b/Telegram/SourceFiles/tele/tele_ghost.cpp
+@@ -27,6 +27,7 @@
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/widgets/buttons.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/widgets/menu/menu_toggle.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "ui/wrap/vertical_layout.h"
+ #include "styles/style_media_player.h"
+@@ -632,6 +633,26 @@ void AddGhostChatAction(
+ 		return;
+ 	}
+ 	const auto now = ChatGhostOverride(peer);
++	if (!Ghost()) {
++		const auto always = (now == GhostOverride::Always);
++		addAction({ .make = [=](not_null<Ui::PopupMenu*> menu) {
++			auto result = base::make_unique_q<Ui::Menu::Toggle>(
++				menu->menu(),
++				menu->st().menu,
++				Lower(u"Always ghost here"_q),
++				[=] {
++					SetChatGhostOverride(peer, always
++						? GhostOverride::Default
++						: GhostOverride::Always);
++				},
++				&st::menuIconStealth,
++				&st::menuIconStealth);
++			result->action()->setCheckable(true);
++			result->action()->setChecked(always);
++			return base::unique_qptr<Ui::Menu::ItemBase>(std::move(result));
++		} });
++		return;
++	}
+ 	addAction({
+ 		.text = Lower(u"Ghost mode in this chat"_q),
+ 		.handler = nullptr,
+diff --git a/Telegram/SourceFiles/tele/tele_gif_video.cpp b/Telegram/SourceFiles/tele/tele_gif_video.cpp
+index d0ba9479b3028766f7812afc466e1c32f32177c2..73c09b4056d5811f982757308c4fb2260fc9b1a8 100644
+--- a/Telegram/SourceFiles/tele/tele_gif_video.cpp
++++ b/Telegram/SourceFiles/tele/tele_gif_video.cpp
+@@ -20,6 +20,7 @@
+ #include "storage/storage_media_prepare.h"
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "tele/tele_send_files.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/layers/show.h"
+@@ -191,7 +192,7 @@ bool SendsAsGif(const Ui::PreparedFile &file, bool album) {
+ 	if (const auto video = LookupVideo(file)) {
+ 		return video->modifications.gif && (!album || video->hasAudio);
+ 	}
+-	return !album && IsGifImage(file);
++	return !album && GifVideo() && IsGifImage(file);
+ }
+ 
+ bool SendsAsSilentVideo(const Ui::PreparedFileInformation &information) {
+@@ -208,7 +209,7 @@ void AddSendAsGifAction(
+ 		bool available,
+ 		bool album,
+ 		Fn<void()> toggle) {
+-	if (!available) {
++	if (!available || !GifVideo()) {
+ 		return;
+ 	}
+ 	const auto video = LookupVideo(file);
+@@ -243,7 +244,9 @@ void AddResendAsGifAction(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		not_null<Window::SessionController*> controller,
+ 		HistoryItem *item) {
+-	const auto document = item ? ResendDocument(item) : nullptr;
++	const auto document = (item && GifVideo())
++		? ResendDocument(item)
++		: nullptr;
+ 	if (!document || OfflineForLaunch()) {
+ 		return;
+ 	}
+@@ -279,6 +282,7 @@ void AddPanelGifAsVideoAction(
+ 		|| !peer
+ 		|| !document->isGifv()
+ 		|| !Loadable(document)
++		|| !GifVideo()
+ 		|| OfflineForLaunch()) {
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
+index 6fcc88d5ba9efd86707039731a7c1e589d8d8c97..eb273af01f17bb81773495dce8b8162f64945d53 100644
+--- a/Telegram/SourceFiles/tele/tele_ignored.cpp
++++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
+@@ -283,7 +283,7 @@ void AddIgnoreAction(
+ 		not_null<PeerData*> peer,
+ 		const Ui::Menu::MenuCallback &addAction) {
+ 	const auto user = Ignorable(peer);
+-	if (!user) {
++	if (!user || !IgnoreInMenu()) {
+ 		return;
+ 	}
+ 	const auto ignored = IsIgnored(user);
+@@ -298,7 +298,7 @@ void AddIgnoreAction(
+ base::unique_qptr<Ui::PopupMenu> IgnoreMenu(
+ 		not_null<QWidget*> parent,
+ 		not_null<PeerData*> peer) {
+-	if (!Ignorable(peer)) {
++	if (!Ignorable(peer) || !IgnoreInMenu()) {
+ 		return nullptr;
+ 	}
+ 	auto result = base::make_unique_q<Ui::PopupMenu>(
+diff --git a/Telegram/SourceFiles/tele/tele_inline_text.cpp b/Telegram/SourceFiles/tele/tele_inline_text.cpp
+index 8a7dc7269968a18544be0b5fa6d97fa09693993e..1c6affc81cebcb06adf97dad944e4106abd3280d 100644
+--- a/Telegram/SourceFiles/tele/tele_inline_text.cpp
++++ b/Telegram/SourceFiles/tele/tele_inline_text.cpp
+@@ -3,6 +3,7 @@
+ #include "base/event_filter.h"
+ #include "menu/menu_send_details.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "ui/widgets/fields/input_field.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "styles/style_menu_icons.h"
+@@ -25,7 +26,7 @@ public:
+ 	}
+ 
+ 	[[nodiscard]] bool active() const {
+-		return _active();
++		return InlineAsText() && _active();
+ 	}
+ 	void send() const {
+ 		_send();
+diff --git a/Telegram/SourceFiles/tele/tele_link_previews.cpp b/Telegram/SourceFiles/tele/tele_link_previews.cpp
+index eec72f5778819e3d0e9cc758743d2966fc58af99..1af2693c79f1997987472ed407d8908b44bb64d1 100644
+--- a/Telegram/SourceFiles/tele/tele_link_previews.cpp
++++ b/Telegram/SourceFiles/tele/tele_link_previews.cpp
+@@ -451,7 +451,7 @@ void SetupAddLinkPreview(AddLinkPreviewArgs &&args) {
+ 	const auto processor = std::move(args.processor);
+ 	const auto editing = std::move(args.editing);
+ 	const auto available = [=]() -> Processor* {
+-		const auto result = processor();
++		const auto result = LinkPreviewMenu() ? processor() : nullptr;
+ 		if (!result || field->getLastText().trimmed().isEmpty()) {
+ 			return nullptr;
+ 		}
+diff --git a/Telegram/SourceFiles/tele/tele_local_names.cpp b/Telegram/SourceFiles/tele/tele_local_names.cpp
+index c3801d9afb446a40e1420c4db4e53ca65fb1cfba..16b1c88c9965bdf1e4b75decd2fcd6580a75e309 100644
+--- a/Telegram/SourceFiles/tele/tele_local_names.cpp
++++ b/Telegram/SourceFiles/tele/tele_local_names.cpp
+@@ -307,7 +307,7 @@ void AddLocalNameAction(
+ 		PeerData *peer,
+ 		const Ui::Menu::MenuCallback &addAction) {
+ 	const auto user = peer ? peer->asUser() : nullptr;
+-	if (!user || user->isSelf()) {
++	if (!user || user->isSelf() || !LocalNameMenu()) {
+ 		return;
+ 	}
+ 	const auto weak = base::make_weak(controller);
+diff --git a/Telegram/SourceFiles/tele/tele_mute.cpp b/Telegram/SourceFiles/tele/tele_mute.cpp
+index 6ca6f13dadf0c603ed1ac565256e6bbe27b6c8a9..d6d6144f1ec5dd1d255607579b1e80a4d87cc365 100644
+--- a/Telegram/SourceFiles/tele/tele_mute.cpp
++++ b/Telegram/SourceFiles/tele/tele_mute.cpp
+@@ -15,6 +15,7 @@
+ #include "storage/details/storage_file_utilities.h"
+ #include "storage/storage_account.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+ #include "ui/widgets/menu/menu_toggle.h"
+ #include "ui/widgets/popup_menu.h"
+@@ -95,6 +96,13 @@ State::State(not_null<Main::Session*> session)
+ 		}
+ 	}, _lifetime);
+ 
++	MuteFoldersChanges(
++	) | rpl::filter([=] {
++		return !_filters.empty();
++	}) | rpl::on_next([=] {
++		schedule(nullptr);
++	}, _lifetime);
++
+ 	owner->sessionDataAboutToBeCleared(
+ 	) | rpl::on_next([=] {
+ 		_cleared = true;
+@@ -345,11 +353,17 @@ void SetupMute(not_null<Main::Session*> session) {
+ }
+ 
+ bool MutedByFolder(not_null<const PeerData*> peer) {
++	if (!MuteFolders()) {
++		return false;
++	}
+ 	const auto state = State::Find(&peer->session());
+ 	return state && state->mutedByFolder(peer);
+ }
+ 
+ bool SilencedCompletely(not_null<const Data::Thread*> thread) {
++	if (!SilenceChats()) {
++		return false;
++	}
+ 	const auto state = State::Find(&thread->session());
+ 	return state && state->silenced(thread->peer()->id);
+ }
+@@ -359,7 +373,7 @@ void AddMuteFolderAction(
+ 		FilterId id,
+ 		const Ui::Menu::MenuCallback &addAction) {
+ 	const auto state = State::Find(session);
+-	if (!id || !state) {
++	if (!id || !state || !MuteFolders()) {
+ 		return;
+ 	}
+ 	const auto muted = state->folderMuted(id);
+@@ -376,7 +390,7 @@ void AddMuteFolderAction(
+ void AddSilenceAction(not_null<Ui::PopupMenu*> menu, Data::Thread *thread) {
+ 	const auto history = thread ? thread->asHistory() : nullptr;
+ 	const auto state = history ? State::Find(&history->session()) : nullptr;
+-	if (!state) {
++	if (!state || !SilenceChats()) {
+ 		return;
+ 	}
+ 	const auto session = &history->session();
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 19d9842800039414e0040f34fb44340bd499861a..802a80e958b1cded9bc97c37238ffb95f7a19f3a 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -17,6 +17,7 @@ const char kOptionGhostSchedule[] = "tele-ghost-schedule";
+ const char kOptionGhostStories[] = "tele-ghost-stories";
+ const char kOptionGhostChats[] = "tele-ghost-chats";
+ const char kOptionButtonPayloads[] = "tele-button-payloads";
++const char kOptionCopyButtonData[] = "tele-copy-button-data";
+ const char kOptionAutoUpdate[] = "tele-auto-update";
+ const char kOptionShowChangelog[] = "tele-show-changelog";
+ const char kOptionChangelogShown[] = "tele-changelog-shown";
+@@ -37,6 +38,7 @@ const char kOptionAppLinks[] = "tele-app-links";
+ const char kOptionCleanOpenedLinks[] = "tele-clean-opened-links";
+ const char kOptionCleanSentLinks[] = "tele-clean-sent-links";
+ const char kOptionLinkPreviews[] = "tele-link-previews";
++const char kOptionLinkPreviewMenu[] = "tele-link-preview-menu";
+ const char kOptionHideAllChats[] = "tele-hide-all-chats";
+ const char kOptionHideCommunities[] = "tele-hide-communities";
+ const char kOptionHideSimilar[] = "tele-hide-similar";
+@@ -66,10 +68,12 @@ const char kOptionShowDc[] = "tele-show-dc";
+ const char kOptionMergeIdDc[] = "tele-merge-id-dc";
+ const char kOptionMessageIdMenu[] = "tele-message-id-menu";
+ const char kOptionHideIgnored[] = "tele-hide-ignored";
++const char kOptionIgnoreInMenu[] = "tele-ignore-in-menu";
+ const char kOptionIgnoredUsers[] = "tele-ignored-users";
+ const char kOptionHiddenWords[] = "tele-hidden-words";
+ const char kOptionMessageSeconds[] = "tele-message-seconds";
+ const char kOptionEditHistory[] = "tele-edit-history";
++const char kOptionReadLog[] = "tele-read-log";
+ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+ const char kOptionKeepDeletedBots[] = "tele-keep-deleted-bots";
+ const char kOptionKeepDeletedSaved[] = "tele-keep-deleted-saved";
+@@ -88,6 +92,7 @@ const char kOptionViewAsTl[] = "tele-view-as-tl";
+ const char kOptionParallelUploads[] = "tele-parallel-uploads";
+ const char kOptionCalcmula[] = "tele-calcmula";
+ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
++const char kOptionTranslateOut[] = "tele-translate-out";
+ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
+ const char kOptionCopyMarkdown[] = "tele-copy-markdown";
+ const char kOptionRmbBesideBubble[] = "tele-rmb-beside-bubble";
+@@ -104,11 +109,14 @@ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ const char kOptionSendOlderReplies[] = "tele-send-older-replies";
+ const char kOptionDoubleEnterSend[] = "tele-double-enter-send";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
++const char kOptionInlineAsText[] = "tele-inline-as-text";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+ const char kOptionSilentPerChat[] = "tele-silent-per-chat";
+ const char kOptionOnlineNotify[] = "tele-online-notify";
++const char kOptionSilenceChats[] = "tele-silence-chats";
++const char kOptionMuteFolders[] = "tele-mute-folders";
+ const char kOptionVoiceNoFade[] = "tele-voice-no-fade";
+ const char kOptionConfirmSend[] = "tele-confirm-send";
+ const char kOptionConfirmStickers[] = "tele-confirm-stickers";
+@@ -116,17 +124,24 @@ const char kOptionConfirmGifs[] = "tele-confirm-gifs";
+ const char kOptionConfirmVoice[] = "tele-confirm-voice";
+ const char kOptionPunctualScheduled[] = "tele-punctual-scheduled";
+ const char kOptionHdPhotos[] = "tele-hd-photos";
++const char kOptionGifVideo[] = "tele-gif-video";
++const char kOptionAudioVoice[] = "tele-audio-voice";
+ const char kOptionDownloadsPerChat[] = "tele-downloads-per-chat";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
++const char kOptionBackgroundMenu[] = "tele-background-menu";
+ const char kOptionUsernameAliases[] = "tele-username-aliases";
++const char kOptionAliasMenu[] = "tele-alias-menu";
++const char kOptionPinnedBarMenu[] = "tele-pinned-bar-menu";
+ const char kOptionNoPhoneInHeader[] = "tele-no-phone-in-header";
+ const char kOptionNftPurchasePrice[] = "tele-nft-purchase-price";
+ const char kOptionLinkRewrites[] = "tele-link-rewrites";
+ const char kOptionRewritePreviewOnly[] = "tele-rewrite-preview-only";
+ const char kOptionLocalNames[] = "tele-local-names";
++const char kOptionLocalNameMenu[] = "tele-local-name-menu";
+ const char kOptionAppIcon[] = "tele-app-icon";
+ const char kOptionTrayIcon[] = "tele-tray-icon";
+ const char kOptionLocalDrafts[] = "tele-local-drafts";
++const char kOptionDraftsMenu[] = "tele-drafts-menu";
+ const char kOptionLocalPins[] = "tele-local-pins";
+ const char kOptionDockedAttachments[] = "tele-docked-attachments";
+ const char kOptionDockedGrid[] = "tele-docked-grid";
+@@ -144,6 +159,7 @@ const char kOptionHideCounters[] = "tele-hide-counters";
+ const char kOptionHideFolderCounters[] = "tele-hide-folder-counters";
+ const char kOptionHideAppCounter[] = "tele-hide-app-counter";
+ const char kOptionCounterSkipArchive[] = "tele-counter-skip-archive";
++const char kOptionCounterAccounts[] = "tele-counter-accounts";
+ const char kOptionUncountedAccounts[] = "tele-uncounted-accounts";
+ const char kOptionViewerLoop[] = "tele-viewer-loop";
+ const char kOptionTranslateOutTo[] = "tele-translate-out-to";
+@@ -226,6 +242,13 @@ base::options::toggle ButtonPayloadsOption({
+ 	.description = "Hover a bot button to see its callback data or link.",
+ });
+ 
++base::options::toggle CopyButtonDataOption({
++	.id = kOptionCopyButtonData,
++	.name = "Copy bot button data",
++	.description = "Right-click a bot button in a message.",
++	.defaultValue = true,
++});
++
+ base::options::toggle AutoUpdateOption({
+ 	.id = kOptionAutoUpdate,
+ 	.name = "Update automatically",
+@@ -351,6 +374,12 @@ base::options::option<QString> LinkPreviewsOption({
+ 	.description = "Previews you add by hand are always sent.",
+ });
+ 
++base::options::toggle LinkPreviewMenuOption({
++	.id = kOptionLinkPreviewMenu,
++	.name = "Link preview item in the field menu",
++	.defaultValue = true,
++});
++
+ base::options::toggle HideAllChatsOption({
+ 	.id = kOptionHideAllChats,
+ 	.name = "Hide the All chats folder",
+@@ -518,6 +547,12 @@ base::options::toggle HideIgnoredOption({
+ 	.description = "When off, they are shown faded.",
+ });
+ 
++base::options::toggle IgnoreInMenuOption({
++	.id = kOptionIgnoreInMenu,
++	.name = "Ignore from the userpic menu",
++	.defaultValue = true,
++});
++
+ base::options::option<QString> IgnoredUsersOption({
+ 	.id = kOptionIgnoredUsers,
+ 	.name = "Ignored users",
+@@ -542,6 +577,14 @@ base::options::toggle EditHistoryOption({
+ 		"restart.",
+ });
+ 
++base::options::toggle ReadLogOption({
++	.id = kOptionReadLog,
++	.name = "Remember read times",
++	.description = "The message menu keeps showing when a private chat read "
++		"your message.",
++	.defaultValue = true,
++});
++
+ base::options::toggle KeepDeletedOption({
+ 	.id = kOptionKeepDeleted,
+ 	.name = "Keep deleted messages",
+@@ -651,6 +694,13 @@ base::options::toggle CalcmulaPreviewOption({
+ 	.name = "Preview calcmula results while typing",
+ });
+ 
++base::options::toggle TranslateOutOption({
++	.id = kOptionTranslateOut,
++	.name = "Translate before sending",
++	.description = "From the field or send button menu.",
++	.defaultValue = true,
++});
++
+ base::options::toggle CopyEmojiIdOption({
+ 	.id = kOptionCopyEmojiId,
+ 	.name = "Copy custom emoji IDs",
+@@ -748,6 +798,13 @@ base::options::toggle InlineWithoutViaOption({
+ 	.description = "The bot's buttons are dropped too.",
+ });
+ 
++base::options::toggle InlineAsTextOption({
++	.id = kOptionInlineAsText,
++	.name = "Send inline queries as text",
++	.description = "Ctrl+Shift+Enter, or right-click the cancel button.",
++	.defaultValue = true,
++});
++
+ base::options::toggle NoRichPastePromptOption({
+ 	.id = kOptionNoRichPastePrompt,
+ 	.name = "No rich message prompt on paste",
+@@ -774,6 +831,21 @@ base::options::toggle OnlineNotifyOption({
+ 	.name = "Notify when people come online",
+ });
+ 
++base::options::toggle SilenceChatsOption({
++	.id = kOptionSilenceChats,
++	.name = "Silence chats completely",
++	.description = "From the mute menu; mentions and reactions don't notify "
++		"either.",
++	.defaultValue = true,
++});
++
++base::options::toggle MuteFoldersOption({
++	.id = kOptionMuteFolders,
++	.name = "Mute folders",
++	.description = "From a folder's menu, on this device only.",
++	.defaultValue = true,
++});
++
+ base::options::toggle VoiceNoFadeOption({
+ 	.id = kOptionVoiceNoFade,
+ 	.name = "Record voice without fading",
+@@ -815,9 +887,22 @@ base::options::toggle HdPhotosOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle GifVideoOption({
++	.id = kOptionGifVideo,
++	.name = "Send GIFs as videos and videos as GIFs",
++	.defaultValue = true,
++});
++
++base::options::toggle AudioVoiceOption({
++	.id = kOptionAudioVoice,
++	.name = "Send audio files as voice",
++	.defaultValue = true,
++});
++
+ base::options::toggle DownloadsPerChatOption({
+ 	.id = kOptionDownloadsPerChat,
+ 	.name = "Save downloads into a folder per chat",
++	.description = "A chat's menu can pick its own folder.",
+ });
+ 
+ base::options::option<QString> ChatBackgroundsOption({
+@@ -826,12 +911,31 @@ base::options::option<QString> ChatBackgroundsOption({
+ 	.description = "Chats with a background only you see, set in a chat's menu.",
+ });
+ 
++base::options::toggle BackgroundMenuOption({
++	.id = kOptionBackgroundMenu,
++	.name = "Background item in chat menus",
++	.defaultValue = true,
++});
++
+ base::options::option<QString> UsernameAliasesOption({
+ 	.id = kOptionUsernameAliases,
+ 	.name = "Username aliases",
+ 	.description = "Your own @names for chats, set in a chat's menu.",
+ });
+ 
++base::options::toggle AliasMenuOption({
++	.id = kOptionAliasMenu,
++	.name = "Alias item in chat menus",
++	.defaultValue = true,
++});
++
++base::options::toggle PinnedBarMenuOption({
++	.id = kOptionPinnedBarMenu,
++	.name = "Hide and show the pinned bar",
++	.description = "From a chat's menu, in chats where you can't unpin.",
++	.defaultValue = true,
++});
++
+ base::options::toggle NoPhoneInHeaderOption({
+ 	.id = kOptionNoPhoneInHeader,
+ 	.name = "Names instead of phone numbers in chats",
+@@ -863,6 +967,12 @@ base::options::option<QString> LocalNamesOption({
+ 	.description = "Only you see them, set in a user's menu.",
+ });
+ 
++base::options::toggle LocalNameMenuOption({
++	.id = kOptionLocalNameMenu,
++	.name = "Name item in chat menus",
++	.defaultValue = true,
++});
++
+ base::options::option<QString> AppIconOption({
+ 	.id = kOptionAppIcon,
+ 	.name = "App icon",
+@@ -883,6 +993,12 @@ base::options::toggle LocalDraftsOption({
+ 		"devices are ignored.",
+ });
+ 
++base::options::toggle DraftsMenuOption({
++	.id = kOptionDraftsMenu,
++	.name = "Drafts in the send menu",
++	.defaultValue = true,
++});
++
+ base::options::toggle LocalPinsOption({
+ 	.id = kOptionLocalPins,
+ 	.name = "Pin chats past the limit",
+@@ -978,6 +1094,14 @@ base::options::toggle CounterSkipArchiveOption({
+ 	.description = "Archived chats don't add to the taskbar and tray count.",
+ });
+ 
++base::options::toggle CounterAccountsOption({
++	.id = kOptionCounterAccounts,
++	.name = "Leave out accounts",
++	.description = "Right-click an account in the main menu to leave it out "
++		"of the count.",
++	.defaultValue = true,
++});
++
+ base::options::option<QString> UncountedAccountsOption({
+ 	.id = kOptionUncountedAccounts,
+ 	.name = "Uncounted accounts",
+@@ -1097,6 +1221,10 @@ bool ButtonPayloads() {
+ 	return ButtonPayloadsOption.value();
+ }
+ 
++bool CopyButtonData() {
++	return CopyButtonDataOption.value();
++}
++
+ bool AutoUpdate() {
+ 	return AutoUpdateOption.value();
+ }
+@@ -1267,6 +1395,10 @@ rpl::producer<QString> LinkPreviewsValue() {
+ 	});
+ }
+ 
++bool LinkPreviewMenu() {
++	return LinkPreviewMenuOption.value();
++}
++
+ bool HideAllChats() {
+ 	return HideAllChatsOption.value();
+ }
+@@ -1459,6 +1591,10 @@ rpl::producer<bool> HideIgnoredValue() {
+ 	});
+ }
+ 
++bool IgnoreInMenu() {
++	return IgnoreInMenuOption.value();
++}
++
+ void SetIgnoredList(const QString &value) {
+ 	IgnoredUsersOption.set(value);
+ }
+@@ -1519,6 +1655,10 @@ rpl::producer<bool> EditHistoryValue() {
+ 	});
+ }
+ 
++bool ReadLog() {
++	return ReadLogOption.value();
++}
++
+ bool KeepDeletedMessages() {
+ 	return KeepDeletedOption.value();
+ }
+@@ -1641,6 +1781,10 @@ bool CalcmulaPreview() {
+ 	return CalcmulaPreviewOption.value();
+ }
+ 
++bool TranslateOut() {
++	return TranslateOutOption.value();
++}
++
+ bool CopyEmojiId() {
+ 	return CopyEmojiIdOption.value();
+ }
+@@ -1779,6 +1923,10 @@ bool InlineWithoutVia() {
+ 	return InlineWithoutViaOption.value();
+ }
+ 
++bool InlineAsText() {
++	return InlineAsTextOption.value();
++}
++
+ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+@@ -1811,6 +1959,18 @@ bool OnlineNotify() {
+ 	return OnlineNotifyOption.value();
+ }
+ 
++bool SilenceChats() {
++	return SilenceChatsOption.value();
++}
++
++bool MuteFolders() {
++	return MuteFoldersOption.value();
++}
++
++rpl::producer<> MuteFoldersChanges() {
++	return MuteFoldersOption.changes();
++}
++
+ bool VoiceNoFade() {
+ 	return VoiceNoFadeOption.value();
+ }
+@@ -1835,6 +1995,14 @@ bool HdPhotos() {
+ 	return HdPhotosOption.value();
+ }
+ 
++bool GifVideo() {
++	return GifVideoOption.value();
++}
++
++bool AudioVoice() {
++	return AudioVoiceOption.value();
++}
++
+ bool DownloadsPerChat() {
+ 	return DownloadsPerChatOption.value();
+ }
+@@ -1871,6 +2039,18 @@ rpl::producer<QString> UsernameAliasesValue() {
+ 	});
+ }
+ 
++bool BackgroundMenu() {
++	return BackgroundMenuOption.value();
++}
++
++bool AliasMenu() {
++	return AliasMenuOption.value();
++}
++
++bool PinnedBarMenu() {
++	return PinnedBarMenuOption.value();
++}
++
+ bool NoPhoneInHeader() {
+ 	return NoPhoneInHeaderOption.value();
+ }
+@@ -1925,6 +2105,10 @@ rpl::producer<QString> LocalNamesValue() {
+ 	});
+ }
+ 
++bool LocalNameMenu() {
++	return LocalNameMenuOption.value();
++}
++
+ QString AppIcon() {
+ 	return AppIconOption.value();
+ }
+@@ -1975,6 +2159,10 @@ rpl::producer<bool> LocalDraftsValue() {
+ 	});
+ }
+ 
++bool DraftsMenu() {
++	return DraftsMenuOption.value();
++}
++
+ bool LocalPins() {
+ 	return LocalPinsOption.value();
+ }
+@@ -2111,12 +2299,17 @@ bool CounterSkipArchive() {
+ 	return HideCountersOption.value() && CounterSkipArchiveOption.value();
+ }
+ 
++bool CounterAccounts() {
++	return CounterAccountsOption.value();
++}
++
+ rpl::producer<> CountersChanges() {
+ 	return rpl::merge(
+ 		HideCountersOption.changes(),
+ 		HideFolderCountersOption.changes(),
+ 		HideAppCounterOption.changes(),
+-		CounterSkipArchiveOption.changes());
++		CounterSkipArchiveOption.changes(),
++		CounterAccountsOption.changes());
+ }
+ 
+ QString UncountedAccounts() {
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 3b44c061e4d4d8158227d31fa5c1136f8fe47e12..39334df5d253f626b4ea23a5532cf5547f264e90 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -13,6 +13,7 @@ extern const char kOptionGhostSchedule[];
+ extern const char kOptionGhostStories[];
+ extern const char kOptionGhostChats[];
+ extern const char kOptionButtonPayloads[];
++extern const char kOptionCopyButtonData[];
+ extern const char kOptionAutoUpdate[];
+ extern const char kOptionShowChangelog[];
+ extern const char kOptionChangelogShown[];
+@@ -31,6 +32,7 @@ extern const char kOptionAppLinks[];
+ extern const char kOptionCleanOpenedLinks[];
+ extern const char kOptionCleanSentLinks[];
+ extern const char kOptionLinkPreviews[];
++extern const char kOptionLinkPreviewMenu[];
+ extern const char kOptionHideAllChats[];
+ extern const char kOptionHideCommunities[];
+ extern const char kOptionHideSimilar[];
+@@ -61,10 +63,12 @@ extern const char kOptionShowDc[];
+ extern const char kOptionMergeIdDc[];
+ extern const char kOptionMessageIdMenu[];
+ extern const char kOptionHideIgnored[];
++extern const char kOptionIgnoreInMenu[];
+ extern const char kOptionIgnoredUsers[];
+ extern const char kOptionHiddenWords[];
+ extern const char kOptionMessageSeconds[];
+ extern const char kOptionEditHistory[];
++extern const char kOptionReadLog[];
+ extern const char kOptionKeepDeleted[];
+ extern const char kOptionKeepDeletedBots[];
+ extern const char kOptionKeepDeletedSaved[];
+@@ -83,6 +87,7 @@ extern const char kOptionViewAsTl[];
+ extern const char kOptionParallelUploads[];
+ extern const char kOptionCalcmula[];
+ extern const char kOptionCalcmulaPreview[];
++extern const char kOptionTranslateOut[];
+ extern const char kOptionCopyEmojiId[];
+ extern const char kOptionCopyMarkdown[];
+ extern const char kOptionRmbBesideBubble[];
+@@ -99,11 +104,14 @@ extern const char kOptionQueueBehindMedia[];
+ extern const char kOptionSendOlderReplies[];
+ extern const char kOptionDoubleEnterSend[];
+ extern const char kOptionInlineWithoutVia[];
++extern const char kOptionInlineAsText[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+ extern const char kOptionSilentPerChat[];
+ extern const char kOptionOnlineNotify[];
++extern const char kOptionSilenceChats[];
++extern const char kOptionMuteFolders[];
+ extern const char kOptionVoiceNoFade[];
+ extern const char kOptionConfirmSend[];
+ extern const char kOptionConfirmStickers[];
+@@ -111,17 +119,24 @@ extern const char kOptionConfirmGifs[];
+ extern const char kOptionConfirmVoice[];
+ extern const char kOptionPunctualScheduled[];
+ extern const char kOptionHdPhotos[];
++extern const char kOptionGifVideo[];
++extern const char kOptionAudioVoice[];
+ extern const char kOptionDownloadsPerChat[];
+ extern const char kOptionChatBackgrounds[];
++extern const char kOptionBackgroundMenu[];
+ extern const char kOptionUsernameAliases[];
++extern const char kOptionAliasMenu[];
++extern const char kOptionPinnedBarMenu[];
+ extern const char kOptionNoPhoneInHeader[];
+ extern const char kOptionNftPurchasePrice[];
+ extern const char kOptionLinkRewrites[];
+ extern const char kOptionRewritePreviewOnly[];
+ extern const char kOptionLocalNames[];
++extern const char kOptionLocalNameMenu[];
+ extern const char kOptionAppIcon[];
+ extern const char kOptionTrayIcon[];
+ extern const char kOptionLocalDrafts[];
++extern const char kOptionDraftsMenu[];
+ extern const char kOptionLocalPins[];
+ extern const char kOptionDockedAttachments[];
+ extern const char kOptionDockedGrid[];
+@@ -139,6 +154,7 @@ extern const char kOptionHideCounters[];
+ extern const char kOptionHideFolderCounters[];
+ extern const char kOptionHideAppCounter[];
+ extern const char kOptionCounterSkipArchive[];
++extern const char kOptionCounterAccounts[];
+ extern const char kOptionUncountedAccounts[];
+ extern const char kOptionViewerLoop[];
+ extern const char kOptionTranslateOutTo[];
+@@ -157,6 +173,7 @@ void SetGhost(bool enabled);
+ void SetGhostChats(const QString &value);
+ [[nodiscard]] rpl::producer<QString> GhostChatsValue();
+ [[nodiscard]] bool ButtonPayloads();
++[[nodiscard]] bool CopyButtonData();
+ [[nodiscard]] bool AutoUpdate();
+ [[nodiscard]] rpl::producer<bool> AutoUpdateValue();
+ [[nodiscard]] bool ShowChangelog();
+@@ -189,6 +206,7 @@ void SetAppLinks(const QString &value);
+ [[nodiscard]] QString LinkPreviews();
+ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] rpl::producer<QString> LinkPreviewsValue();
++[[nodiscard]] bool LinkPreviewMenu();
+ [[nodiscard]] bool HideAllChats();
+ [[nodiscard]] rpl::producer<> HideAllChatsChanges();
+ [[nodiscard]] bool HideCommunities();
+@@ -232,6 +250,7 @@ void SetReduceMotionSaved(const QString &value);
+ [[nodiscard]] bool MessageIdMenu();
+ [[nodiscard]] bool HideIgnored();
+ [[nodiscard]] rpl::producer<bool> HideIgnoredValue();
++[[nodiscard]] bool IgnoreInMenu();
+ void SetIgnoredList(const QString &value);
+ [[nodiscard]] rpl::producer<QString> IgnoredListValue();
+ [[nodiscard]] QString HiddenWords();
+@@ -241,6 +260,7 @@ void SetHiddenWords(const QString &value);
+ [[nodiscard]] rpl::producer<bool> MessageSecondsValue();
+ [[nodiscard]] bool EditHistory();
+ [[nodiscard]] rpl::producer<bool> EditHistoryValue();
++[[nodiscard]] bool ReadLog();
+ [[nodiscard]] bool KeepDeletedMessages();
+ [[nodiscard]] bool KeepDeletedBots();
+ [[nodiscard]] bool KeepDeletedSaved();
+@@ -267,6 +287,7 @@ void SetStreamerMode(bool enabled);
+ [[nodiscard]] bool ParallelUploads();
+ [[nodiscard]] bool Calcmula();
+ [[nodiscard]] bool CalcmulaPreview();
++[[nodiscard]] bool TranslateOut();
+ [[nodiscard]] bool CopyEmojiId();
+ [[nodiscard]] bool CopyMarkdown();
+ [[nodiscard]] bool RmbBesideBubble();
+@@ -294,6 +315,7 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] rpl::producer<> SendOlderRepliesChanges();
+ [[nodiscard]] bool DoubleEnterSend();
+ [[nodiscard]] bool InlineWithoutVia();
++[[nodiscard]] bool InlineAsText();
+ [[nodiscard]] bool NoRichPastePrompt();
+ [[nodiscard]] bool HideGiftButton();
+ [[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+@@ -302,18 +324,26 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] bool SilentPerChat();
+ [[nodiscard]] rpl::producer<> SilentPerChatChanges();
+ [[nodiscard]] bool OnlineNotify();
++[[nodiscard]] bool SilenceChats();
++[[nodiscard]] bool MuteFolders();
++[[nodiscard]] rpl::producer<> MuteFoldersChanges();
+ [[nodiscard]] bool VoiceNoFade();
+ [[nodiscard]] bool ConfirmStickers();
+ [[nodiscard]] bool ConfirmGifs();
+ [[nodiscard]] bool ConfirmVoice();
+ [[nodiscard]] bool PunctualScheduled();
+ [[nodiscard]] bool HdPhotos();
++[[nodiscard]] bool GifVideo();
++[[nodiscard]] bool AudioVoice();
+ [[nodiscard]] bool DownloadsPerChat();
+ [[nodiscard]] rpl::producer<> PunctualScheduledChanges();
+ void SetChatBackgrounds(const QString &value);
+ [[nodiscard]] rpl::producer<QString> ChatBackgroundsValue();
+ void SetUsernameAliases(const QString &value);
+ [[nodiscard]] rpl::producer<QString> UsernameAliasesValue();
++[[nodiscard]] bool BackgroundMenu();
++[[nodiscard]] bool AliasMenu();
++[[nodiscard]] bool PinnedBarMenu();
+ [[nodiscard]] bool NoPhoneInHeader();
+ [[nodiscard]] rpl::producer<bool> NoPhoneInHeaderValue();
+ [[nodiscard]] bool NftPurchasePrice();
+@@ -323,6 +353,7 @@ void SetLinkRewrites(const QString &value);
+ [[nodiscard]] bool RewritePreviewOnly();
+ void SetLocalNames(const QString &value);
+ [[nodiscard]] rpl::producer<QString> LocalNamesValue();
++[[nodiscard]] bool LocalNameMenu();
+ [[nodiscard]] QString AppIcon();
+ void SetAppIcon(const QString &value);
+ [[nodiscard]] rpl::producer<QString> AppIconValue();
+@@ -331,6 +362,7 @@ void SetTrayIcon(const QString &value);
+ [[nodiscard]] rpl::producer<QString> TrayIconValue();
+ [[nodiscard]] bool LocalDrafts();
+ [[nodiscard]] rpl::producer<bool> LocalDraftsValue();
++[[nodiscard]] bool DraftsMenu();
+ [[nodiscard]] bool LocalPins();
+ [[nodiscard]] rpl::producer<> LocalPinsChanges();
+ [[nodiscard]] bool DockedAttachments();
+@@ -359,6 +391,7 @@ void SetFieldHeight(int height);
+ [[nodiscard]] bool HideFolderCounters();
+ [[nodiscard]] bool HideAppCounter();
+ [[nodiscard]] bool CounterSkipArchive();
++[[nodiscard]] bool CounterAccounts();
+ [[nodiscard]] rpl::producer<> CountersChanges();
+ [[nodiscard]] QString UncountedAccounts();
+ void SetUncountedAccounts(const QString &value);
+diff --git a/Telegram/SourceFiles/tele/tele_read_log.cpp b/Telegram/SourceFiles/tele/tele_read_log.cpp
+index bbb41a8ebd4b4502cacc90cb7cca618b3e6ff9fe..45627c95edd8d6a16d3bab65c6b989ff5ad9c58f 100644
+--- a/Telegram/SourceFiles/tele/tele_read_log.cpp
++++ b/Telegram/SourceFiles/tele/tele_read_log.cpp
+@@ -11,6 +11,7 @@
+ #include "main/main_session.h"
+ #include "storage/details/storage_file_utilities.h"
+ #include "storage/storage_account.h"
++#include "tele/tele_options.h"
+ #include "ui/controls/who_reacted_context_action.h"
+ 
+ namespace Tele {
+@@ -234,7 +235,7 @@ TimeId State::find(PeerId peer, MsgId id) const {
+ } // namespace
+ 
+ void LogOutboxRead(not_null<History*> history, MsgId was, MsgId till) {
+-	if (till <= was) {
++	if (till <= was || !ReadLog()) {
+ 		return;
+ 	}
+ 	const auto user = LoggedUser(history);
+@@ -249,6 +250,7 @@ TimeId LoggedReadDate(not_null<HistoryItem*> item) {
+ 	const auto history = item->history();
+ 	const auto user = LoggedUser(history);
+ 	if (!user
++		|| !ReadLog()
+ 		|| !item->out()
+ 		|| !item->isRegular()
+ 		|| item->unread(history)) {
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index f90d2e23b45c1493b691068a033452f890d0d495..b7aa3101f39dfab0ca7997b712145cb099104ed9 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -103,6 +103,8 @@ struct Spec {
+ 		Toggle(kOptionGhostSchedule),
+ 		Toggle(kOptionGhostStories),
+ 		Toggle(kOptionButtonPayloads),
++		Toggle(kOptionCopyButtonData),
++		Toggle(kOptionInlineAsText),
+ 		Toggle(kOptionAutoUpdate),
+ 		Toggle(kOptionShowChangelog),
+ 		Toggle(kOptionGroupQuickReplies),
+@@ -147,8 +149,10 @@ struct Spec {
+ 		Toggle(kOptionMergeIdDc),
+ 		Toggle(kOptionMessageIdMenu),
+ 		Toggle(kOptionHideIgnored),
++		Toggle(kOptionIgnoreInMenu),
+ 		Toggle(kOptionMessageSeconds),
+ 		Toggle(kOptionEditHistory),
++		Toggle(kOptionReadLog),
+ 		Toggle(kOptionKeepDeleted),
+ 		Toggle(kOptionKeepDeletedBots),
+ 		Toggle(kOptionKeepDeletedSaved),
+@@ -171,6 +175,7 @@ struct Spec {
+ 		Toggle(kOptionParallelUploads),
+ 		Toggle(kOptionCalcmula),
+ 		Toggle(kOptionCalcmulaPreview),
++		Toggle(kOptionTranslateOut),
+ 		Toggle(kOptionCopyEmojiId),
+ 		Toggle(kOptionCopyMarkdown),
+ 		Toggle(kOptionRmbBesideBubble),
+@@ -186,6 +191,8 @@ struct Spec {
+ 		Toggle(kOptionSilentByDefault),
+ 		Toggle(kOptionSilentPerChat),
+ 		Toggle(kOptionOnlineNotify),
++		Toggle(kOptionSilenceChats),
++		Toggle(kOptionMuteFolders),
+ 		Toggle(kOptionVoiceNoFade),
+ 		Toggle(kOptionConfirmSend),
+ 		Toggle(kOptionConfirmStickers),
+@@ -193,18 +200,27 @@ struct Spec {
+ 		Toggle(kOptionConfirmVoice),
+ 		Toggle(kOptionPunctualScheduled),
+ 		Toggle(kOptionHdPhotos),
++		Toggle(kOptionGifVideo),
++		Toggle(kOptionAudioVoice),
+ 		Toggle(kOptionDownloadsPerChat),
+ 		Toggle(kOptionDockedAttachments),
+ 		Toggle(kOptionDockedGrid),
+ 		Toggle(kOptionResizableField),
+ 		Toggle(kOptionNoPhoneInHeader),
+ 		Toggle(kOptionNftPurchasePrice),
++		Toggle(kOptionBackgroundMenu),
++		Toggle(kOptionAliasMenu),
++		Toggle(kOptionPinnedBarMenu),
++		Toggle(kOptionLocalNameMenu),
++		Toggle(kOptionLinkPreviewMenu),
+ 		Toggle(kOptionLocalDrafts),
++		Toggle(kOptionDraftsMenu),
+ 		Toggle(kOptionLocalPins),
+ 		Toggle(kOptionHideCounters),
+ 		Toggle(kOptionHideFolderCounters),
+ 		Toggle(kOptionHideAppCounter),
+ 		Toggle(kOptionCounterSkipArchive),
++		Toggle(kOptionCounterAccounts),
+ 		Spec{
+ 			.id = kOptionCallButton,
+ 			.kind = Kind::Choice,
+diff --git a/Telegram/SourceFiles/tele/tele_show_pinned.cpp b/Telegram/SourceFiles/tele/tele_show_pinned.cpp
+index c6387ac1a852ab8507ba47a02f881d5b0b7ccdd3..74c1dce3a1240e2ce3fa32ab1cf829586903269c 100644
+--- a/Telegram/SourceFiles/tele/tele_show_pinned.cpp
++++ b/Telegram/SourceFiles/tele/tele_show_pinned.cpp
+@@ -9,6 +9,7 @@
+ #include "main/main_session.h"
+ #include "main/main_session_settings.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+ #include "window/window_peer_menu.h"
+ #include "window/window_session_controller.h"
+@@ -69,7 +70,7 @@ void AddPinnedBarAction(
+ 		not_null<Window::SessionController*> controller,
+ 		Data::Thread *thread,
+ 		const Ui::Menu::MenuCallback &addAction) {
+-	const auto state = thread
++	const auto state = (thread && PinnedBarMenu())
+ 		? ResolveState(thread)
+ 		: PinnedBarState::None;
+ 	if (state == PinnedBarState::None) {
+diff --git a/Telegram/SourceFiles/tele/tele_translate_out.cpp b/Telegram/SourceFiles/tele/tele_translate_out.cpp
+index 371c09fad85e4be9309c572bd68bb1357b3768f8..21b654107a3942005c0542fb4ff0010633404142 100644
+--- a/Telegram/SourceFiles/tele/tele_translate_out.cpp
++++ b/Telegram/SourceFiles/tele/tele_translate_out.cpp
+@@ -53,7 +53,7 @@ Translator::Translator(
+ }
+ 
+ bool Translator::available() const {
+-	return !_field->getLastText().trimmed().isEmpty();
++	return TranslateOut() && !_field->getLastText().trimmed().isEmpty();
+ }
+ 
+ void Translator::choose() {
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.cpp b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+index c88f7f638eac3abd0a98032f968dde680dfd130b..fa01268d3c11295b2980b7b2298f7ad626925f22 100644
+--- a/Telegram/SourceFiles/tele/tele_username_aliases.cpp
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+@@ -625,7 +625,7 @@ void AddUsernameAliasAction(
+ 		not_null<Window::SessionController*> controller,
+ 		PeerData *peer,
+ 		const Ui::Menu::MenuCallback &addAction) {
+-	if (!peer) {
++	if (!peer || !AliasMenu()) {
+ 		return;
+ 	}
+ 	const auto weak = base::make_weak(controller);

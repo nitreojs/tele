@@ -261,7 +261,7 @@ index 40745765e85fe9cc4ed4ac5806507fda8b926294..145be78a1919b81e854e02d91f5610f3
  		menu->st().menu,
  		menu->st().menu.separator,
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index d15f66869555b1b717d4af02acf9eba8d89d5927..ffa9b5449c864ec2c88b0ab2ea8db69937000fed 100644
+index 2d4583e768bfc2827f84bfd0e450f7f0eabdbd9b..66702ca44588d953af9b375afa71119bbfa80697 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
 @@ -37,6 +37,7 @@ const char kOptionKeepDeleted[] = "tele-keep-deleted";
@@ -272,7 +272,7 @@ index d15f66869555b1b717d4af02acf9eba8d89d5927..ffa9b5449c864ec2c88b0ab2ea8db699
  const char kOptionServerUrl[] = "tele-server-url";
  const char kOptionTitleTemplate[] = "tele-title";
  
-@@ -304,6 +305,15 @@ base::options::toggle ScreenshotSecretMediaOption({
+@@ -303,6 +304,15 @@ base::options::toggle ScreenshotSecretMediaOption({
  		"capture. Chats that forbid saving stay protected.",
  });
  
@@ -288,7 +288,7 @@ index d15f66869555b1b717d4af02acf9eba8d89d5927..ffa9b5449c864ec2c88b0ab2ea8db699
  base::options::option<QString> ServerUrlOption({
  	.id = kOptionServerUrl,
  	.name = "tele server",
-@@ -566,6 +576,10 @@ bool ScreenshotSecretMedia() {
+@@ -565,6 +575,10 @@ bool ScreenshotSecretMedia() {
  	return ScreenshotSecretMediaOption.value();
  }
  

@@ -1,0 +1,778 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 20:26:17 +0300
+Subject: [PATCH] fix: trim settings descriptions
+
+---
+ .../SourceFiles/settings/settings_tele.cpp    | 83 ++++++++++------
+ .../SourceFiles/tele/tele_app_links_box.cpp   | 11 +--
+ Telegram/SourceFiles/tele/tele_debug_logs.cpp |  5 +-
+ Telegram/SourceFiles/tele/tele_drafts_box.cpp |  4 +-
+ .../tele/tele_link_rewrites_box.cpp           | 16 ++-
+ .../SourceFiles/tele/tele_local_names.cpp     |  6 +-
+ Telegram/SourceFiles/tele/tele_menu_order.cpp |  3 +-
+ Telegram/SourceFiles/tele/tele_options.cpp    | 97 +++++++------------
+ .../SourceFiles/tele/tele_settings_io_box.cpp | 30 +++---
+ Telegram/SourceFiles/tele/tele_title_box.cpp  |  6 +-
+ .../tele/tele_username_aliases.cpp            |  3 +-
+ 11 files changed, 120 insertions(+), 144 deletions(-)
+
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 0ac2e8d279d7c38d5ee553de3921d1669dbf948b..3375c1a9255c742f93e12226ac3819c2ee98a5c1 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -626,7 +626,7 @@ void AddMessageMenu(SectionBuilder &builder) {
+ 		.onClick = [=] {
+ 			controller->show(Box(::Tele::MessageMenuBox));
+ 		},
+-		.keywords = { description, u"context"_q, u"reorder"_q },
++		.keywords = { description, u"context"_q, u"right-click"_q },
+ 	});
+ 	if (button) {
+ 		SetupLink(button, option.id());
+@@ -1293,7 +1293,7 @@ void AddUsernameAliases(SectionBuilder &builder) {
+ 		.onClick = [=] {
+ 			ShowUsernameAliasesBox(controller);
+ 		},
+-		.keywords = { description },
++		.keywords = { description, u"mention"_q },
+ 	});
+ 	if (button) {
+ 		SetupLink(button, option.id());
+@@ -1304,9 +1304,8 @@ void AddUsernameAliases(SectionBuilder &builder) {
+ void AddSavedDrafts(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+ 	const auto session = builder.session();
+-	const auto description = ::Tele::Lower(u"Drafts you keep on this device, "
+-		"any number per chat, apart from the regular one. Save them with "
+-		"Ctrl+S or a right click on the send button."_q);
++	const auto description = ::Tele::Lower(u"Save one with Ctrl+S or a "
++		"right-click on the send button."_q);
+ 	AddButton(builder, {
+ 		.id = u"tele-saved-drafts"_q,
+ 		.title = rpl::single(::Tele::Lower(u"Saved drafts"_q)),
+@@ -1322,7 +1321,7 @@ void AddSavedDrafts(SectionBuilder &builder) {
+ 		.onClick = [=] {
+ 			::Tele::ShowAllDraftsBox(controller);
+ 		},
+-		.keywords = { description, u"draft"_q, u"drafts"_q },
++		.keywords = { description, u"draft"_q, u"drafts"_q, u"local"_q },
+ 	});
+ 	AddAbout(builder, u"tele-saved-drafts"_q, description);
+ }
+@@ -1331,7 +1330,6 @@ void AddAppLinks(SectionBuilder &builder) {
+ 	const auto &option = base::options::lookup<QString>(
+ 		::Tele::kOptionAppLinks);
+ 	const auto controller = builder.controller();
+-	const auto description = ::Tele::Lower(option.description());
+ 	const auto button = AddButton(builder, {
+ 		.id = option.id(),
+ 		.title = rpl::single(::Tele::Lower(option.name())),
+@@ -1344,7 +1342,7 @@ void AddAppLinks(SectionBuilder &builder) {
+ 			controller->show(Box(::Tele::AppLinksBox));
+ 		},
+ 		.keywords = {
+-			description,
++			u"browser"_q,
+ 			u"spotify"_q,
+ 			u"discord"_q,
+ 			u"steam"_q,
+@@ -1355,7 +1353,6 @@ void AddAppLinks(SectionBuilder &builder) {
+ 	if (button) {
+ 		SetupLink(button, option.id());
+ 	}
+-	AddAbout(builder, option.id(), description);
+ }
+ 
+ void AddLinkRewrites(SectionBuilder &builder) {
+@@ -1655,10 +1652,22 @@ void FillInterface(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Chats and profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionBubbleBadges);
+ 	AddOptionToggle(builder, ::Tele::kOptionStaticUserpicsChats);
+-	AddOptionToggle(builder, ::Tele::kOptionHideMentionsButton);
+-	AddOptionToggle(builder, ::Tele::kOptionHideReactionsButton);
+-	AddOptionToggle(builder, ::Tele::kOptionEmojiPanelClick);
+-	AddOptionToggle(builder, ::Tele::kOptionAttachMenuClick);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideMentionsButton,
++		{ u"unread"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideReactionsButton,
++		{ u"unread"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionEmojiPanelClick,
++		{ u"hover"_q, u"stickers"_q, u"gifs"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionAttachMenuClick,
++		{ u"hover"_q, u"paperclip"_q });
+ 	AddCallButtons(builder);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Text"_q);
+@@ -1691,10 +1700,16 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionCalcmula);
+ 	AddOptionToggle(builder, ::Tele::kOptionCalcmulaPreview);
+ 	AddOptionToggle(builder, ::Tele::kOptionSentToBottom);
+-	AddOptionToggle(builder, ::Tele::kOptionQueueBehindMedia);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionQueueBehindMedia,
++		{ u"upload"_q, u"order"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionPunctualScheduled);
+ 	AddOptionToggle(builder, ::Tele::kOptionHdPhotos);
+-	AddOptionToggle(builder, ::Tele::kOptionNoRichPastePrompt);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionNoRichPastePrompt,
++		{ u"formatted"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionDockedAttachments);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Drafts"_q);
+@@ -1754,7 +1769,10 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	AddGhostChats(builder);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Stories"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionHideStories);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideStories,
++		{ u"rings"_q, u"userpics"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionInvisibleStories);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Drafts"_q);
+@@ -1765,7 +1783,10 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionHideIgnored);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Screen capture"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionAllowScreenCapture);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionAllowScreenCapture,
++		{ u"screenshot"_q, u"recording"_q, u"sharing"_q, u"obs"_q });
+ 	AddSkip(builder);
+ }
+ 
+@@ -1777,7 +1798,7 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionBotApiPeerIds);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Profiles"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionShowDc);
++	AddOptionToggle(builder, ::Tele::kOptionShowDc, { u"dc"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionMergeIdDc);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoPhoneInHeader);
+ 	AddOptionToggle(builder, ::Tele::kOptionNftPurchasePrice);
+@@ -1814,8 +1835,7 @@ void AddDebugLogs(SectionBuilder &builder) {
+ 	}
+ 	const auto name = ::Tele::Lower(u"Debug logs"_q);
+ 	const auto description = ::Tele::Lower(
+-		u"Write every network event into DebugLogs. "
+-		"Turning them off restarts the app."_q);
++		u"Turning them off restarts the app."_q);
+ 	builder.add([&](const WidgetContext &ctx) {
+ 		const auto controller = ctx.controller;
+ 		auto row = CreateOptionRow(ctx.container, name, description);
+@@ -1855,7 +1875,12 @@ void AddDebugLogs(SectionBuilder &builder) {
+ 		return SearchEntry{
+ 			.id = u"tele-debug-logs"_q,
+ 			.title = name,
+-			.keywords = { description, u"debugmode"_q, u"network"_q },
++			.keywords = {
++				description,
++				u"debugmode"_q,
++				u"network"_q,
++				u"debuglogs"_q,
++			},
+ 		};
+ 	});
+ }
+@@ -1927,9 +1952,8 @@ void AddClearLogs(SectionBuilder &builder) {
+ 
+ void AddMtpInspector(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+-	const auto description = ::Tele::Lower(u"Browse the captured requests "
+-		"and responses. It reads the newest %1 MB of mtp logs, up to %2 "
+-		"entries. Constructor links open schema.jppgr.am in the browser."_q
++	const auto description = ::Tele::Lower(u"Reads the newest %1 MB of mtp "
++		"logs, up to %2 entries."_q
+ 			.arg(::Tele::MtpLog::kMaxBytes / (1024 * 1024))
+ 			.arg(::Tele::MtpLog::kMaxEntries));
+ 	const auto button = AddButton(builder, {
+@@ -1952,7 +1976,13 @@ void AddMtpInspector(SectionBuilder &builder) {
+ 					"logs yet, turn on debug logs and use the app for a bit."_q));
+ 			}
+ 		},
+-		.keywords = { description, u"mtp"_q, u"tl"_q, u"schema"_q },
++		.keywords = {
++			description,
++			u"mtp"_q,
++			u"tl"_q,
++			u"schema"_q,
++			u"requests"_q,
++		},
+ 	});
+ 	if (button) {
+ 		SetupLink(button, u"tele-mtp-inspector"_q);
+@@ -2002,9 +2032,6 @@ void AddBackup(SectionBuilder &builder) {
+ 		u"Import settings..."_q,
+ 		::Tele::ImportSettingsBox,
+ 		{ u"backup"_q, u"restore"_q, u"load"_q, u"file"_q });
+-	AddAbout(builder, u"tele-export-settings"_q, ::Tele::Lower(
+-		u"Move tele settings to another "
+-		"computer or share them with friends as a file or text."_q));
+ }
+ 
+ void AddNewBadge(not_null<Button*> button, const QString &title) {
+diff --git a/Telegram/SourceFiles/tele/tele_app_links_box.cpp b/Telegram/SourceFiles/tele/tele_app_links_box.cpp
+index 1aedac0e6d65cea81d74e0f0687f95e24fc05ad7..4f617e7e3b922c0a4fc7af6f2ddd6d17d8b40ccd 100644
+--- a/Telegram/SourceFiles/tele/tele_app_links_box.cpp
++++ b/Telegram/SourceFiles/tele/tele_app_links_box.cpp
+@@ -148,10 +148,8 @@ void ServiceBox(not_null<Ui::GenericBox*> box, AppLinkService service) {
+ 	inner->add(
+ 		object_ptr<Ui::FlatLabel>(
+ 			inner,
+-			Lower(u"{app} is the chosen program, {url} the original link "
+-				"and {uri} the app link, like spotify:track:… for "
+-				"Spotify. The first word is what runs, quote paths with "
+-				"spaces."_q),
++			Lower(u"{app} is the chosen program, {url} the original link, "
++				"{uri} the app link, quote paths with spaces."_q),
+ 			st::boxDividerLabel),
+ 		st::boxRowPadding);
+ 	Ui::AddSkip(inner);
+@@ -199,9 +197,8 @@ void AppLinksBox(not_null<Ui::GenericBox*> box) {
+ 	box->setTitle(rpl::single(Lower(u"Open links in apps"_q)));
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+-		Lower(u"Links to these services open in the app you pick instead "
+-			"of the browser. Only installed apps are listed, a custom app "
+-			"can be any program."_q),
++		Lower(u"Only installed apps are listed, a custom app can be any "
++			"program."_q),
+ 		st::boxDividerLabel));
+ 	Ui::AddSkip(box->verticalLayout());
+ 	const auto list = box->addRow(
+diff --git a/Telegram/SourceFiles/tele/tele_debug_logs.cpp b/Telegram/SourceFiles/tele/tele_debug_logs.cpp
+index e51d8c85a8f123b1f8698885be6a4d3730915ee9..2752168739bd5e9d9680422457a36187246e38e0 100644
+--- a/Telegram/SourceFiles/tele/tele_debug_logs.cpp
++++ b/Telegram/SourceFiles/tele/tele_debug_logs.cpp
+@@ -79,9 +79,8 @@ QString ClearDebugLogsQuestion(const DebugLogsInfo &info) {
+ 	auto result = u"Delete %1 (%2) from DebugLogs?"_q
+ 		.arg(Files(info.files), Ui::FormatSizeText(info.bytes));
+ 	if (info.kept) {
+-		result += u"\n\nThe %1 the app is writing right now will be kept, "
+-			"they can be cleared once they rotate within 15 minutes "
+-			"or after a restart."_q.arg(Files(info.kept));
++		result += u"\n\nThe %1 in use stay until they rotate or the app "
++			"restarts."_q.arg(Files(info.kept));
+ 	}
+ 	return Lower(result);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_box.cpp b/Telegram/SourceFiles/tele/tele_drafts_box.cpp
+index 2709ae723375222cf66a2a6c75f1c39ffa1b0967..a6a4f3eae1cfbd7549ab2820034608628f731106 100644
+--- a/Telegram/SourceFiles/tele/tele_drafts_box.cpp
++++ b/Telegram/SourceFiles/tele/tele_drafts_box.cpp
+@@ -611,8 +611,8 @@ void ChatsController::refreshRows() {
+ 		delegate()->peerListAppendRow(std::move(row));
+ 	}
+ 	setDescriptionText(!id
+-		? Lower(u"No saved drafts yet. Right-click the send button or "
+-			"press Ctrl+S in the message field to save one."_q)
++		? Lower(u"No saved drafts yet, save one with Ctrl+S or a "
++			"right-click on the send button."_q)
+ 		: QString());
+ 	delegate()->peerListRefreshRows();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_link_rewrites_box.cpp b/Telegram/SourceFiles/tele/tele_link_rewrites_box.cpp
+index d1af9e8183c186cd2fd2f0bdb238c9701ac516f1..68acf9a786bd70802eba967a93f591b4a8275872 100644
+--- a/Telegram/SourceFiles/tele/tele_link_rewrites_box.cpp
++++ b/Telegram/SourceFiles/tele/tele_link_rewrites_box.cpp
+@@ -113,7 +113,7 @@ void RuleBox(
+ 		box,
+ 		type,
+ 		Type::Pattern,
+-		Lower(u"Pattern, for advanced rewrites"_q),
++		Lower(u"Use a regular expression"_q),
+ 		st::defaultBoxCheckbox));
+ 	Ui::AddSkip(box->verticalLayout());
+ 
+@@ -134,8 +134,8 @@ void RuleBox(
+ 		true);
+ 	domainsInner->add(object_ptr<Ui::FlatLabel>(
+ 		domainsInner,
+-		Lower(u"Subdomains match too, www., m. and mobile. are dropped. "
+-			"Only the domain changes, the rest of the link stays."_q),
++		Lower(u"Subdomains match too, www., m. and mobile. are "
++			"dropped."_q),
+ 		st::boxDividerLabel));
+ 	Ui::AddSkip(domainsInner);
+ 	const auto pick = std::make_shared<Ui::RadiobuttonGroup>(
+@@ -164,7 +164,7 @@ void RuleBox(
+ 		patternInner->add(object_ptr<Ui::InputField>(
+ 			patternInner,
+ 			st::defaultInputField,
+-			rpl::single(Lower(u"Match, a regular expression"_q)),
++			rpl::single(Lower(u"Match"_q)),
+ 			rule.match)));
+ 	const auto error = patternInner->add(
+ 		object_ptr<Ui::SlideWrap<Ui::FlatLabel>>(
+@@ -312,9 +312,8 @@ void LinkRewritesBox(not_null<Ui::GenericBox*> box) {
+ 	box->setTitle(rpl::single(Lower(u"Link rewrites"_q)));
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+-		Lower(u"Links you paste into a message are rewritten by the first "
+-			"matching rule, Ctrl+Z brings the original back. Opened links, "
+-			"incoming messages and typed text stay as they are."_q),
++		Lower(u"Only pasted links change, the first matching rule wins and "
++			"Ctrl+Z undoes it."_q),
+ 		st::boxDividerLabel));
+ 	Ui::AddSkip(box->verticalLayout());
+ 	const auto list = box->addRow(
+@@ -410,8 +409,7 @@ void LinkRewritesBox(not_null<Ui::GenericBox*> box) {
+ 			list->add(
+ 				object_ptr<Ui::FlatLabel>(
+ 					list,
+-					Lower(u"No rules yet. Add your own or start from a "
+-						"preset."_q),
++					Lower(u"No rules yet."_q),
+ 					st::boxDividerLabel),
+ 				st::boxRowPadding);
+ 			Ui::AddSkip(list);
+diff --git a/Telegram/SourceFiles/tele/tele_local_names.cpp b/Telegram/SourceFiles/tele/tele_local_names.cpp
+index 473b595016d8cdcd4730ccf573dada177719020a..c3801d9afb446a40e1420c4db4e53ca65fb1cfba 100644
+--- a/Telegram/SourceFiles/tele/tele_local_names.cpp
++++ b/Telegram/SourceFiles/tele/tele_local_names.cpp
+@@ -205,11 +205,7 @@ void LocalNameBox(not_null<Ui::GenericBox*> box, not_null<UserData*> user) {
+ 	field->setMaxLength(kMaxNameLength);
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+-		Lower(u"Real name: "_q)
+-			+ RealName(user)
+-			+ u"\n"_q
+-			+ Lower(u"Nothing is sent to Telegram, only this app shows "
+-				"the name."_q),
++		Lower(u"Real name: "_q) + RealName(user),
+ 		st::boxDividerLabel));
+ 	const auto save = [=] {
+ 		const auto name = NormalizeName(field->getLastText());
+diff --git a/Telegram/SourceFiles/tele/tele_menu_order.cpp b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+index 47b5d8ef051d732dfac00ed6801a1bc45295bfa3..afc99640a6d1ccfcf0e596ff41118030ef55045e 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_order.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+@@ -613,8 +613,7 @@ void MessageMenuBox(not_null<Ui::GenericBox*> box) {
+ 	box->setTitle(rpl::single(Lower(u"Message menu"_q)));
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+-		Lower(u"Drag the handles to reorder, switch items off to hide them. "
+-			"Items that aren't listed here keep their place."_q),
++		Lower(u"Items not listed here keep their place."_q),
+ 		st::boxDividerLabel));
+ 	const auto inner = box->addRow(
+ 		object_ptr<Ui::VerticalLayout>(box),
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 265750fdad09b270bd72c8542a792da7a5cff331..318eb162dc1b5fcd6bb6ae991174fd32bb89ea5c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -98,8 +98,6 @@ namespace {
+ base::options::toggle HideStoriesOption({
+ 	.id = kOptionHideStories,
+ 	.name = "Hide stories",
+-	.description = "No stories bar, no rings around userpics, no stories in "
+-		"profiles.",
+ 	.restartRequired = true,
+ });
+ 
+@@ -119,7 +117,6 @@ base::options::toggle GhostOption({
+ base::options::toggle GhostInMenuOption({
+ 	.id = kOptionGhostInMenu,
+ 	.name = "Ghost mode in the main menu",
+-	.description = "A quick switch for ghost mode in the left menu.",
+ });
+ 
+ base::options::toggle GhostReadOption({
+@@ -166,8 +163,7 @@ base::options::toggle GhostStoriesOption({
+ base::options::option<QString> GhostChatsOption({
+ 	.id = kOptionGhostChats,
+ 	.name = "Ghost mode in chats",
+-	.description = "Chats that are always or never ghosted. Also in a chat's "
+-		"menu.",
++	.description = "Also set in a chat's menu.",
+ });
+ 
+ base::options::toggle ButtonPayloadsOption({
+@@ -243,7 +239,7 @@ base::options::option<QString> GroupCallButtonOption({
+ base::options::toggle BubbleBadgesOption({
+ 	.id = kOptionBubbleBadges,
+ 	.name = "Badges next to names in messages",
+-	.description = "Checkmarks and custom verification next to sender names.",
++	.description = "Checkmarks and custom verification.",
+ });
+ 
+ base::options::toggle HideSponsoredOption({
+@@ -272,8 +268,6 @@ base::options::toggle OpenLinksInAppsOption({
+ base::options::option<QString> AppLinksOption({
+ 	.id = kOptionAppLinks,
+ 	.name = "Open links in apps",
+-	.description = "Spotify, Steam, Discord, Zoom and more open in their "
+-		"desktop app or in one you choose, instead of the browser.",
+ });
+ 
+ base::options::toggle CleanOpenedLinksOption({
+@@ -295,8 +289,7 @@ base::options::toggle CleanSentLinksOption({
+ base::options::option<QString> LinkPreviewsOption({
+ 	.id = kOptionLinkPreviews,
+ 	.name = "Automatic link previews",
+-	.description = "A preview you add by hand, from the field's right-click "
+-		"menu or the preview options, is always sent.",
++	.description = "Previews you add by hand are always sent.",
+ });
+ 
+ base::options::toggle HideAllChatsOption({
+@@ -320,8 +313,8 @@ base::options::toggle StaticUserpicsListOption({
+ base::options::toggle ChatListNoReorderAnimationOption({
+ 	.id = kOptionChatListNoReorderAnimation,
+ 	.name = "Move chats instantly in the list",
+-	.description = "No two-second pause in reordering while the mouse moves "
+-		"over the list. Still held while a chat is pressed.",
++	.description = "No pause while the mouse is over the list, except while "
++		"a chat is pressed.",
+ });
+ 
+ base::options::toggle StaticUserpicsChatsOption({
+@@ -333,44 +326,40 @@ base::options::toggle StaticUserpicsChatsOption({
+ base::options::toggle HideMentionsButtonOption({
+ 	.id = kOptionHideMentionsButton,
+ 	.name = "Hide the mentions button",
+-	.description = "No @ button above the input field for unread mentions.",
+ });
+ 
+ base::options::toggle HideReactionsButtonOption({
+ 	.id = kOptionHideReactionsButton,
+ 	.name = "Hide the reactions button",
+-	.description = "No heart button above the input field for unread reactions.",
+ });
+ 
+ base::options::toggle EmojiPanelClickOption({
+ 	.id = kOptionEmojiPanelClick,
+ 	.name = "Open the emoji panel by click only",
+-	.description = "Hovering the emoji button no longer opens stickers and GIFs.",
+ });
+ 
+ base::options::toggle AttachMenuClickOption({
+ 	.id = kOptionAttachMenuClick,
+ 	.name = "Open the attach menu by click only",
+-	.description = "Hovering the paperclip no longer opens the attach menu. "
+-		"Applies to chats you open after switching it.",
++	.description = "Applies to chats opened after the change.",
+ });
+ 
+ base::options::toggle ShowGiftIdsOption({
+ 	.id = kOptionShowGiftIds,
+-	.name = "Show gift IDs",
+-	.description = "In collectible gift cards, click to copy.",
++	.name = "IDs on collectible gifts",
++	.description = "Click to copy.",
+ });
+ 
+ base::options::toggle ShowRegularGiftIdsOption({
+ 	.id = kOptionShowRegularGiftIds,
+ 	.name = "IDs on regular gifts",
+-	.description = "The gift type ID on non-collectible gifts, click to copy.",
++	.description = "The gift type ID, click to copy.",
+ });
+ 
+ base::options::toggle SeeTgButtonOption({
+ 	.id = kOptionSeeTgButton,
+ 	.name = "See.tg button on collectible gifts",
+-	.description = "Open collectible gift cards in the see.tg mini app.",
++	.description = "Opens the gift in the see.tg mini app.",
+ });
+ 
+ base::options::toggle PeerIdsWithoutSpacesOption({
+@@ -387,14 +376,12 @@ base::options::toggle BotApiPeerIdsOption({
+ base::options::toggle ShowDcOption({
+ 	.id = kOptionShowDc,
+ 	.name = "Show data center",
+-	.description = "A DC row in profiles, known from the profile photo.",
++	.description = "Known from the profile photo.",
+ });
+ 
+ base::options::toggle MergeIdDcOption({
+ 	.id = kOptionMergeIdDc,
+ 	.name = "ID and DC in one row",
+-	.description = "When both are shown, the DC goes next to the ID"
+-		" in the same row.",
+ });
+ 
+ base::options::toggle MessageIdMenuOption({
+@@ -418,7 +405,7 @@ base::options::option<QString> IgnoredUsersOption({
+ base::options::toggle MessageSecondsOption({
+ 	.id = kOptionMessageSeconds,
+ 	.name = "Show seconds in message times",
+-	.description = "Service messages like joins and pins also show their time.",
++	.description = "Service messages show their time too.",
+ });
+ 
+ base::options::toggle EditHistoryOption({
+@@ -449,7 +436,6 @@ base::options::option<QString> DeletedReplyOption({
+ base::options::toggle RevealSpoilersOption({
+ 	.id = kOptionRevealSpoilers,
+ 	.name = "Reveal spoilers automatically",
+-	.description = "Text and media spoilers in chats and the chat list.",
+ });
+ 
+ base::options::toggle KeepSecretMediaOption({
+@@ -467,9 +453,7 @@ base::options::toggle ScreenshotSecretMediaOption({
+ base::options::toggle AllowScreenCaptureOption({
+ 	.id = kOptionAllowScreenCapture,
+ 	.name = "Never block screen capture",
+-	.description = "Tele windows never hide from screenshots, screen "
+-		"recording or screen sharing (NVIDIA, OBS, Discord), even for "
+-		"protected chats and disappearing media.",
++	.description = "Also for protected chats and disappearing media.",
+ 	.defaultValue = true,
+ });
+ 
+@@ -495,9 +479,7 @@ base::options::toggle CalcmulaOption({
+ base::options::toggle CalcmulaPreviewOption({
+ 	.id = kOptionCalcmulaPreview,
+ 	.name = "Preview calcmula results while typing",
+-	.description = "Shows the result above the input field, like "
+-		"@calcmulabot inline. Only when \"Calculate with calcmula.app\" "
+-		"is on too.",
++	.description = "Needs \"Calculate with calcmula.app\" on.",
+ });
+ 
+ base::options::toggle CopyEmojiIdOption({
+@@ -509,8 +491,7 @@ base::options::toggle CopyEmojiIdOption({
+ base::options::toggle ShotOption({
+ 	.id = kOptionShot,
+ 	.name = "Shot in the message menu",
+-	.description = "Selected messages or one message can be saved as a "
+-		"picture.",
++	.description = "Saves messages as a picture.",
+ });
+ 
+ base::options::option<QString> ShotViewOption({
+@@ -530,8 +511,8 @@ base::options::option<QString> ServerUrlOption({
+ base::options::toggle ServerUsernamesOption({
+ 	.id = kOptionServerUsernames,
+ 	.name = "Usernames from the server",
+-	.description = "Extra @usernames the tele server gives to accounts, "
+-		"shown and usable like real ones.",
++	.description = "Extra @usernames from the tele server, usable like "
++		"real ones.",
+ 	.defaultValue = true,
+ });
+ 
+@@ -552,8 +533,7 @@ base::options::option<QString> WindowTitleTemplateOption({
+ base::options::option<QString> MessageMenuLayoutOption({
+ 	.id = kOptionMessageMenuLayout,
+ 	.name = "Message menu",
+-	.description = "Reorder and hide items of the right-click menu on "
+-		"messages.",
++	.description = "Reorder and hide its items.",
+ });
+ 
+ base::options::toggle SentToBottomOption({
+@@ -565,35 +545,30 @@ base::options::toggle SentToBottomOption({
+ base::options::toggle QueueBehindMediaOption({
+ 	.id = kOptionQueueBehindMedia,
+ 	.name = "Queue messages behind uploading media",
+-	.description = "Messages sent during an upload go out after it, in order.",
+ });
+ 
+ base::options::toggle InlineWithoutViaOption({
+ 	.id = kOptionInlineWithoutVia,
+ 	.name = "Send inline results without via",
+-	.description = "Sent as your own message, without the bot's buttons.",
++	.description = "The bot's buttons are dropped too.",
+ });
+ 
+ base::options::toggle NoRichPastePromptOption({
+ 	.id = kOptionNoRichPastePrompt,
+ 	.name = "No rich message prompt on paste",
+-	.description = "Pasting formatted text won't offer to send it as a rich "
+-		"message.",
+ });
+ 
+ base::options::toggle PunctualScheduledOption({
+ 	.id = kOptionPunctualScheduled,
+ 	.name = "Send scheduled messages on time",
+-	.description = "While tele is online, it sends them itself at the set "
+-		"minute instead of waiting for Telegram, which can be a few "
++	.description = "While running, tele sends them itself, Telegram can be "
+ 		"minutes late.",
+ });
+ 
+ base::options::toggle HdPhotosOption({
+ 	.id = kOptionHdPhotos,
+ 	.name = "Send photos in HD by default",
+-	.description = "Every send box starts with HD quality on, whatever was "
+-		"picked last time.",
++	.description = "Ignores the choice from last time.",
+ 	.defaultValue = true,
+ });
+ 
+@@ -606,59 +581,53 @@ base::options::option<QString> ChatBackgroundsOption({
+ base::options::option<QString> UsernameAliasesOption({
+ 	.id = kOptionUsernameAliases,
+ 	.name = "Username aliases",
+-	.description = "Your own @names for chats, set in a chat's menu. "
+-		"Clicking one opens the linked chat, sending one mentions it.",
++	.description = "Your own @names for chats, set in a chat's menu.",
+ });
+ 
+ base::options::toggle NoPhoneInHeaderOption({
+ 	.id = kOptionNoPhoneInHeader,
+ 	.name = "Names instead of phone numbers in chats",
+-	.description = "People who shared their number with you but aren't in "
+-		"your contacts keep their name in the chat header. The number stays "
+-		"in their profile.",
++	.description = "For non-contacts who shared their number, the profile "
++		"still shows it.",
+ });
+ 
+ base::options::toggle NftPurchasePriceOption({
+ 	.id = kOptionNftPurchasePrice,
+ 	.name = "Collectible prices at the purchase date",
+-	.description = "Usernames and numbers show the dollar price at the TON "
+-		"rate of the day they were bought. Falls back to Fragment's price "
+-		"when the rate isn't available.",
++	.description = "Usernames and numbers use the TON rate of the purchase "
++		"day, else Fragment's price.",
+ });
+ 
+ base::options::option<QString> LinkRewritesOption({
+ 	.id = kOptionLinkRewrites,
+ 	.name = "Link rewrites",
+-	.description = "Your own rules that rewrite links you paste into a "
+-		"message, like x.com to fixupx.com.",
++	.description = "Applies to links you paste into a message.",
+ });
+ 
+ base::options::option<QString> LocalNamesOption({
+ 	.id = kOptionLocalNames,
+ 	.name = "Custom names",
+-	.description = "Names for people that only you see, set in a user's "
+-		"menu. Nothing is sent to Telegram.",
++	.description = "Only you see them, set in a user's menu.",
+ });
+ 
+ base::options::option<QString> AppIconOption({
+ 	.id = kOptionAppIcon,
+ 	.name = "App icon",
+-	.description = "Your own image for the windows, taskbar, Alt+Tab and "
+-		"dock. The exe file and pinned shortcuts keep the original icon.",
++	.description = "The exe file and pinned shortcuts keep the original "
++		"icon.",
+ });
+ 
+ base::options::option<QString> TrayIconOption({
+ 	.id = kOptionTrayIcon,
+ 	.name = "Tray icon",
+-	.description = "Your own image for the notification area. The "
+-		"monochrome tray icon setting takes priority.",
++	.description = "The monochrome tray icon setting takes priority.",
+ });
+ 
+ base::options::toggle LocalDraftsOption({
+ 	.id = kOptionLocalDrafts,
+ 	.name = "Keep drafts on this device",
+-	.description = "Drafts are never saved to the cloud, so other devices "
+-		"don't see them. Cloud drafts from other devices are ignored.",
++	.description = "Drafts skip the cloud, and cloud drafts from other "
++		"devices are ignored.",
+ });
+ 
+ base::options::toggle DockedAttachmentsOption({
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io_box.cpp b/Telegram/SourceFiles/tele/tele_settings_io_box.cpp
+index e32927e7780bfd981c5cd711c63f6fa9be0e5a10..9564ee1a329b387ef779989838c4213b5fcb10fe 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io_box.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io_box.cpp
+@@ -39,31 +39,26 @@ struct GroupInfo {
+ 		{
+ 			.group = SettingsGroup::Settings,
+ 			.title = u"Settings"_q,
+-			.exportAbout = u"All toggles and choices, title templates, the "
+-				"message menu, link rewrite rules, link previews and the "
+-				"links opened in default apps."_q,
+-			.importAbout = u"They replace yours. Links you open in a chosen "
+-				"program stay as they are."_q,
++			.exportAbout = u"Everything not in the groups below."_q,
++			.importAbout = u"They replace yours, links set to a chosen "
++				"program stay."_q,
+ 			.exportChecked = true,
+ 		},
+ 		{
+ 			.group = SettingsGroup::People,
+ 			.title = u"People"_q,
+-			.exportAbout = u"Username aliases, custom names, ignored users, "
+-				"ghost mode in chats and chat backgrounds. They point to "
+-				"specific chats, so they only make sense for someone who "
+-				"has the same people."_q,
+-			.importAbout = u"Added to yours, the file wins for chats you "
+-				"both have. They only work for the same people."_q,
++			.exportAbout = u"Aliases, custom names, ignored users, ghost chats "
++				"and backgrounds, tied to specific chats."_q,
++			.importAbout = u"Added to yours, the file wins where both have "
++				"a chat."_q,
+ 		},
+ 		{
+ 			.group = SettingsGroup::Device,
+ 			.title = u"This device"_q,
+-			.exportAbout = u"Custom app and tray icons, and programs picked "
+-				"to open links. Program paths may not exist on another "
+-				"computer."_q,
+-			.importAbout = u"Icons and programs that open links. A program "
+-				"that isn't on this computer won't open anything."_q,
++			.exportAbout = u"Custom icons and programs picked to open "
++				"links."_q,
++			.importAbout = u"A program missing on this computer won't open "
++				"anything."_q,
+ 		},
+ 	};
+ 	return result;
+@@ -247,8 +242,7 @@ void ExportSettingsBox(not_null<Ui::GenericBox*> box) {
+ 	box->setTitle(rpl::single(Lower(u"Export settings"_q)));
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+-		Lower(u"Save your tele settings to a file or copy them as text. "
+-			"They can be imported in any tele, on any account."_q),
++		Lower(u"Any tele on any account can import them."_q),
+ 		st::boxDividerLabel));
+ 	Ui::AddSkip(box->verticalLayout());
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_title_box.cpp b/Telegram/SourceFiles/tele/tele_title_box.cpp
+index b51ffcae6b67874d3f7623859ca482cad43a8d60..5b7cc7d0d28c34a67afcd45a925c2b4df5b9a7f5 100644
+--- a/Telegram/SourceFiles/tele/tele_title_box.cpp
++++ b/Telegram/SourceFiles/tele/tele_title_box.cpp
+@@ -548,10 +548,8 @@ void TitleTemplateBox(
+ 		box->addRow(
+ 			object_ptr<Ui::FlatLabel>(
+ 				box,
+-				Lower(u"The title Windows, macOS and Linux show in the "
+-					"taskbar, Alt+Tab and the system window frame. Empty "
+-					"keeps the default title, a template that renders to "
+-					"nothing leaves the title blank."_q),
++				Lower(u"Empty keeps the default title, a template that "
++					"renders to nothing leaves it blank."_q),
+ 				st::boxDividerLabel),
+ 			RowMargins(st::boxRowPadding.left() / 3));
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.cpp b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+index 9665b9c492ec05bb376bb8f7980abcbde7b8821f..4097a15e7d9827731de3cd3f0a511339c42852e7 100644
+--- a/Telegram/SourceFiles/tele/tele_username_aliases.cpp
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+@@ -488,8 +488,7 @@ void AliasBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
+ 	}, field->lifetime());
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+-		Lower(u"Mentions of this alias will open this profile. Only you "
+-			"see it."_q),
++		Lower(u"Mentions of it open this profile, only you see it."_q),
+ 		st::boxDividerLabel));
+ 	const auto save = [=] {
+ 		const auto alias = NormalizeAlias(field->getLastText());

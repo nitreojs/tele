@@ -1,0 +1,230 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 17:23:02 +0300
+Subject: [PATCH] feat: choose how silent videos are sent
+
+---
+ .../boxes/send_gif_with_caption_box.cpp       |  2 ++
+ .../SourceFiles/settings/settings_tele.cpp    | 17 ++++++++++++-
+ .../storage/storage_media_prepare.cpp         |  3 ++-
+ Telegram/SourceFiles/tele/tele_gif_video.cpp  | 14 +++++++++++
+ Telegram/SourceFiles/tele/tele_gif_video.h    |  2 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 25 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  4 +++
+ Telegram/SourceFiles/tele/tele_protected.cpp  |  4 +++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 9 files changed, 70 insertions(+), 2 deletions(-)
+
+diff --git a/Telegram/SourceFiles/boxes/send_gif_with_caption_box.cpp b/Telegram/SourceFiles/boxes/send_gif_with_caption_box.cpp
+index e25f0f4e773981c2fa27eb65c325d1e2680495c0..632a836c463aef51f46be4192ea501e4e34c9e0e 100644
+--- a/Telegram/SourceFiles/boxes/send_gif_with_caption_box.cpp
++++ b/Telegram/SourceFiles/boxes/send_gif_with_caption_box.cpp
+@@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_send.h"
+ #include "storage/localimageloader.h"
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_gif_video.h"
+ #include "tele/tele_sticker_captions.h"
+ #include "ui/chat/attach/attach_controls.h"
+ #include "ui/chat/attach/attach_prepare.h"
+@@ -313,6 +314,7 @@ struct State final {
+ 			file.size = content.size();
+ 			file.content = std::move(content);
+ 			Storage::PrepareDetails(file, previewWidth, sideLimit);
++			::Tele::KeepSendingAsGif(file);
+ 			crl::on_main(weak, [=, file = std::move(file)]() mutable {
+ 				state->preparing = false;
+ 				if (!file.canEditVideo()) {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c8041fd0cda6c22ddfd18206379d9932e5e48dbf..ec464b1f0c2b7d3910fb80651e571d20af9f9daf 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3077,7 +3077,22 @@ void FillSending(SectionBuilder &builder) {
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionGifVideo,
+-		{ u"animation"_q, u"resend"_q });
++		{ u"animation"_q, u"resend"_q },
++		{},
++		[&] {
++			AddButtonChoice(
++				builder,
++				::Tele::kOptionSilentVideoAs,
++				::Tele::SilentVideoAs,
++				::Tele::SetSilentVideoAs,
++				::Tele::SilentVideoAsValue,
++				{
++					{ QString(), u"GIF"_q },
++					{ u"video"_q, u"Video"_q },
++				},
++				{ u"gif"_q, u"animation"_q, u"silent"_q, u"sound"_q },
++				::Tele::kOptionGifVideo);
++		});
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionAudioVoice,
+diff --git a/Telegram/SourceFiles/storage/storage_media_prepare.cpp b/Telegram/SourceFiles/storage/storage_media_prepare.cpp
+index 2e7eb3c987f28318d775289139ce0ff1ee66f31c..3a8e180a515c1c76cde8268eae1a4d39efdeb730 100644
+--- a/Telegram/SourceFiles/storage/storage_media_prepare.cpp
++++ b/Telegram/SourceFiles/storage/storage_media_prepare.cpp
+@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/image/image_prepare.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "core/crash_reports.h"
++#include "tele/tele_gif_video.h"
+ 
+ #include <QtCore/QSemaphore>
+ #include <QtCore/QMimeData>
+@@ -380,7 +381,7 @@ void PrepareDetails(PreparedFile &file, int previewWidth, int sideLimit) {
+ 	} else if (const auto video = std::get_if<Video>(
+ 			&file.information->media)) {
+ 		if (ValidVideoForAlbum(*video)) {
+-			video->modifications.gif = !video->hasAudio;
++			Tele::ApplySilentVideoDefault(file);
+ 			UpdateVideoDetails(file, previewWidth, sideLimit);
+ 			file.type = PreparedFile::Type::Video;
+ 		}
+diff --git a/Telegram/SourceFiles/tele/tele_gif_video.cpp b/Telegram/SourceFiles/tele/tele_gif_video.cpp
+index a32d77891c0f393cbd3e2aeea7a811b950a00c07..60a1778d78c0ff925233e0f772998819578e4e9d 100644
+--- a/Telegram/SourceFiles/tele/tele_gif_video.cpp
++++ b/Telegram/SourceFiles/tele/tele_gif_video.cpp
+@@ -203,6 +203,20 @@ bool SendsAsSilentVideo(const Ui::PreparedFileInformation &information) {
+ 		&& !video->hasAudio;
+ }
+ 
++void ApplySilentVideoDefault(Ui::PreparedFile &file) {
++	if (const auto video = LookupVideo(file)) {
++		const auto asVideo = GifVideo()
++			&& (SilentVideoAs() == u"video"_q);
++		SetSendAsGif(*video, !video->hasAudio && !asVideo);
++	}
++}
++
++void KeepSendingAsGif(Ui::PreparedFile &file) {
++	if (const auto video = LookupVideo(file)) {
++		SetSendAsGif(*video, !video->hasAudio);
++	}
++}
++
+ void AddSendAsGifAction(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		const Ui::PreparedFile &file,
+diff --git a/Telegram/SourceFiles/tele/tele_gif_video.h b/Telegram/SourceFiles/tele/tele_gif_video.h
+index 46178d68f5ccd2e5b8084f0f81f47c93d59eef53..9cbf967cf834d9efccf285040a2a52db17298857 100644
+--- a/Telegram/SourceFiles/tele/tele_gif_video.h
++++ b/Telegram/SourceFiles/tele/tele_gif_video.h
+@@ -24,6 +24,8 @@ namespace Tele {
+ [[nodiscard]] bool SendsAsGif(const Ui::PreparedFile &file, bool album);
+ [[nodiscard]] bool SendsAsSilentVideo(
+ 	const Ui::PreparedFileInformation &information);
++void ApplySilentVideoDefault(Ui::PreparedFile &file);
++void KeepSendingAsGif(Ui::PreparedFile &file);
+ void AddSendAsGifAction(
+ 	not_null<Ui::PopupMenu*> menu,
+ 	const Ui::PreparedFile &file,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index c6b0145c2610a2a3f22d789b5f44112bf38c7bae..449fcd5dbada636bb9e20dbb06f92a24575c1304 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -156,6 +156,7 @@ const char kOptionConfirmVoice[] = "tele-confirm-voice";
+ const char kOptionPunctualScheduled[] = "tele-punctual-scheduled";
+ const char kOptionHdPhotos[] = "tele-hd-photos";
+ const char kOptionGifVideo[] = "tele-gif-video";
++const char kOptionSilentVideoAs[] = "tele-silent-video-as";
+ const char kOptionAudioVoice[] = "tele-audio-voice";
+ const char kOptionDownloadsPerChat[] = "tele-downloads-per-chat";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+@@ -1142,6 +1143,12 @@ base::options::toggle GifVideoOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::option<QString> SilentVideoAsOption({
++	.id = kOptionSilentVideoAs,
++	.name = "Send videos without sound as",
++	.description = "Each one can still be switched before sending.",
++});
++
+ base::options::toggle AudioVoiceOption({
+ 	.id = kOptionAudioVoice,
+ 	.name = "Send audio files as voice",
+@@ -2633,6 +2640,24 @@ bool GifVideo() {
+ 	return GifVideoOption.value();
+ }
+ 
++QString SilentVideoAs() {
++	return SilentVideoAsOption.value();
++}
++
++void SetSilentVideoAs(const QString &value) {
++	SilentVideoAsOption.set(value);
++}
++
++rpl::producer<QString> SilentVideoAsValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		SilentVideoAsOption.changes()
++	) | rpl::map([] {
++		return SilentVideoAsOption.value();
++	});
++}
++
+ bool AudioVoice() {
+ 	return AudioVoiceOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index ef50043f9d921d0ada08999a6f4c7e135fd7ad20..3f9196f1d6f80664d47065bcadfaddcab9188891 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -151,6 +151,7 @@ extern const char kOptionConfirmVoice[];
+ extern const char kOptionPunctualScheduled[];
+ extern const char kOptionHdPhotos[];
+ extern const char kOptionGifVideo[];
++extern const char kOptionSilentVideoAs[];
+ extern const char kOptionAudioVoice[];
+ extern const char kOptionDownloadsPerChat[];
+ extern const char kOptionChatBackgrounds[];
+@@ -437,6 +438,9 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool PunctualScheduled();
+ [[nodiscard]] bool HdPhotos();
+ [[nodiscard]] bool GifVideo();
++[[nodiscard]] QString SilentVideoAs();
++void SetSilentVideoAs(const QString &value);
++[[nodiscard]] rpl::producer<QString> SilentVideoAsValue();
+ [[nodiscard]] bool AudioVoice();
+ [[nodiscard]] bool DownloadsPerChat();
+ [[nodiscard]] rpl::producer<> PunctualScheduledChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_protected.cpp b/Telegram/SourceFiles/tele/tele_protected.cpp
+index b2dfcb2164437c611c95ec7402ff0eb43584cb5d..653eea98c226549b63c01aaffae76ad319cc2714 100644
+--- a/Telegram/SourceFiles/tele/tele_protected.cpp
++++ b/Telegram/SourceFiles/tele/tele_protected.cpp
+@@ -26,6 +26,7 @@
+ #include "storage/storage_account.h"
+ #include "storage/storage_media_prepare.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_gif_video.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
+ #include "tele/tele_options.h"
+@@ -414,6 +415,9 @@ void ShowToast(not_null<Job*> job, const QString &text) {
+ 		return std::nullopt;
+ 	}
+ 	auto result = std::move(list.files.front());
++	if (entry.document && entry.document->isAnimation()) {
++		KeepSendingAsGif(result);
++	}
+ 	if (!job->dropCaptions) {
+ 		result.caption = ToTags(item->originalText());
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 4f4158b125ab814beeef1fec31a9145ff00355ed..1b1507ee7af4d8c35da11aa0781aad8abf45b855 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -279,6 +279,7 @@ struct Spec {
+ 			kOptionGroupCallButton,
+ 			{ QString(), u"hide"_q, u"confirm"_q }),
+ 		Choice(kOptionDeletedReply, { QString(), u"quote"_q }),
++		Choice(kOptionSilentVideoAs, { QString(), u"video"_q }),
+ 		Choice(
+ 			kOptionReactionsStripCount,
+ 			{

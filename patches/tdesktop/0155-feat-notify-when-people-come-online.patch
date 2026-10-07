@@ -1,0 +1,782 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 05:59:41 +0300
+Subject: [PATCH] feat: notify when people come online
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/main/main_session.cpp    |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  52 +++
+ .../SourceFiles/tele/tele_online_notify.cpp   | 367 ++++++++++++++++++
+ .../SourceFiles/tele/tele_online_notify.h     |  27 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  10 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../window/notifications_manager.h            |   6 +
+ .../window/notifications_manager_default.cpp  |  25 +-
+ .../window/notifications_manager_default.h    |   8 +
+ .../SourceFiles/window/window_peer_menu.cpp   |   3 +
+ 12 files changed, 503 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_online_notify.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_online_notify.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 5bd6be5d9e6ccc1938be74d142d188d7489d8dc4..ce8aacab1178ed359e50d5e8918cc8ab4c377977 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2335,6 +2335,8 @@ PRIVATE
+     tele/tele_new_settings.h
+     tele/tele_no_ai.cpp
+     tele/tele_no_ai.h
++    tele/tele_online_notify.cpp
++    tele/tele_online_notify.h
+     tele/tele_jump_to_first.cpp
+     tele/tele_jump_to_first.h
+     tele/tele_link_previews.cpp
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index f80befccacc6d0e540e8343992000824a9ebc8d2..51592aea1f9986ddec8c4b87ff62dab381beb949 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_communities.h"
+ #include "tele/tele_local_pins.h"
+ #include "tele/tele_no_ai.h"
++#include "tele/tele_online_notify.h"
+ #include "tele/tele_protected.h"
+ #include "tele/tele_punctual_scheduled.h"
+ #include "styles/style_layers.h"
+@@ -285,6 +286,7 @@ Session::Session(
+ 	Tele::SetupLocalPins(this);
+ 	Tele::SetupBookmarks(this);
+ 	Tele::SetupNoAi(this);
++	Tele::SetupOnlineNotify(this);
+ }
+ 
+ void Session::appConfigRefreshed() {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 6630f1ba86a6ddfb53ed75daff0d7fb6f1d68644..a6f1e61f39e97f1b95aaf5fece80aeb15a11f9c7 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -30,6 +30,7 @@
+ #include "tele/tele_drafts_box.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_online_notify.h"
+ #include "tele/tele_link_rewrites.h"
+ #include "tele/tele_link_rewrites_box.h"
+ #include "tele/tele_local_drafts.h"
+@@ -1119,6 +1120,54 @@ void AddIgnoredUsers(SectionBuilder &builder) {
+ 	AddAbout(builder, u"tele-ignored-users"_q, description);
+ }
+ 
++void ShowOnlineNotifyBox(not_null<Window::SessionController*> window) {
++	const auto session = &window->session();
++	auto selected = std::vector<not_null<PeerData*>>();
++	for (const auto &id : ::Tele::OnlineWatched(session)) {
++		selected.push_back(session->data().user(id));
++	}
++	ShowPickPeersBox(
++		window,
++		::Tele::Lower(u"Online notifications"_q),
++		std::move(selected),
++		[](not_null<PeerData*> peer) {
++			const auto user = peer->asUser();
++			return user && !user->isBot() && !user->isServiceUser();
++		},
++		[=](std::vector<not_null<PeerData*>> peers) {
++			::Tele::SetOnlineWatched(session, peers);
++		});
++}
++
++void AddOnlineNotify(SectionBuilder &builder) {
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionOnlineNotify,
++		{ u"presence"_q, u"status"_q, u"watch"_q });
++	const auto controller = builder.controller();
++	const auto id = u"tele-online-notify-people"_q;
++	const auto name = ::Tele::Lower(u"Online notifications"_q);
++	WithParent(builder, id, name, ::Tele::kOptionOnlineNotify, [&] {
++		const auto button = AddButton(builder, {
++			.id = id,
++			.title = rpl::single(name),
++			.st = &st::settingsButtonNoIcon,
++			.label = ::Tele::OnlineWatchedCountValue(
++				builder.session()
++			) | rpl::map([](int count) {
++				return count ? QString::number(count) : u"none"_q;
++			}),
++			.onClick = [=] {
++				ShowOnlineNotifyBox(controller);
++			},
++			.keywords = { u"presence"_q, u"status"_q, u"watch"_q },
++		});
++		if (button) {
++			SetupLink(button, id);
++		}
++	});
++}
++
+ class GhostChatRow final : public PeerListRowWithLink {
+ public:
+ 	explicit GhostChatRow(not_null<PeerData*> peer)
+@@ -2111,6 +2160,9 @@ void FillChats(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Drafts"_q);
+ 	AddSavedDrafts(builder);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Notifications"_q);
++	AddOnlineNotify(builder);
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+ 	AddGroupDivider(builder);
+diff --git a/Telegram/SourceFiles/tele/tele_online_notify.cpp b/Telegram/SourceFiles/tele/tele_online_notify.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..d02ac4b8306b0bdbd84653aa7758a40112829203
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_online_notify.cpp
+@@ -0,0 +1,367 @@
++#include "tele/tele_online_notify.h"
++
++#include "base/unixtime.h"
++#include "core/application.h"
++#include "core/core_settings.h"
++#include "data/data_changes.h"
++#include "data/data_peer_values.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "data/data_user.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/storage_account.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/userpic_view.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/widgets/menu/menu_toggle.h"
++#include "ui/widgets/popup_menu.h"
++#include "window/notifications_manager.h"
++#include "window/notifications_manager_default.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++using namespace Storage::details;
++using Window::Notifications::ManagerType;
++using Window::Notifications::NativeManager;
++using DefaultManager = Window::Notifications::Default::Manager;
++
++constexpr auto kMagic = quint32(0x7E1E0271);
++constexpr auto kVersion = qint32(1);
++constexpr auto kMaxUsers = 65536;
++constexpr auto kCooldown = 10 * 60 * crl::time(1000);
++constexpr auto kNotificationId = MsgId(SpecialMsgIdShift + 1024);
++
++struct Presence {
++	TimeId till = 0;
++	crl::time notified = 0;
++};
++
++[[nodiscard]] rpl::event_stream<> &Changes() {
++	static auto result = rpl::event_stream<>();
++	return result;
++}
++
++[[nodiscard]] UserData *Watchable(PeerData *peer) {
++	const auto user = peer ? peer->asUser() : nullptr;
++	return (user
++		&& !user->isSelf()
++		&& !user->isBot()
++		&& !user->isServiceUser()
++		&& !user->isInaccessible())
++		? user
++		: nullptr;
++}
++
++bool ShowOnline(not_null<UserData*> user) {
++	if (Core::Quitting()) {
++		return false;
++	}
++	const auto session = &user->session();
++	const auto &settings = Core::App().settings();
++	if (!settings.desktopNotify()
++		|| (!settings.notifyFromAll()
++			&& &session->account() != &Core::App().domain().active())) {
++		return false;
++	}
++	auto &manager = Core::App().notifications().manager();
++	if (manager.skipToast()) {
++		return false;
++	}
++	const auto options = manager.getNotificationOptions(
++		nullptr,
++		Data::ItemNotificationType::Message);
++	if (options.hideNameAndPhoto) {
++		return false;
++	}
++	const auto text = Lower(u"Came online"_q);
++	if (manager.type() == ManagerType::Default) {
++		static_cast<DefaultManager&>(manager).showCustomNotification(
++			session->data().history(user),
++			text);
++		return true;
++	}
++	const auto native = (manager.type() == ManagerType::Native)
++		? dynamic_cast<NativeManager*>(&manager)
++		: nullptr;
++	if (!native) {
++		return false;
++	}
++	user->loadUserpic();
++	auto userpicView = user->createUserpicView();
++	native->showCustomNotification({
++		.peer = user,
++		.itemId = kNotificationId,
++		.title = native->addTargetAccountName(user->name(), session),
++		.message = text,
++		.options = options,
++	}, userpicView);
++	return true;
++}
++
++class State final {
++public:
++	explicit State(not_null<Main::Session*> session);
++	~State();
++
++	[[nodiscard]] static State *Find(not_null<Main::Session*> session);
++
++	[[nodiscard]] bool watched(UserId id) const;
++	[[nodiscard]] std::vector<UserId> list() const;
++	void set(base::flat_set<UserId> ids);
++
++private:
++	[[nodiscard]] static base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &Registry();
++
++	[[nodiscard]] QString folder() const;
++	void read();
++	void write() const;
++	void rememberMissing();
++	void updated(not_null<UserData*> user);
++
++	const not_null<Main::Session*> _session;
++	base::flat_set<UserId> _watched;
++	base::flat_map<UserId, Presence> _presence;
++	rpl::lifetime _lifetime;
++
++};
++
++State::State(not_null<Main::Session*> session)
++: _session(session) {
++	Registry().emplace(session, this);
++	read();
++	rememberMissing();
++	session->changes().peerUpdates(
++		Data::PeerUpdate::Flag::OnlineStatus
++	) | rpl::on_next([=](const Data::PeerUpdate &update) {
++		if (const auto user = update.peer->asUser()) {
++			updated(user);
++		}
++	}, _lifetime);
++}
++
++State::~State() {
++	Registry().remove(_session);
++}
++
++base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &State::Registry() {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>>();
++	return result;
++}
++
++State *State::Find(not_null<Main::Session*> session) {
++	const auto &registry = Registry();
++	const auto i = registry.find(session);
++	return (i != end(registry)) ? i->second.get() : nullptr;
++}
++
++bool State::watched(UserId id) const {
++	return _watched.contains(id);
++}
++
++std::vector<UserId> State::list() const {
++	return { begin(_watched), end(_watched) };
++}
++
++void State::set(base::flat_set<UserId> ids) {
++	if (ids == _watched) {
++		return;
++	}
++	_watched = std::move(ids);
++	for (auto i = begin(_presence); i != end(_presence);) {
++		if (_watched.contains(i->first)) {
++			++i;
++		} else {
++			i = _presence.erase(i);
++		}
++	}
++	rememberMissing();
++	write();
++	Changes().fire({});
++}
++
++void State::rememberMissing() {
++	if (_presence.size() >= _watched.size()) {
++		return;
++	}
++	for (const auto id : _watched) {
++		if (_presence.contains(id)) {
++			continue;
++		} else if (const auto user = _session->data().userLoaded(id)) {
++			_presence.emplace(id, Presence{
++				.till = user->lastseen().onlineTill(),
++			});
++		}
++	}
++}
++
++void State::updated(not_null<UserData*> user) {
++	const auto i = _presence.find(peerToUser(user->id));
++	if (i == end(_presence)) {
++		rememberMissing();
++		return;
++	}
++	const auto till = user->lastseen().onlineTill();
++	const auto now = base::unixtime::now();
++	const auto was = (i->second.till > now);
++	i->second.till = till;
++	if (was || !OnlineNotify() || !Data::IsUserOnline(user, now)) {
++		return;
++	}
++	const auto ms = crl::now();
++	if (i->second.notified && ms - i->second.notified < kCooldown) {
++		return;
++	} else if (ShowOnline(user)) {
++		i->second.notified = ms;
++	}
++}
++
++QString State::folder() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + '/';
++}
++
++void State::read() {
++	auto file = FileReadDescriptor();
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || !ReadEncryptedFile(file, u"tele_online"_q, folder(), key)) {
++		return;
++	}
++	auto magic = quint32();
++	auto version = qint32();
++	auto owner = quint64();
++	auto count = quint32();
++	file.stream >> magic >> version >> owner >> count;
++	if (file.stream.status() != QDataStream::Ok
++		|| magic != kMagic
++		|| version != kVersion
++		|| owner != _session->uniqueId()
++		|| count > kMaxUsers) {
++		return;
++	}
++	for (auto i = quint32(); i != count; ++i) {
++		auto id = quint64();
++		file.stream >> id;
++		if (file.stream.status() != QDataStream::Ok) {
++			return;
++		} else if (id) {
++			_watched.emplace(UserId(id));
++		}
++	}
++}
++
++void State::write() const {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		return;
++	}
++	const auto size = sizeof(quint32) * 3
++		+ sizeof(quint64)
++		+ _watched.size() * sizeof(quint64);
++	auto data = EncryptedDescriptor(size);
++	data.stream
++		<< kMagic
++		<< kVersion
++		<< quint64(_session->uniqueId())
++		<< quint32(_watched.size());
++	for (const auto id : _watched) {
++		data.stream << quint64(id.bare);
++	}
++	auto file = FileWriteDescriptor(u"tele_online"_q, folder());
++	file.writeEncrypted(data, key);
++}
++
++void SetWatched(not_null<UserData*> user, bool watched) {
++	const auto state = State::Find(&user->session());
++	if (!state) {
++		return;
++	}
++	const auto id = peerToUser(user->id);
++	auto ids = base::flat_set<UserId>();
++	for (const auto existing : state->list()) {
++		ids.emplace(existing);
++	}
++	if (watched) {
++		ids.emplace(id);
++	} else {
++		ids.remove(id);
++	}
++	state->set(std::move(ids));
++}
++
++} // namespace
++
++void SetupOnlineNotify(not_null<Main::Session*> session) {
++	session->lifetime().make_state<State>(session);
++}
++
++void AddOnlineNotifyAction(
++		PeerData *peer,
++		const Ui::Menu::MenuCallback &addAction) {
++	const auto user = Watchable(peer);
++	if (!user || !OnlineNotify()) {
++		return;
++	}
++	const auto state = State::Find(&user->session());
++	if (!state) {
++		return;
++	}
++	const auto watched = state->watched(peerToUser(user->id));
++	addAction({ .make = [=](not_null<Ui::PopupMenu*> menu) {
++		auto result = base::make_unique_q<Ui::Menu::Toggle>(
++			menu->menu(),
++			menu->st().menu,
++			Lower(u"Notify when online"_q),
++			[=] { SetWatched(user, !watched); },
++			&st::menuIconNotifications,
++			&st::menuIconNotifications);
++		result->action()->setCheckable(true);
++		result->action()->setChecked(watched);
++		return base::unique_qptr<Ui::Menu::ItemBase>(std::move(result));
++	} });
++}
++
++std::vector<UserId> OnlineWatched(not_null<Main::Session*> session) {
++	const auto state = State::Find(session);
++	return state ? state->list() : std::vector<UserId>();
++}
++
++void SetOnlineWatched(
++		not_null<Main::Session*> session,
++		const std::vector<not_null<PeerData*>> &peers) {
++	const auto state = State::Find(session);
++	if (!state) {
++		return;
++	}
++	auto ids = base::flat_set<UserId>();
++	for (const auto &peer : peers) {
++		if (const auto user = Watchable(peer)) {
++			ids.emplace(peerToUser(user->id));
++		}
++	}
++	state->set(std::move(ids));
++}
++
++rpl::producer<int> OnlineWatchedCountValue(
++		not_null<Main::Session*> session) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		Changes().events()
++	) | rpl::map([=] {
++		return int(OnlineWatched(session).size());
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_online_notify.h b/Telegram/SourceFiles/tele/tele_online_notify.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..240892670a0bbd68cf432c4b446a69857e7c6448
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_online_notify.h
+@@ -0,0 +1,27 @@
++#pragma once
++
++class PeerData;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Tele {
++
++void SetupOnlineNotify(not_null<Main::Session*> session);
++void AddOnlineNotifyAction(
++	PeerData *peer,
++	const Ui::Menu::MenuCallback &addAction);
++[[nodiscard]] std::vector<UserId> OnlineWatched(
++	not_null<Main::Session*> session);
++void SetOnlineWatched(
++	not_null<Main::Session*> session,
++	const std::vector<not_null<PeerData*>> &peers);
++[[nodiscard]] rpl::producer<int> OnlineWatchedCountValue(
++	not_null<Main::Session*> session);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 2b39103cbeb389dd5f876c58f95e0210d1186e23..5f035db2140a1e2afbd5a04f0c48179ace9b7f21 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -104,6 +104,7 @@ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+ const char kOptionSilentPerChat[] = "tele-silent-per-chat";
++const char kOptionOnlineNotify[] = "tele-online-notify";
+ const char kOptionVoiceNoFade[] = "tele-voice-no-fade";
+ const char kOptionConfirmSend[] = "tele-confirm-send";
+ const char kOptionConfirmStickers[] = "tele-confirm-stickers";
+@@ -735,6 +736,11 @@ base::options::toggle SilentPerChatOption({
+ 	.description = "Adds \"Send silently\" to the chat menu.",
+ });
+ 
++base::options::toggle OnlineNotifyOption({
++	.id = kOptionOnlineNotify,
++	.name = "Notify when people come online",
++});
++
+ base::options::toggle VoiceNoFadeOption({
+ 	.id = kOptionVoiceNoFade,
+ 	.name = "Record voice without fading",
+@@ -1688,6 +1694,10 @@ rpl::producer<> SilentPerChatChanges() {
+ 	return SilentPerChatOption.changes();
+ }
+ 
++bool OnlineNotify() {
++	return OnlineNotifyOption.value();
++}
++
+ bool VoiceNoFade() {
+ 	return VoiceNoFadeOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 9e4dadc6225c42c24ab9be96ba9ca02b60f554bb..63996f8ad902f91f603f349bd413e45e20cfa77f 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -99,6 +99,7 @@ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+ extern const char kOptionSilentPerChat[];
++extern const char kOptionOnlineNotify[];
+ extern const char kOptionVoiceNoFade[];
+ extern const char kOptionConfirmSend[];
+ extern const char kOptionConfirmStickers[];
+@@ -281,6 +282,7 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] rpl::producer<> SilentByDefaultChanges();
+ [[nodiscard]] bool SilentPerChat();
+ [[nodiscard]] rpl::producer<> SilentPerChatChanges();
++[[nodiscard]] bool OnlineNotify();
+ [[nodiscard]] bool VoiceNoFade();
+ [[nodiscard]] bool ConfirmStickers();
+ [[nodiscard]] bool ConfirmGifs();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 9cc1ad360ac4b428ad802144323843ad16a8ef52..386c0ff2bfb069fa5377485d21854a28f5a67ad4 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -178,6 +178,7 @@ struct Spec {
+ 		Toggle(kOptionHideGiftButton),
+ 		Toggle(kOptionSilentByDefault),
+ 		Toggle(kOptionSilentPerChat),
++		Toggle(kOptionOnlineNotify),
+ 		Toggle(kOptionVoiceNoFade),
+ 		Toggle(kOptionConfirmSend),
+ 		Toggle(kOptionConfirmStickers),
+diff --git a/Telegram/SourceFiles/window/notifications_manager.h b/Telegram/SourceFiles/window/notifications_manager.h
+index cd36b671795afa49b282b1609380cf7e5c3473ed..ec5ff5560808f2f8a291718a8301c195a2854dce 100644
+--- a/Telegram/SourceFiles/window/notifications_manager.h
++++ b/Telegram/SourceFiles/window/notifications_manager.h
+@@ -417,6 +417,12 @@ public:
+ 		std::vector<NotificationAction> actions;
+ 	};
+ 
++	void showCustomNotification(
++			NotificationInfo &&info,
++			Ui::PeerUserpicView &userpicView) {
++		doShowNativeNotification(std::move(info), userpicView);
++	}
++
+ protected:
+ 	using Manager::Manager;
+ 
+diff --git a/Telegram/SourceFiles/window/notifications_manager_default.cpp b/Telegram/SourceFiles/window/notifications_manager_default.cpp
+index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d610f9ad70 100644
+--- a/Telegram/SourceFiles/window/notifications_manager_default.cpp
++++ b/Telegram/SourceFiles/window/notifications_manager_default.cpp
+@@ -99,6 +99,14 @@ Manager::QueuedNotification::QueuedNotification(NotificationFields &&fields)
+ 	&& fields.item->isFromScheduled()) {
+ }
+ 
++Manager::QueuedNotification::QueuedNotification(
++	not_null<History*> history,
++	const QString &text)
++: history(history)
++, peer(history->peer)
++, text(text) {
++}
++
+ QPixmap Manager::hiddenUserpicPlaceholder() const {
+ 	if (_hiddenUserpicPlaceholder.isNull()) {
+ 		const auto ratio = style::DevicePixelRatio();
+@@ -243,6 +251,7 @@ void Manager::showNextFromQueue() {
+ 			queued.reaction,
+ 			queued.forwardedCount,
+ 			queued.fromScheduled,
++			queued.text,
+ 			startPosition,
+ 			startShift,
+ 			shiftDirection));
+@@ -359,6 +368,13 @@ void Manager::doShowNotification(NotificationFields &&fields) {
+ 	showNextFromQueue();
+ }
+ 
++void Manager::showCustomNotification(
++		not_null<History*> history,
++		const QString &text) {
++	_queuedNotifications.emplace_back(history, text);
++	showNextFromQueue();
++}
++
+ void Manager::doClearAll() {
+ 	_queuedNotifications.clear();
+ 	for (const auto &notification : _notifications) {
+@@ -644,6 +660,7 @@ Notification::Notification(
+ 	const Data::ReactionId &reaction,
+ 	int forwardedCount,
+ 	bool fromScheduled,
++	const QString &text,
+ 	QPoint startPosition,
+ 	int shift,
+ 	Direction shiftDirection)
+@@ -661,6 +678,7 @@ Notification::Notification(
+ , _item(item)
+ , _forwardedCount(forwardedCount)
+ , _fromScheduled(fromScheduled)
++, _text(text)
+ , _close(this, st::notifyClose)
+ , _reply(this, tr::lng_notification_reply(), st::defaultBoxButton) {
+ 	_reply->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
+@@ -866,7 +884,7 @@ void Notification::paintText(Painter &p) {
+ }
+ 
+ void Notification::updateNotifyDisplay() {
+-	if (!_history || (!_item && _forwardedCount < 2)) {
++	if (!_history || (!_item && _forwardedCount < 2 && _text.isEmpty())) {
+ 		return;
+ 	}
+ 
+@@ -933,7 +951,8 @@ void Notification::updateNotifyDisplay() {
+ 		}
+ 
+ 		const auto composeText = !options.hideMessageText
+-			|| (!_reaction.empty() && !options.hideNameAndPhoto);
++			|| (!_reaction.empty() && !options.hideNameAndPhoto)
++			|| !_text.isEmpty();
+ 		if (composeText) {
+ 			auto old = base::take(_textCache);
+ 			_textCache = Ui::Text::String(itemWidth);
+@@ -950,6 +969,8 @@ void Notification::updateNotifyDisplay() {
+ 					_item,
+ 					_reaction,
+ 					options.hideMessageText))
++				: !_text.isEmpty()
++				? TextWithEntities{ _text }
+ 				: _item
+ 				? _item->toPreview({
+ 					.hideSender = reminder,
+diff --git a/Telegram/SourceFiles/window/notifications_manager_default.h b/Telegram/SourceFiles/window/notifications_manager_default.h
+index 7a2356101d1d082ac8d86c5b6791f96a022dbf16..6d29842413b5a608b055836f193ab530963d69bf 100644
+--- a/Telegram/SourceFiles/window/notifications_manager_default.h
++++ b/Telegram/SourceFiles/window/notifications_manager_default.h
+@@ -52,6 +52,10 @@ public:
+ 		}
+ 	}
+ 
++	void showCustomNotification(
++		not_null<History*> history,
++		const QString &text);
++
+ private:
+ 	friend class internal::Notification;
+ 	friend class internal::HideAllButton;
+@@ -109,6 +113,7 @@ private:
+ 
+ 	struct QueuedNotification {
+ 		QueuedNotification(NotificationFields &&fields);
++		QueuedNotification(not_null<History*> history, const QString &text);
+ 
+ 		not_null<History*> history;
+ 		MsgId topicRootId = 0;
+@@ -119,6 +124,7 @@ private:
+ 		HistoryItem *item = nullptr;
+ 		int forwardedCount = 0;
+ 		bool fromScheduled = false;
++		QString text;
+ 	};
+ 	std::deque<QueuedNotification> _queuedNotifications;
+ 
+@@ -212,6 +218,7 @@ public:
+ 		const Data::ReactionId &reaction,
+ 		int forwardedCount,
+ 		bool fromScheduled,
++		const QString &text,
+ 		QPoint startPosition,
+ 		int shift,
+ 		Direction shiftDirection);
+@@ -299,6 +306,7 @@ private:
+ 	HistoryItem *_item = nullptr;
+ 	int _forwardedCount = 0;
+ 	bool _fromScheduled = false;
++	QString _text;
+ 	object_ptr<Ui::IconButton> _close;
+ 	object_ptr<Ui::RoundButton> _reply;
+ 	object_ptr<Background> _background = { nullptr };
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index 20bafa25d6da5f136cf178b190d1f9e057cdd00f..b6162f75d6904f33afaf8d101bd12b93400ff589 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -136,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_local_names.h"
+ #include "tele/tele_local_pins.h"
+ #include "tele/tele_mtp_inspector.h"
++#include "tele/tele_online_notify.h"
+ #include "tele/tele_show_pinned.h"
+ #include "tele/tele_silent.h"
+ #include "tele/tele_username_aliases.h"
+@@ -1940,6 +1941,7 @@ void Filler::fillHistoryActions() {
+ 	addToggleMuteSubmenu(true);
+ 	Tele::AddGhostChatAction(_peer, _addAction);
+ 	Tele::AddSilentChatAction(_peer, _addAction);
++	Tele::AddOnlineNotifyAction(_peer, _addAction);
+ 	addCreateTopic();
+ 	addInfo();
+ 	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
+@@ -1976,6 +1978,7 @@ void Filler::fillProfileActions() {
+ 	addEditContact();
+ 	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
+ 	Tele::AddLocalNameAction(_controller, _peer, _addAction);
++	Tele::AddOnlineNotifyAction(_peer, _addAction);
+ 	addBotToGroup();
+ 	addNewMembers();
+ 	addSendGift();

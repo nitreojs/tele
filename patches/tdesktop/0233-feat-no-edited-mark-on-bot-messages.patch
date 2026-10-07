@@ -1,0 +1,212 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 13:50:15 +0300
+Subject: [PATCH] feat: no edited mark on bot messages
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../history/view/history_view_message.cpp     |  4 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  4 ++
+ Telegram/SourceFiles/tele/tele_bot_edited.cpp | 50 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_bot_edited.h   |  9 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 15 ++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  3 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 8 files changed, 87 insertions(+), 1 deletion(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_bot_edited.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_bot_edited.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 788d150d56011b62165437fad8f739917f665b92..8d5e7be9b452e565a90eae1934a79e4a752b2fcc 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2231,6 +2231,8 @@ PRIVATE
+     tele/tele_bookmarks.h
+     tele/tele_bookmarks_box.cpp
+     tele/tele_bookmarks_box.h
++    tele/tele_bot_edited.cpp
++    tele/tele_bot_edited.h
+     tele/tele_build.cpp
+     tele/tele_build.h
+     tele/tele_bubble_badges.cpp
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index dedc19267e448df3b24daf6d4e27593facc233e8..c41b73970989a42e83c113774ddb2002736372b3 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_session_controller.h"
+ #include "apiwrap.h"
+ #include "api/api_rich_tasks.h"
++#include "tele/tele_bot_edited.h"
+ #include "tele/tele_bubble_badges.h"
+ #include "tele/tele_code_lines.h"
+ #include "tele/tele_deleted.h"
+@@ -7268,7 +7269,8 @@ void Message::refreshInfoSkipBlock(HistoryItem *textItem) {
+ TimeId Message::displayedEditDate() const {
+ 	const auto item = data();
+ 	const auto overrided = media() && media()->overrideEditedDate();
+-	if (item->hideEditedBadge() && !overrided) {
++	if ((item->hideEditedBadge() || Tele::HidesEditedMark(item))
++		&& !overrided) {
+ 		return TimeId(0);
+ 	} else if (const auto edited = displayedEditBadge()) {
+ 		return edited->date;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d631ee64ed77eb76c6ac72b52acbe2c4b5fffdc3..55cf377295e8bd20e87448a208b222eacbe4c20f 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3521,6 +3521,10 @@ void FillBots(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionStartParam,
+ 		{ u"deep link"_q, u"payload"_q, u"referral"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideBotEdited,
++		{ u"edited"_q, u"bot"_q });
+ 	AddSkip(builder);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_bot_edited.cpp b/Telegram/SourceFiles/tele/tele_bot_edited.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..dc791a6da3a40b5e1f4beeb0b2fccfd26985e159
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_bot_edited.cpp
+@@ -0,0 +1,50 @@
++#include "tele/tele_bot_edited.h"
++
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "history/view/history_view_element.h"
++#include "tele/tele_ignored.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++namespace {
++
++void RefreshViews() {
++	auto items = base::flat_set<not_null<HistoryItem*>>();
++	EnumerateViews([&](not_null<HistoryView::Element*> view) {
++		const auto item = view->data();
++		if (item->Get<HistoryMessageEdited>()) {
++			items.emplace(item);
++		}
++	});
++	for (const auto item : items) {
++		item->history()->owner().requestItemViewRefresh(item);
++	}
++}
++
++void EnsureWatching() {
++	static const auto lifetime = [] {
++		auto result = std::make_unique<rpl::lifetime>();
++		HideBotEditedChanges() | rpl::on_next([] {
++			RefreshViews();
++		}, *result);
++		return result;
++	}();
++}
++
++} // namespace
++
++bool HidesEditedMark(not_null<const HistoryItem*> item) {
++	EnsureWatching();
++	if (!HideBotEdited()) {
++		return false;
++	}
++	const auto from = item->from();
++	const auto user = from->asUser();
++	return (user && user->isBot()) || item->viaBot();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_bot_edited.h b/Telegram/SourceFiles/tele/tele_bot_edited.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..9b3b40abb67b8f5a704e660fd0ffa76522eaae64
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_bot_edited.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++class HistoryItem;
++
++namespace Tele {
++
++[[nodiscard]] bool HidesEditedMark(not_null<const HistoryItem*> item);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 2ab65c233ce110ee2c8748226a535f9eb5128f18..cfbd1fac65fc5ac2142b5850b20f7000c6059074 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -132,6 +132,7 @@ const char kOptionDoubleEnterSend[] = "tele-double-enter-send";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionInlineAsText[] = "tele-inline-as-text";
+ const char kOptionStartParam[] = "tele-start-param";
++const char kOptionHideBotEdited[] = "tele-hide-bot-edited";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+@@ -987,6 +988,12 @@ base::options::toggle StartParamOption({
+ 	.description = "On the start button of a bot opened by a link.",
+ });
+ 
++base::options::toggle HideBotEditedOption({
++	.id = kOptionHideBotEdited,
++	.name = "No edited mark on bot messages",
++	.description = "Bots edit their messages to update them.",
++});
++
+ base::options::toggle NoRichPastePromptOption({
+ 	.id = kOptionNoRichPastePrompt,
+ 	.name = "No rich message prompt on paste",
+@@ -2452,6 +2459,14 @@ rpl::producer<> ShowStartParamChanges() {
+ 	return StartParamOption.changes();
+ }
+ 
++bool HideBotEdited() {
++	return HideBotEditedOption.value();
++}
++
++rpl::producer<> HideBotEditedChanges() {
++	return HideBotEditedOption.changes();
++}
++
+ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 05e39cc4a2478011cb079e7411484456d64dd0d8..53e02633281aa07467eaaca2febe3ed98134dda6 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -127,6 +127,7 @@ extern const char kOptionDoubleEnterSend[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionInlineAsText[];
+ extern const char kOptionStartParam[];
++extern const char kOptionHideBotEdited[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionSilentByDefault[];
+@@ -400,6 +401,8 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool InlineAsText();
+ [[nodiscard]] bool ShowStartParam();
+ [[nodiscard]] rpl::producer<> ShowStartParamChanges();
++[[nodiscard]] bool HideBotEdited();
++[[nodiscard]] rpl::producer<> HideBotEditedChanges();
+ [[nodiscard]] bool NoRichPastePrompt();
+ [[nodiscard]] bool HideGiftButton();
+ [[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index ac56d75a43bb99682d5529ab3e3276848a31ae42..2b507be67ed9945896483fd2df2e90c99405a29d 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -109,6 +109,7 @@ struct Spec {
+ 		Toggle(kOptionCopyButtonData),
+ 		Toggle(kOptionInlineAsText),
+ 		Toggle(kOptionStartParam),
++		Toggle(kOptionHideBotEdited),
+ 		Toggle(kOptionAutoUpdate),
+ 		Toggle(kOptionShowChangelog),
+ 		Toggle(kOptionGroupQuickReplies),
