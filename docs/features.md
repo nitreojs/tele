@@ -107,6 +107,7 @@ settings → tele → messages.
 | [257](../patches/tdesktop/0257-feat-leave-kept-deleted-messages-out-of-the-chat-lis.patch) | kept deleted messages can stay out of the chat list and unread counts: the chat shows its last message that wasn't deleted, and their unread marks, mentions and notifications go away | with 19 |
 | [269](../patches/tdesktop/0269-feat-hide-bubble-tails.patch) | message bubbles can lose their tails: the corner that pointed at the sender is rounded like the others | tele → messages, off |
 | [272](../patches/tdesktop/0272-feat-no-outline-on-large-emoji.patch) | messages with a single emoji lose the white outline around it | tele → messages, off |
+| [274](../patches/tdesktop/0274-feat-classic-text-padding-in-bubbles.patch) | bubbles without tails can use the text padding of older telegram desktop: 13 px on the sides and 7 on top | with 269 |
 
 ## sending
 
@@ -385,5 +386,6 @@ always on, or without a switch of their own.
 | [251](../patches/tdesktop/0251-fix-the-failed-send-badge-is-clock-sized-and-no-long.patch) | the red mark on a message that failed to send is the size of the sending clock and no longer covers the time, in the chat list and in the bubble | always on |
 | [252](../patches/tdesktop/0252-fix-messages-with-relative-dates-no-longer-freeze-te.patch) | a message with a countdown or relative date, like "resets in 5 minutes", no longer makes tele freeze after a while | always on |
 | [258](../patches/tdesktop/0258-fix-a-line-under-every-open-group-of-tele-settings.patch) | an open group of tele settings ends with a thin line, so you can see where its settings end | with 42 |
+| [273](../patches/tdesktop/0273-feat-add-tele-to-the-start-menu.patch) | tele adds itself to the start menu as "tele" on every launch, so windows search finds it, and stops overwriting the "Telegram" shortcut there (windows) | always on |
 | [1001](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
 | [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |

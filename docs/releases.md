@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 274 patches, newest release first.
+all 276 patches, newest release first.
 
 ### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
 
@@ -31,6 +31,8 @@ all 274 patches, newest release first.
 | [270](../patches/tdesktop/0270-feat-show-online-members-in-big-groups.patch) | big groups show how many members are online in the chat header and profile, like small groups do | tele → chats, off |
 | [271](../patches/tdesktop/0271-feat-select-more-than-100-messages.patch) | select up to 10000 messages instead of 100; deleting and forwarding them goes out in parts of 100 | tele → chats, off |
 | [272](../patches/tdesktop/0272-feat-no-outline-on-large-emoji.patch) | messages with a single emoji lose the white outline around it | tele → messages, off |
+| [273](../patches/tdesktop/0273-feat-add-tele-to-the-start-menu.patch) | tele adds itself to the start menu as "tele" on every launch, so windows search finds it, and stops overwriting the "Telegram" shortcut there (windows) | always on |
+| [274](../patches/tdesktop/0274-feat-classic-text-padding-in-bubbles.patch) | bubbles without tails can use the text padding of older telegram desktop: 13 px on the sides and 7 on top | with 269 |
 | [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 
 ### [tele 17](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.17)

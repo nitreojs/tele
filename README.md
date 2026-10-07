@@ -10,7 +10,7 @@ grab the latest build from [releases](https://github.com/nitreojs/tele/releases/
 
 | platform | file | |
 |---|---|---|
-| windows x64 | `tele-<version>-win64.zip` | unpack anywhere and run `tele.exe`. it keeps its data next to the exe. |
+| windows x64 | `tele-<version>-win64.zip` | unpack anywhere and run `tele.exe`. it keeps its data next to the exe and adds itself to the start menu. |
 | linux x64 | `tele-<version>-linux64.zip` | unpack somewhere you can write to (like `~/.local/opt/tele`) and run `./tele`. data goes to `~/.local/share/tele`, and it adds itself to the app menu. |
 | macos (apple silicon and intel) | `tele-<version>-macos.dmg` | drag tele into applications and run the command below once, since the build isn't notarized. data goes to `~/Library/Application Support/tele`. |
 
@@ -56,7 +56,7 @@ everything tele adds lives in settings → tele, right below the language row.
 ## credits
 
 - [tdesktop](https://github.com/telegramdesktop/tdesktop), which every tele build is made from.
-- [materialgram](https://github.com/kukuruzka165/materialgram) by kukuruzka165, another tdesktop fork. these tele features come from its ideas: hiding bubble tails, no outline on large emoji, selecting more than 100 messages, showing online members in big groups, the upload date in the media viewer, copying a sticker set's owner id, better voice quality and keeping the start of voice messages, less photo compression, a thinner photo editor brush, a smaller minimum window and a bigger, faster chat export.
+- [materialgram](https://github.com/kukuruzka165/materialgram) by kukuruzka165, another tdesktop fork. these tele features come from its ideas: hiding bubble tails and the classic bubble padding, no outline on large emoji, selecting more than 100 messages, showing online members in big groups, the upload date in the media viewer, copying a sticker set's owner id, better voice quality and keeping the start of voice messages, less photo compression, a thinner photo editor brush, a smaller minimum window and a bigger, faster chat export.
 - [SPOwnerBot](https://github.com/arynyklas/SPOwnerBot) by arynyklas and [its fork](https://github.com/madrik1337/SPOwnerBot) by madrik1337, for how a sticker set's id holds its owner, including owners past 8 billion.
 
 ## contributing

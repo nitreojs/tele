@@ -1,0 +1,153 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 7 Oct 2026 20:19:35 +0300
+Subject: [PATCH] feat: add tele to the start menu
+
+---
+ Telegram/CMakeLists.txt                       |  2 ++
+ Telegram/SourceFiles/core/application.cpp     |  2 ++
+ .../win/windows_app_user_model_id.cpp         | 13 +++++--
+ Telegram/SourceFiles/tele/tele_start_menu.cpp | 34 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_start_menu.h   |  9 +++++
+ 5 files changed, 57 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_start_menu.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_start_menu.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 5a706b7631ec7f976194f7af0d6c85f8a84e1ea1..9aa4f3e2947375d5f617aaeb2d044938d2632a46 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2548,6 +2548,8 @@ PRIVATE
+     tele/tele_spoilers.h
+     tele/tele_stars_tools.cpp
+     tele/tele_stars_tools.h
++    tele/tele_start_menu.cpp
++    tele/tele_start_menu.h
+     tele/tele_start_param.cpp
+     tele/tele_start_param.h
+     tele/tele_sticker_captions.cpp
+diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
+index 308553f7c809eee94f3431b30fed4061dde1f415..bec8dde9cf880ebf5165d22d760d6514e8f71422 100644
+--- a/Telegram/SourceFiles/core/application.cpp
++++ b/Telegram/SourceFiles/core/application.cpp
+@@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_mtp_console.h"
+ #include "tele/tele_counters.h"
+ #include "tele/tele_freeze_watchdog.h"
++#include "tele/tele_start_menu.h"
+ 
+ #include <QtCore/QStandardPaths>
+ #include <QtCore/QMimeDatabase>
+@@ -364,6 +365,7 @@ void Application::run() {
+ 	Tele::StartListKeys();
+ 	Tele::StartMtpConsole();
+ 	Tele::StartFreezeWatchdog();
++	Tele::StartStartMenuShortcut();
+ 
+ 	if (MediaControlsManager::Supported()) {
+ 		_mediaControlsManager = std::make_unique<MediaControlsManager>();
+diff --git a/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp b/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp
+index 262d6e88840e0f34e92c481060c515dfc01243cc..086b2e6c5a8b447c622d06b71eaedcdf73ccf13f 100644
+--- a/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp
++++ b/Telegram/SourceFiles/platform/win/windows_app_user_model_id.cpp
+@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "platform/win/windows_toast_activator.h"
+ #include "base/platform/win/base_windows_winrt.h"
+ #include "core/launcher.h"
++#include "tele/tele_start_menu.h"
+ 
+ #include <propvarutil.h>
+ #include <propkey.h>
+@@ -207,13 +208,12 @@ QString systemShortcutPath() {
+ 	return QString();
+ }
+ 
+-void CleanupShortcut() {
++void CleanupShortcutAt(const QString &path) {
+ 	const auto myid = MyExecutablePathId();
+ 	if (!myid) {
+ 		return;
+ 	}
+ 
+-	QString path = systemShortcutPath() + u"Telegram.lnk"_q;
+ 	std::wstring p = QDir::toNativeSeparators(path).toStdWString();
+ 
+ 	DWORD attributes = GetFileAttributes(p.c_str());
+@@ -242,6 +242,12 @@ void CleanupShortcut() {
+ 	}
+ }
+ 
++void CleanupShortcut() {
++	const auto path = systemShortcutPath();
++	CleanupShortcutAt(path + Tele::LegacyStartMenuShortcutName());
++	CleanupShortcutAt(path + Tele::StartMenuShortcutName());
++}
++
+ bool validateShortcutAt(const QString &path) {
+ 	const auto native = QDir::toNativeSeparators(path).toStdWString();
+ 
+@@ -367,7 +373,8 @@ bool ValidateShortcut() {
+ 			return true;
+ 		}
+ 
+-		path += u"Telegram.lnk"_q;
++		CleanupShortcutAt(path + Tele::LegacyStartMenuShortcutName());
++		path += Tele::StartMenuShortcutName();
+ 		if (validateShortcutAt(path)) {
+ 			return true;
+ 		}
+diff --git a/Telegram/SourceFiles/tele/tele_start_menu.cpp b/Telegram/SourceFiles/tele/tele_start_menu.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..a7c307f0c016a8cc4a8558654cd3dff96b0894d9
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_start_menu.cpp
+@@ -0,0 +1,34 @@
++#include "tele/tele_start_menu.h"
++
++#include "tele/tele_build.h"
++
++#ifdef Q_OS_WIN
++#include "platform/win/windows_app_user_model_id.h"
++
++#include <objbase.h>
++#endif // Q_OS_WIN
++
++namespace Tele {
++
++QString StartMenuShortcutName() {
++	return BuildNumber() ? u"tele.lnk"_q : u"tele dev.lnk"_q;
++}
++
++QString LegacyStartMenuShortcutName() {
++	return u"Telegram.lnk"_q;
++}
++
++void StartStartMenuShortcut() {
++#ifdef Q_OS_WIN
++	// upstream makes it only for native notifications
++	const auto initialized = SUCCEEDED(CoInitialize(nullptr));
++	if (!Platform::AppUserModelId::ValidateShortcut()) {
++		LOG(("Tele Start Menu: could not create the shortcut."));
++	}
++	if (initialized) {
++		CoUninitialize();
++	}
++#endif // Q_OS_WIN
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_start_menu.h b/Telegram/SourceFiles/tele/tele_start_menu.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..21ae6928e0fc0eea76bdbed0acd2174b64c78750
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_start_menu.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++namespace Tele {
++
++[[nodiscard]] QString StartMenuShortcutName();
++[[nodiscard]] QString LegacyStartMenuShortcutName();
++void StartStartMenuShortcut();
++
++} // namespace Tele
