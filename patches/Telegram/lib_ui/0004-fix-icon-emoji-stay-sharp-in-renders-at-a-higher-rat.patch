@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 7 Oct 2026 21:25:43 +0300
+Subject: [PATCH] fix: icon emoji stay sharp in renders at a higher ratio
+
+---
+ ui/text/custom_emoji_instance.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/ui/text/custom_emoji_instance.cpp b/ui/text/custom_emoji_instance.cpp
+index 15d42ec7bca1a926b004dead9e38d087ab75b19a..97c58d1d271589c89c24fd924afb72ab41a77ee2 100644
+--- a/ui/text/custom_emoji_instance.cpp
++++ b/ui/text/custom_emoji_instance.cpp
+@@ -972,7 +972,10 @@ void PaintIconEmoji(
+ 	const auto rect = QRect(context.position
+ 		+ QPoint(emoji->padding.left(), emoji->padding.top()), size);
+ 
+-	const auto ratio = style::DevicePixelRatio();
++	// offscreen renders at a higher ratio, like scaled shots, get a sharp frame
++	const auto ratio = std::max(
++		style::DevicePixelRatio(),
++		int(p.device()->devicePixelRatio()));
+ 	const auto full = size * ratio;
+ 	const auto invalid = (cache.frame.size() != full);
+ 	if (invalid
