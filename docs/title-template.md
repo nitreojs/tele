@@ -2,7 +2,7 @@
 
 settings → tele → interface. the title bar label and the window title both take a template.
 
-the default is `TELE #{build}`. empty hides the label.
+the default is `tele #{build}`. empty hides the label.
 
 - `{build}` (the build number, `DEV` for local builds), `{version}`
 - `{time}`, `{date}`, `{weekday}`, `{day}`, `{month}`, or any qt format like `{time:HH:mm:ss}` and `{date:dd MMM}`
@@ -20,7 +20,7 @@ any variable takes modifiers after `|`, applied left to right: `{weekday|short|l
 - `k` shortens numbers: `1234` is `1.2k`, `15000` is `15k`, `2500000` is `2.5m`
 - `default:text` shows text when the value is empty or 0, `{status|default:online}`
 
-`[ … ]` hides its part when a variable inside is empty or 0, so `TELE #{build}[ · {unread} unread]` doesn't show "· 0 unread". a `default` counts as filled. doubled brackets are literal. a `|` that isn't followed by modifiers stays part of a qt format, and `'|'` in quotes always does. a variable or modifier with a typo is shown as typed. account and activity variables stay empty while the app is locked with a passcode.
+`[ … ]` hides its part when a variable inside is empty or 0, so `tele #{build}[ · {unread} unread]` doesn't show "· 0 unread". a `default` counts as filled. doubled brackets are literal. a `|` that isn't followed by modifiers stays part of a qt format, and `'|'` in quotes always does. a variable or modifier with a typo is shown as typed. account and activity variables stay empty while the app is locked with a passcode.
 
 the editor highlights variables in the field and points out mistakes under the preview. below are all the variables as chips: click one to insert it, right-click for its other forms with their current values, hover to see the value now. presets has a few ready templates.
 

@@ -6,7 +6,7 @@ for maintainers. releases are built and published by github actions and need the
 
 - a release is tagged `<UPSTREAM>-tele.<N>`, for example `v7.2.9-tele.10`, and titled `tele N · <upstream tag>`.
 - `N` is one above the highest existing release or tag for the same upstream tag. build.yml picks it, or takes the `number` input when it's above every existing one.
-- `N` is compiled in as `TELE_BUILD`. the app shows it as `TELE #N` in the title bar and `build #N` in the main menu.
+- `N` is compiled in as `TELE_BUILD`. the app shows it as `tele #N` in the title bar and `build #N` in the main menu.
 - the self-updater orders builds by upstream `AppVersion` first and `N` second, so a release on a newer upstream tag always wins.
 
 ## branches

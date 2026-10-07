@@ -46,7 +46,7 @@ follow upstream's build doc for your platform, starting from the "prepare librar
   ```
 
   `DESKTOP_APP_DISABLE_AUTOUPDATE=ON` keeps upstream's own updater out of the build, so it can never replace your build with an official telegram. ci passes it too.
-- leave `TELE_BUILD` at its default, `0`. that makes a dev build: the title bar says `TELE DEV`, the self-updater and what's new are off. only set a real number when you test the updater itself, and go back to `0` afterwards.
+- leave `TELE_BUILD` at its default, `0`. that makes a dev build: the title bar says `tele #DEV`, the self-updater and what's new are off. only set a real number when you test the updater itself, and go back to `0` afterwards.
 - to test crash reports, add `-D DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF`, like ci.
 - the binary is called `tele`: `out/Debug/tele.exe` on windows, `out/Debug/tele.app` on macos, `out/Debug/tele` on linux (or `Release`). an old `Telegram.exe` in `out` is from a build before the rename.
 - after moving tdesktop to another tag, run upstream's prepare script again: each tag's `Telegram/build/prepare/prepare.py` can pin other library versions.

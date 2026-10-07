@@ -39,6 +39,7 @@ settings → tele → interface.
 | [196](../patches/tdesktop/0196-feat-search-filter-and-export-star-transactions.patch) | search, filter, total and export star and ton transactions to csv | tele → interface, off |
 | [197](../patches/tdesktop/0197-feat-filter-long-lists-by-date.patch) | filter star and ton transactions, shared media and profile gifts by a day or a date range | tele → interface, off |
 | [238](../patches/tdesktop/0238-fix-unsorted-folder-keeps-unread-chats.patch) | the unsorted folder keeps chats with unread messages | with 165 |
+| [279](../patches/tdesktop/0279-feat-lowercase-the-default-title-bar-label.patch) | the title bar label is `tele #N` by default instead of `TELE #N` | with 10 |
 
 ## chats
 
@@ -69,6 +70,7 @@ settings → tele → chats.
 | [183](../patches/tdesktop/0183-feat-copy-or-delete-aliases-from-their-menu.patch) | right-click an alias in a profile or a message to copy or delete it, or open the profile | with 72 |
 | [218](../patches/tdesktop/0218-feat-quote-sticker-captions.patch) | select part of a sticker's caption and quote it in a reply | with 179 |
 | [248](../patches/tdesktop/0248-feat-your-own-reaction-strip.patch) | choose how many reactions sit above the message menu and their order: click a reaction in the live preview to replace and pin it, drag to reorder | tele → chats, off |
+| [274](../patches/tdesktop/0274-feat-send-quick-replies-by-their-exact-name.patch) | a message that is exactly /name sends your quick reply with that name instead of the text, and that quick reply is the first suggestion | tele → chats, off |
 
 ## messages
 
@@ -105,6 +107,7 @@ settings → tele → messages.
 | [216](../patches/tdesktop/0216-feat-multiple-quotes-in-one-reply.patch) | quote several parts of a message in one reply: quoting again while replying with a quote adds the new part | tele → messages, on |
 | [234](../patches/tdesktop/0234-perf-keep-deleted-messages-without-stalling.patch) | kept deleted messages are saved without freezing tele. older tele versions can't read the kept history after this update | with 186 |
 | [257](../patches/tdesktop/0257-fix-last-code-line-number-sits-on-its-line.patch) | the last line number of a code block sits on its line | with 145 |
+| [277](../patches/tdesktop/0277-feat-leave-kept-deleted-messages-out-of-the-chat-lis.patch) | kept deleted messages can stay out of the chat list and unread counts: the chat shows its last message that wasn't deleted, and their unread marks, mentions and notifications go away | with 19 |
 
 ## sending
 
@@ -141,6 +144,7 @@ settings → tele → sending.
 | [249](../patches/tdesktop/0249-feat-captioned-stickers-go-to-the-docked-media.patch) | stickers with a caption go to the media attached above the field, and stickers and gifs can be attached there from their panels | with 109 |
 | [255](../patches/tdesktop/0255-feat-choose-how-silent-videos-are-sent.patch) | choose whether videos without sound are sent as gifs or as videos | tele → sending |
 | [259](../patches/tdesktop/0259-feat-markdown-renders-as-you-type.patch) | markdown renders while you type: bold, italic, strike, spoilers, code and code blocks, with the markers kept and dimmed. lines starting with > become quotes, >! expandable quotes | tele → sending, off |
+| [280](../patches/tdesktop/0280-feat-forward-messages-one-by-one.patch) | forwarded messages go out one at a time instead of as one batch. albums stay together, and forwarding many at once can hit rate limits | tele → sending, off |
 
 ## notifications
 
@@ -181,6 +185,8 @@ settings → tele → menus.
 | [174](../patches/tdesktop/0174-feat-rearrange-menus-with-groups-and-submenus-in-a-m.patch) | tele's own layout for the message, chat, profile, chat list, folder, send and field menus, with groups, submenus and thin or thick separators. an editor rearranges, hides and groups items with a live preview and presets, alt+right-click opens it from a menu | tele → menus |
 | [240](../patches/tdesktop/0240-fix-shots-without-time-keep-reactions-below-the-text.patch) | shots without the time keep reactions under the text | with 114 |
 | [267](../patches/tdesktop/0267-fix-the-menu-editor-hides-support-only-items.patch) | the menu editor no longer lists items only telegram's support accounts get, like edit support info | with 174 |
+| [275](../patches/tdesktop/0275-feat-copy-file-paths-from-the-message-menu.patch) | copy the full path of a downloaded file from its message menu | tele → menus, off |
+| [276](../patches/tdesktop/0276-feat-turn-on-a-menu-item-from-the-menu-editor.patch) | in the menu editor, clicking the eye on a greyed item turns on the setting it needs, and the hint saying which one is readable | with 174 |
 
 ## privacy
 
@@ -240,6 +246,7 @@ settings → tele → profiles and ids.
 | [247](../patches/tdesktop/0247-feat-more-gifts-and-models-in-the-gift-studio.patch) | the gift studio opens on a random gift, lists the newest collections first, and adds the original model, your own .tgs models, regular gifts, a teddy bear collection and renaming the model, backdrop and symbol on the card | with 201 |
 | [261](../patches/tdesktop/0261-feat-open-anyone-s-gifts-in-the-gift-grid.patch) | open anyone's gifts, or one of their collections, in the gift grid, or import them into a grid. big grids scroll, rows can be left out of the export and single gifts hidden | with 209 |
 | [262](../patches/tdesktop/0262-feat-rarity-tiers-and-pills-in-the-gift-studio.patch) | crafted models show their rarity tier, and rarities in the gift studio sit in coloured pills | with 201 |
+| [273](../patches/tdesktop/0273-fix-copy-peer-ids-as-plain-digits.patch) | copying a peer id from its profile row gives plain digits, even when the row shows them with spaces | with 14 |
 
 ### gift studio
 
@@ -382,4 +389,9 @@ always on, or without a switch of their own.
 | [265](../patches/tdesktop/0265-fix-center-the-new-pills-in-what-s-new.patch) | the new marks in what's new sit in the middle of their line, in line with the toggles | with 254 |
 | [266](../patches/tdesktop/0266-fix-ghost-mode-preview-no-longer-crashes-and-fits-it.patch) | turning on ghost mode, or opening privacy while it's on, no longer crashes tele. the ghost mode preview fits its texts, marks hidden things on the userpic and ignores clicks while ghost mode is off | with 258 |
 | [269](../patches/tdesktop/0269-fix-a-video-ending-in-the-media-viewer-no-longer-cra.patch) | a video ending in the media viewer no longer crashes tele | with 143 |
+| [270](../patches/tdesktop/0270-fix-unbreakable-characters-no-longer-push-message-te.patch) | a long run of characters that can't wrap, like hangul fillers, no longer pushes the message text or its selection past the bubble | always on |
+| [271](../patches/tdesktop/0271-fix-the-failed-send-badge-is-clock-sized-and-no-long.patch) | the red mark on a message that failed to send is the size of the sending clock and no longer covers the time, in the chat list and in the bubble | always on |
+| [272](../patches/tdesktop/0272-fix-messages-with-relative-dates-no-longer-freeze-te.patch) | a message with a countdown or relative date, like "resets in 5 minutes", no longer makes tele freeze after a while | always on |
+| [278](../patches/tdesktop/0278-fix-a-line-under-every-open-group-of-tele-settings.patch) | an open group of tele settings ends with a thin line, so you can see where its settings end | with 42 |
 | [1001](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
+| [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
