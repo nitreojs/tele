@@ -215,7 +215,10 @@ def resolve_known_conflicts(repo):
         path = repo / name
         if not path.is_file():
             return False
-        text = path.read_bytes().decode('utf-8')
+        try:
+            text = path.read_bytes().decode('utf-8')
+        except UnicodeDecodeError:
+            return False  # a binary file, like an icon both sides changed
         merge_block = merge_version_block if name in VERSION_FILES else merge_include_block
         failed = False
 
