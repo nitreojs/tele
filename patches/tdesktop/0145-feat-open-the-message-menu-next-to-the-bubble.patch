@@ -18,10 +18,10 @@ Subject: [PATCH] feat: open the message menu next to the bubble
  create mode 100644 Telegram/SourceFiles/tele/tele_rmb_beside_bubble.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b9d5fee71942937ea5ef85e7d0a619a17f2909dc..cd224c99df26ef62f03fb78a179ba077fa44dfd1 100644
+index d10d5324560d6e7fdf655ff79536180e95365d5e..80b3ca0cd6cd99050ab04ee3b2dd1a84f6a3ed23 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2367,6 +2367,8 @@ PRIVATE
+@@ -2525,6 +2525,8 @@ PRIVATE
      tele/tele_recent_emoji.h
      tele/tele_rich_timestamps.cpp
      tele/tele_rich_timestamps.h
@@ -31,7 +31,7 @@ index b9d5fee71942937ea5ef85e7d0a619a17f2909dc..cd224c99df26ef62f03fb78a179ba077
      tele/tele_screen_capture.h
      tele/tele_secret_media.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index d37ebe05019565d907b8e598e57566da3bf89582..461dbc632ff12c994bd043c8e7e584491c8427c3 100644
+index cddc591397c97fc5c9164f94ca95e079674c46e2..7c3deb101eb32f690505d204d5d67c0d98fc4950 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -141,6 +141,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index d37ebe05019565d907b8e598e57566da3bf89582..461dbc632ff12c994bd043c8e7e58449
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -2838,6 +2839,11 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -2844,6 +2845,11 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  			return;
  		}
  	}
@@ -54,7 +54,7 @@ index d37ebe05019565d907b8e598e57566da3bf89582..461dbc632ff12c994bd043c8e7e58449
  	auto selectedState = getSelectionState();
  
  	// -2 - has full selected items, but not over, -1 - has selection, but no over, 0 - no selection, 1 - over text, 2 - over full selected items
-@@ -3533,8 +3539,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3539,8 +3545,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				&& _dragStateItem) {
  				return groupLeaderOrSelf(_dragStateItem);
  			}
@@ -65,7 +65,7 @@ index d37ebe05019565d907b8e598e57566da3bf89582..461dbc632ff12c994bd043c8e7e58449
  				: Element::HoveredLink()
  				? Element::HoveredLink()->data().get()
  				: nullptr;
-@@ -3944,8 +3950,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3939,8 +3945,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	}
  	using namespace HistoryView::Reactions;
  	const auto desiredPosition = e->globalPos();
@@ -77,10 +77,10 @@ index d37ebe05019565d907b8e598e57566da3bf89582..461dbc632ff12c994bd043c8e7e58449
  	const auto attached = reactItem
  		? AttachSelectorToMenu(
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 427f7b707cf36491da58d07529617366b71c6872..fc675921d203ecd40b9d3debcabb12fe4810f11c 100644
+index 310bb5e6f39c828660dd91a00907603bc4d9d319..9c7568c9c2df1dce94ad74bf2247c88ac498cdf7 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_options.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_protected.h"
@@ -88,7 +88,7 @@ index 427f7b707cf36491da58d07529617366b71c6872..fc675921d203ecd40b9d3debcabb12fe
  #include "styles/style_chat.h"
  #include "styles/style_window.h" // columnMaximalWidthLeft
  
-@@ -4156,7 +4157,11 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4165,7 +4166,11 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	request.link = link;
  	request.view = _overElement;
  	request.item = overItem;
@@ -101,7 +101,7 @@ index 427f7b707cf36491da58d07529617366b71c6872..fc675921d203ecd40b9d3debcabb12fe
  	request.point = _overState.point;
  	request.quote = (_overElement
  		&& _selectedTextItem == _overElement->data())
-@@ -4182,7 +4187,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4191,7 +4196,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	using namespace HistoryView::Reactions;
  	const auto desiredPosition = e->globalPos();
  	const auto reactItem = (_overElement

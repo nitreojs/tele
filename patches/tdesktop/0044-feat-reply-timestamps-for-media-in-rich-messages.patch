@@ -13,10 +13,10 @@ Subject: [PATCH] feat: reply timestamps for media in rich messages
  create mode 100644 Telegram/SourceFiles/tele/tele_rich_timestamps.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1aedfaeb16efe1e2f2f8c79752053f3764e0659f..a06e25376a591a7e5ce05b0c18822d24747ec323 100644
+index 285802b195c4c040e6708f888d9a697ebae69f4b..0d0632904c958baf60e273a4c489e6e1c2986796 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2253,6 +2253,8 @@ PRIVATE
+@@ -2411,6 +2411,8 @@ PRIVATE
      tele/tele_options.h
      tele/tele_peer_id.cpp
      tele/tele_peer_id.h
@@ -26,7 +26,7 @@ index 1aedfaeb16efe1e2f2f8c79752053f3764e0659f..a06e25376a591a7e5ce05b0c18822d24
      tele/tele_secret_media.h
      tele/tele_shortcuts.cpp
 diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
-index 575798c0082743dbcbdf399d424b076bd3277827..0e8802ae4a52b63d43ba7105a7f21c216c629f36 100644
+index a2a5acaec342f78bfe412507827421f5020b3d80..44c2c823019782da3abbb3d5406448ec1be74840 100644
 --- a/Telegram/SourceFiles/history/history_item_components.cpp
 +++ b/Telegram/SourceFiles/history/history_item_components.cpp
 @@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

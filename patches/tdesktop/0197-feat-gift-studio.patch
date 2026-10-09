@@ -61,10 +61,10 @@ Subject: [PATCH] feat: gift studio
  create mode 100644 Telegram/SourceFiles/tele/tele_tgs_rules.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b4ee47c4dd1ebcee9e8749a0934deaa15cdb26d0..27c8c4f51357a8e2926a8705e11b101ddbb61a71 100644
+index 8c0b957c294b10e30387a19d5a4a61ecdca9a41b..52e2812e827cb5da1a388281b4ecdf2a98b5ac22 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2315,6 +2315,26 @@ PRIVATE
+@@ -2473,6 +2473,26 @@ PRIVATE
      tele/tele_gif_video.h
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
@@ -91,7 +91,7 @@ index b4ee47c4dd1ebcee9e8749a0934deaa15cdb26d0..27c8c4f51357a8e2926a8705e11b101d
      tele/tele_gift_list.cpp
      tele/tele_gift_list.h
      tele/tele_gift_search.cpp
-@@ -2451,6 +2471,8 @@ PRIVATE
+@@ -2609,6 +2629,8 @@ PRIVATE
      tele/tele_sticker_captions.h
      tele/tele_sticker_truth.cpp
      tele/tele_sticker_truth.h
@@ -101,10 +101,10 @@ index b4ee47c4dd1ebcee9e8749a0934deaa15cdb26d0..27c8c4f51357a8e2926a8705e11b101d
      tele/tele_streamer_mode.h
      tele/tele_streaming_audio.cpp
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index 420640d836828d8a223002da077ce166d2fd774b..62e15419ec336076adfabc306cc0b9f06d06be63 100644
+index b71e31ef64438eb8f35c5ee38afcbd7aa7c18a2b..24e383e8cb6ac123e227686bad8018313a78b070 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -99,6 +99,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/wrap/vertical_layout.h"
  #include "ui/ui_utility.h"
  #include "window/window_session_controller.h"
@@ -112,7 +112,7 @@ index 420640d836828d8a223002da077ce166d2fd774b..62e15419ec336076adfabc306cc0b9f0
  #include "tele/tele_gifts.h"
  #include "tele/tele_local_password.h"
  #include "tele/tele_view_tl.h"
-@@ -1163,6 +1164,7 @@ void FillUniqueGiftMenu(
+@@ -1164,6 +1165,7 @@ void FillUniqueGiftMenu(
  				shareBoxSt ? *shareBoxSt : ShareBoxStyleOverrides());
  		}, st.share ? st.share : &st::menuIconShare);
  	}
@@ -10964,10 +10964,10 @@ index 0000000000000000000000000000000000000000..8741bffc038ab5bdad6a8c6544ba3cb0
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index 29fcd111deb4868cdcbaf7bb9e466f69442a4076..2d9cba495c4d4baf9fe6a3cb1a7e1d7bda1333de 100644
+index ae8b890744963ce959bdc4edb02711fe7d5b5cd9..1bad092e0e07e2ae0228a66b8f9b61ed00967e53 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
-@@ -72,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_build.h"
  #include "tele/tele_counters.h"
  #include "tele/tele_ghost.h"
@@ -10975,7 +10975,7 @@ index 29fcd111deb4868cdcbaf7bb9e466f69442a4076..2d9cba495c4d4baf9fe6a3cb1a7e1d7b
  #include "tele/tele_streamer_mode.h"
  #include "styles/style_chat.h" // popupMenuExpandedSeparator
  #include "styles/style_menu_icons.h"
-@@ -797,8 +798,7 @@ void MainMenu::setupMenu() {
+@@ -824,8 +825,7 @@ void MainMenu::setupMenu() {
  		}
  	}, _nightThemeToggle->lifetime());
  

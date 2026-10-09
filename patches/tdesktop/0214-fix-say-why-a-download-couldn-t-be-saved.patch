@@ -13,10 +13,10 @@ Subject: [PATCH] fix: say why a download couldn't be saved
  6 files changed, 126 insertions(+), 12 deletions(-)
 
 diff --git a/Telegram/SourceFiles/data/data_document.cpp b/Telegram/SourceFiles/data/data_document.cpp
-index bbf17b85e9a18fa4c7210958f157217c6d0748be..836047fa1e051e32ee3b1fb93d5577ce2aad74b4 100644
+index 18aa8aeb8d8aa905565737314f6ebbac5688952d..dae12e0061b839ac5fbf7c483a24829f84565cdb 100644
 --- a/Telegram/SourceFiles/data/data_document.cpp
 +++ b/Telegram/SourceFiles/data/data_document.cpp
-@@ -1346,7 +1346,9 @@ void DocumentData::handleLoaderUpdates() {
+@@ -1340,7 +1340,9 @@ void DocumentData::handleLoaderUpdates() {
  		_owner->documentLoadProgress(this);
  	}, [=](FileLoader::Error error) {
  		using FailureReason = FileLoader::FailureReason;
@@ -27,7 +27,7 @@ index bbf17b85e9a18fa4c7210958f157217c6d0748be..836047fa1e051e32ee3b1fb93d5577ce
  			const auto origin = _loader->fileOrigin();
  			const auto failedFileName = _loader->fileName();
  			const auto retry = [=] {
-@@ -1357,17 +1359,6 @@ void DocumentData::handleLoaderUpdates() {
+@@ -1351,17 +1353,6 @@ void DocumentData::handleLoaderUpdates() {
  				tr::lng_download_finish_failed(),
  				crl::guard(&session(), retry)
  			}));

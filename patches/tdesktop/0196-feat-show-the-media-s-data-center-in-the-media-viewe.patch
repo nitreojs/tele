@@ -70,10 +70,10 @@ index b6a4bb3b948c923918face3f6a7f9b9c97329d6b..ee28bdd5e656e3c4220d288dc1c0d847
  	friend inline auto operator<=>(HeaderData, HeaderData) = default;
  	friend inline bool operator==(HeaderData, HeaderData) = default;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index a7137ec43d4c75a00fb1ee964cf978296fa63b6b..52239483c2148fabbc849cc69bd36e64733571a8 100644
+index 6febaefb1352d8814925de5a95e82eb197091ec1..61b5191f8d86bc7aa7a2f8ad913cf5683accd68f 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_download_folders.h"
  #include "tele/tele_lowercase.h"
  #include "tele/tele_options.h"
@@ -81,7 +81,7 @@ index a7137ec43d4c75a00fb1ee964cf978296fa63b6b..52239483c2148fabbc849cc69bd36e64
  #include "tele/tele_protected.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_spoilers.h"
-@@ -1837,6 +1838,10 @@ void OverlayWidget::updateControls() {
+@@ -1843,6 +1844,10 @@ void OverlayWidget::updateControls() {
  		return dNow;
  	}();
  	_dateText = d.isValid() ? Ui::FormatDateTime(d) : QString();

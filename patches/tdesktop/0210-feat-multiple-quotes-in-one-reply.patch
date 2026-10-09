@@ -16,10 +16,10 @@ Subject: [PATCH] feat: multiple quotes in one reply
  9 files changed, 224 insertions(+), 19 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 222582701f2d5ebefcdd62b3e2c91a059c04fba1..5adf41d16e96c537ab4c6baafe040bac472abb84 100644
+index f14491e87defa23f1b2dfea4da7943c126d0582d..bfd842b012ea94aa219cda55c0a28ded4ecbea50 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -10448,6 +10448,16 @@ void HistoryWidget::replyToMessage(FullReplyTo id) {
+@@ -10633,6 +10633,16 @@ void HistoryWidget::replyToMessage(FullReplyTo id) {
  	if (const auto item = session().data().message(id.messageId)) {
  		if (Tele::SkipReplyTo(item)) {
  			return;
@@ -37,10 +37,10 @@ index 222582701f2d5ebefcdd62b3e2c91a059c04fba1..5adf41d16e96c537ab4c6baafe040bac
  			replyToMessage(item, id);
  		} else if (item->allowsForward()) {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 4d13376b1d0761ea0223918edf36a917936b8d3d..9db0b57ceddaad91d1ac318eea3c7b032a08a556 100644
+index 439a4049eb7cdfacf685c106c01aa0707271d47f..3617f01e96cd63ad47f7cd79e0e04476570dad9d 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -6094,6 +6094,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
+@@ -6225,6 +6225,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
  	} else if (const auto item = _history->owner().message(id.messageId)
  		; item && Tele::SkipReplyTo(item)) {
  		return;
@@ -58,7 +58,7 @@ index 4d13376b1d0761ea0223918edf36a917936b8d3d..9db0b57ceddaad91d1ac318eea3c7b03
  	id.topicRootId = _topicRootId;
  	id.monoforumPeerId = _monoforumPeerId;
 diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
-index 0681f14edbd18de152b358791443b03a5a4facb5..c0ada673449faa060c15bae542fa591d8bd5d5bd 100644
+index 3e6f552ba134543267bebccbcd2ce26938706720..9d973dd5f1c31a098f9a6f5c4eddf907135c4c74 100644
 --- a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
 +++ b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
 @@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

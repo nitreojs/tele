@@ -14,10 +14,10 @@ Subject: [PATCH] feat: send an inline bot query as text
  create mode 100644 Telegram/SourceFiles/tele/tele_inline_text.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5199858cff9e8dc7d51f20e28890c0c91c40adbf..f1966f2d313bb33cd70069950d69a348b6b11dda 100644
+index bd64bd4482fe6df3f0fc31bfb6b9595eacefc137..0e779e0e360c0837a9ecefe5d9af7d91499041cb 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2287,6 +2287,8 @@ PRIVATE
+@@ -2445,6 +2445,8 @@ PRIVATE
      tele/tele_ghost.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h
@@ -27,10 +27,10 @@ index 5199858cff9e8dc7d51f20e28890c0c91c40adbf..f1966f2d313bb33cd70069950d69a348
      tele/tele_inline_via.h
      tele/tele_local_drafts.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 5e02720f32c36122b51c379233be2f2143a9295f..668e6a5c82999ac836f15e04c2b8f7673d9427cd 100644
+index 432a889f9e9144da3934d0787044ed26944a80c6..ba0eb94edf7f7f5e55c4e20eef1d5d621cdcf2b8 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -175,6 +175,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -178,6 +178,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_emoji_panel.h"
@@ -38,7 +38,7 @@ index 5e02720f32c36122b51c379233be2f2143a9295f..668e6a5c82999ac836f15e04c2b8f767
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -520,6 +521,10 @@ HistoryWidget::HistoryWidget(
+@@ -533,6 +534,10 @@ HistoryWidget::HistoryWidget(
  		},
  		.send = [=] { sendWithModifiers(Qt::KeyboardModifiers()); },
  	});
@@ -49,7 +49,7 @@ index 5e02720f32c36122b51c379233be2f2143a9295f..668e6a5c82999ac836f15e04c2b8f767
  	Tele::SetupAddLinkPreview({
  		.field = _field.data(),
  		.show = controller->uiShow(),
-@@ -6048,6 +6053,10 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
+@@ -6221,6 +6226,10 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
  		auto result = saveMenuDetails();
  		Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  		return result;
@@ -61,10 +61,10 @@ index 5e02720f32c36122b51c379233be2f2143a9295f..668e6a5c82999ac836f15e04c2b8f767
  		return {};
  	}
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index d1b36e9e11fdaacae2ca44f9869f9622524ef8c0..7cedaf75e4f4fd7f455ee3c55d4b565fa0774408 100644
+index b42a8085c6f5ba1d6127dac4ea37ae0c8ca11456..9d5a21d6624ef1b2e576099cbd9759ac1b842e01 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_emoji_panel.h"
@@ -72,7 +72,7 @@ index d1b36e9e11fdaacae2ca44f9869f9622524ef8c0..7cedaf75e4f4fd7f455ee3c55d4b565f
  #include "support/support_helper.h"
  #include "ui/item_text_options.h"
  #include "ui/text/text_options.h"
-@@ -3178,6 +3179,10 @@ void ComposeControls::initField() {
+@@ -3302,6 +3303,10 @@ void ComposeControls::initField() {
  		},
  		.send = [=] { _fieldSubmits.fire({}); },
  	});
@@ -83,7 +83,7 @@ index d1b36e9e11fdaacae2ca44f9869f9622524ef8c0..7cedaf75e4f4fd7f455ee3c55d4b565f
  	Tele::SetupAddLinkPreview({
  		.field = _field,
  		.show = _show,
-@@ -4875,6 +4880,12 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5006,6 +5011,12 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  		auto result = saveMenuDetails();
  		Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  		return result;

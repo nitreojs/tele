@@ -25,10 +25,10 @@ Subject: [PATCH] feat: view messages and telegram objects as tl
  create mode 100644 Telegram/SourceFiles/tele/tele_view_tl.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 65e821aeb43ab0d4842ba8bac2d06e5769d20a2b..7beb762e818b945de96b33b70dfc9d5abbd49dd0 100644
+index b7f5fc2f14cd49d50d0020f63606374237f669c3..65c92211249d535cf4748fdb041cd00fb322c555 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2257,6 +2257,8 @@ PRIVATE
+@@ -2415,6 +2415,8 @@ PRIVATE
      tele/tele_title.h
      tele/tele_updater.cpp
      tele/tele_updater.h
@@ -89,7 +89,7 @@ index b16a7d8f1fbfcf182eb351d81c31aedfa048543b..23e34281c04e774f542af74eaaf08f7e
  		EmojiStatusMenu::AddSetAsStatusAction(
  			Ui::Menu::CreateAddActionCallback(_menu.get()),
 diff --git a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
-index fb433361e1a6524f9f50afb76c9e95fb9bbc07fe..e968fbec2a904eccc255b82c1f4c83b87fd212c3 100644
+index b6ca4ca9cf1e2d0ed3d62d7b5184b64cb38d31a2..a1b0c7dc845b3939f5443d8618ecf82e2a744199 100644
 --- a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
 @@ -58,6 +58,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -109,7 +109,7 @@ index fb433361e1a6524f9f50afb76c9e95fb9bbc07fe..e968fbec2a904eccc255b82c1f4c83b8
  		return nullptr;
  	}
 diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
-index 7e6b3d34be93fe73c9b71568db909fe1524bc1c8..b6b7334d622ae53dfbb1ad36408e2ec8d3d91580 100644
+index 2346bf37de5bf2ffcce351cc2ac487b7e67174dc..77e42a05e2616c6906ec664da97adc6352242a06 100644
 --- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 @@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -120,7 +120,7 @@ index 7e6b3d34be93fe73c9b71568db909fe1524bc1c8..b6b7334d622ae53dfbb1ad36408e2ec8
  #include "styles/style_chat_helpers.h"
  #include "styles/style_window.h"
  #include "styles/style_menu_icons.h"
-@@ -2694,6 +2695,7 @@ base::unique_qptr<Ui::PopupMenu> StickersListWidget::fillContextMenu(
+@@ -2774,6 +2775,7 @@ base::unique_qptr<Ui::PopupMenu> StickersListWidget::fillContextMenu(
  				false);
  		}, &icons->menuRecentRemove);
  	}
@@ -128,7 +128,7 @@ index 7e6b3d34be93fe73c9b71568db909fe1524bc1c8..b6b7334d622ae53dfbb1ad36408e2ec8
  
  	SendMenu::AttachSendMenuEffect(
  		menu,
-@@ -2792,6 +2794,7 @@ base::unique_qptr<Ui::PopupMenu> FillStickerSetContextMenu(
+@@ -2872,6 +2874,7 @@ base::unique_qptr<Ui::PopupMenu> FillStickerSetContextMenu(
  			});
  		},
  		&icons.menuSetCopyLink);
@@ -137,10 +137,10 @@ index 7e6b3d34be93fe73c9b71568db909fe1524bc1c8..b6b7334d622ae53dfbb1ad36408e2ec8
  		menu->addSeparator();
  		menu->addAction(
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 2f5bff03445da1caccdd19826f830813aa712075..0764704bdfeee833ff8f69d571328e329a8a4d5b 100644
+index 286267b43868d672ea8de016294d1fbba6061329..1bdbfc62dbbe03b14e46a8675fd234823e2e9859 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "platform/platform_text_recognition.h"
  #include "tele/tele_options.h"
  #include "tele/tele_secret_media.h"
@@ -148,7 +148,7 @@ index 2f5bff03445da1caccdd19826f830813aa712075..0764704bdfeee833ff8f69d571328e32
  
  #include <QGraphicsOpacityEffect>
  
-@@ -2513,6 +2514,7 @@ void OverlayWidget::fillContextMenuActions(
+@@ -2519,6 +2520,7 @@ void OverlayWidget::fillContextMenuActions(
  			_stories->reportRequested();
  		}, &st::mediaMenuIconReport);
  	}
@@ -157,10 +157,10 @@ index 2f5bff03445da1caccdd19826f830813aa712075..0764704bdfeee833ff8f69d571328e32
  
  auto OverlayWidget::computeOverviewType() const
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index a5b4917b0a7dd5548b5050b4a5d4d390f2d6cee1..e3dfbfcdcdc9e91bc84e12f5bf55e1167e4e9946 100644
+index 755305a127d55ed8d5ee2024deb8749e2f09831f..512c5f537c0d869d521e6aa9f0e244708bb17dc5 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -99,6 +99,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/wrap/vertical_layout.h"
  #include "ui/ui_utility.h"
  #include "window/window_session_controller.h"
@@ -168,7 +168,7 @@ index a5b4917b0a7dd5548b5050b4a5d4d390f2d6cee1..e3dfbfcdcdc9e91bc84e12f5bf55e116
  #include "styles/style_boxes.h"
  #include "styles/style_calls.h"
  #include "styles/style_channel_earn.h"
-@@ -1061,6 +1062,7 @@ void FillUniqueGiftMenu(
+@@ -1062,6 +1063,7 @@ void FillUniqueGiftMenu(
  		&& !e.converted;
  
  	const auto unique = e.uniqueGift;
@@ -819,7 +819,7 @@ index 0000000000000000000000000000000000000000..ab44954f6eac2c32f390c44bc8a9cea7
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
-index 0f071ac6c623db7a6b32960c8189af48288b606f..bad85707eb644aa7c43aca3ac85b484c44590055 100644
+index 97483ebeda80e7c4461867bb2bc2c929f6850fc7..fdc6056da2f094f3dd54b745acdce3d070ecaf70 100644
 --- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 +++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 @@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -830,7 +830,7 @@ index 0f071ac6c623db7a6b32960c8189af48288b606f..bad85707eb644aa7c43aca3ac85b484c
  #include "ui/widgets/menu/menu_action.h"
  #include "ui/filter_icons.h"
  #include "ui/power_saving.h"
-@@ -127,6 +128,7 @@ void ShowMenu(
+@@ -128,6 +129,7 @@ void ShowMenu(
  			std::move(openFiltersSettings),
  			&st::menuIconEdit);
  	}
@@ -859,10 +859,10 @@ index 329a4a84a3c9f3b19930fee5bf86791f7697d4de..f831d2e7ca7d9b267a38f3f45ae2a177
  		_popupMenu = nullptr;
  		return;
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 6237cb1d6e4a1559b76833836faf09f6ec96a059..5c068d1f0ad3d087ac8bf9357366f0ba58dd041e 100644
+index e3660d5869f620b5f069eb2b3fa313074d3ade6a..0760d851968c8d5a28e3bc1f42b305d09e2a4846 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ghost.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_jump_to_first.h"
@@ -870,7 +870,7 @@ index 6237cb1d6e4a1559b76833836faf09f6ec96a059..5c068d1f0ad3d087ac8bf9357366f0ba
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_credits.h"
-@@ -4354,6 +4355,7 @@ void FillDialogsEntryMenu(
+@@ -4372,6 +4373,7 @@ void FillDialogsEntryMenu(
  		Dialogs::EntryState request,
  		const PeerMenuCallback &callback) {
  	Filler(controller, request, callback).fill();
@@ -878,7 +878,7 @@ index 6237cb1d6e4a1559b76833836faf09f6ec96a059..5c068d1f0ad3d087ac8bf9357366f0ba
  }
  
  bool FillVideoChatMenu(
-@@ -4504,6 +4506,7 @@ void FillSenderUserpicMenu(
+@@ -4522,6 +4524,7 @@ void FillSenderUserpicMenu(
  		}
  	}
  	Tele::AddIgnoreAction(peer, addAction);

@@ -15,10 +15,10 @@ Subject: [PATCH] fix: gift batches survive flood waits and bad items
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_batch.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e65de5c6b07e4b4c504c404bcca4ffc13ffe2afd..1e65f0bd9837135557aae51fb7238d81d2eec903 100644
+index 4448e40423ff165f338af72c75492e83ee2657a8..1018efaf5095dc6eb18df722baec4afa93952416 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2316,6 +2316,8 @@ PRIVATE
+@@ -2474,6 +2474,8 @@ PRIVATE
      tele/tele_full_preview.h
      tele/tele_gif_video.cpp
      tele/tele_gif_video.h
@@ -28,10 +28,10 @@ index e65de5c6b07e4b4c504c404bcca4ffc13ffe2afd..1e65f0bd9837135557aae51fb7238d81
      tele/tele_gift_collection_link.h
      tele/tele_gift_fake_upgrade.cpp
 diff --git a/Telegram/SourceFiles/mtproto/mtp_instance.cpp b/Telegram/SourceFiles/mtproto/mtp_instance.cpp
-index ca647eb5a9f6e02250285c136c596445a9b0c213..31e8d3d9906d605f71c14708157cdf63eee696e2 100644
+index 0a60e313bbe4158fafa6c9e0b91ed3d1cf665529..2a056e6f55a5168429308554d86f39589d1458c5 100644
 --- a/Telegram/SourceFiles/mtproto/mtp_instance.cpp
 +++ b/Telegram/SourceFiles/mtproto/mtp_instance.cpp
-@@ -585,7 +585,7 @@ void Instance::Private::teleFloodEvent(
+@@ -591,7 +591,7 @@ void Instance::Private::teleFloodEvent(
  		int seconds,
  		bool resent,
  		const QString &error) {

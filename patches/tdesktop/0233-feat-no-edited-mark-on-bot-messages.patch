@@ -17,10 +17,10 @@ Subject: [PATCH] feat: no edited mark on bot messages
  create mode 100644 Telegram/SourceFiles/tele/tele_bot_edited.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 788d150d56011b62165437fad8f739917f665b92..8d5e7be9b452e565a90eae1934a79e4a752b2fcc 100644
+index ae2c67c167d6e7c88702fab5b11c3b189860730b..30eaaa05d6f758cefba37060c4e1c05e7040087c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2231,6 +2231,8 @@ PRIVATE
+@@ -2389,6 +2389,8 @@ PRIVATE
      tele/tele_bookmarks.h
      tele/tele_bookmarks_box.cpp
      tele/tele_bookmarks_box.h
@@ -30,10 +30,10 @@ index 788d150d56011b62165437fad8f739917f665b92..8d5e7be9b452e565a90eae1934a79e4a
      tele/tele_build.h
      tele/tele_bubble_badges.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index dedc19267e448df3b24daf6d4e27593facc233e8..c41b73970989a42e83c113774ddb2002736372b3 100644
+index c7816499148a688565c39785dac08e8ed1b22a19..ba9f3e6c9c79cf9c7bc33774f4e860e239273dd0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_session_controller.h"
  #include "apiwrap.h"
  #include "api/api_rich_tasks.h"
@@ -41,7 +41,7 @@ index dedc19267e448df3b24daf6d4e27593facc233e8..c41b73970989a42e83c113774ddb2002
  #include "tele/tele_bubble_badges.h"
  #include "tele/tele_code_lines.h"
  #include "tele/tele_deleted.h"
-@@ -7268,7 +7269,8 @@ void Message::refreshInfoSkipBlock(HistoryItem *textItem) {
+@@ -7376,7 +7377,8 @@ void Message::refreshInfoSkipBlock(HistoryItem *textItem) {
  TimeId Message::displayedEditDate() const {
  	const auto item = data();
  	const auto overrided = media() && media()->overrideEditedDate();

@@ -16,10 +16,10 @@ Subject: [PATCH] fix: gif frame timing and same-name downloads
  create mode 100644 Telegram/SourceFiles/tele/tele_download_paths.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 0d288ed4e02e9b26061c4b0520e7ad4f21835397..ce5fa6f2db89fc8863a8d6933860fb33daa9c473 100644
+index a00da4fb585a77ced22b45eb95b9826af04d37c3..5ad71dda7fab13578b73d3c97da5c2ab9412f893 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2275,6 +2275,8 @@ PRIVATE
+@@ -2433,6 +2433,8 @@ PRIVATE
      tele/tele_docked_media.h
      tele/tele_download_folders.cpp
      tele/tele_download_folders.h
@@ -29,10 +29,10 @@ index 0d288ed4e02e9b26061c4b0520e7ad4f21835397..ce5fa6f2db89fc8863a8d6933860fb33
      tele/tele_drafts.h
      tele/tele_drafts_box.cpp
 diff --git a/Telegram/SourceFiles/core/file_utilities.cpp b/Telegram/SourceFiles/core/file_utilities.cpp
-index f2dcb04e44e1cf0d254602da9c9185a435db5721..dce57e7ee06e928aa7dee217ffa33373c4b0e6bf 100644
+index 648dc30f0193d66c3af66be0c5f7f88529561707..697b8b5342e83f17395d46e8c5292d06ce03a632 100644
 --- a/Telegram/SourceFiles/core/file_utilities.cpp
 +++ b/Telegram/SourceFiles/core/file_utilities.cpp
-@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/chat/attach/attach_extensions.h"
  #include "main/main_session.h"
  #include "mainwindow.h"
@@ -40,7 +40,7 @@ index f2dcb04e44e1cf0d254602da9c9185a435db5721..dce57e7ee06e928aa7dee217ffa33373
  
  #include <QtWidgets/QFileDialog>
  #include <QtCore/QCoreApplication>
-@@ -94,7 +95,7 @@ QString filedialogDefaultName(
+@@ -95,7 +96,7 @@ QString filedialogDefaultName(
  		const auto nameBase = (dir.endsWith('/') ? dir : (dir + '/'))
  			+ base;
  		name = nameBase + extension;
@@ -50,7 +50,7 @@ index f2dcb04e44e1cf0d254602da9c9185a435db5721..dce57e7ee06e928aa7dee217ffa33373
  		}
  	}
 diff --git a/Telegram/SourceFiles/data/data_document.cpp b/Telegram/SourceFiles/data/data_document.cpp
-index 4088b1339c24776ded2091ff81b657012ddfed37..a985ed76332d69e130e214c0ecdb908b32bef2be 100644
+index 67dd11d8f8c680d37af347c213a139e02d2a8051..4fb3a8d7e9a6888b5ffe934cf509a1d4ffcd6005 100644
 --- a/Telegram/SourceFiles/data/data_document.cpp
 +++ b/Telegram/SourceFiles/data/data_document.cpp
 @@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -61,7 +61,7 @@ index 4088b1339c24776ded2091ff81b657012ddfed37..a985ed76332d69e130e214c0ecdb908b
  
  #include <QtCore/QBuffer>
  #include <QtCore/QMimeType>
-@@ -194,7 +195,7 @@ QString FileNameUnsafe(
+@@ -195,7 +196,7 @@ QString FileNameUnsafe(
  	}
  	QString nameBase = path + nameStart;
  	name = nameBase + extension;

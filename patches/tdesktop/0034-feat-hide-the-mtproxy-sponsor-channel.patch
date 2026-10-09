@@ -11,7 +11,7 @@ Subject: [PATCH] feat: hide the mtproxy sponsor channel
  4 files changed, 27 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/data/components/promo_suggestions.cpp b/Telegram/SourceFiles/data/components/promo_suggestions.cpp
-index d068bb432575ca8c5214d724ef083db470c992fa..1e4072e5ba826982b29d67f8331429a4570ed348 100644
+index 4f8dfdf000a0fe8936edc8e43155546d8163e120..83774475f7f239b2df004c1584fa20bf2476aec3 100644
 --- a/Telegram/SourceFiles/data/components/promo_suggestions.cpp
 +++ b/Telegram/SourceFiles/data/components/promo_suggestions.cpp
 @@ -54,6 +54,10 @@ PromoSuggestions::PromoSuggestions(

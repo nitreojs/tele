@@ -19,10 +19,10 @@ Subject: [PATCH] feat: bigger, faster chat export
  create mode 100644 Telegram/SourceFiles/tele/tele_export.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index baf66207e324edbba00400df347f4179aa765572..87862636aaa9391e6dd63032b5ee060e23c6565c 100644
+index 4fc9469091a2c52102d6b07636c716ad080be696..cba821f9db368c9666b2a264ba10b14d3b08e8ab 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2311,6 +2311,8 @@ PRIVATE
+@@ -2469,6 +2469,8 @@ PRIVATE
      tele/tele_editor_eyedropper.h
      tele/tele_emoji_panel.cpp
      tele/tele_emoji_panel.h
@@ -70,7 +70,7 @@ index b00484369bce22bada7b9eb2e3ab6df0d5d274e9..f520742b992c17b319ec4e70069b0841
  	if (_fileProcess->size > 0
  		&& _fileProcess->requests.size() < kFileRequestsCount) {
 diff --git a/Telegram/SourceFiles/export/output/export_output_html.cpp b/Telegram/SourceFiles/export/output/export_output_html.cpp
-index b6728cbcb55ff24d5aa2f96dc94f9e6664912eff..d9c51fac93df5eede93aef26c59c44b0c996e8fb 100644
+index a2d84004192274d59a012d7f2e76c4ca53dd0999..da5829e903c872352166f9bd9948a1d4519a317a 100644
 --- a/Telegram/SourceFiles/export/output/export_output_html.cpp
 +++ b/Telegram/SourceFiles/export/output/export_output_html.cpp
 @@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -81,7 +81,7 @@ index b6728cbcb55ff24d5aa2f96dc94f9e6664912eff..d9c51fac93df5eede93aef26c59c44b0
  #include "ui/grouped_layout_geometry.h"
  #include "ui/text/format_values.h"
  
-@@ -6360,6 +6361,7 @@ Result HtmlWriter::writeDialogStart(const Data::DialogInfo &data) {
+@@ -6416,6 +6417,7 @@ Result HtmlWriter::writeDialogStart(const Data::DialogInfo &data) {
  	_chat = fileWithRelativePath(data.relativePath + messagesFile(0));
  	_chatFileEmpty = true;
  	_messagesCount = 0;
@@ -89,7 +89,7 @@ index b6728cbcb55ff24d5aa2f96dc94f9e6664912eff..d9c51fac93df5eede93aef26c59c44b0
  	_dateMessageId = 0;
  	_lastMessageInfo = nullptr;
  	_lastMessageIdsPerFile.clear();
-@@ -6375,7 +6377,7 @@ Result HtmlWriter::writeDialogSlice(const Data::MessagesSlice &data) {
+@@ -6431,7 +6433,7 @@ Result HtmlWriter::writeDialogSlice(const Data::MessagesSlice &data) {
  		return wrapMessageLink(messageId, text);
  	};
  	auto oldIndex = (_messagesCount > 0)
@@ -98,7 +98,7 @@ index b6728cbcb55ff24d5aa2f96dc94f9e6664912eff..d9c51fac93df5eede93aef26c59c44b0
  		: 0;
  	auto previous = _lastMessageInfo.get();
  	auto saved = std::optional<MessageInfo>();
-@@ -6384,7 +6386,7 @@ Result HtmlWriter::writeDialogSlice(const Data::MessagesSlice &data) {
+@@ -6440,7 +6442,7 @@ Result HtmlWriter::writeDialogSlice(const Data::MessagesSlice &data) {
  		if (Data::SkipMessageByDate(message, _settings)) {
  			continue;
  		}

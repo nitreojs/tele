@@ -10,19 +10,19 @@ Subject: [PATCH] fix: open custom emoji in rich and emoji-only messages
  .../view/media/history_view_custom_emoji.h    |   8 +-
  .../media/history_view_media_unwrapped.cpp    |  10 +-
  .../view/media/history_view_media_unwrapped.h |   3 +
- .../iv/markdown/iv_markdown_article.cpp       |   4 +
- .../iv/markdown/iv_markdown_article_text.cpp  |  17 ++-
+ .../iv/markdown/iv_markdown_article.cpp       |   9 ++
+ .../iv/markdown/iv_markdown_article_text.cpp  |  22 +++-
  .../SourceFiles/tele/tele_custom_emoji.cpp    | 116 ++++++++++++++++++
  Telegram/SourceFiles/tele/tele_custom_emoji.h |  15 +++
- 10 files changed, 207 insertions(+), 43 deletions(-)
+ 10 files changed, 215 insertions(+), 45 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_custom_emoji.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_custom_emoji.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 97573975d0fd33ed022f88875d92b55d6823d232..b0969f84a7e4c52684a5d612b5a52b3f522a67af 100644
+index eeee2664853f3c05ebb6b02ae7e7e23c3f878ac7..28768214d3236abc0914da268f03a50ffe45c786 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2249,6 +2249,8 @@ PRIVATE
+@@ -2407,6 +2407,8 @@ PRIVATE
      tele/tele_corner_buttons.h
      tele/tele_crash.cpp
      tele/tele_crash.h
@@ -32,7 +32,7 @@ index 97573975d0fd33ed022f88875d92b55d6823d232..b0969f84a7e4c52684a5d612b5a52b3f
      tele/tele_debug_logs.h
      tele/tele_deleted.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 584be5f7eab27ac978ce284729916689abf5eecc..fc9c53c0f79a4846e1388f94ca083f95c3ca5509 100644
+index 027e1d9bb9d0a9a86c35a675a9cabf9708c825f4..c6efb7cc1ff341f7c0195bb268e3da429719be9a 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -43,7 +43,7 @@ index 584be5f7eab27ac978ce284729916689abf5eecc..fc9c53c0f79a4846e1388f94ca083f95
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_secret_media.h"
-@@ -2846,6 +2847,7 @@ std::vector<StickerSetIdentifier> CollectEmojiPacks(
+@@ -2869,6 +2870,7 @@ std::vector<StickerSetIdentifier> CollectEmojiPacks(
  				push(data);
  			}
  		}
@@ -224,22 +224,34 @@ index c2d1b020086b1be91693a86c754190bcc89cb8b2..94f446e5d5d4fe0e9cd935216866af14
  		[[nodiscard]] virtual DocumentData *document() {
  			return nullptr;
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
-index fc2a5c290933f5984561aea68fc1d8258e283079..70452545625313814a5c436237f712b256b12aff 100644
+index c219f0b78b15ed8d937a1ec96634e0be71be0665..c9bd2ddfe31caf47995ccd121f88402021540349 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
-@@ -4728,6 +4728,10 @@ MarkdownArticleHitTestResult MarkdownArticle::Impl::hitTest(
+@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "iv/markdown/iv_markdown_prepare_links.h"
+ #include "iv/markdown/iv_markdown_prepare_serialize.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_custom_emoji.h"
+ #include "ui/style/style_core_color.h"
+ #include "ui/style/style_core_scale.h"
+ #include "ui/text/text_extended_data.h"
+@@ -4839,6 +4840,14 @@ MarkdownArticleHitTestResult MarkdownArticle::Impl::hitTest(
  		QPoint point,
  		Ui::Text::StateRequest::Flags flags) const {
  	auto result = hitTestSegments(point, flags);
-+	if (result.inlineButton
-+		&& _inlineButtonPaintState->lookedUpButton.isEmpty()) {
-+		result.inlineButton = std::nullopt;
++	if (result.inlineButton) {
++		const auto custom = dynamic_cast<Ui::Text::CustomEmojiClickHandler*>(
++			result.state.link.get());
++		if (custom && Tele::CustomEmojiClickable(custom->entityData())) {
++			result.inlineButton = std::nullopt;
++			result.buttonUrl = QString();
++		}
 +	}
- 	if (result.inlineButton && result.customTooltip.isEmpty()) {
- 		result.customTooltip = InlineButtonTooltip(
- 			_inlineButtonPaintState->lookedUpButton);
+ 	if ((flags & Ui::Text::StateRequest::Flag::LookupLink)
+ 		&& !result.state.link
+ 		&& !result.preparedLink
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
-index db997c3c27deda122aab3338881c0d41d3d4b2da..8948c56e9e5a498644531a25ba7194ce8ad8fad2 100644
+index 7ab247c60ee6175abbc803142324da0cfcc3a971..2e33df6a7f501383eae75b047ed1918417a47202 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
 @@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -250,7 +262,7 @@ index db997c3c27deda122aab3338881c0d41d3d4b2da..8948c56e9e5a498644531a25ba7194ce
  #include "tele/tele_spoilers.h"
  
  #include "styles/palette.h"
-@@ -2456,17 +2457,27 @@ void SetTextLeaf(
+@@ -2473,12 +2474,23 @@ void SetTextLeaf(
  		&& !inlineButtonPaintState->editMode
  		&& ranges::any_of(text.entities, [](const EntityInText &entity) {
  			return (entity.type() == EntityType::CustomEmoji)
@@ -258,25 +270,23 @@ index db997c3c27deda122aab3338881c0d41d3d4b2da..8948c56e9e5a498644531a25ba7194ce
 +				&& (InlineButtonActionable(entity.data())
 +					|| Tele::CustomEmojiClickable(entity.data()));
  		})) {
- 		leaf->setCustomEmojiClickHandler([
- 			state = inlineButtonPaintState
- 		](QStringView data) {
--			if (!InlineButtonActionable(data)) {
-+			if (Tele::CustomEmojiClickable(data)) {
-+				state->lookedUpButton = QString();
-+				return true;
-+			} else if (!InlineButtonActionable(data)) {
- 				return false;
- 			}
- 			state->lookedUpButton = data.toString();
- 			return true;
--		}, ActivateInlineButton);
+-		leaf->setCustomEmojiClickHandler(
+-			InlineButtonActionable,
+-			ActivateInlineButton,
+-			InlineButtonLinkTexts);
++		leaf->setCustomEmojiClickHandler([](QStringView data) {
++			return Tele::CustomEmojiClickable(data)
++				|| InlineButtonActionable(data);
 +		}, [](QStringView data, ClickContext context) {
 +			if (Tele::CustomEmojiClickable(data)) {
 +				Tele::OpenCustomEmoji(data, std::move(context));
 +			} else {
 +				ActivateInlineButton(data, std::move(context));
 +			}
++		}, [](QStringView data) {
++			return Tele::CustomEmojiClickable(data)
++				? Ui::Text::CustomEmojiLinkTexts()
++				: InlineButtonLinkTexts(data);
 +		});
  	}
  }

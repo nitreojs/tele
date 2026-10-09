@@ -5,28 +5,28 @@ Subject: [PATCH] feat: choose what shots show
 
 ---
  Telegram/SourceFiles/history/history_item.cpp |   5 +-
- .../history/view/history_view_element.cpp     |  11 +-
+ .../history/view/history_view_element.cpp     |  10 +-
  .../history/view/history_view_message.cpp     |  10 +-
  Telegram/SourceFiles/tele/tele_options.cpp    |  15 +
  Telegram/SourceFiles/tele/tele_options.h      |   3 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
  Telegram/SourceFiles/tele/tele_shot.cpp       | 389 +++++++++++++++---
  Telegram/SourceFiles/tele/tele_shot.h         |  17 +-
- 8 files changed, 382 insertions(+), 69 deletions(-)
+ 8 files changed, 381 insertions(+), 69 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index e1aaf9f4c521c6772f4c15733b8d3d01fdec26ef..c03d53550e0fcd87ecfc742e7c52e10f1a12a1bd 100644
+index a09fc5849e4b242506ee4568e4c5a377a68dedcc..fc31224c0463e192070502bad7ca7cf959427e93 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
-@@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -90,6 +90,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
 +#include "tele/tele_shot.h"
- #include "styles/style_dialogs.h"
  
- namespace {
-@@ -1494,7 +1495,9 @@ void HistoryItem::updateStoryMentionText() {
+ #include "styles/style_chat.h"
+ #include "styles/style_credits.h"
+@@ -1542,7 +1543,9 @@ void HistoryItem::updateStoryMentionText() {
  }
  
  HistoryMessageReplyMarkup *HistoryItem::inlineReplyMarkup() {
@@ -38,20 +38,19 @@ index e1aaf9f4c521c6772f4c15733b8d3d01fdec26ef..c03d53550e0fcd87ecfc742e7c52e10f
  			return markup;
  		}
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index e1fce2855d7e898c28a780d1db6b311146ff6f59..46ce80689eb6ee226d96deb7eba41e8a159b5725 100644
+index a343ba5d50015eb4da84de5833214c5debdd0978..b4a752cb7102c8be067039d6025f9d15a567a80e 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -1508,7 +1508,8 @@ bool Element::isTopicRootReply() const {
- }
- 
- bool Element::hidesBottomInfo() const {
--	return data()->isWelcomeTemplate() || Tele::ShotHidesBottomInfo(this);
-+	return data()->isWelcomeTemplate()
+@@ -1596,7 +1596,7 @@ bool Element::hidesBottomInfo() const {
+ 	return data()->isWelcomeTemplate()
+ 		|| (data()->isFakeHistoryItem()
+ 			&& context() == Context::MediaEditor)
+-		|| Tele::ShotHidesBottomInfo(this);
 +		|| Tele::ShotHides(this, Tele::ShotPart::Info);
  }
  
- int Element::skipBlockWidth() const {
-@@ -1648,7 +1649,10 @@ void Element::refreshMedia(Element *replacing) {
+ ReplyKeyboard *Element::inlineReplyKeyboard() const {
+@@ -1747,7 +1747,10 @@ void Element::refreshMedia(Element *replacing) {
  				return;
  			}
  		}
@@ -60,24 +59,24 @@ index e1fce2855d7e898c28a780d1db6b311146ff6f59..46ce80689eb6ee226d96deb7eba41e8a
 +				&& Tele::ShotHides(this, Tele::ShotPart::Previews))
 +			? nullptr
 +			: media->createView(this, replacing);
+ 	} else if (item->Has<HistoryServiceGramTransfer>()) {
+ 		_media = CreateGramTransferMedia(this, replacing);
  	} else if (item->showSimilarChannels()) {
- 		_media = std::make_unique<SimilarChannels>(this);
- 	} else if (isOnlyCustomEmoji()
-@@ -2863,7 +2867,8 @@ void Element::setupReactions(Element *replacing) {
- void Element::refreshReactions() {
+@@ -2975,7 +2978,8 @@ void Element::refreshReactions() {
  	using namespace Reactions;
  	auto reactionsData = InlineListDataFromMessage(this);
--	if (reactionsData.reactions.empty()) {
-+	if (reactionsData.reactions.empty()
+ 	if (reactionsData.reactions.empty()
+-		|| context() == Context::MediaEditor) {
++		|| context() == Context::MediaEditor
 +		|| Tele::ShotHides(this, Tele::ShotPart::Reactions)) {
  		setReactions(nullptr);
  		return;
  	}
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index a763ebb03d8a2b4458e7ef72613d0b5649134091..a0d0da6410de1cae40de1da1142cf691a053bf42 100644
+index 0c6039741fcfa9e8c5dcb1088c7b3ac9943b93a3..86cc95d6ec4bb32d03a9b81f7a2af4d19e3bc2a7 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -3862,7 +3862,7 @@ void Message::unloadHeavyPart() {
+@@ -3865,7 +3865,7 @@ void Message::unloadHeavyPart() {
  }
  
  bool Message::hasFromPhoto() const {
@@ -86,7 +85,7 @@ index a763ebb03d8a2b4458e7ef72613d0b5649134091..a0d0da6410de1cae40de1da1142cf691
  		return false;
  	}
  	switch (context()) {
-@@ -5839,13 +5839,19 @@ bool Message::hasFromName() const {
+@@ -5854,13 +5854,19 @@ bool Message::hasFromName() const {
  }
  
  bool Message::displayFromName() const {

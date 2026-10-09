@@ -18,10 +18,10 @@ Subject: [PATCH] feat: show seconds in message times
  create mode 100644 Telegram/SourceFiles/tele/tele_time.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b4b2d203f4100a29cb98634d102578a65b0d04e1..95ef96e82383309f15a50088fee04aec53573bfa 100644
+index a5378aeee88abc3e230d1bdd04108cfdca6b5f9f..7ac06bf74ac10159b9857de91c69918b5cb3fb05 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2233,6 +2233,8 @@ PRIVATE
+@@ -2391,6 +2391,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -31,7 +31,7 @@ index b4b2d203f4100a29cb98634d102578a65b0d04e1..95ef96e82383309f15a50088fee04aec
      tele/tele_title.h
      tele/tele_updater.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp b/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
-index 21ac2d09730569f4e4c4b5db79a68e97204252e9..730ed0f5b9f83b79c639cb29209062b1351eb88e 100644
+index 9971a382828739126d4565ec21e0badc39632522..a130b82ab33fca13c4ec101a66b8fd64d4ba5499 100644
 --- a/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
 @@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -51,10 +51,10 @@ index 21ac2d09730569f4e4c4b5db79a68e97204252e9..730ed0f5b9f83b79c639cb29209062b1
  	if (sent.date() == today && edited.date() == today) {
  		return tr::lng_edited_at(tr::now, lt_time, time);
  	}
-@@ -503,8 +504,8 @@ void BottomInfo::layoutDateText() {
- 	const auto date = editedPrimary
+@@ -504,8 +505,8 @@ void BottomInfo::layoutDateText() {
  		? FormatEditedDate(_data.date, _data.editedDate)
- 		: edited + ((_data.flags & Data::Flag::ForwardedDate)
+ 		: edited + ((_data.flags
+ 			& (Data::Flag::ForwardedDate | Data::Flag::FullDate))
 -		? Ui::FormatDateTimeSavedFrom(_data.date)
 -		: QLocale().toString(_data.date.time(), QLocale::ShortFormat));
 +		? Tele::FormatMessageSavedFromDate(_data.date)
@@ -63,10 +63,10 @@ index 21ac2d09730569f4e4c4b5db79a68e97204252e9..730ed0f5b9f83b79c639cb29209062b1
  	const auto afterAuthorWidth = st::msgDateFont->width(afterAuthor);
  	const auto authorWidth = st::msgDateFont->width(author);
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index db89b14648c4554a3442977437b4e89b95f969c3..983de4130638789badb286ee08bf0ea34408fa00 100644
+index e4da34d260b66cb11cd43d3f09f4b7ec3d8c477e..202a320197d912af337e13ac35bad7514d4ed9df 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -72,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_user.h"
  #include "lang/lang_keys.h"
  #include "tele/tele_ignored.h"
@@ -74,7 +74,7 @@ index db89b14648c4554a3442977437b4e89b95f969c3..983de4130638789badb286ee08bf0ea3
  #include "styles/style_chat.h"
  #include "styles/style_chat_style.h"
  #include "styles/style_dialogs.h"
-@@ -2133,7 +2134,7 @@ void Element::validateText() {
+@@ -2241,7 +2242,7 @@ void Element::validateText() {
  		const auto &customLinks = contextDependentText.text.empty()
  			? _textItem->customTextLinks()
  			: contextDependentText.links;

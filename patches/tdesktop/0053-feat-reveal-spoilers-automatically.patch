@@ -24,10 +24,10 @@ Subject: [PATCH] feat: reveal spoilers automatically
  create mode 100644 Telegram/SourceFiles/tele/tele_spoilers.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 0e750c77c19045867dfbade52ffe64835e639190..ec5b452001725c5933074e0914e58576de0104e8 100644
+index fd7e3b4b7a777db35492c85c95713904b4ec78c8..95f5607345f6e79ecd093dfae8ced238a1aad0ef 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2267,6 +2267,8 @@ PRIVATE
+@@ -2425,6 +2425,8 @@ PRIVATE
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -119,7 +119,7 @@ index 79ff2ba631f4dae1a54b7069819a6ae7fc5fcd05..c761a58fc5a0816a6e5042714f040991
  };
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 420ac286846efeee45e67bae34c1829ac5407336..d5276713be6f0e93e6428b7b348cc29e8a113bb3 100644
+index d23c59cb45c35d2e2e3f51a76c7c19a1a19ff929..d257be162060314a92f8a06afac3f3ffce8293ce 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -130,16 +130,16 @@ index 420ac286846efeee45e67bae34c1829ac5407336..d5276713be6f0e93e6428b7b348cc29e
  #include "styles/style_chat.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_polls.h"
-@@ -467,6 +468,7 @@ void Reply::update(
- 		text,
- 		_multiline ? Ui::ItemTextDefaultOptions() : Ui::DialogTextOptions(),
- 		helper.context());
+@@ -470,6 +471,7 @@ void Reply::update(
+ 	if (view->context() == Context::MediaEditor) {
+ 		_text.setSpoilerRevealed(true, anim::type::instant);
+ 	}
 +	::Tele::RevealElementSpoilers(view, _text);
  
  	updateName(view, data);
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_text_helper.cpp b/Telegram/SourceFiles/history/view/history_view_text_helper.cpp
-index 5465ddf48716522df817bd82f7974a3eaf1be329..493c6a05740c32aab7e2eb005c959a9d413040c8 100644
+index 64e565d78223e580362dd33f41fe292a39065962..f63be855712f832a49c4eb32ac43f7efc164244a 100644
 --- a/Telegram/SourceFiles/history/view/history_view_text_helper.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_text_helper.cpp
 @@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -150,7 +150,7 @@ index 5465ddf48716522df817bd82f7974a3eaf1be329..493c6a05740c32aab7e2eb005c959a9d
  
  namespace HistoryView {
  
-@@ -33,6 +34,7 @@ void InitElementTextPart(not_null<Element*> view, Ui::Text::String &text) {
+@@ -36,6 +37,7 @@ void InitElementTextPart(not_null<Element*> view, Ui::Text::String &text) {
  			return true;
  		});
  	}
@@ -159,7 +159,7 @@ index 5465ddf48716522df817bd82f7974a3eaf1be329..493c6a05740c32aab7e2eb005c959a9d
  		const auto weak = base::make_weak(view);
  		text.setBlockquoteExpandCallback([=](int quoteIndex, bool expanded) {
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index fc6b46fdb456f919cc9a8f681e1de8b59743d4b5..3a5049041417d80b52ba05758c75eaf5e8683889 100644
+index d8c25a2a61679960d50cf728b3724c6f6cfdb193..7fa83b6425bb3a0e4364cdf60f2edf5b7b8d28ce 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -179,7 +179,7 @@ index fc6b46fdb456f919cc9a8f681e1de8b59743d4b5..3a5049041417d80b52ba05758c75eaf5
  
  	if ((_dataMedia = _data->activeMediaView())) {
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_photo.cpp b/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
-index 9872bc21f6acdde0eeb778b501ebeb56c73ba73c..fabb3bfeef37361b0ecaed8ef28e198d90d5405b 100644
+index 376b9285637edea0c0cfecee3e596e655fa3c964..3fac3c69f2802413424eaf225756a2506c24fe2b 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
 @@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -199,7 +199,7 @@ index 9872bc21f6acdde0eeb778b501ebeb56c73ba73c..fabb3bfeef37361b0ecaed8ef28e198d
  	_purchasedPriceTag = hasPurchasedTag() ? 1 : 0;
  }
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
-index 5eb2efcd4f7346380604a9f1d4ba795c813f66e0..db997c3c27deda122aab3338881c0d41d3d4b2da 100644
+index 2fcab1a3e549d320ca38266373d562238c13fe29..7ab247c60ee6175abbc803142324da0cfcc3a971 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
 @@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -210,7 +210,7 @@ index 5eb2efcd4f7346380604a9f1d4ba795c813f66e0..db997c3c27deda122aab3338881c0d41
  
  #include "styles/palette.h"
  #include "styles/style_iv.h"
-@@ -1376,6 +1377,7 @@ void SetTextLeafSpoilerLinkFilter(
+@@ -1388,6 +1389,7 @@ void SetTextLeafSpoilerLinkFilter(
  	}
  	if (spoilerLinkFilter) {
  		leaf->setSpoilerLinkFilter(std::move(spoilerLinkFilter));
@@ -219,10 +219,10 @@ index 5eb2efcd4f7346380604a9f1d4ba795c813f66e0..db997c3c27deda122aab3338881c0d41
  		leaf->setSpoilerLinkFilter([](const ClickContext &context) {
  			return context.button == Qt::LeftButton;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index ba87f1b54a3e8f9042c833f6cd62f93cbfa990e2..76b495c3d99bebe72b22568621a19241a042307a 100644
+index f12abe7be1c1e64b91cc53d3b1cd4903db5d3717..225e92065f598e1b4fb899f7168394ee91fab91c 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_lowercase.h"
  #include "tele/tele_options.h"
  #include "tele/tele_secret_media.h"
@@ -230,7 +230,7 @@ index ba87f1b54a3e8f9042c833f6cd62f93cbfa990e2..76b495c3d99bebe72b22568621a19241
  #include "tele/tele_view_tl.h"
  
  #include <QGraphicsOpacityEffect>
-@@ -4285,6 +4286,7 @@ void OverlayWidget::refreshCaption() {
+@@ -4291,6 +4292,7 @@ void OverlayWidget::refreshCaption() {
  			return (weak != nullptr);
  		});
  	}

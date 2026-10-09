@@ -25,10 +25,10 @@ Subject: [PATCH] feat: turn off ai features
  create mode 100644 Telegram/SourceFiles/tele/tele_no_ai.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c595f4cea2f3b1fb94e5753002908edeed8e35ae..ee480103eff52f3566ccd11a4f0b3810fc2cc206 100644
+index 26d93ff5e2efc54506885c3b4352bf5f77a24400..518f1fe1804b8cfcea8c0a7f3ec30d8ef560fe51 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2327,6 +2327,8 @@ PRIVATE
+@@ -2485,6 +2485,8 @@ PRIVATE
      tele/tele_mtp_log.h
      tele/tele_new_settings.cpp
      tele/tele_new_settings.h
@@ -90,18 +90,18 @@ index 7c6b271ca594a45769f93730da905e2cfafebab6..b6b81f2a4c5a0659dc59aa0b3b7fb23d
  	}
  	const auto item = _session->data().message(id);
 diff --git a/Telegram/SourceFiles/core/local_url_handlers.cpp b/Telegram/SourceFiles/core/local_url_handlers.cpp
-index 2499a18779ddfd22ca2a46ecbfbbf204432848e8..d211fcdeb3c063c743839446b0b3a6d1ec93a021 100644
+index f8ff00a58548dca679810d84f441fca0a5a811b3..ebe2fba3eca2174a1840609a86ae117e823b87c1 100644
 --- a/Telegram/SourceFiles/core/local_url_handlers.cpp
 +++ b/Telegram/SourceFiles/core/local_url_handlers.cpp
-@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "history/history_item.h"
- #include "iv/iv_instance.h"
+@@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "wallet/wallet_panel.h"
+ #include "wallet/wallet_ton_connect_link.h"
  #include "apiwrap.h"
 +#include "tele/tele_options.h"
  
  #include "styles/style_chat_helpers.h"
  
-@@ -305,6 +306,8 @@ bool ShowAiStyle(
+@@ -307,6 +308,8 @@ bool ShowAiStyle(
  		const QVariant &context) {
  	if (!controller) {
  		return false;
@@ -134,10 +134,10 @@ index 678672e7a20e29121b886915615dbb5176f2f260..7dcfef4308b13cd1fb030a9a9fb07019
  			_pendingRefresh = PendingRefresh::Full;
  		} else if (_pendingRefresh == PendingRefresh::None) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index a0d2530057bfb315984851e100992eb91f10450a..9b74cc9ca4b4b99eeb0e698ee5671a6ef506ce19 100644
+index d322c8bc056fb6a98131cc911f6a059d987fae8c..fb1fc5a69031aa79134ff57b37d2979c21723e7d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_ignored.h"
@@ -145,10 +145,10 @@ index a0d2530057bfb315984851e100992eb91f10450a..9b74cc9ca4b4b99eeb0e698ee5671a6e
  #include "tele/tele_protected.h"
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
-@@ -7281,6 +7282,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
- 
+@@ -7390,6 +7391,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
  void Message::ensureSummarizeButton() const {
  	if (data()->canBeSummarized()
+ 		&& (context() != Context::MediaEditor)
 +		&& !Tele::NoAi()
  		/*&& item->originalText().text.size() >= kSummarizeThreshold*/) {
  		if (!_summarize) {
@@ -178,7 +178,7 @@ index 64f39771725c1a6c2ad464a13bed5bff773eb987..7f9715a3ab8b2021437e206c3d6bede2
  
  	const auto cocoon = ChatHelpers::GenerateLocalTgsSticker(
 diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
-index 74e421561d9b2da49bc6c1f74419f5bd1937922a..7d029a6e363a4fb772025cf90a058519279a4928 100644
+index ce84c52ac1bdc61a0f2e0ef80c6486ac3e2203a6..38dc4fbd4491f4ea69444bd4e980a2115a13cee3 100644
 --- a/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
 +++ b/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
 @@ -73,6 +73,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -190,7 +190,7 @@ index 74e421561d9b2da49bc6c1f74419f5bd1937922a..7d029a6e363a4fb772025cf90a058519
  #include "styles/style_chat_helpers.h"
  #include "styles/style_basic.h"
  #include "styles/style_iv.h"
-@@ -1806,7 +1808,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
+@@ -1807,7 +1809,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
  			}
  		});
  	}
@@ -201,10 +201,10 @@ index 74e421561d9b2da49bc6c1f74419f5bd1937922a..7d029a6e363a4fb772025cf90a058519
  		_aiPill = object_ptr<ToolbarPill>(
  			_bottom.data(),
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index f4cfa7bd2ab8ea34f665ad35a6326b2fbb5d0426..f80befccacc6d0e540e8343992000824a9ebc8d2 100644
+index 43c7d77b17cac616e9751c4efc11b79d4e6c2a8d..617fdf6587106ec717cde53d95b479e0cdf33bb4 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -63,6 +63,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_communities.h"
  #include "tele/tele_local_pins.h"
@@ -212,7 +212,7 @@ index f4cfa7bd2ab8ea34f665ad35a6326b2fbb5d0426..f80befccacc6d0e540e8343992000824
  #include "tele/tele_protected.h"
  #include "tele/tele_punctual_scheduled.h"
  #include "styles/style_layers.h"
-@@ -283,6 +284,7 @@ Session::Session(
+@@ -287,6 +288,7 @@ Session::Session(
  	Tele::SetupCommunities(this);
  	Tele::SetupLocalPins(this);
  	Tele::SetupBookmarks(this);

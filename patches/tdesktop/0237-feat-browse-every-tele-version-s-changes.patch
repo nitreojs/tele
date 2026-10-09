@@ -21,10 +21,10 @@ Subject: [PATCH] feat: browse every tele version's changes
  create mode 100644 Telegram/SourceFiles/tele/tele_changelog_history.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e3e50ba4749dda773fac5f3c352a6ed3910d6e47..fc24d403c9bca80bc9d0276a5552bd7b7b2190b3 100644
+index 450c08cb1759451a2d18917f223c6555eb6e4d2a..cb5796cd16da169fedde6ec5471beb1268d7fe0e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2251,6 +2251,8 @@ PRIVATE
+@@ -2409,6 +2409,8 @@ PRIVATE
      tele/tele_changelog.h
      tele/tele_changelog_chat.cpp
      tele/tele_changelog_chat.h
@@ -4026,10 +4026,10 @@ index 547cc1465b6a6bb4d3d4628793cfcff5ef151b83..e87b41cec589821284be5410549a865a
  		return;
  	}
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index 2d9cba495c4d4baf9fe6a3cb1a7e1d7bda1333de..b33fbda2e1572a19f487b317f7252d10a369a173 100644
+index 1bad092e0e07e2ae0228a66b8f9b61ed00967e53..dca01ba5125c20abee643094c241d91241c4b2c2 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
-@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_peer_menu.h"
  #include "window/window_session_controller.h"
  #include "tele/tele_build.h"
@@ -4037,7 +4037,7 @@ index 2d9cba495c4d4baf9fe6a3cb1a7e1d7bda1333de..b33fbda2e1572a19f487b317f7252d10
  #include "tele/tele_counters.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_gift_studio_menu.h"
-@@ -407,7 +408,8 @@ MainMenu::MainMenu(
+@@ -411,7 +412,8 @@ MainMenu::MainMenu(
  					lt_version,
  					currentVersionShortText()),
  			1) // Link 1.
@@ -4047,7 +4047,7 @@ index 2d9cba495c4d4baf9fe6a3cb1a7e1d7bda1333de..b33fbda2e1572a19f487b317f7252d10
  		.append(QChar(' '))
  		.append(QChar(8211))
  		.append(QChar(' '))
-@@ -420,6 +422,11 @@ MainMenu::MainMenu(
+@@ -424,6 +426,11 @@ MainMenu::MainMenu(
  		std::make_shared<LambdaClickHandler>([=] {
  			controller->show(Box(AboutBox));
  		}));

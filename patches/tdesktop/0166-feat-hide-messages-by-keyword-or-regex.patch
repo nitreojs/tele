@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide messages by keyword or regex
  create mode 100644 Telegram/SourceFiles/tele/tele_hidden_words.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a2005b8eb58587f186e134f81775b8ba2f3a9fc4..036b3a980f3177215017e6587086fae9e7502c61 100644
+index e5aa732bbd9163c79d7bbf3c3b7a42efcbe21656..a0a6c3dba380d4128122ce7f48e652fd46e45db8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2313,6 +2313,8 @@ PRIVATE
+@@ -2471,6 +2471,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ghost.cpp
      tele/tele_ghost.h
@@ -33,7 +33,7 @@ index a2005b8eb58587f186e134f81775b8ba2f3a9fc4..036b3a980f3177215017e6587086fae9
      tele/tele_ignored.h
      tele/tele_inline_text.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index a6a40d99922d5f7cce66b852357f1f835e50c111..6c72c2388457df4e13060c0dcc11d2e3aa253677 100644
+index 4a15597ec1ea2cc29d664470331e7999325808cd..279880f3240551e9442037041db824d2271beabe 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 @@ -89,6 +89,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -819,10 +819,10 @@ index fd4cad014e5a8fbc18849651a4b0c40915cb6b24..f90d2e23b45c1493b691068a033452f8
  		} else if (spec.kind == Kind::Backgrounds) {
  			value = NormalizeChatBackgrounds(value, HasFile({}));
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index e99241ba05d27d42af7eac8216436ed91e3a8f30..b2af8d924c336d6c8bdea3044bc27c0a78c978bd 100644
+index 0e911854dd0804500c9042cc75a22c7c3a7c5080..4dcf3cfd5f83fbdf3c58297bed8c0505f13fd2f3 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted_section.h"
  #include "tele/tele_download_folders.h"
  #include "tele/tele_ghost.h"
@@ -830,7 +830,7 @@ index e99241ba05d27d42af7eac8216436ed91e3a8f30..b2af8d924c336d6c8bdea3044bc27c0a
  #include "tele/tele_ignored.h"
  #include "tele/tele_jump_to_first.h"
  #include "tele/tele_local_names.h"
-@@ -1953,6 +1954,7 @@ void Filler::fillHistoryActions() {
+@@ -1968,6 +1969,7 @@ void Filler::fillHistoryActions() {
  	Tele::AddPinnedBarAction(_controller, _thread, _addAction);
  	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
  	Tele::AddLocalNameAction(_controller, _peer, _addAction);

@@ -44,10 +44,10 @@ index 2e2bceb142dfe499e63f170dc41128d275b365ea..e880d5ec79fc956288af0095bc983730
  
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index decd6e19a998d6c2a04e7afb32591099b54c4204..bf79ec8bd448a085e8380603f898bca34d41767f 100644
+index 0c6c27bb91d504ed580ce15aa02a0a35bfe95bdf..d45b8433aaf6bc5a81c875922500240edc47317b 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
-@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -72,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_main_menu_helpers.h"
  #include "window/window_peer_menu.h"
  #include "window/window_session_controller.h"
@@ -55,7 +55,7 @@ index decd6e19a998d6c2a04e7afb32591099b54c4204..bf79ec8bd448a085e8380603f898bca3
  #include "tele/tele_ghost.h"
  #include "styles/style_chat.h" // popupMenuExpandedSeparator
  #include "styles/style_menu_icons.h"
-@@ -403,6 +404,7 @@ MainMenu::MainMenu(
+@@ -407,6 +408,7 @@ MainMenu::MainMenu(
  					lt_version,
  					currentVersionShortText()),
  			1) // Link 1.

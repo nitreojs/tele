@@ -72,10 +72,10 @@ Subject: [PATCH] feat: notification centre
  create mode 100644 Telegram/SourceFiles/tele/tele_rate_limits.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c0af0924a9f6ce9062ef41fc4a8887a8ec210f50..6e045488f387908081014fff2d819bffaa3b09e7 100644
+index 295501388569b09fee758e21a6107c3201ed314c..7ffbbc74047d512825837004102b956e95a9e66d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2307,6 +2307,7 @@ PRIVATE
+@@ -2465,6 +2465,7 @@ PRIVATE
      tele/tele_edit_history_section.h
      tele/tele_field_resize.cpp
      tele/tele_field_resize.h
@@ -83,7 +83,7 @@ index c0af0924a9f6ce9062ef41fc4a8887a8ec210f50..6e045488f387908081014fff2d819bff
      tele/tele_folders.cpp
      tele/tele_folders.h
      tele/tele_freeze_watchdog.cpp
-@@ -2413,6 +2414,10 @@ PRIVATE
+@@ -2571,6 +2572,10 @@ PRIVATE
      tele/tele_new_settings.h
      tele/tele_no_ai.cpp
      tele/tele_no_ai.h
@@ -94,7 +94,7 @@ index c0af0924a9f6ce9062ef41fc4a8887a8ec210f50..6e045488f387908081014fff2d819bff
      tele/tele_online_notify.cpp
      tele/tele_online_notify.h
      tele/tele_jump_to_first.cpp
-@@ -2447,6 +2452,8 @@ PRIVATE
+@@ -2605,6 +2610,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h
@@ -167,10 +167,10 @@ index c45f35c4da4256aa9b3246c63dc3c7df4caad88e..47738fedc0cdd5b1d29bdb2ebed2f1c5
  }
  
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index da5892888050757e398d3e3257c54ba5744db532..cba955642a058fc6abb2a259cc1a6122b6f6b5ca 100644
+index e85e03f447f414bcf504feaf80aa0d9905627442..7440da35ca01d8b9fbbf3ddd6335dd292d146f80 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_local_pins.h"
  #include "tele/tele_mute.h"
  #include "tele/tele_no_ai.h"
@@ -178,7 +178,7 @@ index da5892888050757e398d3e3257c54ba5744db532..cba955642a058fc6abb2a259cc1a6122
  #include "tele/tele_online_notify.h"
  #include "tele/tele_past_limit.h"
  #include "tele/tele_protected.h"
-@@ -290,6 +291,7 @@ Session::Session(
+@@ -294,6 +295,7 @@ Session::Session(
  	Tele::SetupBookmarks(this);
  	Tele::SetupNoAi(this);
  	Tele::SetupOnlineNotify(this);
@@ -187,7 +187,7 @@ index da5892888050757e398d3e3257c54ba5744db532..cba955642a058fc6abb2a259cc1a6122
  	Tele::SetupMediaPastLimit(this);
  	Tele::SetupKeptStore(this);
 diff --git a/Telegram/SourceFiles/mtproto/mtp_instance.cpp b/Telegram/SourceFiles/mtproto/mtp_instance.cpp
-index 256014aa1a59764841839413323acb2a21cb1fc3..0cbd8332faccaa2af1bcedba04845375cc6ec058 100644
+index d25fe3b72298fab371854f80186ee8e4777ea087..82711e8525cd2e0c1ea84abfb71fdf2639bdea56 100644
 --- a/Telegram/SourceFiles/mtproto/mtp_instance.cpp
 +++ b/Telegram/SourceFiles/mtproto/mtp_instance.cpp
 @@ -102,6 +102,7 @@ public:
@@ -198,15 +198,15 @@ index 256014aa1a59764841839413323acb2a21cb1fc3..0cbd8332faccaa2af1bcedba04845375
  
  	void restart();
  	void restart(ShiftedDcId shiftedDcId);
-@@ -192,6 +193,7 @@ private:
- 		const Response &response);
- 	bool exportFail(const Error &error, const Response &response);
+@@ -195,6 +196,7 @@ private:
+ 	void failOverAuthImports(ShiftedDcId shiftedDcId);
+ 	void restartAuthImport(DcId dcId, mtpRequestId requestId);
  	bool onErrorDefault(const Error &error, const Response &response);
 +	void teleFloodEvent(mtpRequestId requestId, int seconds, bool resent);
  
  	void unpaused();
  
-@@ -289,6 +291,7 @@ private:
+@@ -295,6 +297,7 @@ private:
  
  	rpl::event_stream<mtpRequestId> _nonPremiumDelayedRequests;
  	rpl::event_stream<> _frozenErrorReceived;
@@ -214,7 +214,7 @@ index 256014aa1a59764841839413323acb2a21cb1fc3..0cbd8332faccaa2af1bcedba04845375
  
  	base::Timer _checkDelayedTimer;
  
-@@ -569,6 +572,37 @@ rpl::producer<> Instance::Private::frozenErrorReceived() const {
+@@ -575,6 +578,37 @@ rpl::producer<> Instance::Private::frozenErrorReceived() const {
  	return _frozenErrorReceived.events();
  }
  
@@ -252,7 +252,7 @@ index 256014aa1a59764841839413323acb2a21cb1fc3..0cbd8332faccaa2af1bcedba04845375
  void Instance::Private::requestConfigIfOld() {
  	const auto timeout = _config->values().blockedMode
  		? kConfigBecomesOldForBlockedIn
-@@ -1002,6 +1036,7 @@ void Instance::Private::checkDelayedRequests() {
+@@ -1011,6 +1045,7 @@ void Instance::Private::checkDelayedRequests() {
  		}
  		const auto session = getSession(std::abs(dcWithShift));
  		session->sendPrepared(request);
@@ -260,7 +260,7 @@ index 256014aa1a59764841839413323acb2a21cb1fc3..0cbd8332faccaa2af1bcedba04845375
  	}
  
  	if (!_delayedRequests.empty()) {
-@@ -1224,6 +1259,10 @@ bool Instance::Private::rpcErrorOccured(
+@@ -1233,6 +1268,10 @@ bool Instance::Private::rpcErrorOccured(
  		const Response &response,
  		const FailHandler &onFail,
  		const Error &error) { // return true if need to clean request data
@@ -271,7 +271,7 @@ index 256014aa1a59764841839413323acb2a21cb1fc3..0cbd8332faccaa2af1bcedba04845375
  	if (IsDefaultHandledError(error)) {
  		const auto guard = QPointer<Instance>(_instance);
  		if (onFail && onFail(error, response)) {
-@@ -1947,6 +1986,10 @@ rpl::producer<> Instance::frozenErrorReceived() const {
+@@ -2026,6 +2065,10 @@ rpl::producer<> Instance::frozenErrorReceived() const {
  	return _private->frozenErrorReceived();
  }
  
@@ -1528,7 +1528,7 @@ index dca01237ab66f6c6e2594d596ed0e938f7a3a48a..cf1f8f07490b312c31dbfe0c308a1ab6
  		.iconLottie = u"toast/copy"_q,
  		.iconLottieSize = st::toastLottieIconSize,
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_console.cpp b/Telegram/SourceFiles/tele/tele_mtp_console.cpp
-index 583511fe5d5ea7f80f21e0d82e4777dec1277b40..619abaa319654dc60bc0d7e1af3c22e92efdf63c 100644
+index 4a32011bc071f7085b816472896642341e35d3e9..17ccc12bcb7254cb2727abf28f00fa6f43683ab8 100644
 --- a/Telegram/SourceFiles/tele/tele_mtp_console.cpp
 +++ b/Telegram/SourceFiles/tele/tele_mtp_console.cpp
 @@ -9,6 +9,7 @@

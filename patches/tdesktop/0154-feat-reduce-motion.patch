@@ -19,10 +19,10 @@ Subject: [PATCH] feat: reduce motion
  create mode 100644 Telegram/SourceFiles/tele/tele_reduce_motion.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2e40043eac649dc54d0042356c1800354900fbf4..5bd6be5d9e6ccc1938be74d142d188d7489d8dc4 100644
+index 266acc031e97aab443abc4b455735b55f4dcca56..697d552056e6aca186d8d66d43b8b120ba847c08 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2367,6 +2367,8 @@ PRIVATE
+@@ -2525,6 +2525,8 @@ PRIVATE
      tele/tele_read_log.h
      tele/tele_recent_emoji.cpp
      tele/tele_recent_emoji.h
@@ -32,10 +32,10 @@ index 2e40043eac649dc54d0042356c1800354900fbf4..5bd6be5d9e6ccc1938be74d142d188d7
      tele/tele_rich_timestamps.h
      tele/tele_rmb_beside_bubble.cpp
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 62875dcfb2c6b41b9feff6af1862bdc30bd69b23..bf909aae3d4294c40fa123ded6498ddcfbbbefac 100644
+index ee0c7814750ec03c44396290b6806a1639442771..b7e428452ec1dd46c06cc04745b01f3522aa8e12 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_updater.h"
  #include "tele/tele_changelog.h"
  #include "tele/tele_badges.h"
@@ -43,7 +43,7 @@ index 62875dcfb2c6b41b9feff6af1862bdc30bd69b23..bf909aae3d4294c40fa123ded6498ddc
  #include "tele/tele_counters.h"
  
  #include <QtCore/QStandardPaths>
-@@ -356,6 +357,7 @@ void Application::run() {
+@@ -358,6 +359,7 @@ void Application::run() {
  	Tele::StartUpdater();
  	Tele::StartChangelog();
  	Tele::StartBadges();

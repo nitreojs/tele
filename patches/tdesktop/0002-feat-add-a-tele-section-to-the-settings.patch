@@ -13,10 +13,10 @@ Subject: [PATCH] feat: add a tele section to the settings
  create mode 100644 Telegram/SourceFiles/settings/settings_tele.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 80321bef5262c1b8955cd3334909403f26917e05..6d2111f94e0326b6e09d75f43def44780ab6aad5 100644
+index f74561b2e01e394abb59ece2abf1f3c1e5f1e6c7..2f2b5c98cc962e7def788164c82a5eb615747246 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2211,6 +2211,8 @@ endif()
+@@ -2369,6 +2369,8 @@ endif()
  set(TELE_BUILD 0 CACHE STRING "tele release number, 0 for local builds")
  nice_target_sources(Telegram ${src_loc}
  PRIVATE
@@ -26,10 +26,10 @@ index 80321bef5262c1b8955cd3334909403f26917e05..6d2111f94e0326b6e09d75f43def4478
      tele/tele_build.h
  )
 diff --git a/Telegram/SourceFiles/settings/sections/settings_main.cpp b/Telegram/SourceFiles/settings/sections/settings_main.cpp
-index d4f3633a5bad3025421a4289760078ea4102c9eb..049f01bb70447a97b7569d8583bca08f21b67fc6 100644
+index 62e91ea63b3ae2280b8effdc4d0315d70aa69a0d..cff3fa2dee33de2c28258d462048739145869d83 100644
 --- a/Telegram/SourceFiles/settings/sections/settings_main.cpp
 +++ b/Telegram/SourceFiles/settings/sections/settings_main.cpp
-@@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -61,6 +61,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "settings/sections/settings_privacy_security.h"
  #include "settings/settings_scale_preview.h"
@@ -37,7 +37,7 @@ index d4f3633a5bad3025421a4289760078ea4102c9eb..049f01bb70447a97b7569d8583bca08f
  #include "storage/localstorage.h"
  #include "ui/basic_click_handlers.h"
  #include "ui/boxes/confirm_box.h"
-@@ -468,6 +469,8 @@ void BuildSectionButtons(SectionBuilder &builder) {
+@@ -473,6 +474,8 @@ void BuildSectionButtons(SectionBuilder &builder) {
  		},
  		.keywords = { u"translate"_q, u"localization"_q, u"language"_q },
  	});

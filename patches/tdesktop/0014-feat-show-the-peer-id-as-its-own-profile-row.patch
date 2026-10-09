@@ -16,10 +16,10 @@ Subject: [PATCH] feat: show the peer id as its own profile row
  create mode 100644 Telegram/SourceFiles/tele/tele_peer_id.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 88aac149e1cd31ea70cd1aa991ffa9e7d57f1829..2ffbd114902574378add4b5a2baa531fba0e6645 100644
+index d951322bb294c358e29d3c5242cac5c712977702..b3920ad929d19e676bd5125ac4efc794b73b87b3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2227,6 +2227,8 @@ PRIVATE
+@@ -2385,6 +2385,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -29,7 +29,7 @@ index 88aac149e1cd31ea70cd1aa991ffa9e7d57f1829..2ffbd114902574378add4b5a2baa531f
      tele/tele_shortcuts.h
      tele/tele_title.cpp
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 01b277f29aeee5908a5990a06a8c6d70d9ac646b..848721839bfc8d25284a2d19197e335e6bb5457a 100644
+index cd5c93019d00bc38ac251788310ac4b6dc7a2f71..c3115cd523935ec56646db79d5caa3b7e5f10da3 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -76,6 +76,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -112,7 +112,7 @@ index 01b277f29aeee5908a5990a06a8c6d70d9ac646b..848721839bfc8d25284a2d19197e335e
  [[nodiscard]] bool AreNonTrivialHours(const Data::WorkingHours &hours) {
  	if (!hours) {
  		return false;
-@@ -1472,20 +1439,6 @@ Section DetailsFiller::makeInfo() {
+@@ -1475,20 +1442,6 @@ Section DetailsFiller::makeInfo() {
  		state->aboutText = AboutValue(peer);
  		label->setContextMenuHook([=](
  				Ui::FlatLabel::ContextMenuRequest request) {
@@ -133,7 +133,7 @@ index 01b277f29aeee5908a5990a06a8c6d70d9ac646b..848721839bfc8d25284a2d19197e335e
  			const auto selected = !request.selection.empty();
  			const auto full = state->labelText.current();
  			const auto about = state->aboutText.current();
-@@ -1709,7 +1662,6 @@ Section DetailsFiller::makeInfo() {
+@@ -1712,7 +1665,6 @@ Section DetailsFiller::makeInfo() {
  			std::move(label),
  			AboutWithAdvancedValue(user));
  		setupAboutContextMenu(about.text, AboutWithAdvancedValue(user));
@@ -141,7 +141,7 @@ index 01b277f29aeee5908a5990a06a8c6d70d9ac646b..848721839bfc8d25284a2d19197e335e
  
  		const auto usernameLine = addInfoOneLine(
  			UsernamesSubtext(_peer, tr::lng_info_username_label()),
-@@ -1874,9 +1826,17 @@ Section DetailsFiller::makeInfo() {
+@@ -1877,9 +1829,17 @@ Section DetailsFiller::makeInfo() {
  			: AboutWithAdvancedValue(_peer));
  		if (!_topic) {
  			setupAboutContextMenu(about.text, AboutWithAdvancedValue(_peer));

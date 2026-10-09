@@ -17,10 +17,10 @@ Subject: [PATCH] feat: thinner brush in the photo editor
  create mode 100644 Telegram/SourceFiles/tele/tele_editor_brush.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 34e14e8c02349f71aecf25ed01428d89141a9310..baf66207e324edbba00400df347f4179aa765572 100644
+index cf0c4ce41e80514396777cf1f463986c46f7cae5..4fc9469091a2c52102d6b07636c716ad080be696 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2305,6 +2305,8 @@ PRIVATE
+@@ -2463,6 +2463,8 @@ PRIVATE
      tele/tele_deleted_section.h
      tele/tele_edit_history.cpp
      tele/tele_edit_history.h
@@ -30,7 +30,7 @@ index 34e14e8c02349f71aecf25ed01428d89141a9310..baf66207e324edbba00400df347f4179
      tele/tele_editor_eyedropper.h
      tele/tele_emoji_panel.cpp
 diff --git a/Telegram/SourceFiles/editor/color_picker.cpp b/Telegram/SourceFiles/editor/color_picker.cpp
-index 29732b3be4826d24e4eb600b6e165bf74411de92..1c293fca3227ba570a43fac48b5628ac072a8b0a 100644
+index 0554fc5d808fa4d837441167074baa83d02603a8..62101b40df1f42b6f08af96428fac286114eb1a6 100644
 --- a/Telegram/SourceFiles/editor/color_picker.cpp
 +++ b/Telegram/SourceFiles/editor/color_picker.cpp
 @@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,7 +41,7 @@ index 29732b3be4826d24e4eb600b6e165bf74411de92..1c293fca3227ba570a43fac48b5628ac
  #include "tele/tele_editor_eyedropper.h"
  #include "ui/abstract_button.h"
  #include "ui/layers/generic_box.h"
-@@ -953,7 +954,7 @@ float ColorPicker::sizeControlRatioFromY(int y) const {
+@@ -1032,7 +1033,7 @@ float ColorPicker::sizeControlRatioFromY(int y) const {
  		return 1.f;
  	}
  	const auto ratio = 1. - InterpolationRatio(top, bottom, y);
@@ -50,7 +50,7 @@ index 29732b3be4826d24e4eb600b6e165bf74411de92..1c293fca3227ba570a43fac48b5628ac
  }
  
  int ColorPicker::sizeControlYFromRatio(float ratio) const {
-@@ -963,7 +964,8 @@ int ColorPicker::sizeControlYFromRatio(float ratio) const {
+@@ -1042,7 +1043,8 @@ int ColorPicker::sizeControlYFromRatio(float ratio) const {
  		return top;
  	}
  	const auto normalized = std::clamp(

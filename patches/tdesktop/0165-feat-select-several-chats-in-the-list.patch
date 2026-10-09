@@ -18,10 +18,10 @@ Subject: [PATCH] feat: select several chats in the list
  create mode 100644 Telegram/SourceFiles/tele/tele_chats_selection.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 15f4c0b50607ba977203fd17d22be0db7b4d79ba..a2005b8eb58587f186e134f81775b8ba2f3a9fc4 100644
+index b4be05c195cee337eb1ea9c89f2442a98cf8514a..e5aa732bbd9163c79d7bbf3c3b7a42efcbe21656 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2251,6 +2251,8 @@ PRIVATE
+@@ -2409,6 +2409,8 @@ PRIVATE
      tele/tele_changelog_section.h
      tele/tele_chat_backgrounds.cpp
      tele/tele_chat_backgrounds.h
@@ -31,7 +31,7 @@ index 15f4c0b50607ba977203fd17d22be0db7b4d79ba..a2005b8eb58587f186e134f81775b8ba
      tele/tele_code_lines.h
      tele/tele_collectible_price.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index e49773e0d9a416818245a083360704bdb97942c7..a6a40d99922d5f7cce66b852357f1f835e50c111 100644
+index 60f5a8013a27753a1f3367bcbab492422b2ad7b4..4a15597ec1ea2cc29d664470331e7999325808cd 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 @@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index e49773e0d9a416818245a083360704bdb97942c7..a6a40d99922d5f7cce66b852357f1f83
  #include "tele/tele_communities.h"
  #include "tele/tele_corner_buttons.h"
  #include "tele/tele_list_previews.h"
-@@ -1090,7 +1091,10 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
+@@ -1114,7 +1115,10 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
  			bool selected,
  			bool mayBeActive) {
  		const auto &key = row->key();
@@ -54,7 +54,7 @@ index e49773e0d9a416818245a083360704bdb97942c7..a6a40d99922d5f7cce66b852357f1f83
  		const auto history = key.history();
  		const auto forum = history && history->peer->displayAsForum();
  		const auto monoforum = history && history->amMonoforumAdmin();
-@@ -2489,6 +2493,14 @@ void InnerWidget::processGlobalForceClick(QPoint globalPosition) {
+@@ -2516,6 +2520,14 @@ void InnerWidget::processGlobalForceClick(QPoint globalPosition) {
  
  void InnerWidget::mousePressEvent(QMouseEvent *e) {
  	selectByMouse(e->globalPos());
@@ -69,7 +69,7 @@ index e49773e0d9a416818245a083360704bdb97942c7..a6a40d99922d5f7cce66b852357f1f83
  
  	_pressButton = e->button();
  	setPressed(_selected, _selectedTopicJump, _selectedRightButton);
-@@ -3861,6 +3873,7 @@ void InnerWidget::refreshShownList() {
+@@ -3903,6 +3915,7 @@ void InnerWidget::refreshShownList() {
  		? session().data().chatsFilters().chatsList(_filterId)->indexed()
  		: session().data().chatsList(_openedFolder)->indexed();
  	if (_shownList != list) {
@@ -77,7 +77,7 @@ index e49773e0d9a416818245a083360704bdb97942c7..a6a40d99922d5f7cce66b852357f1f83
  		_shownList->unfreeze();
  		_shownList = list;
  		_shownList->updateHeights(_narrowRatio);
-@@ -5382,6 +5395,9 @@ void InnerWidget::clearFilter() {
+@@ -5461,6 +5474,9 @@ void InnerWidget::clearFilter() {
  }
  
  void InnerWidget::setState(WidgetState state) {
@@ -88,7 +88,7 @@ index e49773e0d9a416818245a083360704bdb97942c7..a6a40d99922d5f7cce66b852357f1f83
  	updateCommunityRequestableGeometry();
  }
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index b30c06e757e634fb857a9f9959d20c43fbb238e1..fabee9f509bb38947b780742f7410d8705eda7dc 100644
+index c982e1c651972487b6f4b815416ea5d80f99849a..e270b044888cc7ce66d6e83d912f9c69a768ac6e 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

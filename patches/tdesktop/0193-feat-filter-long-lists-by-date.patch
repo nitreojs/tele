@@ -21,10 +21,10 @@ Subject: [PATCH] feat: filter long lists by date
  create mode 100644 Telegram/SourceFiles/tele/tele_list_dates.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8dcfca3656045377491e8a7972e3543f5840ac64..ca50f6e4cbe873c357365e3c9019c245418fe89c 100644
+index 2bd79c3fbc41d42f0b36ac8d32e51c65a36d6f8d..285a1fb8da21203a435025b022f113f924d264e7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2385,6 +2385,8 @@ PRIVATE
+@@ -2543,6 +2543,8 @@ PRIVATE
      tele/tele_launch_flags.h
      tele/tele_links.cpp
      tele/tele_links.h
@@ -34,7 +34,7 @@ index 8dcfca3656045377491e8a7972e3543f5840ac64..ca50f6e4cbe873c357365e3c9019c245
      tele/tele_list_previews.h
      tele/tele_name_badges.cpp
 diff --git a/Telegram/SourceFiles/data/data_search_controller.cpp b/Telegram/SourceFiles/data/data_search_controller.cpp
-index 3620a999c314049ce8433156fc441c320a8ce8ad..7296c9474ba21a68d7e8b72927a81f9f340f01eb 100644
+index 5c1869566dd0551bdf9679aa71c2e1be8392dd93..590cac92fc035e35de59adbffce360428cd1328f 100644
 --- a/Telegram/SourceFiles/data/data_search_controller.cpp
 +++ b/Telegram/SourceFiles/data/data_search_controller.cpp
 @@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index 3620a999c314049ce8433156fc441c320a8ce8ad..7296c9474ba21a68d7e8b72927a81f9f
  
  namespace Api {
  namespace {
-@@ -176,6 +177,11 @@ std::optional<SearchRequest> PrepareSearchRequest(
+@@ -178,6 +179,11 @@ std::optional<SearchRequest> PrepareSearchRequest(
  		offsetId.bare,
  		int64(0),
  		int64(0x3FFFFFFF)));
@@ -57,7 +57,7 @@ index 3620a999c314049ce8433156fc441c320a8ce8ad..7296c9474ba21a68d7e8b72927a81f9f
  	using Flag = MTPmessages_Search::Flag;
  	return MTPmessages_Search(
  		MTP_flags((topicRootId ? Flag::f_top_msg_id : Flag(0))
-@@ -189,8 +195,8 @@ std::optional<SearchRequest> PrepareSearchRequest(
+@@ -191,8 +197,8 @@ std::optional<SearchRequest> PrepareSearchRequest(
  		MTPVector<MTPReaction>(), // saved_reaction
  		MTP_int(topicRootId),
  		filter,
@@ -221,10 +221,10 @@ index 93d430b4033f0668e7cc65283a143afa6db25c95..13cd3b39066f1109f40d7f832fa0c57f
  	const auto descriptor = _descriptor.current();
  	const auto filter = descriptor.filter;
 diff --git a/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp b/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
-index a45aa402abafb36682a0ff1400b76b3715a27b2e..9f2f2b076023dbfcfdb8dcb741a538d119330421 100644
+index bfa2154d71b62dd17ca18bad3a47e4b3bb5ed38e..4b004523cab2421a3271db478b3912ec96ae7e7a 100644
 --- a/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
 +++ b/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
-@@ -44,6 +44,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/widgets/popup_menu.h"
  #include "ui/wrap/slide_wrap.h"
  #include "ui/wrap/vertical_layout.h"
@@ -232,7 +232,7 @@ index a45aa402abafb36682a0ff1400b76b3715a27b2e..9f2f2b076023dbfcfdb8dcb741a538d1
  #include "styles/style_boxes.h"
  #include "styles/style_color_indices.h"
  #include "styles/style_channel_earn.h"
-@@ -1325,6 +1326,7 @@ void CreditsController::loadMoreRows() {
+@@ -1318,6 +1319,7 @@ void CreditsController::loadMoreRows() {
  }
  
  void CreditsController::applySlice(const Data::CreditsStatusSlice &slice) {
@@ -240,7 +240,7 @@ index a45aa402abafb36682a0ff1400b76b3715a27b2e..9f2f2b076023dbfcfdb8dcb741a538d1
  	_allLoaded = slice.allLoaded;
  	_apiToken = _subscription ? slice.tokenSubscriptions : slice.token;
  	_loadedCount = _loadedCount.current()
-@@ -1546,7 +1548,7 @@ void AddCreditsHistoryList(
+@@ -1554,7 +1556,7 @@ void AddCreditsHistoryList(
  	struct State final {
  		State(CreditsDescriptor d) : controller(std::move(d)) {
  		}
@@ -249,7 +249,7 @@ index a45aa402abafb36682a0ff1400b76b3715a27b2e..9f2f2b076023dbfcfdb8dcb741a538d1
  		std::optional<PeerListWidgetsDelegate> subscriptionDelegate;
  		CreditsController controller;
  	};
-@@ -1606,6 +1608,19 @@ void AddCreditsHistoryList(
+@@ -1614,6 +1616,19 @@ void AddCreditsHistoryList(
  		state->controller.showMoreShownValue(),
  		anim::type::instant);
  	wrap->entity()->setClickedCallback(showMore);

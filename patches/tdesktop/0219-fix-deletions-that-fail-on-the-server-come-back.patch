@@ -16,10 +16,10 @@ Subject: [PATCH] fix: deletions that fail on the server come back
  create mode 100644 Telegram/SourceFiles/tele/tele_delete_fail.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d53adf299eb24a26f522d77422a6313529afefdc..57ebc0a242322d4f84f5f95bbd21f12a4a53a358 100644
+index 9326664f0add1619c400eb1300c18a68817f63a5..f0cf7b1af5a30798fd233f72c810db1242d5c6e7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2291,6 +2291,8 @@ PRIVATE
+@@ -2449,6 +2449,8 @@ PRIVATE
      tele/tele_drafts_rich.h
      tele/tele_drafts_section.cpp
      tele/tele_drafts_section.h
@@ -29,7 +29,7 @@ index d53adf299eb24a26f522d77422a6313529afefdc..57ebc0a242322d4f84f5f95bbd21f12a
      tele/tele_deleted.h
      tele/tele_deleted_reply.cpp
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index 4ece4075091166c3d14c7bc739469f729f64775d..86decdcecbeed4d33171971bc580f044f942fc3d 100644
+index 4cc12c71bf94d8127d602c30ad98fbe811b3d232..6bcdbbee8eb589e8a33ec18e4093467eabb6d422 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
 @@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -40,7 +40,7 @@ index 4ece4075091166c3d14c7bc739469f729f64775d..86decdcecbeed4d33171971bc580f044
  #include "tele/tele_deleted.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_send_order.h"
-@@ -809,17 +810,21 @@ void Histories::deleteMessages(
+@@ -831,17 +832,21 @@ void Histories::deleteMessages(
  			finish();
  			history->requestChatListMessage();
  		};
@@ -65,10 +65,10 @@ index 4ece4075091166c3d14c7bc739469f729f64775d..86decdcecbeed4d33171971bc580f044
  	});
  }
 diff --git a/Telegram/SourceFiles/history/history.h b/Telegram/SourceFiles/history/history.h
-index 633097d880b276a2ec110e0037b6d260e19de3ba..e7cd3d75679f3eef88b62c5f99a8047261fb4408 100644
+index 30e9e695e985d859e4b7a6c761704cb2d08cb51a..d1b71542d60a79e683c8dd99c0490e1a175166c0 100644
 --- a/Telegram/SourceFiles/history/history.h
 +++ b/Telegram/SourceFiles/history/history.h
-@@ -50,6 +50,7 @@ class Element;
+@@ -51,6 +51,7 @@ class Element;
  
  namespace Tele {
  void MoveSentToBottom(not_null<HistoryItem*> item);
@@ -76,7 +76,7 @@ index 633097d880b276a2ec110e0037b6d260e19de3ba..e7cd3d75679f3eef88b62c5f99a80472
  } // namespace Tele
  
  enum class NewMessageType {
-@@ -568,6 +569,7 @@ private:
+@@ -578,6 +579,7 @@ private:
  
  	friend class Data::SponsoredMessages;
  	friend void Tele::MoveSentToBottom(not_null<HistoryItem*> item);

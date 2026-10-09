@@ -21,10 +21,10 @@ Subject: [PATCH] feat: number the lines of long code blocks
  create mode 100644 Telegram/SourceFiles/tele/tele_code_lines.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index fcffcdb3b4aa30037be437a7340782b3d0a38cb0..b9d5fee71942937ea5ef85e7d0a619a17f2909dc 100644
+index 91823e237badd15473b4af4881a941029c440877..d10d5324560d6e7fdf655ff79536180e95365d5e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2249,6 +2249,8 @@ PRIVATE
+@@ -2407,6 +2407,8 @@ PRIVATE
      tele/tele_changelog_section.h
      tele/tele_chat_backgrounds.cpp
      tele/tele_chat_backgrounds.h
@@ -34,10 +34,10 @@ index fcffcdb3b4aa30037be437a7340782b3d0a38cb0..b9d5fee71942937ea5ef85e7d0a619a1
      tele/tele_collectible_price.h
      tele/tele_confirm_send.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index 31f91283ead1ba00b74030d555becd0f571204a4..6670f3ea2739499faf36267bc222e8a744fb74d3 100644
+index f9f025702329f5f013011b5fd79f45303c1b9e1f..47d9feb7e77aa3d43708063fcef2f765f6c1b2aa 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_message_reactions.h"
  #include "data/data_user.h"
  #include "lang/lang_keys.h"
@@ -45,7 +45,7 @@ index 31f91283ead1ba00b74030d555becd0f571204a4..6670f3ea2739499faf36267bc222e8a7
  #include "tele/tele_communities.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_options.h"
-@@ -2070,6 +2071,7 @@ void Element::validateText() {
+@@ -2178,6 +2179,7 @@ void Element::validateText() {
  		}
  		ClickHandler::clearActive(this);
  		runtime->article.setContent(std::move(prepared.content));
@@ -53,7 +53,7 @@ index 31f91283ead1ba00b74030d555becd0f571204a4..6670f3ea2739499faf36267bc222e8a7
  		runtime->hasUnsupportedBlocks
  			= runtime->article.hasUnsupportedNotices();
  		if (!runtime->hasUnsupportedBlocks) {
-@@ -2201,7 +2203,11 @@ void Element::setTextWithLinks(
+@@ -2309,7 +2311,11 @@ void Element::setTextWithLinks(
  		const auto item = data();
  		const auto &options = Ui::ItemTextOptions(item);
  		clearSpecialOnlyEmoji();
@@ -67,10 +67,10 @@ index 31f91283ead1ba00b74030d555becd0f571204a4..6670f3ea2739499faf36267bc222e8a7
  			// If server has allowed some text that we've trim-ed entirely,
  			// just replace it with something so that UI won't look buggy.
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 9b74cc9ca4b4b99eeb0e698ee5671a6ef506ce19..5f4e20d9bccdfe1958e737e0fa528d6b8e362c7f 100644
+index fb1fc5a69031aa79134ff57b37d2979c21723e7d..302433f592291be8de84a156ae429a4e3bc05a81 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "api/api_rich_tasks.h"
  #include "tele/tele_bubble_badges.h"
@@ -78,7 +78,7 @@ index 9b74cc9ca4b4b99eeb0e698ee5671a6ef506ce19..5f4e20d9bccdfe1958e737e0fa528d6b
  #include "tele/tele_deleted.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_ignored.h"
-@@ -3146,6 +3147,13 @@ void Message::paintText(
+@@ -3152,6 +3153,13 @@ void Message::paintText(
  		.useFullWidth = true,
  		.linePostprocess = linePostprocess ? &*linePostprocess : nullptr,
  	});
@@ -93,7 +93,7 @@ index 9b74cc9ca4b4b99eeb0e698ee5671a6ef506ce19..5f4e20d9bccdfe1958e737e0fa528d6b
  		createLinkRippleMask(
  			ripplePath,
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp
-index 372ef0f8c5a8610e69462ad147bedb17751d9447..f634f82f3002f8e74ff4557cd32a1cf180d76049 100644
+index 4a1797852836065085cdb8c22727ddbb0f47c567..75569eb9b80c32fbfe21abcf590bfafe4c889ac2 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_blocks.cpp
 @@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -104,7 +104,7 @@ index 372ef0f8c5a8610e69462ad147bedb17751d9447..f634f82f3002f8e74ff4557cd32a1cf1
  
  #include "styles/style_chat.h"
  #include "styles/style_iv.h"
-@@ -2117,7 +2118,8 @@ int CodeBlockPreferredWidth(
+@@ -2142,7 +2143,8 @@ int CodeBlockPreferredWidth(
  		const PreparedBlock &prepared,
  		const style::Markdown &st,
  		LayoutContext context) {
@@ -114,7 +114,7 @@ index 372ef0f8c5a8610e69462ad147bedb17751d9447..f634f82f3002f8e74ff4557cd32a1cf1
  	const auto usePlaceholder = prepared.text.text.isEmpty()
  		&& !prepared.editPlaceholderText.isEmpty();
  	if (usePlaceholder) {
-@@ -4087,7 +4089,8 @@ LaidOutBlock LayoutGroupedMediaBlock(
+@@ -4113,7 +4115,8 @@ LaidOutBlock LayoutGroupedMediaBlock(
  	}
  	ClearBlockGeometry(block);
  	const auto &pre = st.code.pre;
@@ -125,7 +125,7 @@ index 372ef0f8c5a8610e69462ad147bedb17751d9447..f634f82f3002f8e74ff4557cd32a1cf1
  		width,
  		padding.left() + padding.right() + 1);
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp
-index 6145b210b203718a1a6562536e2dff12cd67d617..8b641e3b8feeaecfd13c7841b10efc5e19ca1ed5 100644
+index f5ef80f8b366e76689ab108d211e0fea2510ff36..7de784e85285ad5cf916a28714935ab1837c3524 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_layout_structure.cpp
 @@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -157,7 +157,7 @@ index 6145b210b203718a1a6562536e2dff12cd67d617..8b641e3b8feeaecfd13c7841b10efc5e
  			- HorizontalMarginsWidth(padding);
  		analysis.contentMinimumWidth = CodeBlockMinimumWidth(st);
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
-index f413a1bf4b8ab9ac068d4f273ee611014b643ef1..ea9c6d86a70d6d26990154d8069ec525af71bd8b 100644
+index 6b26c05137dde009e96d33838096f5513be2ddcc..555a1974349e8b90d346ef469ae8e28d8292bcb1 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
 @@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -165,10 +165,10 @@ index f413a1bf4b8ab9ac068d4f273ee611014b643ef1..ea9c6d86a70d6d26990154d8069ec525
  #include "ui/style/style_core_scale.h"
  #include "ui/widgets/checkbox.h"
 +#include "tele/tele_code_lines.h"
+ #include "ui/round_rect.h"
  
  #include "styles/palette.h"
- #include "styles/style_chat.h"
-@@ -2130,6 +2131,12 @@ void PaintCodeBlock(
+@@ -2131,6 +2132,12 @@ void PaintCodeBlock(
  			selection);
  	}
  	p.restore();

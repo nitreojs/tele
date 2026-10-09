@@ -12,7 +12,7 @@ Subject: [PATCH] feat: skip the mini app terms box for trusted apps
  5 files changed, 22 insertions(+)
 
 diff --git a/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp b/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp
-index 3dadbc825bbc0600b5740ee3d186da8f85461eba..afdd68d07dc326ef4355bfadd586ae62152fd61a 100644
+index 17aa7d71ebcd5e451eb18b403383432f8a2dccc2..cb03e6295a4215f23dd0a9e8fcc8367ee73d3b11 100644
 --- a/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp
 +++ b/Telegram/SourceFiles/inline_bots/bot_attach_web_view.cpp
 @@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -23,7 +23,7 @@ index 3dadbc825bbc0600b5740ee3d186da8f85461eba..afdd68d07dc326ef4355bfadd586ae62
  #include "storage/storage_domain.h"
  #include "ui/basic_click_handlers.h"
  #include "ui/boxes/confirm_box.h"
-@@ -999,6 +1000,9 @@ void WebViewInstance::resolve() {
+@@ -1007,6 +1008,9 @@ void WebViewInstance::resolve() {
  			data.token,
  			(_context.maySkipConfirmation
  				? ConfirmType::None

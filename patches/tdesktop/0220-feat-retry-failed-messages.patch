@@ -8,20 +8,20 @@ Subject: [PATCH] feat: retry failed messages
  .../SourceFiles/dialogs/ui/dialogs_layout.cpp |   9 +
  .../history/history_inner_widget.cpp          |   4 +
  .../history/view/history_view_bottom_info.cpp |  20 ++
- .../history/view/history_view_bottom_info.h   |   3 +-
+ .../history/view/history_view_bottom_info.h   |   1 +
  .../view/history_view_context_menu.cpp        |   2 +
  .../SourceFiles/tele/tele_failed_sends.cpp    | 193 ++++++++++++++++++
  Telegram/SourceFiles/tele/tele_failed_sends.h |  21 ++
  .../SourceFiles/tele/tele_menu_registry.cpp   |   8 +
- 9 files changed, 261 insertions(+), 1 deletion(-)
+ 9 files changed, 260 insertions(+)
  create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 57ebc0a242322d4f84f5f95bbd21f12a4a53a358..f1002338b618d035a87a7212e7347badc1836c0d 100644
+index f0cf7b1af5a30798fd233f72c810db1242d5c6e7..e6c6fb8f8787d72ddd36fd0039ed9955e20c4b1e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2307,6 +2307,8 @@ PRIVATE
+@@ -2465,6 +2465,8 @@ PRIVATE
      tele/tele_emoji_panel.h
      tele/tele_edit_history_section.cpp
      tele/tele_edit_history_section.h
@@ -58,7 +58,7 @@ index f121b15f1b54950a09fb546f1b29b2c2f6c5046f..9b73173b0d1effaca246a3cceb353f9d
  
  	p.setFont(st::semiboldFont);
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 706b8890f170557367e35a05750f0e4ca6548943..7d6308ecf13498f042f1c9629cf9d3abf94492a7 100644
+index 5ded712b0dc909c267dda8afd2c8e903d7c24c3f..fe7c59bac70ffbc32970a47f267106d3d209a5c6 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -69,7 +69,7 @@ index 706b8890f170557367e35a05750f0e4ca6548943..7d6308ecf13498f042f1c9629cf9d3ab
  #include "tele/tele_ghost.h"
  #include "tele/tele_gif_video.h"
  #include "tele/tele_ignored.h"
-@@ -3908,6 +3909,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3903,6 +3904,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
  		width(),
  		crl::guard(this, [=] { _widget->clearSelected(); }));
@@ -80,7 +80,7 @@ index 706b8890f170557367e35a05750f0e4ca6548943..7d6308ecf13498f042f1c9629cf9d3ab
  		_menu.get(),
  		controller,
 diff --git a/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp b/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
-index 4914f49203d20f9f825c7f09faa58e67881ab5c3..756ec7a6c052cbe94762016360132650a544733c 100644
+index a11d755f807fb4a1f2cdc2d572612f8c6cd9ac33..fc8c132170be979a7132bde54cb49a1ff6b823c4 100644
 --- a/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_bottom_info.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -121,7 +121,7 @@ index 4914f49203d20f9f825c7f09faa58e67881ab5c3..756ec7a6c052cbe94762016360132650
  	}
  	if (_effect) {
  		auto left = position.x();
-@@ -739,6 +756,9 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
+@@ -742,6 +759,9 @@ BottomInfo::Data BottomInfoDataFromMessage(not_null<Message*> message) {
  	if (item->isSending() || item->hasFailed()) {
  		result.flags |= Flag::Sending;
  	}
@@ -132,28 +132,19 @@ index 4914f49203d20f9f825c7f09faa58e67881ab5c3..756ec7a6c052cbe94762016360132650
  		&& !message->hasBubble()
  		&& (!message->media()
 diff --git a/Telegram/SourceFiles/history/view/history_view_bottom_info.h b/Telegram/SourceFiles/history/view/history_view_bottom_info.h
-index d2a2b9915f2dfbef55b62dfa2fffa5bda22e20f9..200d9e319be5f73be38d16af287028c8413d0214 100644
+index 86160af6ea12b966803b32196210df08e2604178..e66ccd326d94b5ab668e5abd4b6d8f5a172684a0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_bottom_info.h
 +++ b/Telegram/SourceFiles/history/view/history_view_bottom_info.h
-@@ -32,7 +32,7 @@ struct TextState;
- class BottomInfo final : public Object {
- public:
- 	struct Data {
--		enum class Flag : uint16 {
-+		enum class Flag : uint32 {
- 			Edited         = 0x001,
- 			OutLayout      = 0x002,
- 			Sending        = 0x004,
-@@ -49,6 +49,7 @@ public:
- 			Updated        = 0x2000,
- 			Deleted        = 0x4000,
- 			Bookmarked     = 0x8000,
-+			Failed         = 0x10000,
+@@ -50,6 +50,7 @@ public:
+ 			FullDate       = 0x4000,
+ 			Deleted        = 0x8000,
+ 			Bookmarked     = 0x10000,
++			Failed         = 0x20000,
  			//Unread, // We don't want to pass and update it in Date for now.
  		};
  		friend inline constexpr bool is_flag_type(Flag) { return true; };
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 14610438926bea77de95a60733c4d98f377cb546..f2a02bbed6775773f6e7029b765bf6dbf484b71a 100644
+index 3975e579a2c60f538140abb7d1560a242cb2f31f..35cc480468859bba2605dd4859238383a19587e0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -164,7 +155,7 @@ index 14610438926bea77de95a60733c4d98f377cb546..f2a02bbed6775773f6e7029b765bf6db
  #include "tele/tele_gif_video.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
-@@ -2028,6 +2029,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2014,6 +2015,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  		}
  	}
  	Tele::AddShotAction(result.get(), list, request);

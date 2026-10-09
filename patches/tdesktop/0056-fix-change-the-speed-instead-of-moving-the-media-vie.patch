@@ -9,10 +9,10 @@ Subject: [PATCH] fix: change the speed instead of moving the media viewer
  1 file changed, 1 insertion(+)
 
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 76b495c3d99bebe72b22568621a19241a042307a..a04a65709bfa03bc7d07c04ed6b3cdea3a36dba3 100644
+index 225e92065f598e1b4fb899f7168394ee91fab91c..d4824e0146fa3a392088c33fed724e07b091535b 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -1048,6 +1048,7 @@ void OverlayWidget::setupWindow() {
+@@ -1054,6 +1054,7 @@ void OverlayWidget::setupWindow() {
  		}
  		const auto inControls = ((_over != Over::None) && (_over != Over::Video));
  		if (inControls

@@ -2,15 +2,16 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 285 patches, newest release first.
+all 286 patches, newest release first.
 
-### [tele 19](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.19)
+### [tele 19](https://github.com/nitreojs/tele/releases/tag/v7.3.0-tele.19)
 
 | # | what it does | where to toggle |
 |---|---|---|
 | [278](../patches/tdesktop/0278-feat-badges-on-forwarded-and-reply-headers.patch) | with badges next to sender names on, forwarded from headers and the names above replies show the custom verification icon and the checkmark too | with 12 |
 | [279](../patches/tdesktop/0279-feat-select-table-cells-as-a-range.patch) | drag from one table cell to another to select whole cells as a rectangle, like in a spreadsheet. copying them pastes into excel or sheets as a grid | always on |
 | [280](../patches/tdesktop/0280-fix-rewrite-tiktok-links-to-tnktok-now-that-vxtiktok.patch) | tiktok links are rewritten to tnktok.com: vxtiktok.com shut down, so the preset and rules you already saved no longer use it | with 77 |
+| [281](../patches/tdesktop/0281-feat-turn-on-the-wallet-before-telegram-does.patch) | the wallet from telegram desktop 7.3 can be turned on before telegram enables it for your account. the server may still refuse it | tele → debug, off, needs a restart |
 
 ### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
 

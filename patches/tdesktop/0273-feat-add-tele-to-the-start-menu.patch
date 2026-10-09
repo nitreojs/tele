@@ -14,10 +14,10 @@ Subject: [PATCH] feat: add tele to the start menu
  create mode 100644 Telegram/SourceFiles/tele/tele_start_menu.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5a706b7631ec7f976194f7af0d6c85f8a84e1ea1..9aa4f3e2947375d5f617aaeb2d044938d2632a46 100644
+index 183347ead1e4dd397e98029e72e42b20e58f0419..d6c75999cbf2d33b0d341186e78eab051842a25e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2548,6 +2548,8 @@ PRIVATE
+@@ -2706,6 +2706,8 @@ PRIVATE
      tele/tele_spoilers.h
      tele/tele_stars_tools.cpp
      tele/tele_stars_tools.h
@@ -27,10 +27,10 @@ index 5a706b7631ec7f976194f7af0d6c85f8a84e1ea1..9aa4f3e2947375d5f617aaeb2d044938
      tele/tele_start_param.h
      tele/tele_sticker_captions.cpp
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 308553f7c809eee94f3431b30fed4061dde1f415..bec8dde9cf880ebf5165d22d760d6514e8f71422 100644
+index 96759de680633f74ecc82a8af8fee671ee4d8d9d..411f34ba3f6f1571c830b2a19934f582a82bf29a 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -109,6 +109,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_mtp_console.h"
  #include "tele/tele_counters.h"
  #include "tele/tele_freeze_watchdog.h"
@@ -38,7 +38,7 @@ index 308553f7c809eee94f3431b30fed4061dde1f415..bec8dde9cf880ebf5165d22d760d6514
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -364,6 +365,7 @@ void Application::run() {
+@@ -366,6 +367,7 @@ void Application::run() {
  	Tele::StartListKeys();
  	Tele::StartMtpConsole();
  	Tele::StartFreezeWatchdog();

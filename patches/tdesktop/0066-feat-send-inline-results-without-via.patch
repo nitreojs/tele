@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send inline results without via
  create mode 100644 Telegram/SourceFiles/tele/tele_inline_via.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 57b36f52a2b3a4055f01500e86ff7467a2c46f19..da91aac3881016f590cebb61314c5d46651afe0a 100644
+index 9faf752cb9d6dcc0dbe55445ca7d19110ca23349..1665058513530a2df784d63e2de8eaae0ab73c2c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2253,6 +2253,8 @@ PRIVATE
+@@ -2411,6 +2411,8 @@ PRIVATE
      tele/tele_ghost.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h
@@ -31,7 +31,7 @@ index 57b36f52a2b3a4055f01500e86ff7467a2c46f19..da91aac3881016f590cebb61314c5d46
      tele/tele_lowercase.h
      tele/tele_menu_order.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 127bfdd98927f01f42e16e6e24b86ba59179fb6a..d2e6648810d8587ad929b002b7e14fcd3c7b5d9e 100644
+index cfbe288a0338962881a136618f93a1640b35daed..f856d174ce1a37241fe8226927758f8124f004b2 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -109,6 +109,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index 127bfdd98927f01f42e16e6e24b86ba59179fb6a..d2e6648810d8587ad929b002b7e14fcd
  #include "tele/tele_calcmula.h"
  #include "tele/tele_links.h"
  
-@@ -5069,6 +5070,9 @@ void ApiWrap::sendInlineResult(
+@@ -5139,6 +5140,9 @@ void ApiWrap::sendInlineResult(
  		Fn<void(bool)> done) {
  	StripEphemeralReply(_session, action.replyTo);
  	Tele::ApplyGhostSchedule(action);

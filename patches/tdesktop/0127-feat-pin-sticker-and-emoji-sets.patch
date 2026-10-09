@@ -20,10 +20,10 @@ Subject: [PATCH] feat: pin sticker and emoji sets
  create mode 100644 Telegram/SourceFiles/tele/tele_pin_sets.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2abff08d60ec7357721e2301514f288bc297d081..35b4219290419273cc6a10993d7c70c4d24fe39f 100644
+index e977d2885d7ddb700d6dcec088a5399d91a17149..d9f9b88697922e6fbd9062a5395aa3685ba1b14c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2343,6 +2343,8 @@ PRIVATE
+@@ -2501,6 +2501,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_phones.cpp
      tele/tele_phones.h
@@ -33,7 +33,7 @@ index 2abff08d60ec7357721e2301514f288bc297d081..35b4219290419273cc6a10993d7c70c4
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
 diff --git a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
-index 08e004a6d7356d82c548f8dfcfd7f819f1a22431..9a8781678fc29ca135c296470adc84f3c116b9ad 100644
+index 1154b9d08ce38d719261690ea4f78b6aa2140006..ebf32882e1123ba400f8f50b6742cb81a12ee2a7 100644
 --- a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
 @@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -83,7 +83,7 @@ index 9ff963c8cb94ab26d303543d400c9a1f8b8f7d80..d882b336dd669195565b05c0b8907be9
  	return InnerFooter::eventHook(e);
  }
 diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
-index b6b7334d622ae53dfbb1ad36408e2ec8d3d91580..f30b2fdfe1e01f56676121a771d2e36c2722b1f1 100644
+index 77e42a05e2616c6906ec664da97adc6352242a06..70f8b5511424f3753090c6817a3aace309a4ed6b 100644
 --- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 @@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -94,7 +94,7 @@ index b6b7334d622ae53dfbb1ad36408e2ec8d3d91580..f30b2fdfe1e01f56676121a771d2e36c
  #include "tele/tele_view_tl.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_window.h"
-@@ -3126,7 +3127,9 @@ void StickersListWidget::refreshMySets() {
+@@ -3217,7 +3218,9 @@ void StickersListWidget::refreshMySets() {
  	refreshRecentStickers(false);
  	refreshMegagroupStickers(GroupStickersPlace::Visible);
  
@@ -106,7 +106,7 @@ index b6b7334d622ae53dfbb1ad36408e2ec8d3d91580..f30b2fdfe1e01f56676121a771d2e36c
  		appendSet(_mySets, setId, externalLayout, AppendSkip::Archived);
  	}
 diff --git a/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp b/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp
-index 65fc07c80b80b2ee8a8a737eb00c1bca1b5506de..2e98bae86486e25baf2c4117b857befe6357b3b1 100644
+index 619bea346ec2e69e112a4c5c1bef9e908b01c0d7..4baf638ee4bea1d1088fc816180818a293f1693a 100644
 --- a/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/tabbed_selector.cpp
 @@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -117,7 +117,7 @@ index 65fc07c80b80b2ee8a8a737eb00c1bca1b5506de..2e98bae86486e25baf2c4117b857befe
  #include "styles/style_chat_helpers.h"
  
  namespace ChatHelpers {
-@@ -1024,7 +1025,8 @@ bool TabbedSelector::preventAutoHide() const {
+@@ -1035,7 +1036,8 @@ bool TabbedSelector::preventAutoHide() const {
  	return (hasStickersTab() && stickers()->preventAutoHide())
  		|| (hasMasksTab() && masks()->preventAutoHide())
  		|| (hasEmojiTab() && emoji()->preventAutoHide())

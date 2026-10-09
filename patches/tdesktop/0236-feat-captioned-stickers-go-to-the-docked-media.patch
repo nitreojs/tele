@@ -49,7 +49,7 @@ index aecec67cad869733a06dc38a8f4430bd17af8eaf..b3ee3ac2a95de064b4ecb8cf213e788c
  	// In case we're adding items after FillSendMenu we have
  	// to pass nullptr for showForEffect and attach selector later.
 diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
-index 0d582a53e1bd7e6e8e5bd8aca8c7b78648b670c0..67d558808730384f92afb57c79e98e9922bcb704 100644
+index 81615cd62586e15f4d7ebaafaf4554499bd36646..728a110f6000a214c25780f7d9a527ea12389c8a 100644
 --- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 @@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -60,7 +60,7 @@ index 0d582a53e1bd7e6e8e5bd8aca8c7b78648b670c0..67d558808730384f92afb57c79e98e99
  #include "tele/tele_view_tl.h"
  #include "tele/tele_past_limit.h"
  #include "tele/tele_sticker_captions.h"
-@@ -2671,7 +2672,13 @@ base::unique_qptr<Ui::PopupMenu> StickersListWidget::fillContextMenu(
+@@ -2751,7 +2752,13 @@ base::unique_qptr<Ui::PopupMenu> StickersListWidget::fillContextMenu(
  	SendMenu::FillSendMenu(
  		menu,
  		nullptr, // showForEffect
@@ -76,7 +76,7 @@ index 0d582a53e1bd7e6e8e5bd8aca8c7b78648b670c0..67d558808730384f92afb57c79e98e99
  		icons);
  	Tele::AddStickerCaptionAction(
 diff --git a/Telegram/SourceFiles/chat_helpers/tabbed_selector.h b/Telegram/SourceFiles/chat_helpers/tabbed_selector.h
-index 91d286c6b4745931b1d65610b133194ea913fb1a..95c5608c76767ab6f863c85aa78063d0e682ec50 100644
+index 72187a56e26697f24e1da8617c657dfbd674a9b9..3c0a99b28d4ff82f2c93a4036859500f75b47efe 100644
 --- a/Telegram/SourceFiles/chat_helpers/tabbed_selector.h
 +++ b/Telegram/SourceFiles/chat_helpers/tabbed_selector.h
 @@ -66,6 +66,7 @@ struct FileChosen {
@@ -88,10 +88,10 @@ index 91d286c6b4745931b1d65610b133194ea913fb1a..95c5608c76767ab6f863c85aa78063d0
  
  struct PhotoChosen {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index c91ae6ae446ab834224c38b096f73ecd26921b6b..6aeb6a81fdb023060ad35bfdda70f28294cb05e8 100644
+index 6617cc8ba0f8dc9ab1d60aee9a8d8aa9ea727978..3091af8123381d83f1bdc5b56c2b3e800b8b27ec 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -606,6 +606,15 @@ HistoryWidget::HistoryWidget(
+@@ -619,6 +619,15 @@ HistoryWidget::HistoryWidget(
  					Api::SendOptions options) {
  				sendingFilesConfirmed(std::move(bundle), options);
  			},
@@ -107,7 +107,7 @@ index c91ae6ae446ab834224c38b096f73ecd26921b6b..6aeb6a81fdb023060ad35bfdda70f282
  			.sendMenuDetails = [=] { return sendMenuDetails(); },
  		});
  	_teleFieldResize = std::make_unique<Tele::FieldResize>(
-@@ -2618,7 +2627,13 @@ void HistoryWidget::fileChosen(ChatHelpers::FileChosen &&data) {
+@@ -2655,7 +2664,13 @@ void HistoryWidget::fileChosen(ChatHelpers::FileChosen &&data) {
  			Data::InsertCustomEmoji(_field.data(), data.document);
  		}
  	} else if (_history) {
@@ -123,10 +123,10 @@ index c91ae6ae446ab834224c38b096f73ecd26921b6b..6aeb6a81fdb023060ad35bfdda70f282
  			const auto from = data.messageSendingFrom;
  			Ui::SendGifWithCaption(
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 1cd9503119989668809e3796f1a9d5d0efaef3ad..248f82fc032c3d297bd239685d089486b099b590 100644
+index 40dd5df0f028efddca7c98f21051988013b15e70..f41007363e8c21b43834d8309bab3c9c8cf1408a 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -1639,6 +1639,16 @@ void ComposeControls::setupTeleDocked() {
+@@ -1643,6 +1643,16 @@ void ComposeControls::setupTeleDocked() {
  					_sendAsFileConfirmed(std::move(bundle), options);
  				}
  			},
@@ -143,7 +143,7 @@ index 1cd9503119989668809e3796f1a9d5d0efaef3ad..248f82fc032c3d297bd239685d089486
  			.sendMenuDetails = [=] { return sendMenuDetails(); },
  			.scheduled = (_mode == Mode::Scheduled),
  		});
-@@ -4063,6 +4073,12 @@ void ComposeControls::initTabbedSelector() {
+@@ -4193,6 +4203,12 @@ void ComposeControls::initTabbedSelector() {
  				Data::InsertCustomEmoji(_field, data.document);
  			}
  		} else if (data.needsCaption && _history) {

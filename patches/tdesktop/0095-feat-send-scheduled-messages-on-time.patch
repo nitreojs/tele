@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send scheduled messages on time
  create mode 100644 Telegram/SourceFiles/tele/tele_punctual_scheduled.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index eb5aacbba2bf5ae94e8e0343281cb9a4c9b82b74..1385a7b756e98f29a87ae1a9fbe4df5e435aa90a 100644
+index 0ef518b9a1723e62d081bbd9476d13bfbf4aeea9..52399f86ead588e23b8a7807db606e1b356bba48 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2313,6 +2313,8 @@ PRIVATE
+@@ -2471,6 +2471,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_phones.cpp
      tele/tele_phones.h
@@ -58,10 +58,10 @@ index 90d5b04151157a81a4cfcbe41baf0634926e6aba..ebae6c7d564b23f76296d6b997c13952
  	[[nodiscard]] Data::MessagesSlice list(
  		not_null<const Data::ForumTopic*> topic) const;
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index 25324f07df670e6875683819d943407742d079ad..5196d850a2bd6bd5c648b46bff0b451446a7e416 100644
+index 2b9d58946e87458dfef61a2afbe255b0611a7cf1..84256285e743db37b05ea3c1cf2a9e08732464ac 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -60,6 +60,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -62,6 +62,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/application.h"
  #include "ui/text/text_utilities.h"
  #include "ui/layers/generic_box.h"
@@ -69,7 +69,7 @@ index 25324f07df670e6875683819d943407742d079ad..5196d850a2bd6bd5c648b46bff0b4514
  #include "styles/style_layers.h"
  
  #ifndef TDESKTOP_DISABLE_SPELLCHECK
-@@ -272,6 +273,8 @@ Session::Session(
+@@ -276,6 +277,8 @@ Session::Session(
  	) | rpl::on_next([=] {
  		appConfigRefreshed();
  	}, _lifetime);

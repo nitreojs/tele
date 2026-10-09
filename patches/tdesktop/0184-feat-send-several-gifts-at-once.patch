@@ -17,10 +17,10 @@ Subject: [PATCH] feat: send several gifts at once
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_quantity.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index fa741efb859c65faf714ffe4154855e23d55994c..1f856a4c2ffc1c066dbb550c9b59f0544f8f28ba 100644
+index 312831bc57f75757ff310980712adb16bc2bf997..2d6bfbf4a7c0bf334a6d9ff24cc975d4bde31eb5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2313,6 +2313,8 @@ PRIVATE
+@@ -2471,6 +2471,8 @@ PRIVATE
      tele/tele_full_preview.h
      tele/tele_gif_video.cpp
      tele/tele_gif_video.h
@@ -30,7 +30,7 @@ index fa741efb859c65faf714ffe4154855e23d55994c..1f856a4c2ffc1c066dbb550c9b59f054
      tele/tele_gifts.h
      tele/tele_ghost.cpp
 diff --git a/Telegram/SourceFiles/boxes/star_gift_box.cpp b/Telegram/SourceFiles/boxes/star_gift_box.cpp
-index d2931ec42a70b9e3795073664d58a5358345665b..673e7c0e31dfbd2db41d8694fcff438ec6f213db 100644
+index 5571da6ac9bded31345b4f41ca6ce2a6f7cb8353..216f180e36ebbadf8ab8b84e1389c42a41ded89d 100644
 --- a/Telegram/SourceFiles/boxes/star_gift_box.cpp
 +++ b/Telegram/SourceFiles/boxes/star_gift_box.cpp
 @@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,7 +41,7 @@ index d2931ec42a70b9e3795073664d58a5358345665b..673e7c0e31dfbd2db41d8694fcff438e
  #include "ui/boxes/about_cocoon_box.h" // Ui::AddUniqueCloseButton
  #include "ui/boxes/boost_box.h"
  #include "ui/boxes/confirm_box.h"
-@@ -5083,6 +5084,11 @@ void SendGiftBox(
+@@ -5104,6 +5105,11 @@ void SendGiftBox(
  	box->setFocusCallback([=] {
  		text->setFocusFast();
  	});
@@ -53,7 +53,7 @@ index d2931ec42a70b9e3795073664d58a5358345665b..673e7c0e31dfbd2db41d8694fcff438e
  	if (stars) {
  		if (costToUpgrade > 0 && !peer->isSelf() && !disallowLimited && !disallowUnique) {
  			const auto stargiftInfo = stars->info;
-@@ -5214,6 +5220,11 @@ void SendGiftBox(
+@@ -5235,6 +5241,11 @@ void SendGiftBox(
  			}, box->lifetime());
  			return;
  		}
@@ -65,7 +65,7 @@ index d2931ec42a70b9e3795073664d58a5358345665b..673e7c0e31dfbd2db41d8694fcff438e
  		const auto copy = state->media; // Let media outlive the box.
  		const auto weak = base::make_weak(box);
  		const auto weakWindow = base::make_weak(window);
-@@ -5286,12 +5297,11 @@ void SendGiftBox(
+@@ -5307,12 +5318,11 @@ void SendGiftBox(
  	} else {
  		SetButtonMarkedLabel(
  			button,

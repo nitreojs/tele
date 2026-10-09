@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide message previews in the chat list
  create mode 100644 Telegram/SourceFiles/tele/tele_list_previews.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3e85d66c880ff9803cbe9220a5e0825c1e856304..0cc2d58501bdcf6fd3dbad38815231fedbf8341e 100644
+index 5fec4e262364df3c369a7e02e17e4340b9938de9..4ab4efdeaa6ed2d382ee3abe7973cd8323f6c1da 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2335,6 +2335,8 @@ PRIVATE
+@@ -2493,6 +2493,8 @@ PRIVATE
      tele/tele_launch_flags.h
      tele/tele_links.cpp
      tele/tele_links.h
@@ -56,7 +56,7 @@ index 9d82f1b204fb5a92bc040d8cb897916b9c65c2e0..6787a564f126c0bd0e6775a69f537c9d
  	} else if (&base == &st::forumDialogRow) {
  		return st::communityInfoForumDialogRow;
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1dba8b1d713 100644
+index ed307f72e8c16cd68af64df1802cd7f66e6a66f8..63d1e773b1363b1e7d3d4cf1d18ab7bc87c49290 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 @@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -98,7 +98,7 @@ index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1db
  	::Tele::CornerButtonsHiddenChanges(
  	) | rpl::on_next([=] {
  		update();
-@@ -1107,6 +1123,10 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
+@@ -1131,6 +1147,10 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
  		}
  
  		context.st = (forum || monoforum) ? &st::forumDialogRow : _st.get();
@@ -109,7 +109,7 @@ index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1db
  
  		const auto videoUserpic = validateVideoUserpic(row);
  		const auto cacheRatio = style::DevicePixelRatio();
-@@ -1143,7 +1163,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
+@@ -1167,7 +1187,7 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
  		}
  
  		auto chatsFilterTags = std::vector<QImage*>();
@@ -118,7 +118,7 @@ index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1db
  			context.chatsFilterTags = nullptr;
  		} else if (row->entry()->hasChatsFilterTags(context.filter)) {
  			const auto a = active;
-@@ -2983,7 +3003,7 @@ bool InnerWidget::pinnedShiftAnimationCallback(crl::time now) {
+@@ -3010,7 +3030,7 @@ bool InnerWidget::pinnedShiftAnimationCallback(crl::time now) {
  		if (updateMax < _draggingIndex) updateMax = _draggingIndex;
  	}
  	if (updateMin >= 0) {
@@ -127,7 +127,7 @@ index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1db
  		const auto maxHeight = st::taggedForumDialogRow.height;
  		auto top = pinnedOffset();
  		auto updateFrom = top + minHeight * (updateMin - 1);
-@@ -5850,7 +5870,7 @@ ChosenRow InnerWidget::computeChosenRow() const {
+@@ -5929,7 +5949,7 @@ ChosenRow InnerWidget::computeChosenRow() const {
  
  bool InnerWidget::isUserpicPress() const {
  	return (_lastRowLocalMouseX >= 0)
@@ -136,7 +136,7 @@ index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1db
  		&& (_collapsedSelected < 0
  			|| _collapsedSelected >= _collapsedRows.size());
  }
-@@ -6177,7 +6197,7 @@ void InnerWidget::repaintDialogRowCornerStatus(not_null<History*> history) {
+@@ -6268,7 +6288,7 @@ void InnerWidget::repaintDialogRowCornerStatus(not_null<History*> history) {
  		RowDescriptor(
  			history,
  			FullMsgId()),
@@ -146,7 +146,7 @@ index 495aaa9ee1df96d70c9afb93be9c47020eb867cb..b0557c938db557fa83fa3043614da1db
  }
  
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_row.cpp b/Telegram/SourceFiles/dialogs/dialogs_row.cpp
-index 2e461bf5eb1ce2d200d5e69850e513d0b598d0d2..2e26ca0af932a0de5130896defb142d58cd28cf3 100644
+index f4d5a3aef19dfb1cb54ad7aff74d89b94b553f11..e74f8e7073254fdaf4ba8c150c5237eec76ac2f4 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_row.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_row.cpp
 @@ -36,6 +36,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -182,7 +182,7 @@ index 2e461bf5eb1ce2d200d5e69850e513d0b598d0d2..2e26ca0af932a0de5130896defb142d5
  	_height = ((&st == &st::defaultDialogRow) || !_id.history())
  		? st::defaultDialogRow.height
  		: anim::interpolate(
-@@ -882,7 +894,9 @@ void Row::paintUserpic(
+@@ -883,7 +895,9 @@ void Row::paintUserpic(
  
  bool Row::lookupIsInTopicJump(int x, int y) const {
  	const auto history = this->history();
@@ -192,7 +192,7 @@ index 2e461bf5eb1ce2d200d5e69850e513d0b598d0d2..2e26ca0af932a0de5130896defb142d5
 +		&& history->lastItemDialogsView().isInTopicJump(x, y);
  }
  
- void Row::stopLastRipple() {
+ bool Row::lookupIsInCommunityBadge(
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 index db65954c7f5f6a387625d5ecbbaf570818fb8ba5..9297ab44ca68bdccb507945d0e204ff04ff88eab 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp

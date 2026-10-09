@@ -13,10 +13,10 @@ Subject: [PATCH] feat: calcmula suggestions and sending without calculating
  6 files changed, 480 insertions(+), 139 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 5b94ad477162a0b06c698daa79fb2abfb661f0f8..1b16c79cfefd46b31297503a1e710ef13e927a02 100644
+index 8e50ca4fb46c6393dee3e3a8e0e28b4b5238a009..0a014c5a0fac1853d9b7b3c053a22966261be903 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -6107,6 +6107,7 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
+@@ -6280,6 +6280,7 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
  	auto result = sendButtonDefaultDetails();
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  	Tele::ComposeDockedMenu(_teleDocked.get(), result);
@@ -25,10 +25,10 @@ index 5b94ad477162a0b06c698daa79fb2abfb661f0f8..1b16c79cfefd46b31297503a1e710ef1
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index b96fa364526d91f330e6ec06af888cf7c3fa19f3..85bc86db06b0042717d03781915fd9622bce3d80 100644
+index 5a2330ff0b91b57d6ea125b0f732f273c0f7eaa7..574893172ee871dc39bbc124beeeb002b75a4f34 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -4951,6 +4951,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5082,6 +5082,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  	}
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  	Tele::ComposeDockedMenu(_teleDocked.get(), result);

@@ -12,10 +12,10 @@ Subject: [PATCH] feat: open links without confirmation
  5 files changed, 22 insertions(+), 2 deletions(-)
 
 diff --git a/Telegram/SourceFiles/core/click_handler_types.cpp b/Telegram/SourceFiles/core/click_handler_types.cpp
-index 162971ff04271ec7edc84be3802f25d05b6a3db6..45720cc88d3dee176a41390d7c92b7ce6340edd5 100644
+index ec7481a922efc2494d9cf369b99ec1448ab9e2ed..3d5f2693649f4feaa85837abc547e988e8f00f63 100644
 --- a/Telegram/SourceFiles/core/click_handler_types.cpp
 +++ b/Telegram/SourceFiles/core/click_handler_types.cpp
-@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_session.h"
  #include "window/window_controller.h"
  #include "window/window_session_controller.h"
@@ -23,7 +23,7 @@ index 162971ff04271ec7edc84be3802f25d05b6a3db6..45720cc88d3dee176a41390d7c92b7ce
  #include "window/window_session_controller_link_info.h"
  #include "apiwrap.h"
  #include "history/view/history_view_schedule_box.h"
-@@ -290,7 +291,8 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
+@@ -433,7 +434,8 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
  		auto openContext = context;
  		const auto forceConfirmation = my.forceExternalUrlConfirmation
  			&& my.ignoreIv;
@@ -34,7 +34,7 @@ index 162971ff04271ec7edc84be3802f25d05b6a3db6..45720cc88d3dee176a41390d7c92b7ce
  			my.forceExternalUrlConfirmation = false;
  			openContext = QVariant::fromValue(my);
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_poll.cpp b/Telegram/SourceFiles/history/view/media/history_view_poll.cpp
-index 8af35b1f3b3e8462a7c3e3602de46972189daf3b..ef294ff6a271456d1f36d05affc81a8010059fdd 100644
+index ad4db68745915005b192a8d8cb5db8eeb6798401..afec6c28b1f8c1ce8e5cc9549d4e1e331d74b2d2 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_poll.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_poll.cpp
 @@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

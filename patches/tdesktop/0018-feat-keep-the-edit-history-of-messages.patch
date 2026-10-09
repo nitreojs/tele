@@ -18,10 +18,10 @@ Subject: [PATCH] feat: keep the edit history of messages
  create mode 100644 Telegram/SourceFiles/tele/tele_edit_history.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 95ef96e82383309f15a50088fee04aec53573bfa..7ab552386605738f3c82dab107983fb87d8fd647 100644
+index 7ac06bf74ac10159b9857de91c69918b5cb3fb05..91bd953c318102a783d564ec079773fd9555ffa5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2223,6 +2223,8 @@ PRIVATE
+@@ -2381,6 +2381,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -31,7 +31,7 @@ index 95ef96e82383309f15a50088fee04aec53573bfa..7ab552386605738f3c82dab107983fb8
      tele/tele_gifts.h
      tele/tele_ignored.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index e437058654c61daad5c0a49d7454a8dfc390482f..e39cf5fd94b428edb2857a32bc837c2897a34d57 100644
+index 298c6f0170e3d53389d1d29c0c8a22418376f139..e78a3ce3db1e3b1385c989299b5a6fed7ac75941 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index e437058654c61daad5c0a49d7454a8dfc390482f..e39cf5fd94b428edb2857a32bc837c28
  #include "tele/tele_ignored.h"
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
-@@ -3029,6 +3030,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3035,6 +3036,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				}
  			}, &st::menuIconEdit);
  		}
@@ -54,18 +54,18 @@ index e437058654c61daad5c0a49d7454a8dfc390482f..e39cf5fd94b428edb2857a32bc837c28
  			const auto text = item->factcheckText();
  			const auto phrase = text.empty()
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index 60c1cca41fa4a83bfeb75978ef24b94cb66aa653..71618c0c91edcea331a4c836528ef10f1382b8eb 100644
+index ae73cb53183601f7f93d6afc83bdf3175a7df922..66678f68e6ba8758173e7b59923a5470aad13a26 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
-@@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "payments/payments_non_panel_process.h" // ProcessNonPanelPaymentFormFactory.
  #include "platform/platform_notifications_manager.h"
  #include "spellcheck/spellcheck_highlight_syntax.h"
 +#include "tele/tele_edit_history.h"
- #include "styles/style_dialogs.h"
  
- namespace {
-@@ -2344,6 +2345,7 @@ void HistoryItem::clearMainView() {
+ #include "styles/style_chat.h"
+ #include "styles/style_credits.h"
+@@ -2396,6 +2397,7 @@ void HistoryItem::clearMainView() {
  
  void HistoryItem::applyEdition(HistoryMessageEdition &&edition) {
  	history()->session().ephemeralMessages().revertAnchored(this);
@@ -74,7 +74,7 @@ index 60c1cca41fa4a83bfeb75978ef24b94cb66aa653..71618c0c91edcea331a4c836528ef10f
  	int keyboardTop = -1;
  	//if (!pendingResize()) {// #TODO edit bot message
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index c00d49c6bfe78762f640779a5d26bcbda71ae72b..fb44404ad53d22a3c151b23c6dfda83c77094bb5 100644
+index 3e25a139975b152dafb5078cf115a896f0bd29c5..7457b160b322734aa65c8d43800bc65893304bcd 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

@@ -14,10 +14,10 @@ Subject: [PATCH] feat: hide the gift button in the message field
  7 files changed, 41 insertions(+)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 6954465f465a018a193fc30260013743e3e31e16..9e923792588890e15ea30b4b32c50b84554a60cb 100644
+index fde193db45382a4ff0a40d007de773f0b1337364..40b5a382e03ec1361e8a74e90399bd081e6ac19f 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -179,6 +179,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -182,6 +182,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_inline_text.h"
  #include "tele/tele_send_order.h"
  #include "tele/tele_username_aliases.h"
@@ -25,7 +25,7 @@ index 6954465f465a018a193fc30260013743e3e31e16..9e923792588890e15ea30b4b32c50b84
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -471,6 +472,12 @@ HistoryWidget::HistoryWidget(
+@@ -474,6 +475,12 @@ HistoryWidget::HistoryWidget(
  	_muteUnmute->addClickHandler([=] { toggleMuteUnmute(); });
  	setupGiftToChannelButton();
  	setupDirectMessageButton();
@@ -38,7 +38,7 @@ index 6954465f465a018a193fc30260013743e3e31e16..9e923792588890e15ea30b4b32c50b84
  	_reportMessages->addClickHandler([=] { reportSelectedMessages(); });
  	_field->submits(
  	) | rpl::on_next([=](Qt::KeyboardModifiers modifiers) {
-@@ -1347,6 +1354,7 @@ void HistoryWidget::refreshGiftToChannelShown() {
+@@ -1361,6 +1368,7 @@ void HistoryWidget::refreshGiftToChannelShown() {
  	const auto channel = _peer->asChannel();
  	_giftToChannel->setVisible(channel
  		&& channel->isBroadcast()
@@ -46,7 +46,7 @@ index 6954465f465a018a193fc30260013743e3e31e16..9e923792588890e15ea30b4b32c50b84
  		&& channel->stargiftsAvailable());
  }
  
-@@ -4002,6 +4010,7 @@ void HistoryWidget::refreshSendGiftToggle() {
+@@ -4172,6 +4180,7 @@ void HistoryWidget::refreshSendGiftToggle() {
  		| Type::Unique;
  	const auto has = user
  		&& _canSendMessages
@@ -85,10 +85,10 @@ index c34d06a26eab9dea343c040ad0d93dbfa73a1a1e..a56a4d5d45cce63fb44d2f08dd4595b4
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index e9002c3189ba643e32878bbe0752747f5ac9a91a..63ecd073045444fb8caffec6708a5d6af0451fc5 100644
+index 84fae7258d87c3ad4f231bc158cb7bda7ea1d088..2c7e23f46b16cfef7ea882e63b61caeebc20e547 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_inline_text.h"
  #include "tele/tele_send_order.h"
  #include "tele/tele_username_aliases.h"
@@ -96,7 +96,7 @@ index e9002c3189ba643e32878bbe0752747f5ac9a91a..63ecd073045444fb8caffec6708a5d6a
  #include "support/support_helper.h"
  #include "ui/item_text_options.h"
  #include "ui/text/text_options.h"
-@@ -2817,6 +2818,9 @@ void ComposeControls::init() {
+@@ -2941,6 +2942,9 @@ void ComposeControls::init() {
  		initEditStarsButton();
  		updateControlsGeometry(_wrap->size());
  	}, _wrap->lifetime());
@@ -106,7 +106,7 @@ index e9002c3189ba643e32878bbe0752747f5ac9a91a..63ecd073045444fb8caffec6708a5d6a
  
  	_hidden.changes(
  	) | rpl::on_next([=] {
-@@ -5661,6 +5665,7 @@ void ComposeControls::refreshSendGiftToggle() {
+@@ -5792,6 +5796,7 @@ void ComposeControls::refreshSendGiftToggle() {
  	const auto has = _regularWindow
  		&& user
  		&& !_writeRestriction.current()

@@ -21,10 +21,10 @@ Subject: [PATCH] feat: set or remove chat backgrounds only for you
  create mode 100644 Telegram/SourceFiles/tele/tele_chat_backgrounds.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index da91aac3881016f590cebb61314c5d46651afe0a..a071398d6f75a30ff8ed1ac9c5009d0b967d20d4 100644
+index 1665058513530a2df784d63e2de8eaae0ab73c2c..35a351b3e4cd60d9a8b66e810fad3affdb06e8fc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2233,6 +2233,8 @@ PRIVATE
+@@ -2391,6 +2391,8 @@ PRIVATE
      tele/tele_calls.h
      tele/tele_changelog.cpp
      tele/tele_changelog.h
@@ -990,10 +990,10 @@ index 1c11463f2104cfffed4938c7bec6af73cad633cf..fd6e51304ca06455dc7281a125b743b4
  	) | rpl::map([=](
  			std::shared_ptr<Ui::ChatTheme> &&cloud,
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 5c068d1f0ad3d087ac8bf9357366f0ba58dd041e..57b7d92dc22469e2f22e5739cbc8f57f4c33b258 100644
+index 0760d851968c8d5a28e3bc1f42b305d09e2a4846..8fb5596adf4b972a081e5af953231568e3635132 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/peers/edit_peer_info_box.h"
  #include "boxes/peers/manage_community_box.h"
  #include "boxes/premium_preview_box.h"
@@ -1001,7 +1001,7 @@ index 5c068d1f0ad3d087ac8bf9357366f0ba58dd041e..57b7d92dc22469e2f22e5739cbc8f57f
  #include "tele/tele_deleted_section.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_ignored.h"
-@@ -1938,6 +1939,7 @@ void Filler::fillHistoryActions() {
+@@ -1953,6 +1954,7 @@ void Filler::fillHistoryActions() {
  	addCreatePoll();
  	addCreateTodoList();
  	addThemeEdit();
@@ -1009,7 +1009,7 @@ index 5c068d1f0ad3d087ac8bf9357366f0ba58dd041e..57b7d92dc22469e2f22e5739cbc8f57f
  	addToggleNoForwards();
  	addViewDiscussion();
  	addDirectMessages();
-@@ -1984,6 +1986,7 @@ void Filler::fillRepliesActions() {
+@@ -2000,6 +2002,7 @@ void Filler::fillRepliesActions() {
  		addInfo();
  		Tele::AddJumpToFirstAction(_controller, _topic, _addAction);
  		addManageTopic();

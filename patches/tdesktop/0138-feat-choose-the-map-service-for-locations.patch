@@ -19,10 +19,10 @@ Subject: [PATCH] feat: choose the map service for locations
  create mode 100644 Telegram/SourceFiles/tele/tele_maps.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ee480103eff52f3566ccd11a4f0b3810fc2cc206..f15c52fddc0a053aa92c29db5feaeb0fcae86d86 100644
+index 518f1fe1804b8cfcea8c0a7f3ec30d8ef560fe51..2c7a243cb281f936583fce826e10c128478e458b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2315,6 +2315,8 @@ PRIVATE
+@@ -2473,6 +2473,8 @@ PRIVATE
      tele/tele_local_pins.h
      tele/tele_lowercase.cpp
      tele/tele_lowercase.h
@@ -53,7 +53,7 @@ index 6cf1ecfdddf23245189d7261eeeb36baba294f7d..aaedfe1c71d716f3494ac1c7c39437ad
  	});
  }
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_location.cpp b/Telegram/SourceFiles/history/view/media/history_view_location.cpp
-index 7f6b5e554c3636124f1f1f6e6b041e81ac52b43f..2391e2f48cffd3b2654db688638e410e9fd5f61b 100644
+index 88d7ccaf3542065c1eb575bd260731a0abf5dfe9..d458146c9db144133ed3772a620ea7b4a1adcecd 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_location.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_location.cpp
 @@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

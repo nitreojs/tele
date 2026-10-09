@@ -20,10 +20,10 @@ Subject: [PATCH] feat: server notices
  create mode 100644 Telegram/SourceFiles/tele/tele_server_notices.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 6e045488f387908081014fff2d819bffaa3b09e7..edb99782efee6ff02437b8358b5448a5d3006327 100644
+index 7ffbbc74047d512825837004102b956e95a9e66d..2ff5baa939671beb51078f17ff6e224ab3d3a0e4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2478,6 +2478,8 @@ PRIVATE
+@@ -2636,6 +2636,8 @@ PRIVATE
      tele/tele_send_files.h
      tele/tele_send_order.cpp
      tele/tele_send_order.h

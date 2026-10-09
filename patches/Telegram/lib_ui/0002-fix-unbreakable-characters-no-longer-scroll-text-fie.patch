@@ -9,10 +9,10 @@ Subject: [PATCH] fix: unbreakable characters no longer scroll text fields
  1 file changed, 9 insertions(+)
 
 diff --git a/ui/widgets/fields/input_field.cpp b/ui/widgets/fields/input_field.cpp
-index e41f8df43d0a814a713d531b4c122d44c3a252d0..fd9b59faba039d1f4473a99cfc2c5b5714ac6939 100644
+index 878dccf59ce9e3c85cdc6b4ae1c82ba23baeeb16..308d948347024007662d4c454df796c2507b1f9a 100644
 --- a/ui/widgets/fields/input_field.cpp
 +++ b/ui/widgets/fields/input_field.cpp
-@@ -2022,6 +2022,15 @@ InputField::InputField(
+@@ -2023,6 +2023,15 @@ InputField::InputField(
  	connect(bar, &QScrollBar::valueChanged, [=] {
  		_scrollTop = bar->value();
  	});

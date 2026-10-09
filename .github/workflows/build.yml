@@ -72,8 +72,8 @@ jobs:
           NUMBER: ${{ inputs.number }}
         run: |
           upstream=$(tr -d '[:space:]' < UPSTREAM)
-          base="$upstream-tele"
-          pattern="^${base//./\\.}\.\([0-9][0-9]*\)$"
+          # numbers go on across upstream bumps: the app compares build numbers (what's new, its history)
+          pattern="^v[0-9.]*-tele\.\([0-9][0-9]*\)$"
           last=$( {
             gh release list --limit 1000 --json tagName --jq '.[].tagName'
             git ls-remote --tags "$GITHUB_SERVER_URL/$GH_REPO.git" | sed -n 's|^[0-9a-f]*\trefs/tags/||p'

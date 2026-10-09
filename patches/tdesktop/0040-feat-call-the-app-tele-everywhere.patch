@@ -22,10 +22,10 @@ Subject: [PATCH] feat: call the app tele everywhere
  create mode 100644 Telegram/SourceFiles/tele/tele_app_name.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b4838b0f71772bfe0697a6c78c61532d6a558b1d..9b588eddb7848ff277f044942a5b225435a6b87d 100644
+index f91d6cd4d8e44fe0fd9ec3ac738983c2ba894ec9..2cd1fb2eb56da3051a828777017dcfe31ebad9cb 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2215,6 +2215,8 @@ PRIVATE
+@@ -2373,6 +2373,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_account_badges.cpp
      tele/tele_account_badges.h
@@ -113,7 +113,7 @@ index 13bb6dbb47c6a4de4aef8551d8625a7d68d6b7b9..2c8f97b42226866491a654ee60538a31
  		updateControls();
  		return;
 diff --git a/Telegram/SourceFiles/core/external_control.cpp b/Telegram/SourceFiles/core/external_control.cpp
-index 4f58f7efee59d34d401a23183b93a746ee238232..ed8e5e3df7e2b207aa90f699ac4eba1c03d3fbcf 100644
+index 43327bc03c528b65b41ce72add5e7cca584ea371..3f04dc7072a9302068cc7fe5d7c0e6b5daf495d0 100644
 --- a/Telegram/SourceFiles/core/external_control.cpp
 +++ b/Telegram/SourceFiles/core/external_control.cpp
 @@ -120,7 +120,7 @@ void RequestEnableAutomation() {
@@ -125,7 +125,7 @@ index 4f58f7efee59d34d401a23183b93a746ee238232..ed8e5e3df7e2b207aa90f699ac4eba1c
  			u"windows and activate them, change the proxy, the theme "
  			u"and lock the app.\n\nEnable local "
  			u"automation? While it is on, anything running under your "
-@@ -593,7 +593,7 @@ QByteArray HandleExternalControl(const QString &command) {
+@@ -594,7 +594,7 @@ QByteArray HandleExternalControl(const QString &command) {
  	} else if (!AutomationEnabled()) {
  		RequestEnableAutomation();
  		return Error(u"local automation is disabled — confirm in the "
@@ -135,10 +135,10 @@ index 4f58f7efee59d34d401a23183b93a746ee238232..ed8e5e3df7e2b207aa90f699ac4eba1c
  		Core::App().settings().writePref<bool>(kAutomationKey, false);
  		auto object = QJsonObject();
 diff --git a/Telegram/SourceFiles/export/output/export_output_html.cpp b/Telegram/SourceFiles/export/output/export_output_html.cpp
-index b06ad26e738866e1bd393847c7117afb89734c67..b6728cbcb55ff24d5aa2f96dc94f9e6664912eff 100644
+index a8a8a211d9d9d2da012e0c33bc0bc5b50999352a..a2d84004192274d59a012d7f2e76c4ca53dd0999 100644
 --- a/Telegram/SourceFiles/export/output/export_output_html.cpp
 +++ b/Telegram/SourceFiles/export/output/export_output_html.cpp
-@@ -3922,7 +3922,7 @@ auto HtmlWriter::Wrap::pushMessage(
+@@ -3930,7 +3930,7 @@ auto HtmlWriter::Wrap::pushMessage(
  			dialog,
  			basePath,
  			"This message is not supported by this version "
@@ -254,10 +254,10 @@ index bafcca0e65562f312708e0e9e20432d1a3372f2a..c6aa850aff3f96d5e6efa353e1aaeb79
  	buildEditMenu(_menuBar->addMenu(u"Edit"_q));
  	buildWindowMenu(_menuBar->addMenu(u"Window"_q));
 diff --git a/Telegram/SourceFiles/platform/mac/specific_mac.mm b/Telegram/SourceFiles/platform/mac/specific_mac.mm
-index d5643d100aaef8dcc770213bf5dab438f1e75d98..856f45c5c92068671c6abe5e3af121fe9d8be7ec 100644
+index bcdc2585f38b769d68727b429f93ac1ec9ab428f..fe305cc9ea6476fe93390fb19b9a22d2c1948bc6 100644
 --- a/Telegram/SourceFiles/platform/mac/specific_mac.mm
 +++ b/Telegram/SourceFiles/platform/mac/specific_mac.mm
-@@ -246,8 +246,8 @@ void ShowTranslocationError() {
+@@ -247,8 +247,8 @@ void ShowTranslocationError() {
  
  	NSAlert *alert = [[NSAlert alloc] init];
  	alert.alertStyle = NSAlertStyleCritical;
@@ -269,7 +269,7 @@ index d5643d100aaef8dcc770213bf5dab438f1e75d98..856f45c5c92068671c6abe5e3af121fe
  		@"can't use its own folder. Please reinstall the app and launch it "
  		@"again.";
 diff --git a/Telegram/SourceFiles/platform/mac/window_title_mac.mm b/Telegram/SourceFiles/platform/mac/window_title_mac.mm
-index 9463122806ead32f6b489e15476c5c57cd14661e..83a1e28c6f7bd88dad077be044149ca8f8849974 100644
+index 5453e5431a2a382cc1d1a2670bb3a8f280fd7f4f..f35a6cbf37ab1280e9f324625bc9e0eabece5575 100644
 --- a/Telegram/SourceFiles/platform/mac/window_title_mac.mm
 +++ b/Telegram/SourceFiles/platform/mac/window_title_mac.mm
 @@ -79,7 +79,7 @@ void PreviewWindowTitle(Painter &p, const style::palette &palette, QRect body, i
@@ -282,10 +282,10 @@ index 9463122806ead32f6b489e15476c5c57cd14661e..83a1e28c6f7bd88dad077be044149ca8
  	auto isGraphite = ([NSColor currentControlTint] == NSGraphiteControlTint);
  	auto buttonSkip = 8;
 diff --git a/Telegram/SourceFiles/platform/win/specific_win.cpp b/Telegram/SourceFiles/platform/win/specific_win.cpp
-index cbb58ea15738f6a714ccf44273f4d177e6925981..62fabaf048aa9443749ae214ee2c3c8de3dac4d7 100644
+index ba7f267b6d8c1c0f600d82d9a9226bfbc323da42..3ba85430d3b170009cfe6d68ea739b61ccbed7af 100644
 --- a/Telegram/SourceFiles/platform/win/specific_win.cpp
 +++ b/Telegram/SourceFiles/platform/win/specific_win.cpp
-@@ -482,8 +482,8 @@ void AutostartToggle(bool enabled, Fn<void(bool)> done) {
+@@ -483,8 +483,8 @@ void AutostartToggle(bool enabled, Fn<void(bool)> done) {
  		silent,
  		FOLDERID_Startup,
  		L"-autostart",
@@ -296,7 +296,7 @@ index cbb58ea15738f6a714ccf44273f4d177e6925981..62fabaf048aa9443749ae214ee2c3c8d
  	if (done) {
  		done(enabled && success);
  	}
-@@ -750,8 +750,8 @@ void psSendToMenu(bool send, bool silent) {
+@@ -798,8 +798,8 @@ void psSendToMenu(bool send, bool silent) {
  		silent,
  		FOLDERID_SendTo,
  		L"--",

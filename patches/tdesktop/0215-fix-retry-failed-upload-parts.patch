@@ -13,10 +13,10 @@ Subject: [PATCH] fix: retry failed upload parts
  create mode 100644 Telegram/SourceFiles/tele/tele_upload_retry.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1e65f0bd9837135557aae51fb7238d81d2eec903..d53adf299eb24a26f522d77422a6313529afefdc 100644
+index 1018efaf5095dc6eb18df722baec4afa93952416..9326664f0add1619c400eb1300c18a68817f63a5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2530,6 +2530,8 @@ PRIVATE
+@@ -2688,6 +2688,8 @@ PRIVATE
      tele/tele_unsorted_folder.h
      tele/tele_updater.cpp
      tele/tele_updater.h
@@ -26,7 +26,7 @@ index 1e65f0bd9837135557aae51fb7238d81d2eec903..d53adf299eb24a26f522d77422a63135
      tele/tele_username_aliases.cpp
      tele/tele_username_aliases.h
 diff --git a/Telegram/SourceFiles/storage/file_upload.cpp b/Telegram/SourceFiles/storage/file_upload.cpp
-index 271983b810001438b7cd93653fb331ad7ec11043..366159a69bf52f365fc62c91fcd5df47105d571e 100644
+index b157815de096189c9d57c28aae32719a191c73ab..2087364bccd6ba07e5825089fc6f1e18118d16a1 100644
 --- a/Telegram/SourceFiles/storage/file_upload.cpp
 +++ b/Telegram/SourceFiles/storage/file_upload.cpp
 @@ -31,7 +31,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -47,7 +47,7 @@ index 271983b810001438b7cd93653fb331ad7ec11043..366159a69bf52f365fc62c91fcd5df47
  };
  
  Uploader::Entry::Entry(
-@@ -863,6 +866,7 @@ auto Uploader::sendSlicedPart(not_null<Entry*> entry, uchar dcIndex)
+@@ -868,6 +871,7 @@ auto Uploader::sendSlicedPart(not_null<Entry*> entry, uchar dcIndex)
  	), {
  		.itemId = itemId,
  		.bytes = partBytes,
@@ -55,7 +55,7 @@ index 271983b810001438b7cd93653fb331ad7ec11043..366159a69bf52f365fc62c91fcd5df47
  		.dcIndex = dcIndex,
  	});
  	return SendResult::Success;
-@@ -1225,8 +1229,38 @@ void Uploader::finishFront() {
+@@ -1230,8 +1234,38 @@ void Uploader::finishFront() {
  }
  
  void Uploader::partFailed(const MTP::Error &error, mtpRequestId requestId) {

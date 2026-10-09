@@ -17,10 +17,10 @@ Subject: [PATCH] feat: smaller minimum window size
  create mode 100644 Telegram/SourceFiles/tele/tele_window_size.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 87862636aaa9391e6dd63032b5ee060e23c6565c..bc2a3189ce686d0483fc972ee5adbbf3cdb87fc5 100644
+index cba821f9db368c9666b2a264ba10b14d3b08e8ab..5bde1271dca4b3105c3fc9f8b941f1388d164b2b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2591,6 +2591,8 @@ PRIVATE
+@@ -2749,6 +2749,8 @@ PRIVATE
      tele/tele_who_reacted.h
      tele/tele_who_read.cpp
      tele/tele_who_read.h
@@ -163,10 +163,10 @@ index 0000000000000000000000000000000000000000..43bb40079cd077f011ca6ecf75df577d
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index 8a276e697ef1b7695575c12cab4b5a7d38a54dc9..4a5d435e7905cb5457772d1bdc0933d750e91715 100644
+index c5f30d80b4ea8f131f5046474f7af4823ecae6ab..1e6a84f6ab9431a5dda95d3e91282b1bb23b3a7a 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
-@@ -47,7 +47,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -48,7 +48,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "mainwidget.h" // session->content()->windowShown().
  #include "tray.h"
  #include "tele/tele_app_icons.h"
@@ -176,7 +176,7 @@ index 8a276e697ef1b7695575c12cab4b5a7d38a54dc9..4a5d435e7905cb5457772d1bdc0933d7
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
  
-@@ -584,6 +586,10 @@ void MainWindow::init() {
+@@ -587,6 +589,10 @@ void MainWindow::init() {
  	) | rpl::skip(1) | rpl::on_next([=] {
  		updateTitle();
  	}, lifetime());
@@ -187,7 +187,7 @@ index 8a276e697ef1b7695575c12cab4b5a7d38a54dc9..4a5d435e7905cb5457772d1bdc0933d7
  
  	updateTitle();
  	updateWindowIcon();
-@@ -666,7 +672,7 @@ void MainWindow::updatePalette() {
+@@ -669,7 +675,7 @@ void MainWindow::updatePalette() {
  }
  
  int MainWindow::computeMinWidth() const {
@@ -196,7 +196,7 @@ index 8a276e697ef1b7695575c12cab4b5a7d38a54dc9..4a5d435e7905cb5457772d1bdc0933d7
  	if (_rightColumn) {
  		result += _rightColumn->width();
  	}
-@@ -688,7 +694,9 @@ int MainWindow::computeMinHeight() const {
+@@ -691,7 +697,9 @@ int MainWindow::computeMinHeight() const {
  		_screenReaderBar->resizeToWidth(st::windowMinWidth);
  		return _screenReaderBar->height();
  	}();
@@ -207,7 +207,7 @@ index 8a276e697ef1b7695575c12cab4b5a7d38a54dc9..4a5d435e7905cb5457772d1bdc0933d7
  }
  
  void MainWindow::refreshTitleWidget() {
-@@ -998,7 +1006,8 @@ void MainWindow::savePosition(Qt::WindowState state) {
+@@ -1001,7 +1009,8 @@ void MainWindow::savePosition(Qt::WindowState state) {
  		DEBUG_LOG(("Window Pos: Saving non-maximized position: %1, %2, %3, %4").arg(realPosition.x).arg(realPosition.y).arg(realPosition.w).arg(realPosition.h));
  		realPosition = withScreenInPosition(realPosition);
  	}

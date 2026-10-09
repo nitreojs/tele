@@ -19,10 +19,10 @@ Subject: [PATCH] feat: select table cells as a range
  create mode 100644 Telegram/SourceFiles/tele/tele_table_selection.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 338e50755ebba36eb56b58da8f47b4d38129f8a4..0ae6c54f3b6911005d3692069bd7defe75ce9df5 100644
+index b1428109c2ff9144da87aecd6a8c65c123a7a518..2c0de4ba6cbba0a705a9ead0eb191e7cf8f397db 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2560,6 +2560,8 @@ PRIVATE
+@@ -2718,6 +2718,8 @@ PRIVATE
      tele/tele_sticker_captions.h
      tele/tele_sticker_truth.cpp
      tele/tele_sticker_truth.h
@@ -32,10 +32,10 @@ index 338e50755ebba36eb56b58da8f47b4d38129f8a4..0ae6c54f3b6911005d3692069bd7defe
      tele/tele_tgs_rules.h
      tele/tele_streamer_mode.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index 3f173157739ae0dcfc2fddba0a2b28c717b64a07..da4e2a83abbdd05e5ad2304e75e82a2637c59094 100644
+index 045a1560e0ada92d13cccea6d56fbaa91c09ea61..f24e09719ac83f8d870f0ed956ee431d04d9c9fa 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -3182,7 +3182,8 @@ Iv::RichPageBlocksSlice Element::selectedRichBlocks(
+@@ -3293,7 +3293,8 @@ Iv::RichPageBlocksSlice Element::selectedRichBlocks(
  	}
  	return {
  		.blocks = rich->article.richPageSliceForSelection(
@@ -46,10 +46,10 @@ index 3f173157739ae0dcfc2fddba0a2b28c717b64a07..da4e2a83abbdd05e5ad2304e75e82a26
  	};
  }
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
-index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe11865f9af08 100644
+index c9bd2ddfe31caf47995ccd121f88402021540349..fb9b5c2ec2c5117578cb8d742f1e348f5a880b06 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
-@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/widgets/checkbox.h"
  #include "ui/basic_click_handlers.h"
  #include "ui/dynamic_image.h"
@@ -57,7 +57,7 @@ index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe118
  
  #include "styles/style_iv.h"
  #include "styles/style_widgets.h"
-@@ -3980,7 +3981,8 @@ public:
+@@ -4089,7 +4090,8 @@ public:
  		const PreparedEditSelection *structuralSelection) const;
  
  	[[nodiscard]] std::vector<RichPage::Block> richPageSliceForSelection(
@@ -67,7 +67,7 @@ index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe118
  
  	[[nodiscard]] bool richPageRtl() const;
  
-@@ -5273,6 +5275,11 @@ bool MarkdownArticle::Impl::selectionContains(
+@@ -5441,6 +5443,11 @@ bool MarkdownArticle::Impl::selectionContains(
  		.selection = selection,
  		.endpoints = endpoints,
  	};
@@ -79,7 +79,7 @@ index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe118
  	if (segment->tableSegmentIndex >= 0
  		&& TableSegmentSelected(selectionState, segment->tableSegmentIndex)) {
  		return true;
-@@ -5309,14 +5316,16 @@ TextForMimeData MarkdownArticle::Impl::textForSelection(
+@@ -5477,14 +5484,16 @@ TextForMimeData MarkdownArticle::Impl::textForSelection(
  }
  
  std::vector<RichPage::Block> MarkdownArticle::Impl::richPageSliceForSelection(
@@ -98,7 +98,7 @@ index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe118
  }
  
  bool MarkdownArticle::Impl::richPageRtl() const {
-@@ -7239,8 +7248,9 @@ TextForMimeData MarkdownArticle::textForSelection(
+@@ -7473,8 +7482,9 @@ TextForMimeData MarkdownArticle::textForSelection(
  }
  
  std::vector<RichPage::Block> MarkdownArticle::richPageSliceForSelection(
@@ -111,10 +111,10 @@ index 70452545625313814a5c436237f712b256b12aff..052f1c698729ef4e89acee9515fbe118
  
  bool MarkdownArticle::richPageRtl() const {
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
-index 3e08f0d1990215602195964f19b3827e5a04e606..72d06d36173ed7f455eccaf2bf1b77c904558572 100644
+index ed6c7afd9f15330e4ed1f254c4bcaf8786344d6b..87bb25f08c3f39cf831f06fa119a43ffae882bce 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
-@@ -522,7 +522,8 @@ public:
+@@ -554,7 +554,8 @@ public:
  		const MarkdownArticleSelectionEndpoints *endpoints,
  		const PreparedEditSelection *structuralSelection = nullptr) const;
  	[[nodiscard]] std::vector<RichPage::Block> richPageSliceForSelection(
@@ -125,7 +125,7 @@ index 3e08f0d1990215602195964f19b3827e5a04e606..72d06d36173ed7f455eccaf2bf1b77c9
  	[[nodiscard]] bool highlightProcessDone(
  		Spellchecker::HighlightProcessId processId);
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
-index ea9c6d86a70d6d26990154d8069ec525af71bd8b..c411ce987ff530d32a42a692418bafa2874352e3 100644
+index 555a1974349e8b90d346ef469ae8e28d8292bcb1..7ab0188c5434e7172b611a469fac0862fa4cd052 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
 @@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -133,10 +133,10 @@ index ea9c6d86a70d6d26990154d8069ec525af71bd8b..c411ce987ff530d32a42a692418bafa2
  #include "ui/widgets/checkbox.h"
  #include "tele/tele_code_lines.h"
 +#include "tele/tele_table_selection.h"
+ #include "ui/round_rect.h"
  
  #include "styles/palette.h"
- #include "styles/style_chat.h"
-@@ -1712,6 +1713,12 @@ void PaintWholeTable(
+@@ -1713,6 +1714,12 @@ void PaintWholeTable(
  		shapePath,
  		tableClip,
  		context);
@@ -149,7 +149,7 @@ index ea9c6d86a70d6d26990154d8069ec525af71bd8b..c411ce987ff530d32a42a692418bafa2
  
  	PaintHorizontalOverflowIndicators(
  		p,
-@@ -1825,6 +1832,12 @@ void PaintTableRowBand(
+@@ -1826,6 +1833,12 @@ void PaintTableRowBand(
  		shapePath,
  		rowClip,
  		context);
@@ -163,7 +163,7 @@ index ea9c6d86a70d6d26990154d8069ec525af71bd8b..c411ce987ff530d32a42a692418bafa2
  	PaintHorizontalOverflowIndicators(
  		p,
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp
-index b5874ecc364cca443e1843aaab3f16c03c0c2915..390ebac68e18edccb70ab10ea3c4dfeb98f25277 100644
+index 17de5cd3193c4855d1b5d803d9b93b4b2c23c421..da2e1e5be9b0fa1faa4b8c663280afd542d315ad 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_selection.cpp
 @@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -196,7 +196,7 @@ index b5874ecc364cca443e1843aaab3f16c03c0c2915..390ebac68e18edccb70ab10ea3c4dfeb
  	if (selectionState.hasStructuralSelection()) {
  		if (const auto segment = FindSegment(
  				selectionState.segments,
-@@ -1524,6 +1533,14 @@ TextForMimeData TextForSelectedSegments(
+@@ -1526,6 +1535,14 @@ TextForMimeData TextForSelectedSegments(
  		.endpoints = endpoints,
  		.structuralSelection = structuralSelection,
  	};
@@ -211,7 +211,7 @@ index b5874ecc364cca443e1843aaab3f16c03c0c2915..390ebac68e18edccb70ab10ea3c4dfeb
  	auto pieces = std::vector<TextForMimeData>();
  	for (const auto &segment : segments) {
  		if (segment.isTextLeaf()) {
-@@ -1569,7 +1586,8 @@ TextForMimeData TextForSelectedSegments(
+@@ -1571,7 +1588,8 @@ TextForMimeData TextForSelectedSegments(
  std::vector<RichPage::Block> RichPageBlocksForSelectedSegments(
  		const RichPage &page,
  		const std::vector<SelectableSegment> &segments,
@@ -221,7 +221,7 @@ index b5874ecc364cca443e1843aaab3f16c03c0c2915..390ebac68e18edccb70ab10ea3c4dfeb
  	// Each endpoint maps to a top-level page block index through the
  	// edit-source paths of the nearest contributing segment inside the
  	// selection, skipping empty-edge nodes and coarsely falling back
-@@ -1579,6 +1597,13 @@ std::vector<RichPage::Block> RichPageBlocksForSelectedSegments(
+@@ -1581,6 +1599,13 @@ std::vector<RichPage::Block> RichPageBlocksForSelectedSegments(
  	if (selection.empty() || page.blocks.empty()) {
  		return {};
  	}
@@ -249,10 +249,10 @@ index b96a22acf1282577664382e670f8ebb798efc2c5..b68656683842a4c4fa084ae383b3a2f7
  
  } // namespace Iv::Markdown
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp
-index 2e0c50e70d71f8409d481a7b95c8b550d7d40883..ba63aa0bb840688ccd02a1a34f05ad4b7d4407fc 100644
+index 431b61464f8e0b89d1615366813d3fc8bd176196..5020e15bc5ae3b97e16548493ed85f40bba13338 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_view_widget.cpp
-@@ -1034,9 +1034,12 @@ void MarkdownDocumentWidget::copySelectedText() {
+@@ -1041,9 +1041,12 @@ void MarkdownDocumentWidget::copySelectedText() {
  	if (text.empty()) {
  		return;
  	}

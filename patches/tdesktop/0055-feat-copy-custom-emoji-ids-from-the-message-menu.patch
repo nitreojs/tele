@@ -17,7 +17,7 @@ Subject: [PATCH] feat: copy custom emoji ids from the message menu
  10 files changed, 138 insertions(+), 7 deletions(-)
 
 diff --git a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
-index e968fbec2a904eccc255b82c1f4c83b87fd212c3..08e004a6d7356d82c548f8dfcfd7f819f1a22431 100644
+index a1b0c7dc845b3939f5443d8618ecf82e2a744199..1154b9d08ce38d719261690ea4f78b6aa2140006 100644
 --- a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
 @@ -58,6 +58,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -40,10 +40,10 @@ index e968fbec2a904eccc255b82c1f4c83b87fd212c3..08e004a6d7356d82c548f8dfcfd7f819
  		return nullptr;
  	}
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index d1ccdb6aae1725da2e57ed9cdc97aca74ff5fa67..11fdc0f2739425a1b268e92e189a056d5e223c95 100644
+index c371d3a5824204788198c8f4f151955ce3cfedd2..275642c2b1016e951b3ccf8b45bd571026e57ace 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -3879,7 +3879,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3874,7 +3874,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	Tele::InsertMessageTools(
  		_menu.get(),
  		controller->uiShow(),
@@ -55,10 +55,10 @@ index d1ccdb6aae1725da2e57ed9cdc97aca74ff5fa67..11fdc0f2739425a1b268e92e189a056d
  	if (!pollOptionLink.isEmpty() && leaderOrSelf && !_menu->empty()) {
  		const auto pollItemId = leaderOrSelf->fullId();
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 7b193b3e35f2f2c3aea78dd269f1c4818f70ff61..0f23f74fdaad6409cdc19458391d4d01086f0c88 100644
+index 27890cc4812cd09a8b8b900f53e3e6f6c821aaee..8af4e0633a5a6d78676152b4f8d8df33456551fa 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -2008,7 +2008,9 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -1994,7 +1994,9 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  	Tele::InsertMessageTools(
  		result.get(),
  		list->controller()->uiShow(),
@@ -70,7 +70,7 @@ index 7b193b3e35f2f2c3aea78dd269f1c4818f70ff61..0f23f74fdaad6409cdc19458391d4d01
  	if (hasPollOption) {
  		const auto raw = result.get();
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.h b/Telegram/SourceFiles/history/view/history_view_context_menu.h
-index b2fae304499d9b027bb54d44a3d41de27b570a4d..73694c3b3c47a3f9c4728150bb2cf038c6cb303f 100644
+index 6ac7d915d6b7757de3a613ab85054ff8b6da4ca1..10733f3a27939c6960858e67d656d91832c787cc 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.h
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.h
 @@ -53,6 +53,7 @@ struct ContextMenuRequest {
@@ -82,10 +82,10 @@ index b2fae304499d9b027bb54d44a3d41de27b570a4d..73694c3b3c47a3f9c4728150bb2cf038
  
  base::unique_qptr<Ui::PopupMenu> FillContextMenu(
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 29a3f68aa4706c45ff085bf98104932f6f22f16f..5e99e578f9da05b71231a4b38b8cfcad4ed26b3c 100644
+index c9cabc4e122350081ebe2775c5d783c1f4ed1eb4..b1a650c4ae4ec8ec8fe30e252241f565cd164c03 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -4155,6 +4155,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4164,6 +4164,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	request.view = _overElement;
  	request.item = overItem;
  	request.pointState = _overState.pointState;

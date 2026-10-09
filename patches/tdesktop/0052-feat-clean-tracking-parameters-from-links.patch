@@ -8,22 +8,22 @@ Subject: [PATCH] feat: clean tracking parameters from links
  Telegram/SourceFiles/api/api_sending.cpp      |   6 +
  Telegram/SourceFiles/apiwrap.cpp              |   2 +
  .../SourceFiles/core/click_handler_types.cpp  |   2 +
- Telegram/SourceFiles/core/ui_integration.cpp  |   4 +-
+ Telegram/SourceFiles/core/ui_integration.cpp  |   3 +-
  .../SourceFiles/settings/settings_tele.cpp    |   8 +-
  .../SourceFiles/tele/tele_button_payload.cpp  |   2 +
  Telegram/SourceFiles/tele/tele_links.cpp      | 543 ++++++++++++++++++
  Telegram/SourceFiles/tele/tele_links.h        |  19 +
  Telegram/SourceFiles/tele/tele_options.cpp    |  26 +
  Telegram/SourceFiles/tele/tele_options.h      |   4 +
- 11 files changed, 615 insertions(+), 3 deletions(-)
+ 11 files changed, 614 insertions(+), 3 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_links.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_links.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ac1ff7d399da5eb758e1776314bf87b0d1bad50d..0e750c77c19045867dfbade52ffe64835e639190 100644
+index 1b4a5d8e9d46bdf85ea2b33ad7ef45e2bab47f3e..fd7e3b4b7a777db35492c85c95713904b4ec78c8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2253,6 +2253,8 @@ PRIVATE
+@@ -2411,6 +2411,8 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h
@@ -71,7 +71,7 @@ index 38ce94efec594427baf02b37c18fc27624a4e214..de2267135ca96df78a7da2fe66c7cf4a
  		session,
  		action,
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index a73dec051b873bf03f0f0798299cf9a7136558d7..1e24ddd32d944a8122a63126ddfa01d82f3207f5 100644
+index 49d94c5ff2e1d38716d3913d8275641bfd72ea84..72e99f623893b0229ca2d7cc212707e0e850429c 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -82,7 +82,7 @@ index a73dec051b873bf03f0f0798299cf9a7136558d7..1e24ddd32d944a8122a63126ddfa01d8
  
  namespace {
  
-@@ -4751,6 +4752,7 @@ void ApiWrap::sendMessage(
+@@ -4821,6 +4822,7 @@ void ApiWrap::sendMessage(
  		history,
  		_session->user()).flags;
  	TextUtilities::PrepareForSending(left, prepareFlags);
@@ -91,10 +91,10 @@ index a73dec051b873bf03f0f0798299cf9a7136558d7..1e24ddd32d944a8122a63126ddfa01d8
  	HistoryItem *lastMessage = nullptr;
  
 diff --git a/Telegram/SourceFiles/core/click_handler_types.cpp b/Telegram/SourceFiles/core/click_handler_types.cpp
-index 45720cc88d3dee176a41390d7c92b7ce6340edd5..ebf5f5199f8ee5b2cde63465359299d58116d9af 100644
+index 3d5f2693649f4feaa85837abc547e988e8f00f63..befcc6caf122e0dfa1465fadbc19a499a4bd1ecc 100644
 --- a/Telegram/SourceFiles/core/click_handler_types.cpp
 +++ b/Telegram/SourceFiles/core/click_handler_types.cpp
-@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_session.h"
  #include "window/window_controller.h"
  #include "window/window_session_controller.h"
@@ -102,7 +102,7 @@ index 45720cc88d3dee176a41390d7c92b7ce6340edd5..ebf5f5199f8ee5b2cde63465359299d5
  #include "tele/tele_options.h"
  #include "window/window_session_controller_link_info.h"
  #include "apiwrap.h"
-@@ -272,6 +273,7 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
+@@ -415,6 +416,7 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
  		url = external;
  	}
  	url = Core::TryConvertUrlToLocal(url);
@@ -111,7 +111,7 @@ index 45720cc88d3dee176a41390d7c92b7ce6340edd5..ebf5f5199f8ee5b2cde63465359299d5
  		return;
  	}
 diff --git a/Telegram/SourceFiles/core/ui_integration.cpp b/Telegram/SourceFiles/core/ui_integration.cpp
-index 481f2a20a81b5f34eff1543c6c3b82553c275143..98fdb677717399a417ad62d9e4abbb59d0150c7a 100644
+index 5e247cfbc4b2347c2073aed57010fda4d77bc289..c97f808fea9b05c8090cace43f83c414f3a360a8 100644
 --- a/Telegram/SourceFiles/core/ui_integration.cpp
 +++ b/Telegram/SourceFiles/core/ui_integration.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -122,14 +122,12 @@ index 481f2a20a81b5f34eff1543c6c3b82553c275143..98fdb677717399a417ad62d9e4abbb59
  #include "styles/style_chat_helpers.h"
  
  #include <QtCore/QDateTime>
-@@ -412,8 +413,9 @@ std::shared_ptr<ClickHandler> UiIntegration::createLinkHandler(
- }
- 
- bool UiIntegration::handleUrlClick(
--		const QString &url,
-+		const QString &original,
- 		const QVariant &context) {
-+	const auto url = Tele::PrepareOpenedLink(original);
+@@ -420,7 +421,7 @@ bool UiIntegration::handleUrlClick(
+ 	// unless the url itself was given to us by the server for this login.
+ 	const auto url = context.value<ClickHandlerContext>().keepWebAuthTokens
+ 		? original
+-		: UrlWithoutWebAuthTokens(original);
++		: UrlWithoutWebAuthTokens(Tele::PrepareOpenedLink(original));
  	const auto local = Core::TryConvertUrlToLocal(url);
  	if (Core::InternalPassportOrOAuthLink(local)) {
  		return true;

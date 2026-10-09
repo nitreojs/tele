@@ -10,26 +10,26 @@ Subject: [PATCH] fix: late-sent messages show their real sent time
  3 files changed, 32 insertions(+)
 
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index 2ea7a87031257472cc13d928f4e7e7e6ec365fb8..cd47f838e201b9a3bf3a46fdfa258f95bc8eef49 100644
+index d0865fb61ffff2631934e8a557cb0a11a10ec9d3..6ca63b167caf3e86f0ff3176733b83b89a864394 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
-@@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -90,6 +90,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
 +#include "tele/tele_send_order.h"
  #include "tele/tele_shot.h"
- #include "styles/style_dialogs.h"
  
-@@ -2693,6 +2694,7 @@ void HistoryItem::applySentMessage(const MTPDmessage &data) {
+ #include "styles/style_chat.h"
+@@ -2845,6 +2846,7 @@ void HistoryItem::applySentMessage(const MTPDmessage &data) {
+ 	}
  	setPostAuthor(data.vpost_author().value_or_empty());
- 	setIsPinned(data.is_pinned());
  	contributeToSlowmode(data.vdate().v);
 +	Tele::ApplySentDate(this, data.vdate().v, _date);
- 	addToSharedMediaIndex();
- 	addToMessagesIndex();
- 	invalidateChatListEntry();
-@@ -2732,6 +2734,7 @@ void HistoryItem::applySentMessage(
+ 	if (isRegular() && wasTypes) {
+ 		// addToSharedMediaIndex() below writes the message's current
+ 		// (key, mask); this is its inverse. A type the message keeps at
+@@ -2917,6 +2919,7 @@ void HistoryItem::applySentMessage(
  			? existingRichPage->fullPage
  			: nullptr);
  	contributeToSlowmode(data.vdate().v);

@@ -17,10 +17,10 @@ Subject: [PATCH] feat: send an audio file as a voice message
  create mode 100644 Telegram/SourceFiles/tele/tele_audio_voice.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 65a6d9204f02a3c1a15cc3f87d2b44c89ec66b0e..09e21879c2b85dc29cd8e3cba4bf67c87130abef 100644
+index 8ce19a08ebfd3179e6aa73d1b3f863df8a7534c3..9ceaa70de476f8a6103d317e464f5177f834c4f6 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2223,6 +2223,8 @@ PRIVATE
+@@ -2381,6 +2381,8 @@ PRIVATE
      tele/tele_app_links_box.h
      tele/tele_app_name.cpp
      tele/tele_app_name.h
@@ -30,18 +30,18 @@ index 65a6d9204f02a3c1a15cc3f87d2b44c89ec66b0e..09e21879c2b85dc29cd8e3cba4bf67c8
      tele/tele_badges.h
      tele/tele_bookmarks.cpp
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index dd1b9617e7bd70dd91f0573866133213f52a507a..8c5c2dcd9b28ee327f17d3c3cbc7e5108f7279b6 100644
+index e4c4c4bdc62dcc50bf608fae817e0526a26d334c..7acff16c1dd886cf3a090b0568f3353bad703769 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
-@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "core/mime_type.h"
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/shortcuts.h"
  #include "core/ui_integration.h"
  #include "tele/tele_gif_video.h"
 +#include "tele/tele_audio_voice.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_link_rewrites.h"
  #include "tele/tele_send_files.h"
-@@ -1720,6 +1721,7 @@ void SendFilesBox::pushBlock(int from, int till) {
+@@ -1743,6 +1744,7 @@ void SendFilesBox::pushBlock(int from, int till) {
  					Tele::ToggleSendAsGif(_list.files[fileIndex], _show);
  				});
  			});
@@ -50,7 +50,7 @@ index dd1b9617e7bd70dd91f0573866133213f52a507a..8c5c2dcd9b28ee327f17d3c3cbc7e510
  		const auto canSetTtl = !hasPrice()
  			&& (_sendType == Api::SendType::Normal)
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.h b/Telegram/SourceFiles/boxes/send_files_box.h
-index d42f3ad2d923f7678a1fa3aacae124482ce09500..41f641f0fd05bf07dc40cf8820689c11c05e488f 100644
+index c843a6e2c36bc91a5004f086dbf6ec096b36db1d..c9138186be51df6dc0e1d067d844ded979bebada 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.h
 +++ b/Telegram/SourceFiles/boxes/send_files_box.h
 @@ -69,6 +69,7 @@ class ReplyPillHeader;
@@ -61,7 +61,7 @@ index d42f3ad2d923f7678a1fa3aacae124482ce09500..41f641f0fd05bf07dc40cf8820689c11
  } // namespace Tele
  
  enum class SendFilesAllow {
-@@ -163,6 +164,7 @@ protected:
+@@ -175,6 +176,7 @@ protected:
  
  private:
  	friend struct Tele::SendFilesBoxAccess;
@@ -70,10 +70,10 @@ index d42f3ad2d923f7678a1fa3aacae124482ce09500..41f641f0fd05bf07dc40cf8820689c11
  	using MenuAction = SendMenu::Action;
  	using MenuDetails = SendMenu::Details;
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 1b16c79cfefd46b31297503a1e710ef13e927a02..154fb0aad9a24b02dccd92efa4d4bc297d5e520b 100644
+index 0a014c5a0fac1853d9b7b3c053a22966261be903..9efbac58d86c9d03b2ee478e4bf198548d613a9d 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -173,6 +173,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -176,6 +176,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_confirm_send.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
@@ -81,7 +81,7 @@ index 1b16c79cfefd46b31297503a1e710ef13e927a02..154fb0aad9a24b02dccd92efa4d4bc29
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
-@@ -1449,7 +1450,9 @@ void HistoryWidget::initVoiceRecordBar() {
+@@ -1463,7 +1464,9 @@ void HistoryWidget::initVoiceRecordBar() {
  			data.progress);
  	}, lifetime());
  
@@ -93,10 +93,10 @@ index 1b16c79cfefd46b31297503a1e710ef13e927a02..154fb0aad9a24b02dccd92efa4d4bc29
  		sendVoice(data);
  	}, lifetime());
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 85bc86db06b0042717d03781915fd9622bce3d80..6abd4a2330b2661dab53162fb5aaf68ef47ded3b 100644
+index 574893172ee871dc39bbc124beeeb002b75a4f34..6849c3bc90e2098fe94d64fad6798b1f8ad48007 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_confirm_send.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
@@ -104,7 +104,7 @@ index 85bc86db06b0042717d03781915fd9622bce3d80..6abd4a2330b2661dab53162fb5aaf68e
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_inline_text.h"
  #include "tele/tele_send_order.h"
-@@ -2299,7 +2300,9 @@ rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
+@@ -2300,7 +2301,9 @@ rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
  }
  
  rpl::producer<VoiceToSend> ComposeControls::sendVoiceRequests() const {

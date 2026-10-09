@@ -50,10 +50,10 @@ Subject: [PATCH] feat: rearrange menus with groups and submenus in a menu
  create mode 100644 Telegram/SourceFiles/tele/tele_menu_registry.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 172c688e4a6f2fd207ff02b0a3de5bbb08705113..8fa6b08ba9a1b7136a4037274a3fb6759a44c91b 100644
+index 3322770a59715d151550974320486bb8c494ebdd..d3d3aae05d4cdacc2bc17c07c597cb37b26561ea 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2333,8 +2333,14 @@ PRIVATE
+@@ -2491,8 +2491,14 @@ PRIVATE
      tele/tele_lowercase.h
      tele/tele_maps.cpp
      tele/tele_maps.h
@@ -71,10 +71,10 @@ index 172c688e4a6f2fd207ff02b0a3de5bbb08705113..8fa6b08ba9a1b7136a4037274a3fb675
      tele/tele_message_menu.h
      tele/tele_mtp_dump.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 461dbc632ff12c994bd043c8e7e584491c8427c3..d68bd147f6fe653e558cd42c2c12409a763e7bf6 100644
+index 7c3deb101eb32f690505d204d5d67c0d98fc4950..247b162f25f70a76832579668c671fa4b5766b92 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -3950,7 +3950,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3945,7 +3945,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	}
  	using namespace HistoryView::Reactions;
  	const auto desiredPosition = e->globalPos();
@@ -84,7 +84,7 @@ index 461dbc632ff12c994bd043c8e7e584491c8427c3..d68bd147f6fe653e558cd42c2c12409a
  		: nullptr;
  	const auto attached = reactItem
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d764797b5aa 100644
+index a5718adaf49e8e0f516010642b4ec80ac3545eb4..677a85e6c0dd8150bb8fd6816b53f8583c08a279 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -124,6 +124,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -95,7 +95,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  #include "tele/tele_ghost.h"
  #include "tele/tele_protected.h"
  #include "tele/tele_read_log.h"
-@@ -2485,6 +2486,7 @@ void AddWhenEditedForwardedAuthorActionHelper(
+@@ -2508,6 +2509,7 @@ void AddWhenEditedForwardedAuthorActionHelper(
  			menu->addAction(Ui::WhenReadContextAction(
  				menu.get(),
  				Api::WhenOriginal(item->from(), forwarded->originalDate)));
@@ -103,7 +103,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  		}
  	} else if (const auto edited = item->Get<HistoryMessageEdited>()) {
  		if (!item->hideEditedBadge()) {
-@@ -2511,6 +2513,7 @@ void AddWhenEditedForwardedAuthorActionHelper(
+@@ -2534,6 +2536,7 @@ void AddWhenEditedForwardedAuthorActionHelper(
  					menu.get(),
  					Api::WhenEdited(item->from(), edited->date)));
  			}
@@ -111,7 +111,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  		}
  	}
  	if (item->canLookupMessageAuthor()) {
-@@ -2518,6 +2521,7 @@ void AddWhenEditedForwardedAuthorActionHelper(
+@@ -2541,6 +2544,7 @@ void AddWhenEditedForwardedAuthorActionHelper(
  			menu->addSeparator(&st::expandedMenuSeparator);
  		}
  		menu->addAction(MakeMessageAuthorAction(menu, item, controller));
@@ -119,7 +119,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  	}
  }
  
-@@ -2597,6 +2601,7 @@ void AddWhoReactedAction(
+@@ -2620,6 +2624,7 @@ void AddWhoReactedAction(
  				st::defaultWhoRead,
  				whoReadIds)),
  			showOrPremium));
@@ -127,7 +127,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  	} else {
  		menu->addAction(Ui::WhoReactedContextAction(
  			menu.get(),
-@@ -2605,6 +2610,7 @@ void AddWhoReactedAction(
+@@ -2628,6 +2633,7 @@ void AddWhoReactedAction(
  			participantChosen,
  			showAllChosen,
  			moderateReactionChosen));
@@ -135,7 +135,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  		AddWhenEditedForwardedAuthorActionHelper(
  			menu,
  			item,
-@@ -2626,6 +2632,7 @@ void MaybeAddWhenEditedForwardedAction(
+@@ -2649,6 +2655,7 @@ void MaybeAddWhenEditedForwardedAction(
  		menu->addAction(Ui::WhenReadContextAction(
  			menu.get(),
  			Tele::LoggedReadContent(item, logged)));
@@ -143,7 +143,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  	}
  }
  
-@@ -2985,6 +2992,7 @@ void AddEmojiPacksAction(
+@@ -3008,6 +3015,7 @@ void AddEmojiPacksAction(
  			Data::StickersType::Emoji));
  	});
  	menu->addAction(std::move(button));
@@ -151,7 +151,7 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  }
  
  void AddEmojiPacksAction(
-@@ -3037,6 +3045,7 @@ void AddSelectRestrictionAction(
+@@ -3060,6 +3068,7 @@ void AddSelectRestrictionAction(
  		(addIcon && !user) ? &st::menuIconCopyright : nullptr);
  	button->setAttribute(Qt::WA_TransparentForMouseEvents);
  	menu->addAction(std::move(button));
@@ -160,10 +160,10 @@ index aa8e7ca90fdddfe2cfac4d1dbc5eaf99d88c5973..b771e1a7ee7f51e696db890e6a373d76
  
  void AddEphemeralMessageActions(
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index fc675921d203ecd40b9d3debcabb12fe4810f11c..f6212dac3d7184a19ae0a40b68199a7279015672 100644
+index 9c7568c9c2df1dce94ad74bf2247c88ac498cdf7..ba0413a5a16944b9a2ba2dc6a2cc2947e312e409 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_message_reactions.h"
  #include "data/data_peer_values.h"
  #include "tele/tele_ignored.h"
@@ -171,7 +171,7 @@ index fc675921d203ecd40b9d3debcabb12fe4810f11c..f6212dac3d7184a19ae0a40b68199a72
  #include "tele/tele_options.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_protected.h"
-@@ -4187,7 +4188,8 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4196,7 +4197,8 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	using namespace HistoryView::Reactions;
  	const auto desiredPosition = e->globalPos();
  	const auto reactItem = (_overElement
@@ -7305,7 +7305,7 @@ index 21b654107a3942005c0542fb4ff0010633404142..54873f3876ae9764e17fc0d1f6eda7fc
  		if (!translator->available()) {
  			return;
 diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
-index d64531b702833ff36985fb6374d8a7d3506a5d8a..89e25d1f0130942c4d387eaa8c0f4b11b5b7a253 100644
+index 163886756eb85a348b83dfc773f26e3fcc50d937..95e4ff22d3103e293f6d20f754bfa496098628ec 100644
 --- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 +++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 @@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -7316,7 +7316,7 @@ index d64531b702833ff36985fb6374d8a7d3506a5d8a..89e25d1f0130942c4d387eaa8c0f4b11
  #include "tele/tele_mute.h"
  #include "tele/tele_unsorted_folder.h"
  #include "tele/tele_view_tl.h"
-@@ -135,6 +136,7 @@ void ShowMenu(
+@@ -136,6 +137,7 @@ void ShowMenu(
  			&st::menuIconEdit);
  	}
  	Tele::AddViewFolderTlAction(addAction, controller->uiShow(), id);
@@ -7345,10 +7345,10 @@ index e66f6010e8fcf30154e1654aa588245660a84cf5..50b37fb2b8754e1113c13b54693a501f
  		_popupMenu = nullptr;
  		return;
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index b2af8d924c336d6c8bdea3044bc27c0a78c978bd..d8a4baea8c076e54fd1425e5ec547c3c95e8b4fe 100644
+index 4dcf3cfd5f83fbdf3c58297bed8c0505f13fd2f3..eb1f4526336efddb484f7d364e290316c9e78630 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_jump_to_first.h"
  #include "tele/tele_local_names.h"
  #include "tele/tele_local_pins.h"
@@ -7356,7 +7356,7 @@ index b2af8d924c336d6c8bdea3044bc27c0a78c978bd..d8a4baea8c076e54fd1425e5ec547c3c
  #include "tele/tele_mtp_inspector.h"
  #include "tele/tele_online_notify.h"
  #include "tele/tele_show_pinned.h"
-@@ -1985,7 +1986,11 @@ void Filler::fillProfileActions() {
+@@ -2000,7 +2001,11 @@ void Filler::fillProfileActions() {
  	addEditContact();
  	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
  	Tele::AddLocalNameAction(_controller, _peer, _addAction);
@@ -7368,7 +7368,7 @@ index b2af8d924c336d6c8bdea3044bc27c0a78c978bd..d8a4baea8c076e54fd1425e5ec547c3c
  	addBotToGroup();
  	addNewMembers();
  	addSendGift();
-@@ -4390,9 +4395,11 @@ void FillDialogsEntryMenu(
+@@ -4408,9 +4413,11 @@ void FillDialogsEntryMenu(
  	if (Tele::FillChangelogMenu(controller, request, callback)) {
  		return;
  	}

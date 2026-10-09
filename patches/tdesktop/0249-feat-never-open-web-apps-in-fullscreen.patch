@@ -138,7 +138,7 @@ index ad6174320296be87de16f90cbbedcf3e61422289..a57f7c1b25fbda359f060f4e3f9543e1
  		Toggle(kOptionShowChangelog),
  		Toggle(kOptionGroupQuickReplies),
 diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp b/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp
-index 65be9196b733180c5ec25974b3f9ed1ff6397ab7..c5d3689f8938c94d234345ba31161e9defa7836c 100644
+index 540dc2afe3845ca8a0e8db34104f0654e7c522d0..db5589c60dfe1753a7294d4a26daeccef4a66f07 100644
 --- a/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp
 +++ b/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp
 @@ -33,6 +33,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -150,7 +150,7 @@ index 65be9196b733180c5ec25974b3f9ed1ff6397ab7..c5d3689f8938c94d234345ba31161e9d
  #include "base/debug_log.h"
  #include "base/invoke_queued.h"
  #include "base/platform/base_platform_info.h"
-@@ -1229,7 +1231,7 @@ Panel::Panel(Args &&args)
+@@ -1241,7 +1243,7 @@ Panel::Panel(Args &&args)
  , _externalLayer(_externalShell
  	? std::make_unique<StandaloneLayerStack>()
  	: nullptr)
@@ -159,7 +159,7 @@ index 65be9196b733180c5ec25974b3f9ed1ff6397ab7..c5d3689f8938c94d234345ba31161e9d
  , _allowClipboardRead(args.allowClipboardRead)
  , _sameOrigin(args.sameOrigin) {
  	if (_externalShell) {
-@@ -1593,6 +1595,9 @@ void Panel::hideWebviewProgress() {
+@@ -1596,6 +1598,9 @@ void Panel::hideWebviewProgress() {
  }
  
  bool Panel::showWebview(Args &&args, const Webview::ThemeParams &params) {
@@ -169,16 +169,16 @@ index 65be9196b733180c5ec25974b3f9ed1ff6397ab7..c5d3689f8938c94d234345ba31161e9d
  	_bottomText = std::move(args.bottom);
  	_externalUrl = args.url;
  	_sameOrigin = args.sameOrigin;
-@@ -2366,7 +2371,11 @@ bool Panel::createWebview(const Webview::ThemeParams &params) {
+@@ -2365,7 +2370,11 @@ bool Panel::createWebview(const Webview::ThemeParams &params) {
  		} else if (command == "web_app_request_content_safe_area") {
  			sendContentSafeArea();
  		} else if (command == "web_app_request_fullscreen") {
--			if (!_fullscreen.current()) {
+-			if (_fullscreen.current()) {
 +			if (!_fullscreen.current() && ::Tele::WebAppsNoFullscreen()) {
 +				postEvent("fullscreen_failed", QJsonObject{
 +					{ u"error"_q, u"UNSUPPORTED"_q },
 +				});
-+			} else if (!_fullscreen.current()) {
- 				_fullscreen = true;
- 			} else {
++			} else if (_fullscreen.current()) {
  				sendFullScreen();
+ 			} else if (_externalShell) {
+ 				applyExternalShellFullscreen(true);

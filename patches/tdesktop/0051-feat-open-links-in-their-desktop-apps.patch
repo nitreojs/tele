@@ -16,10 +16,10 @@ Subject: [PATCH] feat: open links in their desktop apps
  create mode 100644 Telegram/SourceFiles/tele/tele_app_links.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 19dfc9f3d29b063cfd326c0c43c4d75aa949819a..ac1ff7d399da5eb758e1776314bf87b0d1bad50d 100644
+index 909284e1eee1ae93be85a44da34cc5c9d990981a..1b4a5d8e9d46bdf85ea2b33ad7ef45e2bab47f3e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2215,6 +2215,8 @@ PRIVATE
+@@ -2373,6 +2373,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_account_badges.cpp
      tele/tele_account_badges.h
@@ -29,7 +29,7 @@ index 19dfc9f3d29b063cfd326c0c43c4d75aa949819a..ac1ff7d399da5eb758e1776314bf87b0
      tele/tele_app_name.h
      tele/tele_badges.cpp
 diff --git a/Telegram/SourceFiles/core/ui_integration.cpp b/Telegram/SourceFiles/core/ui_integration.cpp
-index 69961f90cadc10d94e06e964d178249f767ba1e7..481f2a20a81b5f34eff1543c6c3b82553c275143 100644
+index 18d91fbe96862b9ef6883bdedb0999efa707244d..5e247cfbc4b2347c2073aed57010fda4d77bc289 100644
 --- a/Telegram/SourceFiles/core/ui_integration.cpp
 +++ b/Telegram/SourceFiles/core/ui_integration.cpp
 @@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -40,7 +40,7 @@ index 69961f90cadc10d94e06e964d178249f767ba1e7..481f2a20a81b5f34eff1543c6c3b8255
  #include "styles/style_chat_helpers.h"
  
  #include <QtCore/QDateTime>
-@@ -439,6 +440,9 @@ bool UiIntegration::handleUrlClick(
+@@ -446,6 +447,9 @@ bool UiIntegration::handleUrlClick(
  		}
  	}
  

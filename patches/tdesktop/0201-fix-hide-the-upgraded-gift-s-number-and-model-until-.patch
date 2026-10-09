@@ -16,10 +16,10 @@ Subject: [PATCH] fix: hide the upgraded gift's number and model until the spin
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_roll_number.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f8ed9ead5d8ad45a83c184a9571fa90efabd1983..555166726e61ff3094ef94cf1815e6ee166661d7 100644
+index 73ca46a8cc9144f4d7fc8cc94a0587e9b796410a..bda1009d1ad56ade349fd259e08138066545d64a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2317,6 +2317,8 @@ PRIVATE
+@@ -2475,6 +2475,8 @@ PRIVATE
      tele/tele_gift_fake_upgrade.h
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
@@ -29,10 +29,10 @@ index f8ed9ead5d8ad45a83c184a9571fa90efabd1983..555166726e61ff3094ef94cf1815e6ee
      tele/tele_gift_studio.h
      tele/tele_gift_studio_data.cpp
 diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-index db3acffe1b354220d87d0b65f4023cefcacaf600..1a26655a5c8d75509b3adbb737744b867954d101 100644
+index e192ca5f863d2db10e05a6abae561179557d56f9..3831bc812a6cfbfd7466385a53591e8276a18d3f 100644
 --- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 +++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "payments/payments_form.h"
  #include "settings/settings_credits_graphics.h"
  #include "settings/sections/settings_premium.h"
@@ -40,7 +40,7 @@ index db3acffe1b354220d87d0b65f4023cefcacaf600..1a26655a5c8d75509b3adbb737744b86
  #include "tele/tele_gifts.h"
  #include "ui/basic_click_handlers.h" // UrlClickHandler::Open.
  #include "ui/boxes/boost_box.h" // StartFireworks.
-@@ -1709,7 +1710,7 @@ void AddStarGiftTable(
+@@ -1699,7 +1700,7 @@ void AddStarGiftTable(
  					? tr::lng_gift_unique_availability
  					: tr::lng_gift_availability_left)(
  						lt_count_decimal,
@@ -50,7 +50,7 @@ index db3acffe1b354220d87d0b65f4023cefcacaf600..1a26655a5c8d75509b3adbb737744b86
  						std::move(amount),
  						tr::marked)));
 diff --git a/Telegram/SourceFiles/boxes/star_gift_box.cpp b/Telegram/SourceFiles/boxes/star_gift_box.cpp
-index e5799348cb10f777fcd8e3a108c9e9fd96b604d0..bd342a77abd5b5adf514d2ed5661d28ea02ad8ea 100644
+index 1ef2073c6acbdb32fcdded72dc23592e589863bf..5beff9ab7aab10e96aec946e664eb0810c1514d3 100644
 --- a/Telegram/SourceFiles/boxes/star_gift_box.cpp
 +++ b/Telegram/SourceFiles/boxes/star_gift_box.cpp
 @@ -82,6 +82,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -61,7 +61,7 @@ index e5799348cb10f777fcd8e3a108c9e9fd96b604d0..bd342a77abd5b5adf514d2ed5661d28e
  #include "tele/tele_local_password.h"
  #include "ui/boxes/about_cocoon_box.h" // Ui::AddUniqueCloseButton
  #include "ui/boxes/boost_box.h"
-@@ -3602,7 +3603,10 @@ void AddUpgradeGiftCover(
+@@ -3622,7 +3623,10 @@ void AddUpgradeGiftCover(
  			: QString();
  	});
  	AddUniqueGiftCover(container, std::move(gifts), {
@@ -74,7 +74,7 @@ index e5799348cb10f777fcd8e3a108c9e9fd96b604d0..bd342a77abd5b5adf514d2ed5661d28e
  		.subtitleClick = hasAll ? showAll : Fn<void()>(),
  		.subtitleLinkColored = hasAll,
 diff --git a/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp b/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
-index 51b3995e8369a9001d47148c9cca999f1698bbe5..0b6a9b40bcb6fdecb552f499bbc95dcbc98a77b3 100644
+index dd4de40afd3db39a8ca4de3956d7ab968e0cf412..e84e2e63452b2f3cb4fe09c1c4439f11774ea824 100644
 --- a/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
 +++ b/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
 @@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -83,9 +83,9 @@ index 51b3995e8369a9001d47148c9cca999f1698bbe5..0b6a9b40bcb6fdecb552f499bbc95dcb
  #include "main/main_session.h"
 +#include "tele/tele_gift_roll_number.h"
  #include "ui/effects/premium_stars_colored.h"
+ #include "ui/effects/ripple_animation.h"
  #include "ui/effects/unique_gift_message_bubble.h"
- #include "ui/text/format_values.h"
-@@ -267,6 +268,7 @@ struct UniqueGiftCoverWidget::State {
+@@ -375,6 +376,7 @@ struct UniqueGiftCoverWidget::State {
  	AttributeSpin patternSpin = kPatternSpinDuration;
  	AttributeSpin modelSpin = kModelSpinDuration;
  	crl::time spinStarted = 0;
@@ -93,7 +93,7 @@ index 51b3995e8369a9001d47148c9cca999f1698bbe5..0b6a9b40bcb6fdecb552f499bbc95dcb
  	uint64 modelSetupId = 0;
  	int heightFinal = 0;
  	bool crossfading = false;
-@@ -662,7 +664,9 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
+@@ -775,7 +777,9 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
  		std::move(
  			numberTextDup
  		) | rpl::on_next([this](const QString &text) {
@@ -104,7 +104,7 @@ index 51b3995e8369a9001d47148c9cca999f1698bbe5..0b6a9b40bcb6fdecb552f499bbc95dcb
  		}, lifetime());
  	}
  
-@@ -674,7 +678,10 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
+@@ -787,7 +791,10 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
  	_state->released.subtitleText = rpl::combine(
  		std::move(subtitleCustomText),
  		_state->resaleAmount.value(),
@@ -116,7 +116,7 @@ index 51b3995e8369a9001d47148c9cca999f1698bbe5..0b6a9b40bcb6fdecb552f499bbc95dcb
  	) | rpl::map([](
  			TextWithEntities custom,
  			CreditsAmount resalePrice,
-@@ -1452,6 +1459,15 @@ void UniqueGiftCoverWidget::paintSpinnerAnimation(
+@@ -1608,6 +1615,15 @@ void UniqueGiftCoverWidget::paintSpinnerAnimation(
  	}
  	paintOneModel(modelNow, nowProgress);
  	paintOneModel(modelWill, willProgress);

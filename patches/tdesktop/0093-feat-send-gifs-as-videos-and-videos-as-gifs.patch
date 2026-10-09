@@ -18,18 +18,18 @@ Subject: [PATCH] feat: send gifs as videos and videos as gifs
  .../ui/chat/attach/attach_album_thumbnail.cpp |   7 +-
  .../ui/chat/attach/attach_album_thumbnail.h   |   2 +
  .../ui/chat/attach/attach_prepare.h           |   1 +
- .../attach/attach_single_media_preview.cpp    |   4 +-
- 15 files changed, 558 insertions(+), 104 deletions(-)
+ .../attach/attach_single_media_preview.cpp    |   6 +-
+ 15 files changed, 559 insertions(+), 105 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_gif_video.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_gif_video.h
  create mode 100644 Telegram/SourceFiles/tele/tele_send_files.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_send_files.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b0969f84a7e4c52684a5d612b5a52b3f522a67af..894d6d426d4d555bd2d55c50a8e1ccfdd61624c1 100644
+index 28768214d3236abc0914da268f03a50ffe45c786..3e3f059a6b3f19b073ae3a50d2d50ed58f3b472f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2269,6 +2269,8 @@ PRIVATE
+@@ -2427,6 +2427,8 @@ PRIVATE
      tele/tele_edit_history_section.h
      tele/tele_folders.cpp
      tele/tele_folders.h
@@ -38,7 +38,7 @@ index b0969f84a7e4c52684a5d612b5a52b3f522a67af..894d6d426d4d555bd2d55c50a8e1ccfd
      tele/tele_gifts.cpp
      tele/tele_gifts.h
      tele/tele_ghost.cpp
-@@ -2313,6 +2315,8 @@ PRIVATE
+@@ -2471,6 +2473,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -48,18 +48,18 @@ index b0969f84a7e4c52684a5d612b5a52b3f522a67af..894d6d426d4d555bd2d55c50a8e1ccfd
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index 7230a59bddf628d1ca6875f219a4cad609eb3339..93f8ddb0278ef78d2ebb457ccf0bf77664178944 100644
+index 15d8cda0733cd230589d59cf6bedf0d1f5863b3b..e214b3206cfb02eca4633c6697b16f0178c5bab7 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
-@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "history/view/history_view_schedule_box.h"
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/mime_type.h"
+ #include "core/shortcuts.h"
  #include "core/ui_integration.h"
 +#include "tele/tele_gif_video.h"
  #include "tele/tele_link_rewrites.h"
  #include "base/event_filter.h"
  #include "base/call_delayed.h"
-@@ -1702,6 +1703,17 @@ void SendFilesBox::pushBlock(int from, int till) {
+@@ -1725,6 +1726,17 @@ void SendFilesBox::pushBlock(int from, int till) {
  				&icons.menuSpoiler,
  				spoilered);
  		}
@@ -102,7 +102,7 @@ index 9503a4e4eae922334155f88bb245ac282dc43b0a..9ecb91e8645c09dac223336bef24d041
  	}
  
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 2b6daf02acec5dbada2185b7e4e226aca3f5d8a4..9609e927c6c40cee398c9429b6fb3c3470543185 100644
+index 0246732852036df4b091ddb0507a58d2bc5ea868..c4bf12034d60bc1c085b32ce5b684d318b136f00 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -113,7 +113,7 @@ index 2b6daf02acec5dbada2185b7e4e226aca3f5d8a4..9609e927c6c40cee398c9429b6fb3c34
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
-@@ -3883,6 +3884,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3878,6 +3879,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		(isUponSelected > 1) ? getSelectedItems() : MessageIdsList(),
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
  		width());
@@ -125,7 +125,7 @@ index 2b6daf02acec5dbada2185b7e4e226aca3f5d8a4..9609e927c6c40cee398c9429b6fb3c34
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index fc9c53c0f79a4846e1388f94ca083f95c3ca5509..36ff5b4b1d0e51841a9a208f5b13ffbc32768659 100644
+index c6efb7cc1ff341f7c0195bb268e3da429719be9a..cec66b0e897b95094c6b03d61e2a808a57d519a0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -136,7 +136,7 @@ index fc9c53c0f79a4846e1388f94ca083f95c3ca5509..36ff5b4b1d0e51841a9a208f5b13ffbc
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
  #include "tele/tele_message_menu.h"
-@@ -2008,6 +2009,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -1994,6 +1995,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  		}
  	}
  	Tele::AddShotAction(result.get(), list, request);
@@ -145,7 +145,7 @@ index fc9c53c0f79a4846e1388f94ca083f95c3ca5509..36ff5b4b1d0e51841a9a208f5b13ffbc
  		result.get(),
  		list->controller()->uiShow(),
 diff --git a/Telegram/SourceFiles/storage/localimageloader.cpp b/Telegram/SourceFiles/storage/localimageloader.cpp
-index 9410bd4d0ce4858f317ffc2c63275bce1a5e87ad..3c7f3a8a841be21144e4b294ae5ab02beba28779 100644
+index 641f3efc9f0dfbc6161acdf5a7325bc54612dd79..569cccca2213ffd5d75fa0c283c9f8a69e1b5d95 100644
 --- a/Telegram/SourceFiles/storage/localimageloader.cpp
 +++ b/Telegram/SourceFiles/storage/localimageloader.cpp
 @@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -156,7 +156,7 @@ index 9410bd4d0ce4858f317ffc2c63275bce1a5e87ad..3c7f3a8a841be21144e4b294ae5ab02b
  
  #include <QtCore/QBuffer>
  #include <QtGui/QImageWriter>
-@@ -991,6 +992,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
+@@ -993,6 +994,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
  			auto coverHeight = video->thumbnail.height();
  			auto realSeconds = video->duration / 1000.;
  			const auto gif = video->modifications.gif && !_forceFile;
@@ -164,7 +164,7 @@ index 9410bd4d0ce4858f317ffc2c63275bce1a5e87ad..3c7f3a8a841be21144e4b294ae5ab02b
  			const auto convertForGif = gif
  				&& video->isGifv
  				&& (filemime != u"video/mp4"_q);
-@@ -1005,11 +1007,11 @@ void FileLoadTask::process(ProcessArgs &&args) {
+@@ -1007,11 +1009,11 @@ void FileLoadTask::process(ProcessArgs &&args) {
  						video->modifications,
  						video->thumbnail.size(),
  						video->duration,
@@ -178,7 +178,7 @@ index 9410bd4d0ce4858f317ffc2c63275bce1a5e87ad..3c7f3a8a841be21144e4b294ae5ab02b
  					false);
  				source.bytes = _filepath.isEmpty() ? _content : QByteArray();
  				const auto target = Media::Encode::TranscodedSize(
-@@ -1063,7 +1065,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
+@@ -1065,7 +1067,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
  				if (video->supportsStreaming) {
  					flags |= MTPDdocumentAttributeVideo::Flag::f_supports_streaming;
  				}
@@ -870,7 +870,7 @@ index a2218dc0f667c242b0f3c7d1046e30038c27fea3..f24bd3f15e58333fb43dc774a0a03b07
  
  void ShotBox(
 diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp b/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp
-index ace810de6b76cc887948b5abbdd6cd384f89e707..e88e35e644a713bd595b83b20e81b2f48d5923ca 100644
+index e36a3f249d38bc77504c7372780606147752cb60..252926460774984b72dc5274859e76668f91a5f3 100644
 --- a/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp
 +++ b/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp
 @@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -881,16 +881,16 @@ index ace810de6b76cc887948b5abbdd6cd384f89e707..e88e35e644a713bd595b83b20e81b2f4
  #include "ui/chat/attach/attach_prepare.h"
  #include "ui/image/image_prepare.h"
  #include "ui/text/format_values.h"
-@@ -47,6 +48,8 @@ AlbumThumbnail::AlbumThumbnail(
- , _canEditVideo(file.canEditVideo())
+@@ -49,6 +50,8 @@ AlbumThumbnail::AlbumThumbnail(
  , _canShowHighQualityBadge(file.canUseHighQualityPhoto())
- , _canShowAnimatedBadge(file.hasAnimatedEditScene())
+ , _canShowAnimatedBadge(file.hasAnimatedEditScene()
+ 	&& !file.hasAudioEditScene())
 +, _sendsAsGif(Tele::SendsAsGif(file, false))
 +, _sendsAsGifInAlbum(Tele::SendsAsGif(file, true))
  , _videoQuality(file.videoQuality())
  , _ttlSeconds(file.ttlSeconds)
  , _isCompressedSticker(Core::IsMimeSticker(file.information->filemime))
-@@ -342,7 +345,7 @@ void AlbumThumbnail::paintInAlbum(
+@@ -344,7 +347,7 @@ void AlbumThumbnail::paintInAlbum(
  	if (showHighQualityBadge && _canShowHighQualityBadge) {
  		PaintHighQualityBadge(p, _st, paintedTo);
  	}
@@ -899,7 +899,7 @@ index ace810de6b76cc887948b5abbdd6cd384f89e707..e88e35e644a713bd595b83b20e81b2f4
  		PaintAnimatedBadge(p, _st, paintedTo);
  	}
  	if (_videoQuality && !shrinkProgress) {
-@@ -560,7 +563,7 @@ void AlbumThumbnail::paintPhoto(
+@@ -562,7 +565,7 @@ void AlbumThumbnail::paintPhoto(
  	if (showHighQualityBadge && _canShowHighQualityBadge) {
  		PaintHighQualityBadge(p, _st, rect);
  	}
@@ -922,7 +922,7 @@ index daacecb6137a7bfc9c0dd7ba1592c33c7a22d32c..bfbcd78005081a8402811c49726de63f
  	const crl::time _ttlSeconds = 0;
  	QPixmap _albumImage;
 diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h b/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h
-index d7004aa3fdfb9713435333a1bc1eba251dee6e69..d995da7850d04e7b535e4adf892631b17b54b31a 100644
+index 30f80af7c939f6e31264402ea8b79a2d404aae92..0c6988752f4bae07478a732eaebef0d7599b2b68 100644
 --- a/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h
 +++ b/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h
 @@ -45,6 +45,7 @@ struct PreparedFileInformation {
@@ -934,7 +934,7 @@ index d7004aa3fdfb9713435333a1bc1eba251dee6e69..d995da7850d04e7b535e4adf892631b1
  		// Always the raw frame at |modifications.cover|, never modified.
  		QImage thumbnail;
 diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp b/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp
-index 639b976976fe95d0d3116d18f54d0cc9a5082019..54d8e9ae77c21f8c17831a0549e77c75022c5e35 100644
+index 01b5659bcae8fb404e36ef36ecacd27c1fd9baec..617ee7343b63caf1eb205ea2b2d5791a541d1703 100644
 --- a/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp
 +++ b/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp
 @@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -945,12 +945,14 @@ index 639b976976fe95d0d3116d18f54d0cc9a5082019..54d8e9ae77c21f8c17831a0549e77c75
  #include "ui/chat/attach/attach_prepare.h"
  #include "core/mime_type.h"
  #include "lottie/lottie_single_player.h"
-@@ -63,7 +64,8 @@ SingleMediaPreview *SingleMediaPreview::Create(
- 		type);
- 	result->setModifyAllowed(file.canEditVideo());
+@@ -65,8 +66,9 @@ SingleMediaPreview *SingleMediaPreview::Create(
+ 	result->setModifyAllowed(
+ 		file.canEditVideo() || file.hasAudioEditScene());
  	result->setCanShowHighQualityBadge(file.canUseHighQualityPhoto());
--	result->setCanShowAnimatedBadge(file.hasAnimatedEditScene());
-+	result->setCanShowAnimatedBadge(file.hasAnimatedEditScene()
+-	result->setCanShowAnimatedBadge(file.hasAnimatedEditScene()
+-		&& !file.hasAudioEditScene());
++	result->setCanShowAnimatedBadge((file.hasAnimatedEditScene()
++			&& !file.hasAudioEditScene())
 +		|| Tele::SendsAsGif(file, false));
  	result->setVideoQuality(file.videoQuality());
  	return result;

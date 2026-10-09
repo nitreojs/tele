@@ -21,7 +21,7 @@ rules that follow from this:
 ## repository layout
 
 ```
-UPSTREAM                      the tdesktop release tag the queue targets, e.g. v7.2.9
+UPSTREAM                      the tdesktop release tag the queue targets, e.g. v7.3.0
 patches/tdesktop/*.patch      patches for the tdesktop repository itself
 patches/<submodule>/*.patch   patches for a submodule, e.g. patches/Telegram/lib_ui/
 tele.py                       applies the queue to a tdesktop checkout and exports it back
@@ -42,7 +42,7 @@ ci/update-public-key.pem      public key of the update feed signature
 
 `.gitattributes` stores `*.patch` byte for byte (`-text`), so git never rewrites line endings inside a patch.
 
-most patches are in `patches/tdesktop/`. submodule patches live next to them under the submodule's path, e.g. `patches/Telegram/lib_ui/` and `patches/Telegram/ThirdParty/libprisma/`.
+most patches are in `patches/tdesktop/`. submodule patches live next to them under the submodule's path, e.g. `patches/Telegram/lib_ui/`.
 
 ## tele.py
 

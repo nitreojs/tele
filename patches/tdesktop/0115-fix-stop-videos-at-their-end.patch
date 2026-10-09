@@ -13,10 +13,10 @@ Subject: [PATCH] fix: stop videos at their end
  create mode 100644 Telegram/SourceFiles/tele/tele_streaming_audio.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 6cdeefe7e5500111846e3155c1b9b557954fc9ee..2a6d4c7285b1e84b14ca0f9e438c35cd828e1a69 100644
+index 418a517fe4f4f43040aa437ec3cfb12c0ffc0b93..40acff57c82b5a122d75a8374ef51509e013a046 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2359,6 +2359,8 @@ PRIVATE
+@@ -2517,6 +2517,8 @@ PRIVATE
      tele/tele_shot_sharp.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h
@@ -26,7 +26,7 @@ index 6cdeefe7e5500111846e3155c1b9b557954fc9ee..2a6d4c7285b1e84b14ca0f9e438c35cd
      tele/tele_time.h
      tele/tele_title.cpp
 diff --git a/Telegram/SourceFiles/media/streaming/media_streaming_audio_track.cpp b/Telegram/SourceFiles/media/streaming/media_streaming_audio_track.cpp
-index 7d89c447fccd875ef16c78681e21418bb2d105ab..71b364c115b167680c1fef60a7cc14313d5ef136 100644
+index 36d6b68cd4d47b1665beed2634a36f196b220cbd..8b22bd394a8d8599c93d21ee4dd13994be9080d4 100644
 --- a/Telegram/SourceFiles/media/streaming/media_streaming_audio_track.cpp
 +++ b/Telegram/SourceFiles/media/streaming/media_streaming_audio_track.cpp
 @@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -37,7 +37,7 @@ index 7d89c447fccd875ef16c78681e21418bb2d105ab..71b364c115b167680c1fef60a7cc1431
  
  namespace Media {
  namespace Streaming {
-@@ -195,6 +196,9 @@ rpl::producer<> AudioTrack::waitingForData() const {
+@@ -201,6 +202,9 @@ rpl::producer<> AudioTrack::waitingForData() const {
  rpl::producer<crl::time> AudioTrack::playPosition() {
  	Expects(_ready == nullptr);
  

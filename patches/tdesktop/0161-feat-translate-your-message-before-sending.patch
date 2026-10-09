@@ -17,10 +17,10 @@ Subject: [PATCH] feat: translate your message before sending
  create mode 100644 Telegram/SourceFiles/tele/tele_translate_out.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index af9b76a5155734329bec3a5cfb92b7d15f257971..f563c80f8bdd7db9ac4756089140b8118a201fc1 100644
+index 751199bfb82f8d10b43bd3b4a0ccb207081f4cf9..2c7d88917ec72deb2d15b28af949d4fdd41fe32b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2419,6 +2419,8 @@ PRIVATE
+@@ -2577,6 +2577,8 @@ PRIVATE
      tele/tele_title_box.h
      tele/tele_title_template.cpp
      tele/tele_title_template.h
@@ -30,10 +30,10 @@ index af9b76a5155734329bec3a5cfb92b7d15f257971..f563c80f8bdd7db9ac4756089140b811
      tele/tele_updater.h
      tele/tele_uploads.h
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 29801f7b88e3e20a9f2fed634c110570d8d496bc..350637a67c40e6936811768868e7b6824536ff5a 100644
+index 3005d12c676e50281e840726abb516d76d244728..06bfb1d942eac9d45f01087dc845e05a9d7a0254 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -169,6 +169,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -172,6 +172,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/storage_media_prepare.h"
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_link_previews.h"
@@ -41,7 +41,7 @@ index 29801f7b88e3e20a9f2fed634c110570d8d496bc..350637a67c40e6936811768868e7b682
  #include "tele/tele_calls.h"
  #include "tele/tele_confirm_send.h"
  #include "tele/tele_drafts_compose.h"
-@@ -551,6 +552,7 @@ HistoryWidget::HistoryWidget(
+@@ -564,6 +565,7 @@ HistoryWidget::HistoryWidget(
  				: FullMsgId();
  		},
  	});
@@ -49,7 +49,7 @@ index 29801f7b88e3e20a9f2fed634c110570d8d496bc..350637a67c40e6936811768868e7b682
  	_teleDrafts = std::make_unique<Tele::ComposeDrafts>(
  		Tele::ComposeDraftsDescriptor{
  			.parent = this,
-@@ -6132,6 +6134,7 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
+@@ -6305,6 +6307,7 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  	Tele::ComposeDockedMenu(_teleDocked.get(), result);
  	Tele::CalcmulaMenu(_field.data(), result);
@@ -58,10 +58,10 @@ index 29801f7b88e3e20a9f2fed634c110570d8d496bc..350637a67c40e6936811768868e7b682
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 21c1f1c39b947d418d7bf8f9810a5985e33f2f16..c1c0b1eaea00617301b2bdf6d37b4e4de92cb054 100644
+index 537d54c7c4bd73bdcc7e841d9f631484aa197bf4..0502e38321ee9cb882c8f081eb53336e7a928849 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -112,6 +112,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "support/support_common.h"
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_link_previews.h"
@@ -69,7 +69,7 @@ index 21c1f1c39b947d418d7bf8f9810a5985e33f2f16..c1c0b1eaea00617301b2bdf6d37b4e4d
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_confirm_send.h"
  #include "tele/tele_drafts_compose.h"
-@@ -3264,6 +3265,7 @@ void ComposeControls::initField() {
+@@ -3388,6 +3389,7 @@ void ComposeControls::initField() {
  		.processor = [=] { return _preview.get(); },
  		.editing = [=] { return _header->editMsgId(); },
  	});
@@ -77,7 +77,7 @@ index 21c1f1c39b947d418d7bf8f9810a5985e33f2f16..c1c0b1eaea00617301b2bdf6d37b4e4d
  	Data::AmPremiumValue(&session()) | rpl::on_next([=] {
  		checkCharsLimitation();
  		updateAiButtonVisibility();
-@@ -4977,6 +4979,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5108,6 +5110,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  	Tele::ComposeDockedMenu(_teleDocked.get(), result);
  	Tele::CalcmulaMenu(_field, result);

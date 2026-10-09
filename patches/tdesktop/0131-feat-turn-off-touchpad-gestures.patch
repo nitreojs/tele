@@ -14,10 +14,10 @@ Subject: [PATCH] feat: turn off touchpad gestures
  7 files changed, 60 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 451a05e43a33f07b8d695379121a3f69c0401197..df8b27e21e81424eb910f89bdebc0e2e99cb2fa0 100644
+index 435233ed59954a0c11ae5852d4585c599dc21011..b6daa1e14602ab91a5ea8d4c7ae812ba28d10811 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -748,6 +748,9 @@ void HistoryInner::setupSwipeReplyAndBack() {
+@@ -752,6 +752,9 @@ void HistoryInner::setupSwipeReplyAndBack() {
  		if (inSelectionMode().inSelectionMode) {
  			return result;
  		}
@@ -28,10 +28,10 @@ index 451a05e43a33f07b8d695379121a3f69c0401197..df8b27e21e81424eb910f89bdebc0e2e
  				not_null<Element*> view,
  				int itemtop,
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index de3390396f9ec5708abda0b4166e9d58116a1e72..cc74983d87ebefe95f6de9727a12f62f82bf8f66 100644
+index f2124c919a0e9d4fc98493ec8bd7affae698b2f6..ce890a4e6bfa34a8fc3be820c0bb983129536df0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -124,6 +124,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_silent.h"
@@ -39,7 +39,7 @@ index de3390396f9ec5708abda0b4166e9d58116a1e72..cc74983d87ebefe95f6de9727a12f62f
  #include "inline_bots/inline_bot_result.h"
  #include "info/profile/info_profile_values.h"
  #include "iv/editor/iv_editor_session.h"
-@@ -1898,6 +1899,9 @@ void ChatWidget::setupSwipeReplyAndBack() {
+@@ -1903,6 +1904,9 @@ void ChatWidget::setupSwipeReplyAndBack() {
  		if (_inner->elementInSelectionMode(nullptr).inSelectionMode) {
  			return result;
  		}

@@ -43,7 +43,7 @@ index c040923da3bd7c98b9649cab76312a7e5b6c02a6..d78e6b921e47a24dd0dd9c5c245bf989
  		if (_controller->hasComplexSearch()) {
  			_controller->search(_searchQuery);
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index 0814fb86a58626b342718a907d71ad310f2835dc..89e37c28cf532b1925239e13fa9f52d8d53bf86c 100644
+index f4415c94728364b91f7375d7742f0120b1b7dabc..f380bde2f596995a9b3f4e093113c7610cf153bb 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 @@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -86,7 +86,7 @@ index 0814fb86a58626b342718a907d71ad310f2835dc..89e37c28cf532b1925239e13fa9f52d8
  	Ui::ScheduleThanosEffectWarmUp(&session(), lifetime());
  
  	rpl::merge(
-@@ -4351,6 +4377,45 @@ void InnerWidget::refreshFilterResults() {
+@@ -4395,6 +4421,45 @@ void InnerWidget::refreshFilterResults() {
  			_filterResults.back().row->recountHeight(_narrowRatio, _filterId);
  		}
  	}
@@ -132,7 +132,7 @@ index 0814fb86a58626b342718a907d71ad310f2835dc..89e37c28cf532b1925239e13fa9f52d8
  }
  
  void InnerWidget::appendToFiltered(Key key) {
-@@ -4755,7 +4820,11 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
+@@ -4834,7 +4899,11 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
  	const auto inlist = [&](not_null<PeerData*> peer) {
  		if (const auto history = peer->owner().historyLoaded(peer)) {
  			// Skip existing chats.

@@ -19,10 +19,10 @@ Subject: [PATCH] feat: mute folders and silence chats completely
  create mode 100644 Telegram/SourceFiles/tele/tele_mute.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ce8aacab1178ed359e50d5e8918cc8ab4c377977..65a6d9204f02a3c1a15cc3f87d2b44c89ec66b0e 100644
+index 577d9676e82d2c7d8dce32059d9a5acc523f4278..8ce19a08ebfd3179e6aa73d1b3f863df8a7534c3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2331,6 +2331,8 @@ PRIVATE
+@@ -2489,6 +2489,8 @@ PRIVATE
      tele/tele_mtp_inspector.h
      tele/tele_mtp_log.cpp
      tele/tele_mtp_log.h
@@ -64,10 +64,10 @@ index 2dcc3c2ec515b09f9c74caa012a1e76d572d7132..7fc5f2f4ae53eba5d219ce268ab96c5e
  		return MutedFromUntil(*until, changesIn);
  	} else if (const auto community = CommunityFallback(peer)) {
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index 51592aea1f9986ddec8c4b87ff62dab381beb949..17f9b14c8e72c004ff9a7cff573dcfe42dfcde87 100644
+index 13cd2cd67fdfbb0b7c9327d35c2e938295a256c6..625f49110054517730bed0bac51a06153de474c4 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -63,6 +63,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_communities.h"
  #include "tele/tele_local_pins.h"
@@ -75,7 +75,7 @@ index 51592aea1f9986ddec8c4b87ff62dab381beb949..17f9b14c8e72c004ff9a7cff573dcfe4
  #include "tele/tele_no_ai.h"
  #include "tele/tele_online_notify.h"
  #include "tele/tele_protected.h"
-@@ -287,6 +288,7 @@ Session::Session(
+@@ -291,6 +292,7 @@ Session::Session(
  	Tele::SetupBookmarks(this);
  	Tele::SetupNoAi(this);
  	Tele::SetupOnlineNotify(this);
@@ -568,7 +568,7 @@ index 0000000000000000000000000000000000000000..1906d2e8d4da7df1302536160d230c71
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
-index d9cd2f91405ae0b22833f6f7dad1c7c0a32e83fd..755a8c55e52f3a8fa46d87daf300a4d6f384e5d6 100644
+index 9395ce2ab2a731c392fe97b0f188c37029da5cb8..63177d36033f56f8ea9678aff4d08c1d6cfb5250 100644
 --- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 +++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 @@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -579,7 +579,7 @@ index d9cd2f91405ae0b22833f6f7dad1c7c0a32e83fd..755a8c55e52f3a8fa46d87daf300a4d6
  #include "tele/tele_view_tl.h"
  #include "ui/widgets/menu/menu_action.h"
  #include "ui/filter_icons.h"
-@@ -94,6 +95,7 @@ void ShowMenu(
+@@ -95,6 +96,7 @@ void ShowMenu(
  			MarkAsReadMenu::ChatListKind::Folder,
  			[=] { return session->data().chatsFilters().chatsList(id); },
  			addAction);

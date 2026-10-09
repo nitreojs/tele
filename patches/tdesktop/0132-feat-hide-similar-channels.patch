@@ -15,7 +15,7 @@ Subject: [PATCH] feat: hide similar channels
  8 files changed, 62 insertions(+), 4 deletions(-)
 
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 6a05eeac1004bc7d32145fdb16aff57ae7daa562..0814ca36b364925d2e0c63efc1fe31795662f674 100644
+index 63c56bbebefdbcee12ae417554696ef72cdb43f6..d2c375f226f1faa0730c134afb9a606fc1012db6 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -1965,7 +1965,9 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
@@ -30,10 +30,10 @@ index 6a05eeac1004bc7d32145fdb16aff57ae7daa562..0814ca36b364925d2e0c63efc1fe3179
  	}
  }
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index c9c85e24cc745ca0075973f58b38f566a8eb7e89..31f91283ead1ba00b74030d555becd0f571204a4 100644
+index dd26ed0645e8f7823c97fd9b1caf5b269feb011c..f9f025702329f5f013011b5fd79f45303c1b9e1f 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "lang/lang_keys.h"
  #include "tele/tele_communities.h"
  #include "tele/tele_ignored.h"
@@ -41,10 +41,10 @@ index c9c85e24cc745ca0075973f58b38f566a8eb7e89..31f91283ead1ba00b74030d555becd0f
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
  #include "tele/tele_time.h"
-@@ -1656,7 +1657,8 @@ void Element::refreshMedia(Element *replacing) {
- 				&& Tele::ShotHides(this, Tele::ShotPart::Previews))
- 			? nullptr
+@@ -1756,7 +1757,8 @@ void Element::refreshMedia(Element *replacing) {
  			: media->createView(this, replacing);
+ 	} else if (item->Has<HistoryServiceGramTransfer>()) {
+ 		_media = CreateGramTransferMedia(this, replacing);
 -	} else if (item->showSimilarChannels()) {
 +	} else if (item->showSimilarChannels()
 +		&& !Tele::HideSimilarAfterJoin()) {
@@ -52,10 +52,10 @@ index c9c85e24cc745ca0075973f58b38f566a8eb7e89..31f91283ead1ba00b74030d555becd0f
  	} else if (isOnlyCustomEmoji()
  		&& Core::App().settings().largeEmoji()
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
-index 1bee3924f8f5ad2a687f054eba5cfe9830d13bfa..67615acb292641293d1ea9bd7afeac78824cec3a 100644
+index b54f6a66d9b4b21e7550f4fbe095d303cf3e4c6a..e703210e72e5e661aac5888a8158b6714d7ec031 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
-@@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -57,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/painter.h"
  #include "ui/vertical_list.h"
  #include "ui/ui_utility.h"
@@ -63,7 +63,7 @@ index 1bee3924f8f5ad2a687f054eba5cfe9830d13bfa..67615acb292641293d1ea9bd7afeac78
  #include "styles/style_info.h"
  
  namespace Info {
-@@ -344,7 +345,9 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
+@@ -316,7 +317,9 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
  			if (const auto user = _peer->asUser()) {
  				tabs.push_back(MakeCommonGroupsTabDescriptor(user));
  			}
@@ -75,7 +75,7 @@ index 1bee3924f8f5ad2a687f054eba5cfe9830d13bfa..67615acb292641293d1ea9bd7afeac78
  			}
  		}
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp b/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp
-index 003d9459b7be1515fed2f8c9e3567d3d4710746c..08b9fc318335a0f05c8e277efe750dd3ae1c0f63 100644
+index d56d680632bfdba8cc7b7660340fb52e307ffe55..5b49f63c9c5d8d62861823fe3bcbc8ac4222eb09 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_shared_media_classic.cpp
 @@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

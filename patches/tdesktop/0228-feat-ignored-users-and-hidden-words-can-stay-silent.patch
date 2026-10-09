@@ -51,18 +51,18 @@ index 9b73173b0d1effaca246a3cceb353f9dd05c61fd..0e90b56544ac86fdc59922e1a2039c7b
  					monoforum,
  					[=] { entry->updateChatListEntry(); },
 diff --git a/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp b/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp
-index 554ba18780fe45ae3d9f399111530bfc105d27e0..9305eaa75e68d149b67ac5df81ea348e3e7bb958 100644
+index 04f4614bacc1a4352685b58ece0649c6f7a9e135..df8f3d60aba81adc79991cb4e8ab02e49cbc187f 100644
 --- a/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp
-@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/toast/toast.h"
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_corner_buttons.h"
 +#include "tele/tele_ignored.h"
  #include "styles/style_chat_helpers.h"
+ #include "styles/style_widgets.h"
  
- namespace HistoryView {
-@@ -163,7 +164,9 @@ void CornerButtons::mentionsClick() {
+@@ -324,7 +325,9 @@ void CornerButtons::mentionsClick() {
  		return;
  	}
  	const auto thread = _delegate->cornerButtonsThread();
@@ -73,7 +73,7 @@ index 554ba18780fe45ae3d9f399111530bfc105d27e0..9305eaa75e68d149b67ac5df81ea348e
  	const auto already = (_delegate->cornerButtonsCurrentId().msg == msgId);
  
  	// Mark mention voice/video message as read.
-@@ -190,7 +193,7 @@ void CornerButtons::reactionsClick() {
+@@ -351,7 +354,7 @@ void CornerButtons::reactionsClick() {
  		return;
  	}
  	const auto thread = _delegate->cornerButtonsThread();

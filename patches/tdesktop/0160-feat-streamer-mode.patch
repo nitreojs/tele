@@ -28,10 +28,10 @@ Subject: [PATCH] feat: streamer mode
  create mode 100644 Telegram/SourceFiles/tele/tele_streamer_mode.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 47349f83bb709f8a34d4c04d82ae3c41b1c1e789..af9b76a5155734329bec3a5cfb92b7d15f257971 100644
+index ceb28404dc5803d7708166d3b238db87529899a2..751199bfb82f8d10b43bd3b4a0ccb207081f4cf9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2407,6 +2407,8 @@ PRIVATE
+@@ -2565,6 +2565,8 @@ PRIVATE
      tele/tele_silent.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h
@@ -41,7 +41,7 @@ index 47349f83bb709f8a34d4c04d82ae3c41b1c1e789..af9b76a5155734329bec3a5cfb92b7d1
      tele/tele_streaming_audio.h
      tele/tele_time.cpp
 diff --git a/Telegram/SourceFiles/boxes/peers/edit_contact_box.cpp b/Telegram/SourceFiles/boxes/peers/edit_contact_box.cpp
-index 7b9009e1e447b7043cd1b16fe51c5fcb50607865..909bb16f613228aa17f11fd8acde9710693bf629 100644
+index d059dcd448418ac6e4f5c7bdf115800ac62bc7a1..fa73ebd7bbd4b497298bf23ef4b19669d8264ac0 100644
 --- a/Telegram/SourceFiles/boxes/peers/edit_contact_box.cpp
 +++ b/Telegram/SourceFiles/boxes/peers/edit_contact_box.cpp
 @@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -85,10 +85,10 @@ index 5b968bc452c5d6d6428b09666c6794afa6e171a8..aec09b788245834174e33dea32b8e6d8
  				? QString()
  				: peer->session().createInternalLinkFull(username)),
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_values.cpp b/Telegram/SourceFiles/info/profile/info_profile_values.cpp
-index 5c631f5bd8adbb168f1d2a7c89ad1ad6d565055b..3782edec4757c0afef114afd6f45aa46021017d2 100644
+index 4f88eee259193a8c1212e1502b985593394d3b19..94408f41c11fe2944bf11113fe27ae24c453ae1f 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_values.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_values.cpp
-@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_premium_limits.h"
  #include "boxes/peers/edit_peer_permissions_box.h"
  #include "base/unixtime.h"
@@ -96,7 +96,7 @@ index 5c631f5bd8adbb168f1d2a7c89ad1ad6d565055b..3782edec4757c0afef114afd6f45aa46
  #include "tele/tele_username_aliases.h"
  
  namespace Info {
-@@ -165,7 +166,7 @@ rpl::producer<TextWithEntities> PhoneWithSpoilerValue(
+@@ -167,7 +168,7 @@ rpl::producer<TextWithEntities> PhoneWithSpoilerValue(
  		return phone;
  	}
  	return rpl::combine(
@@ -136,7 +136,7 @@ index 7a53001f1afc1bd989b437785ce5d07d6cc087da..131802cd3faa3dbdfedb2a48c1cd201d
  		content,
  		tr::lng_chat_links_footer(
 diff --git a/Telegram/SourceFiles/settings/sections/settings_main.cpp b/Telegram/SourceFiles/settings/sections/settings_main.cpp
-index 89f4bc003d8a1a519c1eed59e886a84d40cf48ba..7829710e1154d55a4005c16fb5e701490b6f8177 100644
+index 09e68e4ebfd10b569a700642ac4af9db79f5342c..8f16a5c7d5e032ed67855500445a2f4ee6b2c51b 100644
 --- a/Telegram/SourceFiles/settings/sections/settings_main.cpp
 +++ b/Telegram/SourceFiles/settings/sections/settings_main.cpp
 @@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -147,7 +147,7 @@ index 89f4bc003d8a1a519c1eed59e886a84d40cf48ba..7829710e1154d55a4005c16fb5e70149
  
  #include "api/api_cloud_password.h"
  #include "api/api_credits.h"
-@@ -267,9 +268,9 @@ void Cover::initViewers() {
+@@ -269,9 +270,9 @@ void Cover::initViewers() {
  		refreshNameGeometry(width());
  	}, lifetime());
  
@@ -159,7 +159,7 @@ index 89f4bc003d8a1a519c1eed59e886a84d40cf48ba..7829710e1154d55a4005c16fb5e70149
  		_phoneText = value.text;
  		updatePhoneText();
  	}, lifetime());
-@@ -859,8 +860,8 @@ void SetupValidatePhoneNumberSuggestion(
+@@ -864,8 +865,8 @@ void SetupValidatePhoneNumberSuggestion(
  		content,
  		tr::lng_settings_suggestion_phone_number_title(
  			lt_phone,
@@ -570,10 +570,10 @@ index b7b5e337474c4aa513ca9ea8ec0554dcab0c1225..2d053272c125810c4f97f335c00bbd8b
  	not_null<Window::Controller*> window);
  
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index d570b2b0ccd52ce8d441c504865e06df62a8babc..8a276e697ef1b7695575c12cab4b5a7d38a54dc9 100644
+index 86ed939ceadfeb416d7bc4551c795a757a84436e..c5f30d80b4ea8f131f5046474f7af4823ecae6ab 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
-@@ -911,7 +911,7 @@ void MainWindow::updateTitle() {
+@@ -914,7 +914,7 @@ void MainWindow::updateTitle() {
  
  	const auto suffix = nativeTitleSuffix();
  	const auto settings = Core::App().settings().windowTitleContent();
@@ -605,10 +605,10 @@ index 91200c3fc2f1556892148c192c7020cb7a47090f..399b91ef431b5739949be1336791ee4c
  	const auto peer = item ? item->history()->peer.get() : nullptr;
  	const auto topic = item ? item->topic() : nullptr;
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index 818bf03518ee39068aee3e6435c9082235096ab8..29fcd111deb4868cdcbaf7bb9e466f69442a4076 100644
+index 8a7f23c4b87ce9578f4146497a5d3e2d13918f09..ae8b890744963ce959bdc4edb02711fe7d5b5cd9 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
-@@ -72,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_build.h"
  #include "tele/tele_counters.h"
  #include "tele/tele_ghost.h"
@@ -616,7 +616,7 @@ index 818bf03518ee39068aee3e6435c9082235096ab8..29fcd111deb4868cdcbaf7bb9e466f69
  #include "styles/style_chat.h" // popupMenuExpandedSeparator
  #include "styles/style_menu_icons.h"
  #include "styles/style_settings.h"
-@@ -797,6 +798,7 @@ void MainMenu::setupMenu() {
+@@ -824,6 +825,7 @@ void MainMenu::setupMenu() {
  	}, _nightThemeToggle->lifetime());
  
  	Tele::AddGhostMenuToggle(_menu);

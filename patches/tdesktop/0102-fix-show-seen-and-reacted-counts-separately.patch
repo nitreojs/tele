@@ -13,10 +13,10 @@ Subject: [PATCH] fix: show seen and reacted counts separately
  create mode 100644 Telegram/SourceFiles/tele/tele_who_read.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9b4cde60a7fa9f2cc7c567c2dfccd5d795de9b92..5199858cff9e8dc7d51f20e28890c0c91c40adbf 100644
+index 9bfb718f9d96ba75b61613eeea773df2014b47ac..bd64bd4482fe6df3f0fc31bfb6b9595eacefc137 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2356,6 +2356,8 @@ PRIVATE
+@@ -2514,6 +2514,8 @@ PRIVATE
      tele/tele_verify_details.h
      tele/tele_view_tl.cpp
      tele/tele_view_tl.h

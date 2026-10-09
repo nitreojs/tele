@@ -11,10 +11,10 @@ Subject: [PATCH] feat: skip the rich message prompt on paste
  4 files changed, 17 insertions(+)
 
 diff --git a/Telegram/SourceFiles/chat_helpers/rich_paste_toast.cpp b/Telegram/SourceFiles/chat_helpers/rich_paste_toast.cpp
-index 344965be024a47a768a8308d4ddd4dc22499f72b..705aa0e4c39f6209e43cd582201a69df33882dd1 100644
+index 51e3411ea4c4c74e843f9e3f1f2147d26c77aa11..49d3f9f1217d043c338a6584e2959fc0e21c464f 100644
 --- a/Telegram/SourceFiles/chat_helpers/rich_paste_toast.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/rich_paste_toast.cpp
-@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "iv/iv_rich_page.h"
  #include "lang/lang_keys.h"
  #include "main/main_session.h"
@@ -22,7 +22,7 @@ index 344965be024a47a768a8308d4ddd4dc22499f72b..705aa0e4c39f6209e43cd582201a69df
  #include "window/window_session_controller.h"
  #include "ui/text/text_utilities.h"
  #include "ui/toast/toast.h"
-@@ -35,6 +36,7 @@ std::optional<RichPasteDecision> MimeDataRichPasteOffer(
+@@ -38,6 +39,7 @@ std::optional<RichPasteDecision> MimeDataRichPasteOffer(
  		not_null<Main::Session*> session,
  		not_null<const QMimeData*> data) {
  	if (PasteAsPlainTextRequested()

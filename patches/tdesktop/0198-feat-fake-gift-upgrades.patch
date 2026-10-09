@@ -23,10 +23,10 @@ Subject: [PATCH] feat: fake gift upgrades
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_roll.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 27c8c4f51357a8e2926a8705e11b101ddbb61a71..3f9965858b48967c57428c60e4e475cc1710d979 100644
+index 52e2812e827cb5da1a388281b4ecdf2a98b5ac22..18b7a7cc4dd566721b240ee71ab2640bebfff55c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2313,6 +2313,8 @@ PRIVATE
+@@ -2471,6 +2471,8 @@ PRIVATE
      tele/tele_full_preview.h
      tele/tele_gif_video.cpp
      tele/tele_gif_video.h
@@ -35,7 +35,7 @@ index 27c8c4f51357a8e2926a8705e11b101ddbb61a71..3f9965858b48967c57428c60e4e475cc
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
      tele/tele_gift_studio.cpp
-@@ -2327,6 +2329,8 @@ PRIVATE
+@@ -2485,6 +2487,8 @@ PRIVATE
      tele/tele_gift_studio_owned.h
      tele/tele_gift_studio_render.cpp
      tele/tele_gift_studio_render.h
@@ -45,7 +45,7 @@ index 27c8c4f51357a8e2926a8705e11b101ddbb61a71..3f9965858b48967c57428c60e4e475cc
      tele/tele_gift_studio_sticker.h
      tele/tele_gift_studio_store.cpp
 diff --git a/Telegram/SourceFiles/boxes/star_gift_box.cpp b/Telegram/SourceFiles/boxes/star_gift_box.cpp
-index 6f78e3f23f3d15dda6b58715e4813deb9d120f3f..e5799348cb10f777fcd8e3a108c9e9fd96b604d0 100644
+index 4888cfd6c82619e7e59c8390afed3a226fb52e50..1ef2073c6acbdb32fcdded72dc23592e589863bf 100644
 --- a/Telegram/SourceFiles/boxes/star_gift_box.cpp
 +++ b/Telegram/SourceFiles/boxes/star_gift_box.cpp
 @@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -67,10 +67,10 @@ index 6f78e3f23f3d15dda6b58715e4813deb9d120f3f..e5799348cb10f777fcd8e3a108c9e9fd
  			window->uiShow(),
  			::Tele::LocalPasswordAction::UpgradeGifts,
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index 62e15419ec336076adfabc306cc0b9f06d06be63..cc644eb64e3c22de12bc0ec4f02eeaf91268a6c9 100644
+index 24e383e8cb6ac123e227686bad8018313a78b070..3305bfb75969a80683e273235c69ef615ffd3244 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -99,6 +99,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/wrap/vertical_layout.h"
  #include "ui/ui_utility.h"
  #include "window/window_session_controller.h"
@@ -78,7 +78,7 @@ index 62e15419ec336076adfabc306cc0b9f06d06be63..cc644eb64e3c22de12bc0ec4f02eeaf9
  #include "tele/tele_gift_studio_menu.h"
  #include "tele/tele_gifts.h"
  #include "tele/tele_local_password.h"
-@@ -1165,6 +1166,7 @@ void FillUniqueGiftMenu(
+@@ -1166,6 +1167,7 @@ void FillUniqueGiftMenu(
  		}, st.share ? st.share : &st::menuIconShare);
  	}
  	Tele::AddGiftStudioAction(menu, show, unique);

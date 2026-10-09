@@ -18,10 +18,10 @@ Subject: [PATCH] feat: set your own app and tray icons
  create mode 100644 Telegram/SourceFiles/tele/tele_app_icons.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index da6a61db3ea59a4cba10753536e3b4164cb96efb..84ccd5c7547028a1a0b13a4dd151b199c71b3df8 100644
+index 174930d6c4f78119d75b6a87b4e63b4dbeaef501..4dbfa6fd77d600d9d844fac84d71cf9307dd8331 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2215,6 +2215,8 @@ PRIVATE
+@@ -2373,6 +2373,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_account_badges.cpp
      tele/tele_account_badges.h
@@ -31,7 +31,7 @@ index da6a61db3ea59a4cba10753536e3b4164cb96efb..84ccd5c7547028a1a0b13a4dd151b199
      tele/tele_app_links.h
      tele/tele_app_name.cpp
 diff --git a/Telegram/SourceFiles/platform/linux/tray_linux.cpp b/Telegram/SourceFiles/platform/linux/tray_linux.cpp
-index 44ea81c57924dcde1fe0354679398b8a93c006de..4f4f9325decf996717f1da17aa7f3c58e481b5ff 100644
+index 6b154a49ec2d35a86c14fd6a55ed6c66c8e846ab..830192b4f02ad3217fdb3bb7ae9110ba6016a463 100644
 --- a/Telegram/SourceFiles/platform/linux/tray_linux.cpp
 +++ b/Telegram/SourceFiles/platform/linux/tray_linux.cpp
 @@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -39,10 +39,10 @@ index 44ea81c57924dcde1fe0354679398b8a93c006de..4f4f9325decf996717f1da17aa7f3c58
  #include "core/version.h"
  #include "platform/platform_specific.h"
 +#include "tele/tele_app_icons.h"
+ #include "tray.h"
  #include "ui/ui_utility.h"
  #include "ui/widgets/popup_menu.h"
- #include "window/window_controller.h"
-@@ -79,6 +80,9 @@ IconGraphic::IconGraphic()
+@@ -80,6 +81,9 @@ IconGraphic::IconGraphic()
  IconGraphic::~IconGraphic() = default;
  
  QIcon IconGraphic::systemIcon() const {
@@ -52,7 +52,7 @@ index 44ea81c57924dcde1fe0354679398b8a93c006de..4f4f9325decf996717f1da17aa7f3c58
  	if (_new.iconThemeName == _current.iconThemeName
  		&& _new.monochrome == _current.monochrome
  		&& (_new.counter > 0) == (_current.counter > 0)
-@@ -192,7 +196,7 @@ QIcon IconGraphic::trayIcon() {
+@@ -193,7 +197,7 @@ QIcon IconGraphic::trayIcon() {
  			}
  
  			if (currentImageBack.isNull()) {
@@ -62,7 +62,7 @@ index 44ea81c57924dcde1fe0354679398b8a93c006de..4f4f9325decf996717f1da17aa7f3c58
  
  			if (dprSize(currentImageBack) != desiredSize) {
 diff --git a/Telegram/SourceFiles/platform/win/tray_win.cpp b/Telegram/SourceFiles/platform/win/tray_win.cpp
-index be1c10d54da454e7724d8b1028a734709e3fa015..c68c31333c4f2b8d418cef043e7eb6125cf4e1bf 100644
+index be54999ea3ad5d30d187ae2f9cd31a53b99f012b..5f20ce0c18f21995387a9de95cfcad7bf208068d 100644
 --- a/Telegram/SourceFiles/platform/win/tray_win.cpp
 +++ b/Telegram/SourceFiles/platform/win/tray_win.cpp
 @@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70,10 +70,10 @@ index be1c10d54da454e7724d8b1028a734709e3fa015..c68c31333c4f2b8d418cef043e7eb612
  #include "main/main_session.h"
  #include "storage/localstorage.h"
 +#include "tele/tele_app_icons.h"
+ #include "tray.h"
  #include "ui/painter.h"
  #include "ui/ui_utility.h"
- #include "ui/widgets/popup_menu.h"
-@@ -109,6 +110,7 @@ bool DarkTasbarValueValid/* = false*/;
+@@ -110,6 +111,7 @@ bool DarkTasbarValueValid/* = false*/;
  	static auto ScaledLogoNoMargin = base::flat_map<int, QImage>();
  	static auto ScaledLogoDark = base::flat_map<int, QImage>();
  	static auto ScaledLogoLight = base::flat_map<int, QImage>();
@@ -580,10 +580,10 @@ index e54a94749195c2f5e0258644ea513dd32c7d84c9..bad61335f0e9a10c4f59bccbed3bf061
  
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index 98d6563db0aedae8acdc42995e1b850dce87892b..d570b2b0ccd52ce8d441c504865e06df62a8babc 100644
+index 2ee34e8e7fb60635126de391df447bb2a8864d7a..86ed939ceadfeb416d7bc4551c795a757a84436e 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
-@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -47,6 +47,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "mainwidget.h" // session->content()->windowShown().
  #include "tray.h"
@@ -591,7 +591,7 @@ index 98d6563db0aedae8acdc42995e1b850dce87892b..d570b2b0ccd52ce8d441c504865e06df
  #include "tele/tele_title.h"
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
-@@ -138,11 +139,17 @@ const char kOptionNewWindowsSizeAsFirst[] = "new-windows-size-as-first";
+@@ -141,11 +142,17 @@ const char kOptionNewWindowsSizeAsFirst[] = "new-windows-size-as-first";
  const char kOptionDisableTouchbar[] = "touchbar-disabled";
  
  const QImage &Logo() {
@@ -609,7 +609,7 @@ index 98d6563db0aedae8acdc42995e1b850dce87892b..d570b2b0ccd52ce8d441c504865e06df
  	static const auto result = QImage(u":/gui/art/logo_256_no_margin.png"_q);
  	return result;
  }
-@@ -213,6 +220,9 @@ QIcon CreateSupportIcon(Main::Session *session) {
+@@ -216,6 +223,9 @@ QIcon CreateSupportIcon(Main::Session *session) {
  
  QIcon CreateIcon(Main::Session *session, bool returnNullIfDefault) {
  	const auto supportIcon = CreateSupportIcon(session);

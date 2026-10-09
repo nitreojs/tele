@@ -18,10 +18,10 @@ Subject: [PATCH] feat: no outline on large emoji
  create mode 100644 Telegram/SourceFiles/tele/tele_emoji_outline.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index fb3a23b87ebd81e8617c212b1fc32b9da3218b77..5a706b7631ec7f976194f7af0d6c85f8a84e1ea1 100644
+index 267115f947abfc23d903701f151c212ec885cc24..183347ead1e4dd397e98029e72e42b20e58f0419 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2309,6 +2309,8 @@ PRIVATE
+@@ -2467,6 +2467,8 @@ PRIVATE
      tele/tele_editor_brush.h
      tele/tele_editor_eyedropper.cpp
      tele/tele_editor_eyedropper.h
@@ -69,7 +69,7 @@ index b5f0b20f967c6153934ca6a6a659fd2b3f974139..3ca80539dbf12420df7b222e2821529f
  			for (auto i = 0; i != corrected; ++i) {
  				p.drawImage(QPoint(delta, delta) + shift * (i + 1), tinted);
 diff --git a/Telegram/SourceFiles/chat_helpers/stickers_emoji_pack.cpp b/Telegram/SourceFiles/chat_helpers/stickers_emoji_pack.cpp
-index c336323dad87c1030b12b6f79ef48440236c814c..f6939e68dba3440b871a0ba21e89eb98f77c1d14 100644
+index 46551b5f3b4974808d749f1245931d169ee2f825..deb8bbf10256244aa3cfa35488dcdad8d1f96e13 100644
 --- a/Telegram/SourceFiles/chat_helpers/stickers_emoji_pack.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/stickers_emoji_pack.cpp
 @@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -80,7 +80,7 @@ index c336323dad87c1030b12b6f79ef48440236c814c..f6939e68dba3440b871a0ba21e89eb98
  #include "styles/style_chat.h"
  
  #include <QtCore/QBuffer>
-@@ -112,7 +113,9 @@ EmojiPack::EmojiPack(not_null<Main::Session*> session)
+@@ -114,7 +115,9 @@ EmojiPack::EmojiPack(not_null<Main::Session*> session)
  		refreshAll();
  	}, _lifetime);
  

@@ -19,10 +19,10 @@ Subject: [PATCH] feat: never block screen capture
  create mode 100644 Telegram/SourceFiles/tele/tele_screen_capture.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 39b8746a8e68d3242e64ed9846e1d0d4de6ceace..30b070f2f8ff809943f47215def6c7dd303181bc 100644
+index 6000e1907d5726b715c48422c625bb4c4c9d7621..874c28e31a37d513d763f34c67b3fdc17427a7ce 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2337,6 +2337,8 @@ PRIVATE
+@@ -2495,6 +2495,8 @@ PRIVATE
      tele/tele_punctual_scheduled.h
      tele/tele_rich_timestamps.cpp
      tele/tele_rich_timestamps.h
@@ -52,18 +52,18 @@ index 3607ebf8ed865154330b8e9f9e79fed7a0cae3e6..cb14c3ffefff51c9746731c6356591aa
  
  ScreenshotProtection::~ScreenshotProtection() = default;
 diff --git a/Telegram/SourceFiles/platform/mac/specific_mac.mm b/Telegram/SourceFiles/platform/mac/specific_mac.mm
-index 856f45c5c92068671c6abe5e3af121fe9d8be7ec..cdcec8169de4ad1bcce53bb405fa5b931ecf8fc5 100644
+index fe305cc9ea6476fe93390fb19b9a22d2c1948bc6..706cfbe0c2bc0500479ae29ca9fc9105a8d9e044 100644
 --- a/Telegram/SourceFiles/platform/mac/specific_mac.mm
 +++ b/Telegram/SourceFiles/platform/mac/specific_mac.mm
-@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "base/platform/mac/base_confirm_quit.h"
+@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "base/platform/mac/base_utilities_mac.h"
  #include "base/platform/base_platform_info.h"
+ #include "platform/mac/wallet_protection_mac.h"
 +#include "tele/tele_screen_capture.h"
  
  #include <QtCore/QDirIterator>
  #include <QtGui/QDesktopServices>
-@@ -500,6 +501,7 @@ bool AmbientScreenshotProtectionSupported() {
+@@ -502,6 +503,7 @@ bool AmbientScreenshotProtectionSupported() {
  }
  
  void SetWindowScreenshotProtection(not_null<QWidget*> window, bool enabled) {
@@ -72,10 +72,10 @@ index 856f45c5c92068671c6abe5e3af121fe9d8be7ec..cdcec8169de4ad1bcce53bb405fa5b93
  	if (!handle) {
  		return;
 diff --git a/Telegram/SourceFiles/platform/win/specific_win.cpp b/Telegram/SourceFiles/platform/win/specific_win.cpp
-index 62fabaf048aa9443749ae214ee2c3c8de3dac4d7..b7f1e2af53e9fa8b4a2c354af9ccade75601076f 100644
+index 3ba85430d3b170009cfe6d68ea739b61ccbed7af..8bdea28128bc25be0e4c80a16a11370b73ddfddd 100644
 --- a/Telegram/SourceFiles/platform/win/specific_win.cpp
 +++ b/Telegram/SourceFiles/platform/win/specific_win.cpp
-@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/application.h"
  #include "window/window_controller.h"
  #include "core/crash_reports.h"
@@ -83,7 +83,7 @@ index 62fabaf048aa9443749ae214ee2c3c8de3dac4d7..b7f1e2af53e9fa8b4a2c354af9ccade7
  #include "core/version.h"
  
  #include <QtCore/QOperatingSystemVersion>
-@@ -533,6 +534,7 @@ bool AmbientScreenshotProtectionSupported() {
+@@ -534,6 +535,7 @@ bool AmbientScreenshotProtectionSupported() {
  }
  
  void SetWindowScreenshotProtection(not_null<QWidget*> window, bool enabled) {

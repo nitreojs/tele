@@ -18,10 +18,10 @@ Subject: [PATCH] feat: inline calcmula results after =
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_inline.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 87ee2c82740644f785471e445f6c4fba42e126fb..378ef4dbe07fd201270ee7b9b152cf93dc5a9f12 100644
+index 6c32e1ba6643db862006371f7e97b2a7400787dd..7a9354e3bc7ae13e9492b31e11bc511c70abd62c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2239,6 +2239,8 @@ PRIVATE
+@@ -2397,6 +2397,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
      tele/tele_calcmula.h
@@ -31,10 +31,10 @@ index 87ee2c82740644f785471e445f6c4fba42e126fb..378ef4dbe07fd201270ee7b9b152cf93
      tele/tele_calcmula_preview.h
      tele/tele_calls.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index b45ed0929736af16778668e315d3cbe84ea75308..0bba69b7fda3b1566590ce3b341b1b7012ccb49f 100644
+index 99a70738a1a3ea67f5f88a2a12c6de3f032291fd..eef18d532cda66b630fb4fc90dcdfdfd59f16d28 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -168,6 +168,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
  #include "tele/tele_calcmula_preview.h"
@@ -42,7 +42,7 @@ index b45ed0929736af16778668e315d3cbe84ea75308..0bba69b7fda3b1566590ce3b341b1b70
  #include "tele/tele_link_previews.h"
  #include "tele/tele_translate_out.h"
  #include "tele/tele_calls.h"
-@@ -539,6 +540,12 @@ HistoryWidget::HistoryWidget(
+@@ -552,6 +553,12 @@ HistoryWidget::HistoryWidget(
  		},
  		.send = [=] { sendWithModifiers(Qt::KeyboardModifiers()); },
  	});
@@ -56,10 +56,10 @@ index b45ed0929736af16778668e315d3cbe84ea75308..0bba69b7fda3b1566590ce3b341b1b70
  		_field.data(),
  		[=] { return _isInlineBot; },
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index c1c0b1eaea00617301b2bdf6d37b4e4de92cb054..527aab0c921d7e0786eabe21d67e88c8cac68615 100644
+index 0502e38321ee9cb882c8f081eb53336e7a928849..d9566895e31bc0a995117606176098926fd588e0 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"
  #include "tele/tele_calcmula_preview.h"
@@ -67,7 +67,7 @@ index c1c0b1eaea00617301b2bdf6d37b4e4de92cb054..527aab0c921d7e0786eabe21d67e88c8
  #include "tele/tele_link_previews.h"
  #include "tele/tele_translate_out.h"
  #include "tele/tele_deleted_reply.h"
-@@ -3255,6 +3256,12 @@ void ComposeControls::initField() {
+@@ -3379,6 +3380,12 @@ void ComposeControls::initField() {
  		},
  		.send = [=] { _fieldSubmits.fire({}); },
  	});

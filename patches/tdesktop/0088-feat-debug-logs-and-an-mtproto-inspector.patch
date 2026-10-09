@@ -35,10 +35,10 @@ Subject: [PATCH] feat: debug logs and an mtproto inspector
  create mode 100644 Telegram/SourceFiles/tele/tele_mtp_log.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 878f015b9dbe3535d61943130c3167ae07ee3b77..97573975d0fd33ed022f88875d92b55d6823d232 100644
+index 07a058557f58da60646b0a0d00673c99695361db..eeee2664853f3c05ebb6b02ae7e7e23c3f878ac7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2249,6 +2249,8 @@ PRIVATE
+@@ -2407,6 +2407,8 @@ PRIVATE
      tele/tele_corner_buttons.h
      tele/tele_crash.cpp
      tele/tele_crash.h
@@ -47,7 +47,7 @@ index 878f015b9dbe3535d61943130c3167ae07ee3b77..97573975d0fd33ed022f88875d92b55d
      tele/tele_deleted.cpp
      tele/tele_deleted.h
      tele/tele_deleted_reply.cpp
-@@ -2281,6 +2283,12 @@ PRIVATE
+@@ -2439,6 +2441,12 @@ PRIVATE
      tele/tele_menu_order.h
      tele/tele_message_menu.cpp
      tele/tele_message_menu.h
@@ -3662,7 +3662,7 @@ index 0000000000000000000000000000000000000000..40d8eedb0a7b89749a607b5779e8f110
 +} // namespace Tele::MtpDump
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..b93a0e79481312471ec87265cbea81573fc24480
+index 0000000000000000000000000000000000000000..089f4dad0ee1d6c57e8a8f460f8e7dbd486a0fb9
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 @@ -0,0 +1,525 @@
@@ -3931,7 +3931,7 @@ index 0000000000000000000000000000000000000000..b93a0e79481312471ec87265cbea8157
 +		}
 +	});
 +
-+	raw->setNavigationStartHandler([=](const QString &uri, bool newWindow) {
++	raw->setNavigationPolicyHandler([=](const QString &uri, bool newWindow) {
 +		const auto url = QUrl(uri);
 +		const auto scheme = url.scheme().toLower();
 +		const auto host = url.host().toLower();
@@ -4616,10 +4616,10 @@ index 0000000000000000000000000000000000000000..efcb11fba09e3e4831e20c1dc7bc6618
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 2e40e93b591707873178972d9c4f3fb19041e773..346d11ad009cffd84a8f38381310b1b24c0b071b 100644
+index 61ac23da3b36b2ed267ac3348c8ff581f5adea49..81bcf4e3efb210c068f992741e4569f72db71467 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ignored.h"
  #include "tele/tele_jump_to_first.h"
  #include "tele/tele_local_names.h"
@@ -4627,7 +4627,7 @@ index 2e40e93b591707873178972d9c4f3fb19041e773..346d11ad009cffd84a8f38381310b1b2
  #include "tele/tele_username_aliases.h"
  #include "tele/tele_view_tl.h"
  #include "styles/style_chat.h"
-@@ -4369,6 +4370,7 @@ void FillDialogsEntryMenu(
+@@ -4387,6 +4388,7 @@ void FillDialogsEntryMenu(
  	}
  	Filler(controller, request, callback).fill();
  	Tele::AddViewTlAction(callback, controller->uiShow(), request);
@@ -4635,7 +4635,7 @@ index 2e40e93b591707873178972d9c4f3fb19041e773..346d11ad009cffd84a8f38381310b1b2
  }
  
  bool FillVideoChatMenu(
-@@ -4520,6 +4522,7 @@ void FillSenderUserpicMenu(
+@@ -4538,6 +4540,7 @@ void FillSenderUserpicMenu(
  	}
  	Tele::AddIgnoreAction(peer, addAction);
  	Tele::AddViewTlAction(addAction, controller->uiShow(), peer);

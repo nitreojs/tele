@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide the all chats folder
  create mode 100644 Telegram/SourceFiles/tele/tele_folders.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4ebb9f01da9f620e7c192d43463253f118fdd632..055dc789ee2ce88efaaa2c0f2f29ba0c72a65eef 100644
+index 9cf0afcc3b4f7451e0b3ade6778181d922f97997..0aa30b6ec42f1ce2128c641894dfd86a4dd23972 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2229,6 +2229,8 @@ PRIVATE
+@@ -2387,6 +2387,8 @@ PRIVATE
      tele/tele_deleted_section.h
      tele/tele_edit_history.cpp
      tele/tele_edit_history.h
@@ -55,7 +55,7 @@ index f85bc2d413b9486f4b54d538e9d1e79758818784..7eba8addc7a361eee5e5e806d6836d25
  		return _list[index].id();
  	}
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 2b4440bfdc0b20f3f1ec962ca296dd75a29ff84e..be0cb0ae56c55cdceb7d369575c6deb59d3aebf8 100644
+index 453ae48e2daddcd01376ee409dabf937cf7a344b..6c2b09c95d3064e0ed685d7c069d368174e83575 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -95,6 +95,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -66,7 +66,7 @@ index 2b4440bfdc0b20f3f1ec962ca296dd75a29ff84e..be0cb0ae56c55cdceb7d369575c6deb5
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
-@@ -3039,8 +3040,7 @@ void Widget::escape() {
+@@ -3041,8 +3042,7 @@ void Widget::escape() {
  		} else if (controller()->activeChatEntryCurrent().key) {
  			controller()->content()->dialogsCancelled();
  		} else if (controller()->isPrimary()) {
@@ -321,7 +321,7 @@ index 6a986a4c16f4589ea75fefbcb3894984b1d7ebdf..eaf058704d83cdd7117c6ddd98b0de88
  [[nodiscard]] bool PeerIdsWithoutSpaces();
  [[nodiscard]] bool BotApiPeerIds();
 diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
-index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48288b606f 100644
+index 750feab6cbf3b30a3b1e2bc946d85eaed4a4382c..97483ebeda80e7c4461867bb2bc2c929f6850fc7 100644
 --- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 +++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 @@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -332,7 +332,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  #include "ui/widgets/menu/menu_action.h"
  #include "ui/filter_icons.h"
  #include "ui/power_saving.h"
-@@ -68,7 +69,7 @@ void ShowMenu(
+@@ -69,7 +70,7 @@ void ShowMenu(
  
  	auto id = FilterId(0);
  	{
@@ -341,7 +341,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  		if (index < 0 || index >= list.size()) {
  			return;
  		}
-@@ -139,7 +140,7 @@ void ShowFiltersListMenu(
+@@ -140,7 +141,7 @@ void ShowFiltersListMenu(
  		not_null<State*> state,
  		int active,
  		Fn<void(int)> changeActive) {
@@ -350,7 +350,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  
  	state->menu = base::make_unique_q<Ui::PopupMenu>(
  		parent,
-@@ -148,7 +149,8 @@ void ShowFiltersListMenu(
+@@ -149,7 +150,8 @@ void ShowFiltersListMenu(
  	const auto reorderAll = session->user()->isPremium();
  	const auto maxLimit = (reorderAll ? 1 : 0)
  		+ Data::PremiumLimits(session).dialogFiltersCurrent();
@@ -360,7 +360,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  
  	for (auto i = 0; i < list.size(); ++i) {
  		const auto title = list[i].title();
-@@ -230,7 +232,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -231,7 +233,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  	const auto state = wrap->lifetime().make_state<State>();
  	const auto reassignUnreadValue = [=] {
  		state->reorderLifetime.destroy();
@@ -369,7 +369,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  		auto includeMuted = Data::IncludeMutedCounterFoldersValue();
  		for (auto i = 0; i < list.size(); i++) {
  			rpl::combine(
-@@ -261,7 +263,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -262,7 +264,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  			}
  
  			const auto filters = &session->data().chatsFilters();
@@ -378,7 +378,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  			if (!session->user()->isPremium()) {
  				if (list[0].id() != FilterId()) {
  					filters->moveAllToFront();
-@@ -276,6 +278,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -277,6 +279,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  				&Data::ChatFilter::id
  			) | ranges::to_vector;
  			base::reorder(order, oldPosition, newPosition);
@@ -386,7 +386,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  
  			state->ignoreRefresh = true;
  			filters->saveOrder(order);
-@@ -311,7 +314,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -312,7 +315,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  						: slider->width();
  					if (x >= left && x < right) {
  						const auto &list
@@ -395,7 +395,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  						return (i < list.size())
  							? list[i].id()
  							: FilterId();
-@@ -321,7 +324,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -322,7 +325,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  			},
  			[=] { return state->lastFilterId.value_or(FilterId()); },
  			[=](FilterId id) {
@@ -404,7 +404,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  				for (auto i = 0; i < list.size(); i++) {
  					if (list[i].id() == id) {
  						slider->selectSection(i);
-@@ -369,14 +372,15 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -370,14 +373,15 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  	};
  
  	const auto filterByIndex = [=](int index) -> const Data::ChatFilter& {
@@ -423,7 +423,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  			return;
  		}
  		const auto context = Core::TextContext({ .session = session });
-@@ -411,7 +415,8 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -412,7 +416,8 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  			const auto reorderAll = session->user()->isPremium();
  			const auto maxLimit = (reorderAll ? 1 : 0)
  				+ Data::PremiumLimits(session).dialogFiltersCurrent();
@@ -433,7 +433,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  			slider->setLockedFrom((premiumFrom >= list.size())
  				? 0
  				: premiumFrom);
-@@ -421,7 +426,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -422,7 +427,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  			if (state->reorder) {
  				state->reorder->cancel();
  				state->reorder->clearPinnedIntervals();
@@ -442,7 +442,7 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
  					state->reorder->addPinnedInterval(0, 1);
  				}
  				state->reorder->addPinnedInterval(
-@@ -464,7 +469,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -465,7 +470,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  		if (trackActiveFilterAndUnreadAndReorder) {
  			controller->activeChatsFilter(
  			) | rpl::on_next([=](FilterId id) {
@@ -450,8 +450,8 @@ index 9bb9d2db13dfb7394beb31f3237de3c010c7d844..0f071ac6c623db7a6b32960c8189af48
 +				const auto &list = Tele::FolderTabs(session);
  				for (auto i = 0; i < list.size(); ++i) {
  					if (list[i].id() == id) {
- 						slider->setActiveSection(i);
-@@ -501,14 +506,16 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 						state->ignoreActivation = true;
+@@ -506,14 +511,16 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  					[=](int i) { slider->setActiveSection(i); });
  			}
  		}, state->rebuildLifetime);
@@ -567,7 +567,7 @@ index c49a9d30188d2a2eaedec8f5b2e35a55b059b945..329a4a84a3c9f3b19930fee5bf86791f
  	_ignoreRefresh = true;
  	filters->saveOrder(order);
 diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
-index dfab5e8dfbe70c8f4314d8d18f258610911ac0fa..e88efb2a1c2385464c41d49ee367a94238c120d9 100644
+index df2166f1e0643c810e05f7b0edcd01e7ca18f5d4..7cb53f12b7f25859161456709012e43c57f1543f 100644
 --- a/Telegram/SourceFiles/window/window_session_controller.cpp
 +++ b/Telegram/SourceFiles/window/window_session_controller.cpp
 @@ -125,6 +125,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -578,7 +578,7 @@ index dfab5e8dfbe70c8f4314d8d18f258610911ac0fa..e88efb2a1c2385464c41d49ee367a942
  #include "styles/style_chat_helpers.h"
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h"
-@@ -1681,6 +1682,7 @@ SessionController::SessionController(
+@@ -1684,6 +1685,7 @@ SessionController::SessionController(
  		checkOpenedFilter();
  		crl::on_main(this, processFiltersMenu);
  	}, lifetime());
@@ -586,7 +586,7 @@ index dfab5e8dfbe70c8f4314d8d18f258610911ac0fa..e88efb2a1c2385464c41d49ee367a942
  
  	session->data().itemIdChanged(
  	) | rpl::on_next([=](Data::Session::IdChange change) {
-@@ -4140,7 +4142,7 @@ bool CheckAndJumpToNearChatsFilter(
+@@ -4146,7 +4148,7 @@ bool CheckAndJumpToNearChatsFilter(
  		bool jump) {
  	const auto id = controller->activeChatsFilterCurrent();
  	const auto session = &controller->session();
@@ -595,7 +595,7 @@ index dfab5e8dfbe70c8f4314d8d18f258610911ac0fa..e88efb2a1c2385464c41d49ee367a942
  	const auto index = int(ranges::find(
  		*list,
  		id,
-@@ -4153,7 +4155,8 @@ bool CheckAndJumpToNearChatsFilter(
+@@ -4159,7 +4161,8 @@ bool CheckAndJumpToNearChatsFilter(
  	if (changed >= int(list->size()) || changed < 0) {
  		return false;
  	}

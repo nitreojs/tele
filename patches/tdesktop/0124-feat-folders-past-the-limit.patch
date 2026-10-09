@@ -29,10 +29,10 @@ Subject: [PATCH] feat: folders past the limit
  create mode 100644 Telegram/SourceFiles/tele/tele_local_folders.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c82d84b07caf3230781057648ee2c544aea8fc06..91b4311d02422e77f89ee28132d342f1c1fd553d 100644
+index 11e381203e66da23f5f55b018d6bdcdb896884d1..91a8f527e3735e0ed4e81b9ea7bc58f61ec8278c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2299,6 +2299,8 @@ PRIVATE
+@@ -2457,6 +2457,8 @@ PRIVATE
      tele/tele_inline_via.h
      tele/tele_local_drafts.cpp
      tele/tele_local_drafts.h
@@ -384,10 +384,10 @@ index 7eba8addc7a361eee5e5e806d6836d25df75d269..294e6eaeec48901b977d75a4efc5f2af
  }
  
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index b98dc6ef7cd9d949d59a2514720705f09f5ef065..4303962993c97a24bf9e75582f01f52d8f954b37 100644
+index 243af2f1f7ae4c6032713649d36eb0a5badb77c8..40186050f420bddfe81556687b569a49563d872c 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
-@@ -94,6 +94,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "spellcheck/spellcheck_highlight_syntax.h"
  #include "tele/tele_badges.h"
  #include "tele/tele_deleted.h"
@@ -395,7 +395,7 @@ index b98dc6ef7cd9d949d59a2514720705f09f5ef065..4303962993c97a24bf9e75582f01f52d
  #include "tele/tele_local_pins.h"
  
  namespace Data {
-@@ -2937,7 +2938,7 @@ int Session::pinnedChatsLimit(Data::Folder *folder) const {
+@@ -2939,7 +2940,7 @@ int Session::pinnedChatsLimit(Data::Folder *folder) const {
  
  int Session::pinnedChatsLimit(FilterId filterId) const {
  	const auto limits = Data::PremiumLimits(_session);
@@ -404,7 +404,7 @@ index b98dc6ef7cd9d949d59a2514720705f09f5ef065..4303962993c97a24bf9e75582f01f52d
  }
  
  int Session::pinnedChatsLimit(not_null<Data::Forum*> forum) const {
-@@ -2973,10 +2974,10 @@ rpl::producer<int> Session::maxPinnedChatsLimitValue(
+@@ -2975,10 +2976,10 @@ rpl::producer<int> Session::maxPinnedChatsLimitValue(
  	// We always use premium limit in the MainList limit producer,
  	// because it slices the list to that limit. We don't want to slice
  	// premium-ly added chats from the pinned list because of sync issues.
@@ -1557,7 +1557,7 @@ index 32a6b46cc1e024f6446affe579e4414c36ce3489..691eec09becb7e4a77a578fdf78b7b82
  		Toggle(kOptionHideMentionsButton),
  		Toggle(kOptionHideReactionsButton),
 diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
-index bad85707eb644aa7c43aca3ac85b484c44590055..d9cd2f91405ae0b22833f6f7dad1c7c0a32e83fd 100644
+index fdc6056da2f094f3dd54b745acdce3d070ecaf70..9395ce2ab2a731c392fe97b0f188c37029da5cb8 100644
 --- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 +++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 @@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -1568,7 +1568,7 @@ index bad85707eb644aa7c43aca3ac85b484c44590055..d9cd2f91405ae0b22833f6f7dad1c7c0
  #include "tele/tele_view_tl.h"
  #include "ui/widgets/menu/menu_action.h"
  #include "ui/filter_icons.h"
-@@ -150,7 +151,8 @@ void ShowFiltersListMenu(
+@@ -151,7 +152,8 @@ void ShowFiltersListMenu(
  
  	const auto reorderAll = session->user()->isPremium();
  	const auto maxLimit = (reorderAll ? 1 : 0)
@@ -1578,7 +1578,7 @@ index bad85707eb644aa7c43aca3ac85b484c44590055..d9cd2f91405ae0b22833f6f7dad1c7c0
  	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit
  		- Tele::HiddenFolderTabs(session);
  
-@@ -416,7 +418,8 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+@@ -417,7 +419,8 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
  		{
  			const auto reorderAll = session->user()->isPremium();
  			const auto maxLimit = (reorderAll ? 1 : 0)
@@ -1611,7 +1611,7 @@ index f831d2e7ca7d9b267a38f3f45ae2a177545bc643..43bf1a5e0487701595fc3fdf10206bf7
  	const auto &list = Tele::FolderTabs(&_session->session());
  	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit - hidden;
 diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
-index c2f3641d68ac602093ebb55b64a009437120d157..d00f6093a99e1363513e216d4977816c403ffaaa 100644
+index 7b3d192dd81115825f580a392505837d0b5c7096..486efc28396672e3f6da866e5a2e99f73640ac57 100644
 --- a/Telegram/SourceFiles/window/window_session_controller.cpp
 +++ b/Telegram/SourceFiles/window/window_session_controller.cpp
 @@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -1622,7 +1622,7 @@ index c2f3641d68ac602093ebb55b64a009437120d157..d00f6093a99e1363513e216d4977816c
  #include "tele/tele_options.h"
  #include "tele/tele_username_aliases.h"
  #include "styles/style_chat_helpers.h"
-@@ -4170,6 +4171,7 @@ bool CheckAndJumpToNearChatsFilter(
+@@ -4176,6 +4177,7 @@ bool CheckAndJumpToNearChatsFilter(
  		return false;
  	}
  	if (changed > Data::PremiumLimits(session).dialogFiltersCurrent()

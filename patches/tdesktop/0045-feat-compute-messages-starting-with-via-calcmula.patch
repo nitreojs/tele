@@ -17,10 +17,10 @@ Subject: [PATCH] feat: compute messages starting with = via calcmula
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a06e25376a591a7e5ce05b0c18822d24747ec323..5e4ac28c45f482580f40426aab2b7ec7c222e0d5 100644
+index 0d0632904c958baf60e273a4c489e6e1c2986796..a4f518fea2d0b0d9eaeec03f06bcfe6cf577ebe3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2225,6 +2225,8 @@ PRIVATE
+@@ -2383,6 +2383,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -59,7 +59,7 @@ index eb6cf245f82ce5e300906c14ead47c59c3f51cf2..38ce94efec594427baf02b37c18fc276
  	const auto peer = history->peer;
  	const auto session = &history->session();
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index e3c3073ed462a4b220906a39748e38794d751fef..a73dec051b873bf03f0f0798299cf9a7136558d7 100644
+index 8c1a05d16c0433a650b2a95956e605146cbf995a..49d94c5ff2e1d38716d3913d8275641bfd72ea84 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -109,6 +109,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70,7 +70,7 @@ index e3c3073ed462a4b220906a39748e38794d751fef..a73dec051b873bf03f0f0798299cf9a7
  
  namespace {
  
-@@ -4275,6 +4276,9 @@ void ApiWrap::sendFiles(
+@@ -4345,6 +4346,9 @@ void ApiWrap::sendFiles(
  		SendMediaType type,
  		std::shared_ptr<SendingAlbum> album,
  		SendAction action) {
@@ -80,7 +80,7 @@ index e3c3073ed462a4b220906a39748e38794d751fef..a73dec051b873bf03f0f0798299cf9a7
  	const auto &ephemeral = _session->ephemeralMessages();
  	if (album && !ephemeral.isEphemeralBotReply(action.replyTo.messageId)) {
  		const auto peer = action.history->peer;
-@@ -4699,6 +4703,9 @@ void ApiWrap::sendRichMessage(
+@@ -4769,6 +4773,9 @@ void ApiWrap::sendRichMessage(
  void ApiWrap::sendMessage(
  		MessageToSend &&message,
  		std::optional<MsgId> localMessageId) {

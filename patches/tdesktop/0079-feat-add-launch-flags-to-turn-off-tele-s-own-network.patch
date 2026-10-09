@@ -23,10 +23,10 @@ Subject: [PATCH] feat: add launch flags to turn off tele's own network use
  create mode 100644 Telegram/SourceFiles/tele/tele_launch_flags.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 50d2bc175e12ee618309de36a5c21d4989f1a945..ed8614e3a473e69b24899305f71a6982d9cf4d48 100644
+index 330e7a79e3c6bda797b590ea8441e7051b7d5fdf..04e26ca6b19cb0014dd1068e191c51145b2578bc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2281,6 +2281,8 @@ PRIVATE
+@@ -2439,6 +2439,8 @@ PRIVATE
      tele/tele_link_rewrites.h
      tele/tele_link_rewrites_box.cpp
      tele/tele_link_rewrites_box.h
@@ -97,18 +97,18 @@ index 7677c37c482a6678b9a995983bbbec0cdefcb109..d3fd8043764d5085b80b9634f8840492
  	gStartInTray = parseResult.contains("-startintray");
  	gQuit = parseResult.contains("-quit");
 diff --git a/Telegram/SourceFiles/platform/linux/launcher_linux.cpp b/Telegram/SourceFiles/platform/linux/launcher_linux.cpp
-index d31f2838e5f2948adb57069b3f575b094f06f0d5..d18db3dce74e3ebe952d4dadff9493e8ca24aa84 100644
+index 1414bad71e0417da957b9934df3787160be07f49..a0602a66b5208daf07f38a4588351d6abff98d8d 100644
 --- a/Telegram/SourceFiles/platform/linux/launcher_linux.cpp
 +++ b/Telegram/SourceFiles/platform/linux/launcher_linux.cpp
-@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- 
+@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/crash_reports.h"
  #include "core/update_checker.h"
+ #include "platform/linux/update_install_linux.h"
 +#include "tele/tele_launch_flags.h"
  #include "webview/platform/linux/webview_linux_webkitgtk.h"
  
- #include <QtWidgets/QApplication>
-@@ -102,6 +103,9 @@ bool Launcher::launchUpdater(UpdaterLaunch action) {
+ #include <QtCore/QDateTime>
+@@ -202,6 +203,9 @@ bool Launcher::launchUpdater(UpdaterLaunch action) {
  			argumentsList.push_back("-workdir");
  			argumentsList.push_back(cWorkingDir().toStdString());
  		}
@@ -139,7 +139,7 @@ index 4a8059c3a71db6ade0f27589f4f9069f4e226aa5..eec93cd2703bfd031983482731918f4e
  		DEBUG_LOG(("Application Info: executing %1 %2").arg(NS2QString(path)).arg(NS2QString([args componentsJoinedByString:@" "])));
  		Logs::closeMain();
 diff --git a/Telegram/SourceFiles/platform/win/launcher_win.cpp b/Telegram/SourceFiles/platform/win/launcher_win.cpp
-index b872c5d0cf58418f0ee549902803ff37650869d4..d04237f51cc4f58eed96b928e59b0f03b00ae509 100644
+index e3bb1ffa7aff885360e5bf5b4163178873d6831f..8467350b652f621b79cc134929a9cf9e5cc7c47d 100644
 --- a/Telegram/SourceFiles/platform/win/launcher_win.cpp
 +++ b/Telegram/SourceFiles/platform/win/launcher_win.cpp
 @@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -159,7 +159,7 @@ index b872c5d0cf58418f0ee549902803ff37650869d4..d04237f51cc4f58eed96b928e59b0f03
 +		}
  	} else {
  		pushArgument(u"-update"_q);
- 		pushArgument(u"-exename"_q);
+ 		auto created = FILETIME();
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
 index 7f2223974cd0c97e15b1e984679ead094c0fa5e7..2a8e5dd045e36bc156d110d088b6077f2cdcbab6 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp

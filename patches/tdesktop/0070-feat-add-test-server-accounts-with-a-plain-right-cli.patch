@@ -8,10 +8,10 @@ Subject: [PATCH] feat: add test server accounts with a plain right-click
  1 file changed, 1 insertion(+), 12 deletions(-)
 
 diff --git a/Telegram/SourceFiles/settings/sections/settings_information.cpp b/Telegram/SourceFiles/settings/sections/settings_information.cpp
-index d6db3b07b1b53f91da14b86a53ad72a2bac3f610..c917b5a8d225b254c25e3a53b29b94562f80ddc9 100644
+index 41ba51ad2bc0466bf9e073795497c2554d83499a..384c2787c228515b097fb008d23273ad6dca818e 100644
 --- a/Telegram/SourceFiles/settings/sections/settings_information.cpp
 +++ b/Telegram/SourceFiles/settings/sections/settings_information.cpp
-@@ -850,10 +850,6 @@ void SetupAccountsWrap(
+@@ -826,10 +826,6 @@ void SetupAccountsWrap(
  	}
  }
  
@@ -22,7 +22,7 @@ index d6db3b07b1b53f91da14b86a53ad72a2bac3f610..c917b5a8d225b254c25e3a53b29b9456
  [[nodiscard]] object_ptr<Ui::SettingsButton> MakeAccountButton(
  		QWidget *parent,
  		not_null<Window::SessionController*> window,
-@@ -1113,15 +1109,8 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
+@@ -1090,15 +1086,8 @@ not_null<Ui::SlideWrap<Ui::SettingsButton>*> AccountsList::setupAdd() {
  			const auto newWindow = (modifiers & Qt::ControlModifier);
  			add(Environment::Production, newWindow);
  			return;

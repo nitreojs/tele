@@ -21,10 +21,10 @@ Subject: [PATCH] feat: notify when people come online
  create mode 100644 Telegram/SourceFiles/tele/tele_online_notify.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5bd6be5d9e6ccc1938be74d142d188d7489d8dc4..ce8aacab1178ed359e50d5e8918cc8ab4c377977 100644
+index 697d552056e6aca186d8d66d43b8b120ba847c08..577d9676e82d2c7d8dce32059d9a5acc523f4278 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2335,6 +2335,8 @@ PRIVATE
+@@ -2493,6 +2493,8 @@ PRIVATE
      tele/tele_new_settings.h
      tele/tele_no_ai.cpp
      tele/tele_no_ai.h
@@ -34,10 +34,10 @@ index 5bd6be5d9e6ccc1938be74d142d188d7489d8dc4..ce8aacab1178ed359e50d5e8918cc8ab
      tele/tele_jump_to_first.h
      tele/tele_link_previews.cpp
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index f80befccacc6d0e540e8343992000824a9ebc8d2..51592aea1f9986ddec8c4b87ff62dab381beb949 100644
+index 617fdf6587106ec717cde53d95b479e0cdf33bb4..13cd2cd67fdfbb0b7c9327d35c2e938295a256c6 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_communities.h"
  #include "tele/tele_local_pins.h"
  #include "tele/tele_no_ai.h"
@@ -45,7 +45,7 @@ index f80befccacc6d0e540e8343992000824a9ebc8d2..51592aea1f9986ddec8c4b87ff62dab3
  #include "tele/tele_protected.h"
  #include "tele/tele_punctual_scheduled.h"
  #include "styles/style_layers.h"
-@@ -285,6 +286,7 @@ Session::Session(
+@@ -289,6 +290,7 @@ Session::Session(
  	Tele::SetupLocalPins(this);
  	Tele::SetupBookmarks(this);
  	Tele::SetupNoAi(this);
@@ -621,10 +621,10 @@ index cd36b671795afa49b282b1609380cf7e5c3473ed..ec5ff5560808f2f8a291718a8301c195
  	using Manager::Manager;
  
 diff --git a/Telegram/SourceFiles/window/notifications_manager_default.cpp b/Telegram/SourceFiles/window/notifications_manager_default.cpp
-index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d610f9ad70 100644
+index 6d0c2fa8f97dcda6c47af38b6d0c3b7956562b85..d730cb18ec1ec8ee456128b19cfb70d6f0b8bcfe 100644
 --- a/Telegram/SourceFiles/window/notifications_manager_default.cpp
 +++ b/Telegram/SourceFiles/window/notifications_manager_default.cpp
-@@ -99,6 +99,14 @@ Manager::QueuedNotification::QueuedNotification(NotificationFields &&fields)
+@@ -110,6 +110,14 @@ Manager::QueuedNotification::QueuedNotification(NotificationFields &&fields)
  	&& fields.item->isFromScheduled()) {
  }
  
@@ -639,7 +639,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  QPixmap Manager::hiddenUserpicPlaceholder() const {
  	if (_hiddenUserpicPlaceholder.isNull()) {
  		const auto ratio = style::DevicePixelRatio();
-@@ -243,6 +251,7 @@ void Manager::showNextFromQueue() {
+@@ -258,6 +266,7 @@ void Manager::showNextFromQueue() {
  			queued.reaction,
  			queued.forwardedCount,
  			queued.fromScheduled,
@@ -647,7 +647,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  			startPosition,
  			startShift,
  			shiftDirection));
-@@ -359,6 +368,13 @@ void Manager::doShowNotification(NotificationFields &&fields) {
+@@ -374,6 +383,13 @@ void Manager::doShowNotification(NotificationFields &&fields) {
  	showNextFromQueue();
  }
  
@@ -661,7 +661,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  void Manager::doClearAll() {
  	_queuedNotifications.clear();
  	for (const auto &notification : _notifications) {
-@@ -644,6 +660,7 @@ Notification::Notification(
+@@ -659,6 +675,7 @@ Notification::Notification(
  	const Data::ReactionId &reaction,
  	int forwardedCount,
  	bool fromScheduled,
@@ -669,7 +669,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  	QPoint startPosition,
  	int shift,
  	Direction shiftDirection)
-@@ -661,6 +678,7 @@ Notification::Notification(
+@@ -676,6 +693,7 @@ Notification::Notification(
  , _item(item)
  , _forwardedCount(forwardedCount)
  , _fromScheduled(fromScheduled)
@@ -677,7 +677,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  , _close(this, st::notifyClose)
  , _reply(this, tr::lng_notification_reply(), st::defaultBoxButton) {
  	_reply->setTextTransform(Ui::RoundButtonTextTransform::ToUpper);
-@@ -866,7 +884,7 @@ void Notification::paintText(Painter &p) {
+@@ -881,7 +899,7 @@ void Notification::paintText(Painter &p) {
  }
  
  void Notification::updateNotifyDisplay() {
@@ -686,7 +686,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  		return;
  	}
  
-@@ -933,7 +951,8 @@ void Notification::updateNotifyDisplay() {
+@@ -948,7 +966,8 @@ void Notification::updateNotifyDisplay() {
  		}
  
  		const auto composeText = !options.hideMessageText
@@ -696,7 +696,7 @@ index 57e1453a52f945a69460db41e25c7507993c766e..18ae014feca07582163f5f79d7b931d6
  		if (composeText) {
  			auto old = base::take(_textCache);
  			_textCache = Ui::Text::String(itemWidth);
-@@ -950,6 +969,8 @@ void Notification::updateNotifyDisplay() {
+@@ -965,6 +984,8 @@ void Notification::updateNotifyDisplay() {
  					_item,
  					_reaction,
  					options.hideMessageText))
@@ -753,10 +753,10 @@ index 7a2356101d1d082ac8d86c5b6791f96a022dbf16..6d29842413b5a608b055836f193ab530
  	object_ptr<Ui::RoundButton> _reply;
  	object_ptr<Background> _background = { nullptr };
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 20bafa25d6da5f136cf178b190d1f9e057cdd00f..b6162f75d6904f33afaf8d101bd12b93400ff589 100644
+index 51ef96f9f70fcfc8397c21d43911a2577fbe4e7f..482fcf8b744e9eb7b52b9fa7eb4d9d99e20af560 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -136,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_local_names.h"
  #include "tele/tele_local_pins.h"
  #include "tele/tele_mtp_inspector.h"
@@ -764,7 +764,7 @@ index 20bafa25d6da5f136cf178b190d1f9e057cdd00f..b6162f75d6904f33afaf8d101bd12b93
  #include "tele/tele_show_pinned.h"
  #include "tele/tele_silent.h"
  #include "tele/tele_username_aliases.h"
-@@ -1940,6 +1941,7 @@ void Filler::fillHistoryActions() {
+@@ -1955,6 +1956,7 @@ void Filler::fillHistoryActions() {
  	addToggleMuteSubmenu(true);
  	Tele::AddGhostChatAction(_peer, _addAction);
  	Tele::AddSilentChatAction(_peer, _addAction);
@@ -772,7 +772,7 @@ index 20bafa25d6da5f136cf178b190d1f9e057cdd00f..b6162f75d6904f33afaf8d101bd12b93
  	addCreateTopic();
  	addInfo();
  	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
-@@ -1976,6 +1978,7 @@ void Filler::fillProfileActions() {
+@@ -1991,6 +1993,7 @@ void Filler::fillProfileActions() {
  	addEditContact();
  	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
  	Tele::AddLocalNameAction(_controller, _peer, _addAction);

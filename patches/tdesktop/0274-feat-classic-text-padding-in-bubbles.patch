@@ -17,10 +17,10 @@ Subject: [PATCH] feat: classic text padding in bubbles
  create mode 100644 Telegram/SourceFiles/tele/tele_bubble_padding.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9aa4f3e2947375d5f617aaeb2d044938d2632a46..2ed56a874189effeb1335668bbfc26e56fe0d852 100644
+index d6c75999cbf2d33b0d341186e78eab051842a25e..c6e5d37d333184dcdcad7311492a7ad27130d0c2 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2237,6 +2237,8 @@ PRIVATE
+@@ -2395,6 +2395,8 @@ PRIVATE
      tele/tele_build.h
      tele/tele_bubble_badges.cpp
      tele/tele_bubble_badges.h
@@ -30,10 +30,10 @@ index 9aa4f3e2947375d5f617aaeb2d044938d2632a46..2ed56a874189effeb1335668bbfc26e5
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index bec8dde9cf880ebf5165d22d760d6514e8f71422..2e377985f0d8ab5d4e9711f0c1190a4855c17dd8 100644
+index 411f34ba3f6f1571c830b2a19934f582a82bf29a..ee3eccdc945c1b787137d3264f1eaa35c9b810cc 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -107,6 +107,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_list_keys.h"
  #include "tele/tele_mtp_console.h"
  #include "tele/tele_counters.h"
@@ -41,7 +41,7 @@ index bec8dde9cf880ebf5165d22d760d6514e8f71422..2e377985f0d8ab5d4e9711f0c1190a48
  #include "tele/tele_freeze_watchdog.h"
  #include "tele/tele_start_menu.h"
  
-@@ -347,6 +348,7 @@ void Application::run() {
+@@ -349,6 +350,7 @@ void Application::run() {
  	QCoreApplication::instance()->installTranslator(_translator.get());
  
  	style::StartManager(cScale());

@@ -17,10 +17,10 @@ Subject: [PATCH] feat: record voice in higher quality
  create mode 100644 Telegram/SourceFiles/tele/tele_voice_quality.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d6f4cf2453de2d0493f6abdc8d6652b1628f8eae..34e14e8c02349f71aecf25ed01428d89141a9310 100644
+index e53afe19cdccccf69224533c08b61fc3deb2c772..cf0c4ce41e80514396777cf1f463986c46f7cae5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2581,6 +2581,8 @@ PRIVATE
+@@ -2739,6 +2739,8 @@ PRIVATE
      tele/tele_view_tl_window.h
      tele/tele_voice_fade.cpp
      tele/tele_voice_fade.h

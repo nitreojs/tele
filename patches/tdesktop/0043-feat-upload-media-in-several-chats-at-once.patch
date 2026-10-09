@@ -14,10 +14,10 @@ Subject: [PATCH] feat: upload media in several chats at once
  create mode 100644 Telegram/SourceFiles/tele/tele_uploads.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index baee922abb3efc303db0e08a262eb638066bf54d..1aedfaeb16efe1e2f2f8c79752053f3764e0659f 100644
+index cb9bcd6ffd4ed3116f205fe8cd10bf940f8f23ba..285802b195c4c040e6708f888d9a697ebae69f4b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2265,6 +2265,7 @@ PRIVATE
+@@ -2423,6 +2423,7 @@ PRIVATE
      tele/tele_title_template.h
      tele/tele_updater.cpp
      tele/tele_updater.h
@@ -40,7 +40,7 @@ index 46b917be98d627067c1cbec9cc41c47b5a4a3d7e..b78a3d6ad94c720d920058ab93ab9a8c
  	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
  	AddOptionToggle(builder, ::Tele::kOptionScreenshotSecretMedia);
 diff --git a/Telegram/SourceFiles/storage/file_upload.cpp b/Telegram/SourceFiles/storage/file_upload.cpp
-index 7fea7ec085b1dc752bd10f1f8d4a3de31f019d9f..23e5275848562d1240d08557ac4253801b5770fb 100644
+index a19470a24b6a62b58c63d8cc21d831641d970260..d8b3c0e5b8fcaf429e277641557d06ea41669e10 100644
 --- a/Telegram/SourceFiles/storage/file_upload.cpp
 +++ b/Telegram/SourceFiles/storage/file_upload.cpp
 @@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -51,7 +51,7 @@ index 7fea7ec085b1dc752bd10f1f8d4a3de31f019d9f..23e5275848562d1240d08557ac425380
  
  #include <QtCore/QFileInfo>
  
-@@ -722,6 +723,9 @@ Uploader::Entry *Uploader::chooseEntryForNextRequest() {
+@@ -727,6 +728,9 @@ Uploader::Entry *Uploader::chooseEntryForNextRequest() {
  		Assert(i != end(_queue));
  		return &*i;
  	}
@@ -61,7 +61,7 @@ index 7fea7ec085b1dc752bd10f1f8d4a3de31f019d9f..23e5275848562d1240d08557ac425380
  
  	for (auto i = begin(_queue); i != end(_queue); ++i) {
  		if (i->preparing) {
-@@ -1063,7 +1067,8 @@ void Uploader::partLoaded(const MTPBool &result, mtpRequestId requestId) {
+@@ -1068,7 +1072,8 @@ void Uploader::partLoaded(const MTPBool &result, mtpRequestId requestId) {
  		_nonPremiumDelays.fire_copy(itemId);
  	}
  
@@ -71,7 +71,7 @@ index 7fea7ec085b1dc752bd10f1f8d4a3de31f019d9f..23e5275848562d1240d08557ac425380
  		maybeFinishFront();
  	}
  	maybeSend();
-@@ -1099,7 +1104,7 @@ void Uploader::maybeFinishFront() {
+@@ -1104,7 +1109,7 @@ void Uploader::maybeFinishFront() {
  			&& !entry.partsWaiting
  			&& !entry.docPartsWaiting) {
  			finishFront();

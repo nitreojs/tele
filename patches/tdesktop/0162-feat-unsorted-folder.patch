@@ -26,10 +26,10 @@ Subject: [PATCH] feat: unsorted folder
  create mode 100644 Telegram/SourceFiles/tele/tele_unsorted_folder.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f563c80f8bdd7db9ac4756089140b8118a201fc1..0d288ed4e02e9b26061c4b0520e7ad4f21835397 100644
+index 2c7d88917ec72deb2d15b28af949d4fdd41fe32b..a00da4fb585a77ced22b45eb95b9826af04d37c3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2421,6 +2421,8 @@ PRIVATE
+@@ -2579,6 +2579,8 @@ PRIVATE
      tele/tele_title_template.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h
@@ -136,7 +136,7 @@ index 294e6eaeec48901b977d75a4efc5f2af0e12ebd3..2a8ff52576354c20079eccf8b76cb681
  		const auto peer = history->peer;
  		if (const auto user = peer->asUser()) {
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index b0557c938db557fa83fa3043614da1dba8b1d713..e49773e0d9a416818245a083360704bdb97942c7 100644
+index 63d1e773b1363b1e7d3d4cf1d18ab7bc87c49290..60f5a8013a27753a1f3367bcbab492422b2ad7b4 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 @@ -91,6 +91,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -147,7 +147,7 @@ index b0557c938db557fa83fa3043614da1dba8b1d713..e49773e0d9a416818245a083360704bd
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
  #include "base/qt/qt_common_adapters.h"
-@@ -5061,7 +5062,8 @@ void InnerWidget::refreshEmpty() {
+@@ -5140,7 +5141,8 @@ void InnerWidget::refreshEmpty() {
  		: tr::lng_contacts_loading();
  	auto link = (state == EmptyState::NoContacts)
  		? tr::lng_add_contact_button()
@@ -671,7 +671,7 @@ index e82fb44d6ef6764bc7a10750f864f2e1eff70ab5..34257d131d66d2bebcea81d25d9be97d
  	}
  	const auto extract = [=](const MTPmessages_DialogFilters &result) {
 diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
-index 755a8c55e52f3a8fa46d87daf300a4d6f384e5d6..d64531b702833ff36985fb6374d8a7d3506a5d8a 100644
+index 63177d36033f56f8ea9678aff4d08c1d6cfb5250..163886756eb85a348b83dfc773f26e3fcc50d937 100644
 --- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 +++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
 @@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -682,7 +682,7 @@ index 755a8c55e52f3a8fa46d87daf300a4d6f384e5d6..d64531b702833ff36985fb6374d8a7d3
  #include "tele/tele_view_tl.h"
  #include "ui/widgets/menu/menu_action.h"
  #include "ui/filter_icons.h"
-@@ -84,7 +85,9 @@ void ShowMenu(
+@@ -85,7 +86,9 @@ void ShowMenu(
  	const auto addAction = Ui::Menu::CreateAddActionCallback(
  		state->menu.get());
  
@@ -717,10 +717,10 @@ index 2e42bbbf5896f141d6ef6a1b074d45e440bd579c..e66f6010e8fcf30154e1654aa5882456
  			tr::lng_filters_context_edit(tr::now),
  			crl::guard(&_outer, [=] { EditExistingFilter(_session, id); }),
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index e88677264837011d7ddef98390ef30186b5d7d07..e99241ba05d27d42af7eac8216436ed91e3a8f30 100644
+index 6a21a4a0ae8715f944447e0294d2a05da978f70b..0e911854dd0804500c9042cc75a22c7c3a7c5080 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -140,6 +140,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -141,6 +141,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_online_notify.h"
  #include "tele/tele_show_pinned.h"
  #include "tele/tele_silent.h"
@@ -728,7 +728,7 @@ index e88677264837011d7ddef98390ef30186b5d7d07..e99241ba05d27d42af7eac8216436ed9
  #include "tele/tele_username_aliases.h"
  #include "tele/tele_view_tl.h"
  #include "styles/style_chat.h"
-@@ -572,6 +573,8 @@ void Filler::addTogglePin() {
+@@ -575,6 +576,8 @@ void Filler::addTogglePin() {
  	const auto entry = _thread ? (Dialogs::Entry*)_thread : _sublist;
  	if (!entry || entry->fixedOnTopIndex()) {
  		return;

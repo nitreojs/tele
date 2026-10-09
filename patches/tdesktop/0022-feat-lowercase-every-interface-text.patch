@@ -16,10 +16,10 @@ Subject: [PATCH] feat: lowercase every interface text
  create mode 100644 Telegram/SourceFiles/tele/tele_lowercase.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 175b0e5c84283c9636a6558d3c921d08f911f2a7..760bd4b297f4bef120f4f031451c2d14b17b6054 100644
+index 07182d73562e4a103fc0948f7e6515b7703788a4..3b0f62059add1c0ac8a870c59ea1d1154864dd14 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2233,6 +2233,8 @@ PRIVATE
+@@ -2391,6 +2391,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h

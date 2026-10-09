@@ -21,10 +21,10 @@ Subject: [PATCH] feat: hide unread counters
  create mode 100644 Telegram/SourceFiles/tele/tele_counters.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2544b2f1570b89d9f65cfa522dd0801ac007fc39..e8dae4b07e3d30c2ad3dc032a6f3dc744c90e0d0 100644
+index b0e6acd5149ca09276e106f448af9d54570fd33b..29564b689f2783b5d00d131f6f8ddfc823786de1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2257,6 +2257,8 @@ PRIVATE
+@@ -2415,6 +2415,8 @@ PRIVATE
      tele/tele_communities.h
      tele/tele_corner_buttons.cpp
      tele/tele_corner_buttons.h
@@ -34,10 +34,10 @@ index 2544b2f1570b89d9f65cfa522dd0801ac007fc39..e8dae4b07e3d30c2ad3dc032a6f3dc74
      tele/tele_crash.h
      tele/tele_custom_emoji.cpp
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index bf87e3ba6022eef0b766939dcc871117435a7dfa..62875dcfb2c6b41b9feff6af1862bdc30bd69b23 100644
+index 2b54c5f15361c172290158da17c0b53c214001f3..ee0c7814750ec03c44396290b6806a1639442771 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_updater.h"
  #include "tele/tele_changelog.h"
  #include "tele/tele_badges.h"
@@ -45,7 +45,7 @@ index bf87e3ba6022eef0b766939dcc871117435a7dfa..62875dcfb2c6b41b9feff6af1862bdc3
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -1185,7 +1186,7 @@ bool Application::preventsQuit(QuitReason reason) {
+@@ -1199,7 +1200,7 @@ bool Application::preventsQuit(QuitReason reason) {
  }
  
  int Application::unreadBadge() const {
@@ -85,10 +85,10 @@ index c374dc0f6558dc6e29f56c5257a22ecc2b616805..d38d39667fd7b3f93d31b15f12e14ad8
  
  rpl::producer<bool> IncludeMutedCounterFoldersValue() {
 diff --git a/Telegram/SourceFiles/main/main_domain.cpp b/Telegram/SourceFiles/main/main_domain.cpp
-index 3421d0e7f1ec1e0236337450a6f34def1bfaa8e1..5bf623eb69e409cd6bcae2f018862f35c02c5983 100644
+index 4b94ea13354dd3788fc76a722d2f0078c955859f..1af239ddcf67bd5994f8eb0f337c87a35a42dbf7 100644
 --- a/Telegram/SourceFiles/main/main_domain.cpp
 +++ b/Telegram/SourceFiles/main/main_domain.cpp
-@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/notifications_manager.h"
  #include "window/window_controller.h"
  #include "data/data_peer_values.h" // Data::AmPremiumValue.
@@ -96,7 +96,7 @@ index 3421d0e7f1ec1e0236337450a6f34def1bfaa8e1..5bf623eb69e409cd6bcae2f018862f35
  
  namespace Main {
  
-@@ -245,10 +246,10 @@ void Domain::updateUnreadBadge() {
+@@ -303,10 +304,10 @@ void Domain::updateUnreadBadge() {
  	_unreadBadge = 0;
  	_unreadBadgeMuted = true;
  	for (const auto &[index, account] : _accounts) {
@@ -110,7 +110,7 @@ index 3421d0e7f1ec1e0236337450a6f34def1bfaa8e1..5bf623eb69e409cd6bcae2f018862f35
  				_unreadBadgeMuted = false;
  			}
  		}
-@@ -344,7 +345,9 @@ void Domain::watchSession(not_null<Account*> account) {
+@@ -402,7 +403,9 @@ void Domain::watchSession(not_null<Account*> account) {
  	) | rpl::filter([=](Session *session) {
  		return session != nullptr;
  	}) | rpl::on_next([=](Session *session) {
@@ -122,7 +122,7 @@ index 3421d0e7f1ec1e0236337450a6f34def1bfaa8e1..5bf623eb69e409cd6bcae2f018862f35
  			scheduleUpdateUnreadBadge();
  		}, session->lifetime());
 diff --git a/Telegram/SourceFiles/settings/sections/settings_information.cpp b/Telegram/SourceFiles/settings/sections/settings_information.cpp
-index c917b5a8d225b254c25e3a53b29b94562f80ddc9..e1205fa0cb25c92f51b7fe0104f6c0ed58c2f96e 100644
+index 384c2787c228515b097fb008d23273ad6dca818e..c487fa90f48cff109daae9d9fc5290cb00ada108 100644
 --- a/Telegram/SourceFiles/settings/sections/settings_information.cpp
 +++ b/Telegram/SourceFiles/settings/sections/settings_information.cpp
 @@ -50,6 +50,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -133,7 +133,7 @@ index c917b5a8d225b254c25e3a53b29b94562f80ddc9..e1205fa0cb25c92f51b7fe0104f6c0ed
  #include "lang/lang_keys.h"
  #include "menu/menu_mark_as_read.h"
  #include "main/main_account.h"
-@@ -972,6 +973,7 @@ void SetupAccountsWrap(
+@@ -948,6 +949,7 @@ void SetupAccountsWrap(
  				window->uiShow(),
  				addAction);
  		}
@@ -491,10 +491,10 @@ index 41c580a17e799a73a77992cd9a6e902e70ecfd30..8505fe4f33a42e86387843dcd06b8c62
  		Internal("tele-open-links-in-apps"),
  		Internal(kOptionShotView),
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index bf79ec8bd448a085e8380603f898bca34d41767f..818bf03518ee39068aee3e6435c9082235096ab8 100644
+index d45b8433aaf6bc5a81c875922500240edc47317b..8a7f23c4b87ce9578f4146497a5d3e2d13918f09 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
-@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_peer_menu.h"
  #include "window/window_session_controller.h"
  #include "tele/tele_build.h"
@@ -502,7 +502,7 @@ index bf79ec8bd448a085e8380603f898bca34d41767f..818bf03518ee39068aee3e6435c90822
  #include "tele/tele_ghost.h"
  #include "styles/style_chat.h" // popupMenuExpandedSeparator
  #include "styles/style_menu_icons.h"
-@@ -962,7 +963,7 @@ OthersUnreadState OtherAccountsUnreadStateCurrent(
+@@ -989,7 +990,7 @@ OthersUnreadState OtherAccountsUnreadStateCurrent(
  	for (const auto &[index, account] : domain.accounts()) {
  		if (account.get() == current) {
  			continue;

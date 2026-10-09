@@ -11,7 +11,7 @@ Subject: [PATCH] feat: copy the callback data of bot buttons
  4 files changed, 102 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 234068e9dc4dd7fe34f795f8ba968616fcce5e42..5aefc355db6cc361207fa588879800cce6f2dd72 100644
+index 97d2d36073e39e66a44c00256a13b2e90ab6e4f5..fa4c2c3dca36761636624754776b6ba3d719bdc7 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -22,7 +22,7 @@ index 234068e9dc4dd7fe34f795f8ba968616fcce5e42..5aefc355db6cc361207fa588879800cc
  #include "tele/tele_deleted.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ignored.h"
-@@ -3715,6 +3716,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3710,6 +3711,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				HistoryView::CopyPostLink(controller, itemId, HistoryView::Context::History);
  			}, &st::menuIconLink);
  		}
@@ -34,7 +34,7 @@ index 234068e9dc4dd7fe34f795f8ba968616fcce5e42..5aefc355db6cc361207fa588879800cc
  			const auto hasAbout = ranges::any_of(
  				_menu->actions(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 4a3fca2e5f997b10adc87ec932dac7906298f3dd..f4c5b9b18bd0549911c2c37ebfa66374b23e26ce 100644
+index 81aa2bea08553d78553143258481e00262a50497..222f552ff30c11d56534eceb1956b899c62be2ee 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index 4a3fca2e5f997b10adc87ec932dac7906298f3dd..f4c5b9b18bd0549911c2c37ebfa66374
  #include "tele/tele_deleted.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_secret_media.h"
-@@ -1943,6 +1944,10 @@ void FillContextMenuItems(
+@@ -1929,6 +1930,10 @@ void FillContextMenuItems(
  	}
  
  	AddCopyLinkAction(result, link);

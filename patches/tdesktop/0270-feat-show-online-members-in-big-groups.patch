@@ -19,10 +19,10 @@ Subject: [PATCH] feat: show online members in big groups
  create mode 100644 Telegram/SourceFiles/tele/tele_onlines.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bc2a3189ce686d0483fc972ee5adbbf3cdb87fc5..e4f60dd4e4fd95c64cc21241e7fc91c90d128275 100644
+index 5bde1271dca4b3105c3fc9f8b941f1388d164b2b..c80214ed55c04541d69aa346289dff21264422c6 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2454,6 +2454,8 @@ PRIVATE
+@@ -2612,6 +2612,8 @@ PRIVATE
      tele/tele_notices_section.h
      tele/tele_online_notify.cpp
      tele/tele_online_notify.h
@@ -32,7 +32,7 @@ index bc2a3189ce686d0483fc972ee5adbbf3cdb87fc5..e4f60dd4e4fd95c64cc21241e7fc91c9
      tele/tele_jump_to_first.h
      tele/tele_link_previews.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index 5e195bc640d117edf4b18231424680a3d6610cb3..9ff07df4a14e621e5db9f43b1f74e80441bc7e18 100644
+index 1a681a292d5a92babd7e7201e86ffa525c812ccd..04222fb1b1ae06f166ad1e526a055397bb8023bd 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -43,7 +43,7 @@ index 5e195bc640d117edf4b18231424680a3d6610cb3..9ff07df4a14e621e5db9f43b1f74e804
  #include "tele/tele_phones.h"
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h"
-@@ -941,6 +942,13 @@ void TopBarWidget::setActiveChat(
+@@ -951,6 +952,13 @@ void TopBarWidget::setActiveChat(
  						Data::kStoriesAlbumIdArchive);
  				}
  			}
@@ -57,7 +57,7 @@ index 5e195bc640d117edf4b18231424680a3d6610cb3..9ff07df4a14e621e5db9f43b1f74e804
  		}
  
  		if (const auto history = _activeChat.key.history()) {
-@@ -1992,6 +2000,10 @@ void TopBarWidget::updateOnlineDisplay() {
+@@ -2015,6 +2023,10 @@ void TopBarWidget::updateOnlineDisplay() {
  			} else {
  				text = tr::lng_group_status(tr::now);
  			}
@@ -69,7 +69,7 @@ index 5e195bc640d117edf4b18231424680a3d6610cb3..9ff07df4a14e621e5db9f43b1f74e804
  			text = channel->isMegagroup()
  				? tr::lng_chat_status_members(tr::now, lt_count_decimal, channel->membersCount())
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_status_label.cpp b/Telegram/SourceFiles/info/profile/info_profile_status_label.cpp
-index e17e5cd487d48f9c249511e7ea929e0db27e4ce9..6d6943b391082ed81976873c840028a79cbd9409 100644
+index 13c646bfc69611a23cf0dc21f499558c008b27c7..abc32cad4a0ee7f292517414d88663bf556a5623 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_status_label.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_status_label.cpp
 @@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -80,7 +80,7 @@ index e17e5cd487d48f9c249511e7ea929e0db27e4ce9..6d6943b391082ed81976873c840028a7
  
  #include "styles/style_info.h"
  
-@@ -181,7 +182,9 @@ void StatusLabel::refresh() {
+@@ -185,7 +186,9 @@ void StatusLabel::refresh() {
  						: TextWithEntities{ .text = result },
  					hidden);
  			}
@@ -92,7 +92,7 @@ index e17e5cd487d48f9c249511e7ea929e0db27e4ce9..6d6943b391082ed81976873c840028a7
  			auto result = ChatStatusText(
  				fullCount,
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index a9d1303170731ab16d9721dfbfa9f71c81d8a9af..f150c79a0c05fca53f6f85539eb9acdac973eb8c 100644
+index f49e409e21350e82fc83454c303a59cc43d343e4..9adcae4befcac10be6a5dd48fbacae2a979fc559 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -103,7 +103,7 @@ index a9d1303170731ab16d9721dfbfa9f71c81d8a9af..f150c79a0c05fca53f6f85539eb9acda
  #include "tele/tele_verify_details.h"
  #include "styles/style_chat.h"
  #include "styles/style_info.h"
-@@ -3948,6 +3949,11 @@ void TopBar::bindStatus() {
+@@ -3942,6 +3943,11 @@ void TopBar::bindStatus() {
  	) | rpl::on_next([=] {
  		_statusLabel->refresh();
  	}, lifetime());

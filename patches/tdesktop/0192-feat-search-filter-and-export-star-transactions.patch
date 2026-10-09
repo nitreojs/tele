@@ -17,10 +17,10 @@ Subject: [PATCH] feat: search, filter and export star transactions
  create mode 100644 Telegram/SourceFiles/tele/tele_stars_tools.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index dbade0413979b38c0cff00fe5f44b53f77e52847..8dcfca3656045377491e8a7972e3543f5840ac64 100644
+index a0d6f566f15e848dfffad226db0cc75fef33d7fa..2bd79c3fbc41d42f0b36ac8d32e51c65a36d6f8d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2439,6 +2439,8 @@ PRIVATE
+@@ -2597,6 +2597,8 @@ PRIVATE
      tele/tele_silent.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h
@@ -30,7 +30,7 @@ index dbade0413979b38c0cff00fe5f44b53f77e52847..8dcfca3656045377491e8a7972e3543f
      tele/tele_sticker_captions.h
      tele/tele_streamer_mode.cpp
 diff --git a/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp b/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
-index 5a3f8e92969e366fd8bdf11c05ea250b481702e9..a45aa402abafb36682a0ff1400b76b3715a27b2e 100644
+index 177625eef427fe1b087f4e1dc54ad9ee65e207a6..bfa2154d71b62dd17ca18bad3a47e4b3bb5ed38e 100644
 --- a/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
 +++ b/Telegram/SourceFiles/info/statistics/info_statistics_list_controllers.cpp
 @@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -51,7 +51,7 @@ index 5a3f8e92969e366fd8bdf11c05ea250b481702e9..a45aa402abafb36682a0ff1400b76b37
  
  private:
  	struct IconCache {
-@@ -1224,6 +1228,7 @@ private:
+@@ -1226,6 +1230,7 @@ private:
  	rpl::variable<bool> _allLoaded = false;
  	rpl::variable<int> _loadedCount = 0;
  	bool _requesting = false;
@@ -59,15 +59,15 @@ index 5a3f8e92969e366fd8bdf11c05ea250b481702e9..a45aa402abafb36682a0ff1400b76b37
  
  };
  
-@@ -1368,6 +1373,7 @@ void CreditsController::applySlice(const Data::CreditsStatusSlice &slice) {
+@@ -1361,6 +1366,7 @@ void CreditsController::applySlice(const Data::CreditsStatusSlice &slice) {
  		delegate()->peerListAppendRow(create({}, item));
  	}
  	delegate()->peerListRefreshRows();
 +	_teleSliceApplied.fire_copy(_allLoaded.current());
  }
  
- void CreditsController::rowClicked(not_null<PeerListRow*> row) {
-@@ -1561,6 +1567,21 @@ void AddCreditsHistoryList(
+ QImage CreditsController::tonIcon() {
+@@ -1569,6 +1575,21 @@ void AddCreditsHistoryList(
  			object_ptr<PeerListWidgets>(container, &state->controller)));
  		state->controller.setDelegate(&(*state->subscriptionDelegate));
  	} else {

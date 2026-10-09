@@ -15,10 +15,10 @@ Subject: [PATCH] feat: open view as tl inside tele
  create mode 100644 Telegram/SourceFiles/tele/tele_view_tl_window.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e2b320479edfc7b36a6ab4284c909d850c8199ea..2e40043eac649dc54d0042356c1800354900fbf4 100644
+index b14b1bf440a5b20aff4fce8c10f98e0117db2898..266acc031e97aab443abc4b455735b55f4dcca56 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2416,6 +2416,8 @@ PRIVATE
+@@ -2574,6 +2574,8 @@ PRIVATE
      tele/tele_viewer_loop.h
      tele/tele_view_tl.cpp
      tele/tele_view_tl.h
@@ -28,7 +28,7 @@ index e2b320479edfc7b36a6ab4284c909d850c8199ea..2e40043eac649dc54d0042356c180035
      tele/tele_voice_fade.h
      tele/tele_who_read.cpp
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
-index b93a0e79481312471ec87265cbea81573fc24480..8a897af29c3d1931720df0d047d4e3e279b4e3d3 100644
+index 089f4dad0ee1d6c57e8a8f460f8e7dbd486a0fb9..612214c1e4b8ebecb48cab4bae2e86120e3bb255 100644
 --- a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 +++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 @@ -114,6 +114,7 @@ private:
@@ -157,7 +157,7 @@ index ab44954f6eac2c32f390c44bc8a9cea7aaa0d670..6d7a47614c15f4876553af3644c87c08
  	const std::shared_ptr<Main::SessionShow> &show);
 diff --git a/Telegram/SourceFiles/tele/tele_view_tl_window.cpp b/Telegram/SourceFiles/tele/tele_view_tl_window.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..bce75b1effb16b3defa5deb7381633c90118c338
+index 0000000000000000000000000000000000000000..add634f10b2b347a0aa33074c8b8f1476eeddc1b
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_view_tl_window.cpp
 @@ -0,0 +1,194 @@
@@ -294,7 +294,7 @@ index 0000000000000000000000000000000000000000..bce75b1effb16b3defa5deb7381633c9
 +		}
 +	});
 +
-+	raw->setNavigationStartHandler([=](const QString &uri, bool newWindow) {
++	raw->setNavigationPolicyHandler([=](const QString &uri, bool newWindow) {
 +		if (IsSchemaUrl(uri)) {
 +			if (!newWindow) {
 +				return true;

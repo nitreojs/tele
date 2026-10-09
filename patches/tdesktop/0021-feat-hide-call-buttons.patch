@@ -13,7 +13,7 @@ Subject: [PATCH] feat: hide call buttons
  6 files changed, 36 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index 62fad807f2d5a1207ca21cb82978b63a9b4ed495..20c1bb18566834cd61eba10c155c3080c8eb3c8d 100644
+index ecccfe37bcee338a85e477ed350e0599029a4e1f..22378719f1e62f55e9ad7d8a6dd0e89bf2c9a962 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 @@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -36,7 +36,7 @@ index 62fad807f2d5a1207ca21cb82978b63a9b4ed495..20c1bb18566834cd61eba10c155c3080
  	setCursor(style::cur_pointer);
  	_call->setAccessibleName(tr::lng_profile_action_short_call(tr::now));
  	_groupCall->setAccessibleName(tr::lng_group_call_title(tr::now));
-@@ -1402,7 +1408,8 @@ void TopBarWidget::updateControlsVisibility() {
+@@ -1425,7 +1431,8 @@ void TopBarWidget::updateControlsVisibility() {
  	}();
  	_call->setVisible(historyMode
  		&& callsEnabled
@@ -47,10 +47,10 @@ index 62fad807f2d5a1207ca21cb82978b63a9b4ed495..20c1bb18566834cd61eba10c155c3080
  		if (const auto peer = _activeChat.key.peer()) {
  			if (!peer->isUser() && peer->canManageGroupCall()) {
 diff --git a/Telegram/SourceFiles/info/info_wrap_widget.cpp b/Telegram/SourceFiles/info/info_wrap_widget.cpp
-index d89e206ccc3a5c7859bacf6f353ce746c0f5ae9b..c54b8e33419e9122257a213163fff50cfa607758 100644
+index 8895f2c1857f18a005bec0b78085f36b8c48b591..4cfe340243fe00b60203ba44969bad25f1e5cb14 100644
 --- a/Telegram/SourceFiles/info/info_wrap_widget.cpp
 +++ b/Telegram/SourceFiles/info/info_wrap_widget.cpp
-@@ -51,6 +51,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -52,6 +52,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "lang/lang_keys.h"
  #include "lang/lang_numbers_animation.h"
  #include "menu/menu_send.h"
@@ -58,7 +58,7 @@ index d89e206ccc3a5c7859bacf6f353ce746c0f5ae9b..c54b8e33419e9122257a213163fff50c
  #include "styles/style_chat.h" // popupMenuExpandedSeparator
  #include "styles/style_info.h"
  #include "styles/style_layers.h"
-@@ -573,7 +574,10 @@ void WrapWidget::addProfileCallsButton() {
+@@ -590,7 +591,10 @@ void WrapWidget::addProfileCallsButton() {
  
  	const auto peer = key().peer();
  	const auto user = peer ? peer->asUser() : nullptr;
@@ -71,7 +71,7 @@ index d89e206ccc3a5c7859bacf6f353ce746c0f5ae9b..c54b8e33419e9122257a213163fff50c
  	}
  
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index 30ffec3c6baf9cbd2b6df8c4182c775ed89d95f7..d6cd71cb2dcb5319443d6d284070476e2fc3bbae 100644
+index 4e6db8f5537d484770f0de95972952ab7b81c0c8..bd0acd8bfe99cbaed0a289e1a09385437e617617 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -82,7 +82,7 @@ index 30ffec3c6baf9cbd2b6df8c4182c775ed89d95f7..d6cd71cb2dcb5319443d6d284070476e
  #include "styles/style_chat.h"
  #include "styles/style_info.h"
  #include "styles/style_info_profile_top_bar.h"
-@@ -1101,7 +1102,8 @@ void TopBar::setupActions(not_null<Window::SessionController*> controller) {
+@@ -1103,7 +1104,8 @@ void TopBar::setupActions(not_null<Window::SessionController*> controller) {
  		&& user
  		&& !user->sharedMediaInfo()
  		&& !user->isInaccessible()

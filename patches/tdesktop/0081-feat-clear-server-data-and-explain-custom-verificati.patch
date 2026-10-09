@@ -8,19 +8,19 @@ Subject: [PATCH] feat: clear server data and explain custom verifications
  .../info/profile/info_profile_actions.cpp     |   6 +-
  .../info/profile/info_profile_top_bar.cpp     |   2 +
  .../SourceFiles/settings/settings_tele.cpp    |  14 ++
- Telegram/SourceFiles/tele/tele_badges.cpp     |  41 ++++-
+ Telegram/SourceFiles/tele/tele_badges.cpp     |  41 +++-
  Telegram/SourceFiles/tele/tele_badges.h       |   1 +
- .../SourceFiles/tele/tele_verify_details.cpp  | 171 ++++++++++++++++++
+ .../SourceFiles/tele/tele_verify_details.cpp  | 179 ++++++++++++++++++
  .../SourceFiles/tele/tele_verify_details.h    |  25 +++
- 8 files changed, 255 insertions(+), 7 deletions(-)
+ 8 files changed, 263 insertions(+), 7 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_verify_details.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_verify_details.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9e6173577c7a768984d0d355c4fa649ffe5208b8..fb115a6b6a5567245584e5648515da24f31b7246 100644
+index 527743ade3d684003b90da7cf891fce772e36bd0..15dc78b3538f51396bb62be73951e2c7e7e6f532 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2314,6 +2314,8 @@ PRIVATE
+@@ -2472,6 +2472,8 @@ PRIVATE
      tele/tele_uploads.h
      tele/tele_username_aliases.cpp
      tele/tele_username_aliases.h
@@ -30,7 +30,7 @@ index 9e6173577c7a768984d0d355c4fa649ffe5208b8..fb115a6b6a5567245584e5648515da24
      tele/tele_view_tl.h
  )
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index ccd06f8dfaaf7b01cec289f0a6279d352f96efc4..5b2661455d5614ac158b2d53344c1358a3ef7fb2 100644
+index bd760ef54830dcab87ddf410178e1ec9bb991a94..a0828034d9f07a644795b9e4645598c42b907f3e 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -81,6 +81,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,7 +41,7 @@ index ccd06f8dfaaf7b01cec289f0a6279d352f96efc4..5b2661455d5614ac158b2d53344c1358
  #include "ui/boxes/peer_qr_box.h"
  #include "ui/boxes/report_box_graphics.h"
  #include "ui/controls/userpic_button.h"
-@@ -2365,7 +2366,10 @@ void DetailsFiller::addBotVerify() {
+@@ -2373,7 +2374,10 @@ void DetailsFiller::addBotVerify() {
  		return info ? info->description : TextWithEntities();
  	});
  
@@ -54,7 +54,7 @@ index ccd06f8dfaaf7b01cec289f0a6279d352f96efc4..5b2661455d5614ac158b2d53344c1358
  
  void DetailsFiller::addManagedBotFooter(not_null<UserData*> managerUser) {
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index dbe53e47123353784c1cf37acde06d642d7d0663..91a964cd985f82c79f1b01400b75e3266497c241 100644
+index e2f9d8d1594147d2f081c53ec31c7fe25b36c684..5bef64e6e936cb91c220f6b09ea9e7f0b542a5d4 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -187,10 +187,10 @@ index fb9fd198c80850ccbeb1b3640558f647d902016a..3df560f1c0697e81a731b6e46c0330c6
  [[nodiscard]] bool Scam(not_null<PeerData*> peer);
 diff --git a/Telegram/SourceFiles/tele/tele_verify_details.cpp b/Telegram/SourceFiles/tele/tele_verify_details.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..7a79e4c9e16c8730c9533c0e3b39927ff731541f
+index 0000000000000000000000000000000000000000..2c5c62177c55364f6606afe92a600b1673f8a136
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_verify_details.cpp
-@@ -0,0 +1,171 @@
+@@ -0,0 +1,179 @@
 +#include "tele/tele_verify_details.h"
 +
 +#include "base/timer.h"
@@ -201,10 +201,10 @@ index 0000000000000000000000000000000000000000..7a79e4c9e16c8730c9533c0e3b39927f
 +#include "data/data_peer.h"
 +#include "data/stickers/data_custom_emoji.h"
 +#include "info/profile/info_profile_badge.h"
-+#include "info/profile/info_profile_badge_tooltip.h"
 +#include "main/main_session.h"
 +#include "ui/abstract_button.h"
 +#include "ui/unread_badge.h"
++#include "ui/widgets/glare_tooltip.h"
 +#include "ui/widgets/labels.h"
 +#include "styles/style_info.h"
 +
@@ -213,11 +213,11 @@ index 0000000000000000000000000000000000000000..7a79e4c9e16c8730c9533c0e3b39927f
 +
 +constexpr auto kTooltipGlares = 3;
 +
-+using Info::Profile::BadgeTooltip;
++using Ui::GlareTooltip;
 +
 +struct TooltipState {
-+	base::unique_qptr<BadgeTooltip> shown;
-+	std::vector<base::unique_qptr<BadgeTooltip>> old;
++	base::unique_qptr<GlareTooltip> shown;
++	std::vector<base::unique_qptr<GlareTooltip>> old;
 +	std::unique_ptr<base::Timer> hideTimer;
 +	float64 opacity = 1.;
 +};
@@ -265,7 +265,7 @@ index 0000000000000000000000000000000000000000..7a79e4c9e16c8730c9533c0e3b39927f
 +		const auto i = ranges::find(
 +			state->old,
 +			raw,
-+			&base::unique_qptr<BadgeTooltip>::get);
++			&base::unique_qptr<GlareTooltip>::get);
 +		if (i != end(state->old)) {
 +			state->old.erase(i);
 +		}
@@ -283,14 +283,22 @@ index 0000000000000000000000000000000000000000..7a79e4c9e16c8730c9533c0e3b39927f
 +	if (!widget || text.isEmpty()) {
 +		return;
 +	}
-+	state->shown = base::make_unique_q<BadgeTooltip>(
++	const auto collectible = Collectible(parent, text);
++	state->shown = base::make_unique_q<GlareTooltip>(
 +		parent,
-+		Collectible(parent, text),
-+		widget);
++		st::infoGiftTooltip,
++		st::infoGiftTooltipFont,
++		collectible->title,
++		Ui::GlareTooltipColors{
++			.edge = collectible->edgeColor,
++			.center = collectible->centerColor,
++			.rim = collectible->textColor,
++			.text = QColor(255, 255, 255),
++		});
 +	const auto raw = state->shown.get();
++	raw->trackWidget(widget);
 +	raw->fade(true);
-+	state->hideTimer->callOnce(kTooltipGlares * raw->glarePeriod()
-+		- st::infoGiftTooltip.duration * 1.5);
++	state->hideTimer->callOnce(raw->glaresDuration(kTooltipGlares));
 +	raw->setOpacity(state->opacity);
 +}
 +

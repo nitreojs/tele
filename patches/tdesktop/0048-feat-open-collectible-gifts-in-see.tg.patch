@@ -13,10 +13,10 @@ Subject: [PATCH] feat: open collectible gifts in see.tg
  6 files changed, 58 insertions(+)
 
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index e3dfbfcdcdc9e91bc84e12f5bf55e1167e4e9946..9614d9da98af3ebc3ce1c9a2bfce50da076b47ee 100644
+index 512c5f537c0d869d521e6aa9f0e244708bb17dc5..be15f795ff24938136b95dd4ad34f2fad274180e 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -99,6 +99,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/wrap/vertical_layout.h"
  #include "ui/ui_utility.h"
  #include "window/window_session_controller.h"
@@ -24,7 +24,7 @@ index e3dfbfcdcdc9e91bc84e12f5bf55e1167e4e9946..9614d9da98af3ebc3ce1c9a2bfce50da
  #include "tele/tele_view_tl.h"
  #include "styles/style_boxes.h"
  #include "styles/style_calls.h"
-@@ -2216,6 +2217,7 @@ void GenericCreditsEntryBody(
+@@ -2235,6 +2236,7 @@ void GenericCreditsEntryBody(
  			canConvert ? convert : Fn<void()>(),
  			canUpgrade,
  			canRemoveDetails ? removeDetails : Fn<void(Fn<void()>)>());

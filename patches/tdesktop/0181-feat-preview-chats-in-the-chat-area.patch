@@ -18,10 +18,10 @@ Subject: [PATCH] feat: preview chats in the chat area
  create mode 100644 Telegram/SourceFiles/tele/tele_full_preview.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 378ef4dbe07fd201270ee7b9b152cf93dc5a9f12..6460d898d531af2a6711f98feb646dfac70b7516 100644
+index 7a9354e3bc7ae13e9492b31e11bc511c70abd62c..f55d5de194c93920516d36485b414915d37eedd9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2309,6 +2309,8 @@ PRIVATE
+@@ -2467,6 +2467,8 @@ PRIVATE
      tele/tele_field_resize.h
      tele/tele_folders.cpp
      tele/tele_folders.h
@@ -31,10 +31,10 @@ index 378ef4dbe07fd201270ee7b9b152cf93dc5a9f12..6460d898d531af2a6711f98feb646dfa
      tele/tele_gif_video.h
      tele/tele_gifts.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 56557c29e5d43188599561def805ef2a2d48fd4c..142e143a7485a94129c735b1fa03bc0f67d4058e 100644
+index 2aad537070100eb5671ceb793394189f378b737c..ffdd6a84bf174c04956aafb9801eaf98399d8311 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_message_menu.h"
  #include "tele/tele_options.h"
  #include "tele/tele_deleted_reply.h"
@@ -42,7 +42,7 @@ index 56557c29e5d43188599561def805ef2a2d48fd4c..142e143a7485a94129c735b1fa03bc0f
  #include "tele/tele_protected.h"
  #include "tele/tele_rmb_beside_bubble.h"
  #include "styles/style_chat.h"
-@@ -4030,6 +4031,9 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4039,6 +4040,9 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  			_overElement = view;
  		}
  	}

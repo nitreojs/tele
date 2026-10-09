@@ -35,10 +35,10 @@ index d62657a8b5d0ef06fea36cf6b9f82b80f8687a5d..2bd8a56b58a10320c091d493ac1d29ff
  	base::install_event_filter(layer.get(), [=](not_null<QEvent*> e) {
  		if (e->type() == QEvent::KeyPress) {
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 0ead884776dcc79e68f403f4438013a3a4d6848c..2f5bff03445da1caccdd19826f830813aa712075 100644
+index df5d483381d4f4aa6d428b14e76b48c5000cb446..286267b43868d672ea8de016294d1fbba6061329 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -6091,7 +6091,7 @@ bool OverlayWidget::contentNeedsScreenshotProtection() const {
+@@ -6098,7 +6098,7 @@ bool OverlayWidget::contentNeedsScreenshotProtection() const {
  		return story->forbidsForward();
  	}
  	return (_history && !_history->peer->allowsForwarding())

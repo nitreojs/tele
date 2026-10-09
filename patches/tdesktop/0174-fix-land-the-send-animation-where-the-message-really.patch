@@ -11,10 +11,10 @@ Subject: [PATCH] fix: land the send animation where the message really is
  4 files changed, 19 insertions(+), 32 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 350637a67c40e6936811768868e7b6824536ff5a..6a7406285dfa09e210b4888306005fc6ff126a07 100644
+index 06bfb1d942eac9d45f01087dc845e05a9d7a0254..176cef79dd514f762bd00a63b6238dc27fa790f5 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -8830,23 +8830,14 @@ void HistoryWidget::startMessageSendingAnimation(
+@@ -9010,23 +9010,14 @@ void HistoryWidget::startMessageSendingAnimation(
  	}
  	Assert(item->mainView() != nullptr);
  
@@ -42,10 +42,10 @@ index 350637a67c40e6936811768868e7b6824536ff5a..6a7406285dfa09e210b4888306005fc6
  	sendingAnimation.startAnimation({
  		.globalEndTopLeft = std::move(globalEndTopLeft),
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index f6212dac3d7184a19ae0a40b68199a7279015672..56557c29e5d43188599561def805ef2a2d48fd4c 100644
+index ba0413a5a16944b9a2ba2dc6a2cc2947e312e409..2aad537070100eb5671ceb793394189f378b737c 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -2773,17 +2773,13 @@ void ListWidget::startMessageSendingAnimation(
+@@ -2782,17 +2782,13 @@ void ListWidget::startMessageSendingAnimation(
  		return;
  	}
  

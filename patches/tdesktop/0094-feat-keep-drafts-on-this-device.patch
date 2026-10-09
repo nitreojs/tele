@@ -18,10 +18,10 @@ Subject: [PATCH] feat: keep drafts on this device
  create mode 100644 Telegram/SourceFiles/tele/tele_local_drafts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 894d6d426d4d555bd2d55c50a8e1ccfdd61624c1..eb5aacbba2bf5ae94e8e0343281cb9a4c9b82b74 100644
+index 3e3f059a6b3f19b073ae3a50d2d50ed58f3b472f..0ef518b9a1723e62d081bbd9476d13bfbf4aeea9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2279,6 +2279,8 @@ PRIVATE
+@@ -2437,6 +2437,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -31,7 +31,7 @@ index 894d6d426d4d555bd2d55c50a8e1ccfdd61624c1..eb5aacbba2bf5ae94e8e0343281cb9a4
      tele/tele_local_names.h
      tele/tele_lowercase.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index b3b1bae724bf27c726f910bd30eae2ed483d4e36..b16ae8482240f1dcf4176ba424ad96794abb37d9 100644
+index 1cbf0f3e2a6635a412c3915b4b12b0643d18698b..84a55aaf5f8c81b763989368adbaeb761fe79e02 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index b3b1bae724bf27c726f910bd30eae2ed483d4e36..b16ae8482240f1dcf4176ba424ad9679
  
  namespace {
  
-@@ -2387,6 +2388,9 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
+@@ -2392,6 +2393,9 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
  		bool clearOnFail,
  		Fn<void()> done,
  		Fn<void(const MTP::Error &)> fail) {
@@ -53,10 +53,10 @@ index b3b1bae724bf27c726f910bd30eae2ed483d4e36..b16ae8482240f1dcf4176ba424ad9679
  	const auto history = thread->owningHistory();
  	const auto topicRootId = thread->topicRootId();
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index 1f67724559bbd00acbec2f38307da9baf19df5f1..94f69438a2c3f9e562f2aebf1b5910bc5313e962 100644
+index 3974357b1c3014a0ac8dcaacb402b4a1511ef404..9be70cb4d7287cf30d05114adc11fd9060b5f8a8 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
-@@ -82,6 +82,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -83,6 +83,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "base/unixtime.h"
  #include "base/qt/qt_common_adapters.h"
  #include "tele/tele_deleted.h"
@@ -65,7 +65,7 @@ index 1f67724559bbd00acbec2f38307da9baf19df5f1..94f69438a2c3f9e562f2aebf1b5910bc
  #include "styles/style_dialogs.h"
  
  namespace {
-@@ -452,6 +454,9 @@ bool History::skipCloudDraftUpdate(
+@@ -453,6 +455,9 @@ bool History::skipCloudDraftUpdate(
  		MsgId topicRootId,
  		PeerId monoforumPeerId,
  		TimeId date) const {
@@ -75,7 +75,7 @@ index 1f67724559bbd00acbec2f38307da9baf19df5f1..94f69438a2c3f9e562f2aebf1b5910bc
  	if (Iv::Editor::IsComposeBoxOpen(
  			&session(),
  			peer->id,
-@@ -3503,6 +3508,7 @@ void History::applyDialog(
+@@ -3571,6 +3576,7 @@ void History::applyDialog(
  			PeerId(), // monoforumPeerId
  			draft->c_draftMessage());
  	}
@@ -155,10 +155,10 @@ index beec743960b7c2c4ce3a421c8f71aa7106446bd0..a1ddd01eb447bd457394aee2ec2636fd
  	AddIgnoredUsers(builder);
  	AddOptionToggle(builder, ::Tele::kOptionHideIgnored);
 diff --git a/Telegram/SourceFiles/storage/storage_account.cpp b/Telegram/SourceFiles/storage/storage_account.cpp
-index 4a6b4ac0fd2d9f8133b636f09f8848947e4545b2..dfcf449945d9559bc083b8a74d9c503662294012 100644
+index 5888ffa1164327b7170a2a3d8df7793a3fa467da..44b40f000d570243bd634e7964117398e6cdcffc 100644
 --- a/Telegram/SourceFiles/storage/storage_account.cpp
 +++ b/Telegram/SourceFiles/storage/storage_account.cpp
-@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_document.h"
  #include "data/data_user.h"
  #include "data/data_drafts.h"
@@ -166,7 +166,7 @@ index 4a6b4ac0fd2d9f8133b636f09f8848947e4545b2..dfcf449945d9559bc083b8a74d9c5036
  #include "export/export_settings.h"
  #include "webview/webview_interface.h"
  #include "window/themes/window_theme.h"
-@@ -1232,7 +1233,8 @@ void EnumerateDrafts(
+@@ -1286,7 +1287,8 @@ void EnumerateDrafts(
  					key.topicRootId(),
  					key.monoforumPeerId()));
  			const auto cloud = (i != end(map)) ? i->second.get() : nullptr;

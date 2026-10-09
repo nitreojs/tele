@@ -56,7 +56,7 @@ index 2afcdd5005ac3b9711d3db9f05152b11b41a97c2..0089def69b2e0a3e60b03285c96079ee
  	resize(sizeHint());
  }
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 636b3bee74cc0a534b2af2e362cccd1b45774d61..1afdb992d318080278fec8956b201ba3ab08a38a 100644
+index e69b933476126efb54cd7db36118bf015d1e2283..656a94636747c1c133a1a0eae83495f566a5f098 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -76,6 +76,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -67,7 +67,7 @@ index 636b3bee74cc0a534b2af2e362cccd1b45774d61..1afdb992d318080278fec8956b201ba3
  #include "tele/tele_options.h"
  #include "tele/tele_peer_id.h"
  #include "ui/boxes/peer_qr_box.h"
-@@ -1832,7 +1833,7 @@ Section DetailsFiller::makeInfo() {
+@@ -1835,7 +1836,7 @@ Section DetailsFiller::makeInfo() {
  	if (!_topic && ShowPeerIdBelowAbout.value()) {
  		Tele::SetupPeerIdLabel(
  			addInfoOneLine(
@@ -76,7 +76,7 @@ index 636b3bee74cc0a534b2af2e362cccd1b45774d61..1afdb992d318080278fec8956b201ba3
  				Tele::PeerIdTextValue(_peer),
  				QString()).text,
  			_peer,
-@@ -1841,7 +1842,7 @@ Section DetailsFiller::makeInfo() {
+@@ -1844,7 +1845,7 @@ Section DetailsFiller::makeInfo() {
  	if (!_topic && Tele::ShowDc()) {
  		Tele::SetupPeerDcLabel(
  			addInfoOneLine(
@@ -107,10 +107,10 @@ index 49a477144e4a3a7494582e31b979554bcfa8a223..be9392d75f764e8acc96511e500a69e6
  }
  
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 0764704bdfeee833ff8f69d571328e329a8a4d5b..ba87f1b54a3e8f9042c833f6cd62f93cbfa990e2 100644
+index 1bdbfc62dbbe03b14e46a8675fd234823e2e9859..f12abe7be1c1e64b91cc53d3b1cd4903db5d3717 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "styles/style_menu_icons.h"
  #include "styles/style_ttl_media.h"
  #include "platform/platform_text_recognition.h"
@@ -118,7 +118,7 @@ index 0764704bdfeee833ff8f69d571328e329a8a4d5b..ba87f1b54a3e8f9042c833f6cd62f93c
  #include "tele/tele_options.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_view_tl.h"
-@@ -4524,7 +4525,7 @@ void OverlayWidget::show(OpenRequest request) {
+@@ -4530,7 +4531,7 @@ void OverlayWidget::show(OpenRequest request) {
  	if (story && Tele::HideStories()) {
  		return;
  	} else if (story && story->call() && Tele::InvisibleStories()) {
@@ -127,7 +127,7 @@ index 0764704bdfeee833ff8f69d571328e329a8a4d5b..ba87f1b54a3e8f9042c833f6cd62f93c
  		return;
  	}
  	const auto document = story ? story->document() : request.document();
-@@ -4885,7 +4886,7 @@ void OverlayWidget::displayVideoStream(
+@@ -4891,7 +4892,7 @@ void OverlayWidget::displayVideoStream(
  		const std::shared_ptr<Data::GroupCall> &call,
  		anim::activation activation) {
  	if (_stories && Tele::InvisibleStories()) {

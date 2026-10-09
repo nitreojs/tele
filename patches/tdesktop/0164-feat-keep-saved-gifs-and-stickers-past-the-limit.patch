@@ -21,10 +21,10 @@ Subject: [PATCH] feat: keep saved gifs and stickers past the limit
  create mode 100644 Telegram/SourceFiles/tele/tele_past_limit.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ce5fa6f2db89fc8863a8d6933860fb33daa9c473..15f4c0b50607ba977203fd17d22be0db7b4d79ba 100644
+index 5ad71dda7fab13578b73d3c97da5c2ab9412f893..b4be05c195cee337eb1ea9c89f2442a98cf8514a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2365,6 +2365,8 @@ PRIVATE
+@@ -2523,6 +2523,8 @@ PRIVATE
      tele/tele_name_badges.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -97,7 +97,7 @@ index ec94fd4aa81109848a2c126e98a256165e742c95..aecec67cad869733a06dc38a8f4430bd
  			const auto layouts = ranges::views::all(
  				saved
 diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
-index 452dd46ae6118f6a9c2a6a3ad5950dd2a5de9bc2..158bc77b005bfb8120507435c61d136591573d64 100644
+index 5217ed8bc6c24ae71d96843d10ac10b4c2e65780..ceb46942b11363a3d41435e5c1099123356549dc 100644
 --- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 @@ -57,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -108,7 +108,7 @@ index 452dd46ae6118f6a9c2a6a3ad5950dd2a5de9bc2..158bc77b005bfb8120507435c61d1365
  #include "styles/style_chat_helpers.h"
  #include "styles/style_window.h"
  #include "styles/style_menu_icons.h"
-@@ -3448,12 +3449,11 @@ void StickersListWidget::refreshFavedStickers() {
+@@ -3539,12 +3540,11 @@ void StickersListWidget::refreshFavedStickers() {
  	}
  	clearSelection();
  	const auto &sets = session().data().stickers().sets();
@@ -161,10 +161,10 @@ index dc94eb02679b68ba98b35c910224046759031ccb..76f1fc26a01a5bac3d83291e2f7f93b7
  	session().local().writeFavedStickers();
  	notifyUpdated(StickersType::Stickers);
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index 17f9b14c8e72c004ff9a7cff573dcfe42dfcde87..60071bc20c87a1f6d0cff60675198766b8c3eba3 100644
+index 625f49110054517730bed0bac51a06153de474c4..bfb56de2a8887225cc8a5912363c3fbb746429b3 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_mute.h"
  #include "tele/tele_no_ai.h"
  #include "tele/tele_online_notify.h"
@@ -172,7 +172,7 @@ index 17f9b14c8e72c004ff9a7cff573dcfe42dfcde87..60071bc20c87a1f6d0cff60675198766
  #include "tele/tele_protected.h"
  #include "tele/tele_punctual_scheduled.h"
  #include "styles/style_layers.h"
-@@ -289,6 +290,7 @@ Session::Session(
+@@ -293,6 +294,7 @@ Session::Session(
  	Tele::SetupNoAi(this);
  	Tele::SetupOnlineNotify(this);
  	Tele::SetupMute(this);

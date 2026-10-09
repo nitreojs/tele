@@ -17,10 +17,10 @@ Subject: [PATCH] feat: move late-sent messages to the bottom
  create mode 100644 Telegram/SourceFiles/tele/tele_send_order.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5e4ac28c45f482580f40426aab2b7ec7c222e0d5..19dfc9f3d29b063cfd326c0c43c4d75aa949819a 100644
+index a4f518fea2d0b0d9eaeec03f06bcfe6cf577ebe3..909284e1eee1ae93be85a44da34cc5c9d990981a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2259,6 +2259,8 @@ PRIVATE
+@@ -2417,6 +2417,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -30,10 +30,10 @@ index 5e4ac28c45f482580f40426aab2b7ec7c222e0d5..19dfc9f3d29b063cfd326c0c43c4d75a
      tele/tele_shortcuts.h
      tele/tele_time.cpp
 diff --git a/Telegram/SourceFiles/api/api_updates.cpp b/Telegram/SourceFiles/api/api_updates.cpp
-index 26fa715ecd3f39fa4a78e7d1e265e2449cb3a9bb..deded5d3e7eeff110da8bb8fb33b5e82c1d4a08c 100644
+index 8100c74813b7f68c5489e2eb6e2033817b07af15..3e004eca90f30340e562b264395557730bf83614 100644
 --- a/Telegram/SourceFiles/api/api_updates.cpp
 +++ b/Telegram/SourceFiles/api/api_updates.cpp
-@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "ui/text/format_values.h" // Ui::FormatPhone
  #include "tele/tele_ghost.h"
@@ -41,7 +41,7 @@ index 26fa715ecd3f39fa4a78e7d1e265e2449cb3a9bb..deded5d3e7eeff110da8bb8fb33b5e82
  
  namespace Api {
  namespace {
-@@ -1678,6 +1679,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
+@@ -1721,6 +1722,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
  								local->date());
  						}
  						local->setRealId(newId);
@@ -50,10 +50,10 @@ index 26fa715ecd3f39fa4a78e7d1e265e2449cb3a9bb..deded5d3e7eeff110da8bb8fb33b5e82
  							topic->applyMaybeLast(local);
  						}
 diff --git a/Telegram/SourceFiles/history/history.h b/Telegram/SourceFiles/history/history.h
-index d3a6412fc9d5246164c8bfed777ecf6bb32c31e8..633097d880b276a2ec110e0037b6d260e19de3ba 100644
+index 0c946231b0a498b0ba60abb1a8b79fa0fbfae35a..30e9e695e985d859e4b7a6c761704cb2d08cb51a 100644
 --- a/Telegram/SourceFiles/history/history.h
 +++ b/Telegram/SourceFiles/history/history.h
-@@ -48,6 +48,10 @@ namespace HistoryView {
+@@ -49,6 +49,10 @@ namespace HistoryView {
  class Element;
  } // namespace HistoryView
  
@@ -64,8 +64,8 @@ index d3a6412fc9d5246164c8bfed777ecf6bb32c31e8..633097d880b276a2ec110e0037b6d260
  enum class NewMessageType {
  	Unread,
  	Last,
-@@ -563,6 +567,7 @@ private:
- 		bool unread);
+@@ -573,6 +577,7 @@ private:
+ 	void applyStreamedDraftFinish(not_null<HistoryItem*> item);
  
  	friend class Data::SponsoredMessages;
 +	friend void Tele::MoveSentToBottom(not_null<HistoryItem*> item);

@@ -18,10 +18,10 @@ Subject: [PATCH] feat: regex search in loaded history
  create mode 100644 Telegram/SourceFiles/tele/tele_regex_search.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 036b3a980f3177215017e6587086fae9e7502c61..172c688e4a6f2fd207ff02b0a3de5bbb08705113 100644
+index a0a6c3dba380d4128122ce7f48e652fd46e45db8..3322770a59715d151550974320486bb8c494ebdd 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2387,6 +2387,8 @@ PRIVATE
+@@ -2545,6 +2545,8 @@ PRIVATE
      tele/tele_recent_emoji.h
      tele/tele_reduce_motion.cpp
      tele/tele_reduce_motion.h
@@ -31,7 +31,7 @@ index 036b3a980f3177215017e6587086fae9e7502c61..172c688e4a6f2fd207ff02b0a3de5bbb
      tele/tele_rich_timestamps.h
      tele/tele_rmb_beside_bubble.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493be9055f7 100644
+index e270b044888cc7ce66d6e83d912f9c69a768ac6e..bec35d2d5d18668d958942cbbb47ab5fae13365c 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -99,6 +99,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70,7 +70,7 @@ index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493
  	rpl::single(rpl::empty) | rpl::then(
  		session().domain().local().localPasscodeChanged()
  	) | rpl::on_next([=] {
-@@ -1055,7 +1077,10 @@ void Widget::chosenRow(const ChosenRow &row) {
+@@ -1056,7 +1078,10 @@ void Widget::chosenRow(const ChosenRow &row) {
  	} else if (const auto topic = row.key.topic()) {
  		auto params = Window::SectionShow(
  			Window::SectionShow::Way::ClearStack);
@@ -82,7 +82,7 @@ index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493
  		if (row.newWindow) {
  			controller()->showInNewWindow(
  				Window::SeparateId(topic),
-@@ -1147,7 +1172,10 @@ void Widget::chosenRow(const ChosenRow &row) {
+@@ -1148,7 +1173,10 @@ void Widget::chosenRow(const ChosenRow &row) {
  		) ? ShowAtUnreadMsgId : row.message.fullId.msg;
  		auto params = Window::SectionShow(
  			Window::SectionShow::Way::ClearStack);
@@ -94,7 +94,7 @@ index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493
  		if (row.newWindow) {
  			controller()->showInNewWindow(peer, showAtMsgId);
  			closeSuggestions();
-@@ -3117,6 +3145,9 @@ void Widget::loadMoreBlockedByDate() {
+@@ -3119,6 +3147,9 @@ void Widget::loadMoreBlockedByDate() {
  }
  
  bool Widget::search(bool inCache, SearchRequestDelay delay) {
@@ -104,7 +104,7 @@ index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493
  	_processingSearch = true;
  	const auto guard = gsl::finally([&] {
  		_processingSearch = false;
-@@ -3416,6 +3447,9 @@ void Widget::searchTopics() {
+@@ -3418,6 +3449,9 @@ void Widget::searchTopics() {
  }
  
  void Widget::searchMore() {
@@ -114,7 +114,7 @@ index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493
  	const auto process = currentSearchProcess();
  	if (process->requestId
  		|| _historiesRequest
-@@ -4530,6 +4564,7 @@ void Widget::updateSearchFromVisibility(bool fast) {
+@@ -4546,6 +4580,7 @@ void Widget::updateSearchFromVisibility(bool fast) {
  		}
  		_search->setAdditionalMargins(additional);
  	}
@@ -122,7 +122,7 @@ index fabee9f509bb38947b780742f7410d8705eda7dc..d553824e62330e6986d5af995cce2493
  }
  
  void Widget::updateControlsGeometry() {
-@@ -4642,6 +4677,8 @@ void Widget::updateControlsGeometry() {
+@@ -4661,6 +4696,8 @@ void Widget::updateControlsGeometry() {
  	putBottomButton(_updateTelegram);
  	putBottomButton(_downloadBar);
  	putBottomButton(_loadMoreChats);

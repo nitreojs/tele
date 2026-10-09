@@ -22,10 +22,10 @@ Subject: [PATCH] feat: link usernames to profiles locally
  create mode 100644 Telegram/SourceFiles/tele/tele_username_aliases.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b312f49a5ae3cb506e5eebf77ecec81b09fc815c..c5a7b8a4d5384d58464ac9a7f31ae6c2a0d7e3ad 100644
+index a9d3dd4f705acb9fb775f684a12abf3971d26f95..7c958c29c8a68b3e062245a82b11f4b117462b1c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2292,6 +2292,8 @@ PRIVATE
+@@ -2450,6 +2450,8 @@ PRIVATE
      tele/tele_updater.cpp
      tele/tele_updater.h
      tele/tele_uploads.h
@@ -71,7 +71,7 @@ index ddc96e46187241035802c829da0c71289654fe44..05ea4710eed8d31906426001f4908d01
  	const auto flags = PrepareConfirmedFileFlags(
  		session,
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 34ca540b771f95b337fa6b8fecc39a189733a8ec..e220197e821de48acad675bb4ebc61977c6d808c 100644
+index afdc7097d56b80f5f1201d2780574bd70073b8c2..df6734ada2bb769e9fe03ac7cdd75b072ff1de02 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -82,7 +82,7 @@ index 34ca540b771f95b337fa6b8fecc39a189733a8ec..e220197e821de48acad675bb4ebc6197
  
  namespace {
  
-@@ -4760,6 +4761,7 @@ void ApiWrap::sendMessage(
+@@ -4830,6 +4831,7 @@ void ApiWrap::sendMessage(
  		_session->user()).flags;
  	TextUtilities::PrepareForSending(left, prepareFlags);
  	Tele::PrepareSentLinks(left);
@@ -155,7 +155,7 @@ index 6fd3698f727ff9d27a8bb99b07873322612f6ae7..c242a7f44937499ada7bd458837a326b
  		}
  	} else if (!_hrows->empty()) {
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 1afdb992d318080278fec8956b201ba3ab08a38a..d7e99d1662ba5e36b36ebd6bf5a4fc1b175a5411 100644
+index 656a94636747c1c133a1a0eae83495f566a5f098..6171fbfb2fa9b7ff8075705eb2e51a4669c9f920 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -79,6 +79,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -166,7 +166,7 @@ index 1afdb992d318080278fec8956b201ba3ab08a38a..d7e99d1662ba5e36b36ebd6bf5a4fc1b
  #include "ui/boxes/peer_qr_box.h"
  #include "ui/boxes/report_box_graphics.h"
  #include "ui/controls/userpic_button.h"
-@@ -1839,6 +1840,15 @@ Section DetailsFiller::makeInfo() {
+@@ -1842,6 +1843,15 @@ Section DetailsFiller::makeInfo() {
  			_peer,
  			controller);
  	}
@@ -1171,10 +1171,10 @@ index 0000000000000000000000000000000000000000..664a9918929ddd4b6b26414cdc111de4
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 57b7d92dc22469e2f22e5739cbc8f57f4c33b258..15c006e3e865e5c370f6f9ae5a80fd0198d7e645 100644
+index 8fb5596adf4b972a081e5af953231568e3635132..96877d20982a006db696e390d83b9019ab633717 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ghost.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_jump_to_first.h"
@@ -1182,7 +1182,7 @@ index 57b7d92dc22469e2f22e5739cbc8f57f4c33b258..15c006e3e865e5c370f6f9ae5a80fd01
  #include "tele/tele_view_tl.h"
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
-@@ -1931,6 +1932,7 @@ void Filler::fillHistoryActions() {
+@@ -1946,6 +1947,7 @@ void Filler::fillHistoryActions() {
  	addCreateTopic();
  	addInfo();
  	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
@@ -1190,7 +1190,7 @@ index 57b7d92dc22469e2f22e5739cbc8f57f4c33b258..15c006e3e865e5c370f6f9ae5a80fd01
  	addViewAsTopics();
  	addManageChat();
  	addStoryArchive();
-@@ -1958,6 +1960,7 @@ void Filler::fillProfileActions() {
+@@ -1973,6 +1975,7 @@ void Filler::fillProfileActions() {
  	addNewContact();
  	addShareContact();
  	addEditContact();
@@ -1199,7 +1199,7 @@ index 57b7d92dc22469e2f22e5739cbc8f57f4c33b258..15c006e3e865e5c370f6f9ae5a80fd01
  	addNewMembers();
  	addSendGift();
 diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
-index e88efb2a1c2385464c41d49ee367a94238c120d9..7164c1324f94a6f30d31af1ee03edeeec7a38d2c 100644
+index 7cb53f12b7f25859161456709012e43c57f1543f..8ed30288500b4a6711ec1b0fb3fbf87c6be64a40 100644
 --- a/Telegram/SourceFiles/window/window_session_controller.cpp
 +++ b/Telegram/SourceFiles/window/window_session_controller.cpp
 @@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

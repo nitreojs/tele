@@ -22,10 +22,10 @@ Subject: [PATCH] feat: rewrite pasted links with your own rules
  create mode 100644 Telegram/SourceFiles/tele/tele_link_rewrites_box.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9407aace50afbc5aa982c11189a70f170a905e3a..cfa914b32ff0bf371ba67023fb34ba95401f59a8 100644
+index 807edaafdcceb9406c46f439074ba9e49e8f0c17..8ed4a87c49619efc281c065a8adf1783b11c0efc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2275,6 +2275,10 @@ PRIVATE
+@@ -2433,6 +2433,10 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h
@@ -67,18 +67,18 @@ index bb53eeb36f3345a96ba7f6cdf59c851e4a8fcabb..22adf16049e36753dd3974dca974bce2
  	_aiButton = Ui::SetupCaptionAiButton({
  		.parent = this,
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index 27f298682df75ee0ff5d6183e22f0f24b9428eb4..7230a59bddf628d1ca6875f219a4cad609eb3339 100644
+index 9ef989ee71b217c0bf3cef51a0a952278dd2c461..15d8cda0733cd230589d59cf6bedf0d1f5863b3b 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
-@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "history/view/history_view_schedule_box.h"
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/mime_type.h"
+ #include "core/shortcuts.h"
  #include "core/ui_integration.h"
 +#include "tele/tele_link_rewrites.h"
  #include "base/event_filter.h"
  #include "base/call_delayed.h"
  #include "boxes/premium_limits_box.h"
-@@ -2069,7 +2070,7 @@ void SendFilesBox::setupCaption() {
+@@ -2092,7 +2093,7 @@ void SendFilesBox::setupCaption() {
  		requestToTakeTextWithTags();
  		closeBox();
  	}, _caption->lifetime());
@@ -87,7 +87,7 @@ index 27f298682df75ee0ff5d6183e22f0f24b9428eb4..7230a59bddf628d1ca6875f219a4cad6
  			not_null<const QMimeData*> data,
  			Ui::InputField::MimeAction action) {
  		if (action == Ui::InputField::MimeAction::Check) {
-@@ -2078,7 +2079,7 @@ void SendFilesBox::setupCaption() {
+@@ -2101,7 +2102,7 @@ void SendFilesBox::setupCaption() {
  			return addFiles(data);
  		}
  		Unexpected("action in MimeData hook.");

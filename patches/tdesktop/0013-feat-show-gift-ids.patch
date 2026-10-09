@@ -17,10 +17,10 @@ Subject: [PATCH] feat: show gift ids
  create mode 100644 Telegram/SourceFiles/tele/tele_gifts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 64a056c3963670d986afad364fbad1fe6b49c337..88aac149e1cd31ea70cd1aa991ffa9e7d57f1829 100644
+index c02554765c849e73397c6d54490432928d96d531..d951322bb294c358e29d3c5242cac5c712977702 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2223,6 +2223,8 @@ PRIVATE
+@@ -2381,6 +2381,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -30,10 +30,10 @@ index 64a056c3963670d986afad364fbad1fe6b49c337..88aac149e1cd31ea70cd1aa991ffa9e7
      tele/tele_options.h
      tele/tele_shortcuts.cpp
 diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-index b249a7b1ecf4ec1c81fca453ab7e15129f4083e0..14ec37b449d6b0ec2389202f98e8ed0ebae72a78 100644
+index 26239a09068b812ba911db727cdda768606f2104..2903b7c7b5faf3748ef0ecbc6da85893fc945437 100644
 --- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 +++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "payments/payments_form.h"
  #include "settings/settings_credits_graphics.h"
  #include "settings/sections/settings_premium.h"
@@ -41,7 +41,7 @@ index b249a7b1ecf4ec1c81fca453ab7e15129f4083e0..14ec37b449d6b0ec2389202f98e8ed0e
  #include "ui/basic_click_handlers.h" // UrlClickHandler::Open.
  #include "ui/boxes/boost_box.h" // StartFireworks.
  #include "ui/boxes/confirm_box.h"
-@@ -1502,6 +1503,7 @@ void AddStarGiftTable(
+@@ -1492,6 +1493,7 @@ void AddStarGiftTable(
  		&& (entry.in || entry.bareGiftOwnerId == selfBareId);
  	const auto giftToChannel = entry.giftChannelSavedId
  		&& peerIsChannel(PeerId(entry.bareEntryOwnerId));
@@ -50,10 +50,10 @@ index b249a7b1ecf4ec1c81fca453ab7e15129f4083e0..14ec37b449d6b0ec2389202f98e8ed0e
  	const auto tooltip = std::make_shared<TableRowTooltipData>(
  		TableRowTooltipData{ .parent = container });
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index bffdc9f5071348486fc52bd3b2a6c9793c71c9bb..a5b4917b0a7dd5548b5050b4a5d4d390f2d6cee1 100644
+index c753c816ef84f57447b1f46c43c60a519b1d1d5c..755305a127d55ed8d5ee2024deb8749e2f09831f 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -2047,15 +2047,12 @@ void GenericCreditsEntryBody(
+@@ -2066,15 +2066,12 @@ void GenericCreditsEntryBody(
  	Ui::AddSkip(content);
  
  	const auto addGiftLinkTON = [&] {

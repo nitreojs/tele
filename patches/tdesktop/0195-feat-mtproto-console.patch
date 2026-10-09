@@ -33,10 +33,10 @@ Subject: [PATCH] feat: mtproto console
  create mode 100644 Telegram/SourceFiles/tele/tele_tl_runtime.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3603b73d5a082d2e398f01ca44dea7cc4dd3b21b..b4ee47c4dd1ebcee9e8749a0934deaa15cdb26d0 100644
+index 20c62781c313f4457bcfe67322a73c8a0cd54f2d..8c0b957c294b10e30387a19d5a4a61ecdca9a41b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2359,6 +2359,10 @@ PRIVATE
+@@ -2517,6 +2517,10 @@ PRIVATE
      tele/tele_menu_registry.h
      tele/tele_message_menu.cpp
      tele/tele_message_menu.h
@@ -47,7 +47,7 @@ index 3603b73d5a082d2e398f01ca44dea7cc4dd3b21b..b4ee47c4dd1ebcee9e8749a0934deaa1
      tele/tele_mtp_dump.cpp
      tele/tele_mtp_dump.h
      tele/tele_mtp_inspector.cpp
-@@ -2459,6 +2463,8 @@ PRIVATE
+@@ -2617,6 +2621,8 @@ PRIVATE
      tele/tele_title_box.h
      tele/tele_title_template.cpp
      tele/tele_title_template.h
@@ -4198,10 +4198,10 @@ index 0000000000000000000000000000000000000000..3efd16557002e364b14daf658a03acaa
 +document.addEventListener('DOMContentLoaded', init);
 +})();
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index b98f168354b99710a77fc576f9444fb7aabaafd8..caf2ea5c2b898432bf0ebad3fc460cbe053a1a69 100644
+index e65f8afe615cf787b5c263a63181c5ec316f3d34..2ef9232e3ad9c33641c908d3d92553a4c378673c 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -106,6 +106,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_badges.h"
  #include "tele/tele_reduce_motion.h"
  #include "tele/tele_list_keys.h"
@@ -4209,7 +4209,7 @@ index b98f168354b99710a77fc576f9444fb7aabaafd8..caf2ea5c2b898432bf0ebad3fc460cbe
  #include "tele/tele_counters.h"
  
  #include <QtCore/QStandardPaths>
-@@ -360,6 +361,7 @@ void Application::run() {
+@@ -362,6 +363,7 @@ void Application::run() {
  	Tele::StartBadges();
  	Tele::StartReduceMotion();
  	Tele::StartListKeys();
@@ -4218,10 +4218,10 @@ index b98f168354b99710a77fc576f9444fb7aabaafd8..caf2ea5c2b898432bf0ebad3fc460cbe
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/core/shortcuts.cpp b/Telegram/SourceFiles/core/shortcuts.cpp
-index 6c54b4fcab0e5c7fb2351c4b006be5171aa99cdb..a5e5e03fee960beead9d4f1f6e70135ec683e336 100644
+index 67f248f66b79be8eeb90f0542afcad8f39b87e1c..3f43e03c32213e55d27eb770ac5c6771ff2ee08c 100644
 --- a/Telegram/SourceFiles/core/shortcuts.cpp
 +++ b/Telegram/SourceFiles/core/shortcuts.cpp
-@@ -143,6 +143,7 @@ const auto CommandByName = base::flat_map<QString, Command>{
+@@ -144,6 +144,7 @@ const auto CommandByName = base::flat_map<QString, Command>{
  	{ u"archive_chat"_q                  , Command::ArchiveChat },
  	{ u"record_round"_q                  , Command::RecordRound },
  	{ u"show_admin_log"_q                , Command::ShowAdminLog },
@@ -4229,7 +4229,7 @@ index 6c54b4fcab0e5c7fb2351c4b006be5171aa99cdb..a5e5e03fee960beead9d4f1f6e70135e
  	//
  };
  
-@@ -510,6 +511,8 @@ void Manager::fillDefaults() {
+@@ -511,6 +512,8 @@ void Manager::fillDefaults() {
  	set(u"ctrl+shift+x"_q            , Command::SupportHistoryBack);
  	set(u"ctrl+shift+c"_q            , Command::SupportHistoryForward);
  
@@ -4239,10 +4239,10 @@ index 6c54b4fcab0e5c7fb2351c4b006be5171aa99cdb..a5e5e03fee960beead9d4f1f6e70135e
  	set(u"ctrl+2"_q                  , Command::ChatPinned2);
  	set(u"ctrl+3"_q                  , Command::ChatPinned3);
 diff --git a/Telegram/SourceFiles/core/shortcuts.h b/Telegram/SourceFiles/core/shortcuts.h
-index 1dce8e1959f748e355568b3491f22c93e33ebaf9..595e8113f1f1cd05e40dea6f8041487a5fedc015 100644
+index abd1b093b2b0dc97639c67a46086f9dabbb7a613..643e5ad8fb7351ff0d0bfb2a94875417afa0fbb6 100644
 --- a/Telegram/SourceFiles/core/shortcuts.h
 +++ b/Telegram/SourceFiles/core/shortcuts.h
-@@ -86,6 +86,7 @@ enum class Command {
+@@ -87,6 +87,7 @@ enum class Command {
  	ShowChatPreview,
  
  	ShowAdminLog,
@@ -4306,7 +4306,7 @@ index cdc370832cac8740c810aca1199174f316ae4eb8..c6afb43a4ed597ec863047e5d44fd550
  
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_console.cpp b/Telegram/SourceFiles/tele/tele_mtp_console.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..583511fe5d5ea7f80f21e0d82e4777dec1277b40
+index 0000000000000000000000000000000000000000..4a32011bc071f7085b816472896642341e35d3e9
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_mtp_console.cpp
 @@ -0,0 +1,433 @@
@@ -4548,7 +4548,7 @@ index 0000000000000000000000000000000000000000..583511fe5d5ea7f80f21e0d82e4777de
 +		}
 +	});
 +
-+	raw->setNavigationStartHandler([=](const QString &uri, bool newWindow) {
++	raw->setNavigationPolicyHandler([=](const QString &uri, bool newWindow) {
 +		const auto url = QUrl(uri);
 +		const auto scheme = url.scheme().toLower();
 +		const auto host = url.host().toLower();
@@ -5856,7 +5856,7 @@ index 0000000000000000000000000000000000000000..ee5e8b02854c805c11846dcea1415b5f
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
-index 8a897af29c3d1931720df0d047d4e3e279b4e3d3..ddf3409fae36cc171faf61c1f7074cfc1e24c5cf 100644
+index 612214c1e4b8ebecb48cab4bae2e86120e3bb255..df6086906fe0033c03545ad1a2a3bd0cc96a21c2 100644
 --- a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 +++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 @@ -47,34 +47,11 @@ constexpr auto kPrefix = std::string_view("tele-mtp/");

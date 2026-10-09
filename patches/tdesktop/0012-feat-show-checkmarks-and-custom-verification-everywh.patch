@@ -28,10 +28,10 @@ Subject: [PATCH] feat: show checkmarks and custom verification everywhere
  create mode 100644 Telegram/SourceFiles/tele/tele_bubble_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2dcbba89e7690a8c04995468eb6119e24129309a..64a056c3963670d986afad364fbad1fe6b49c337 100644
+index 5ce39d3f40d714f2b0565cfa66a61d48fda60cdc..c02554765c849e73397c6d54490432928d96d531 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2213,10 +2213,14 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2371,10 +2371,14 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -136,10 +136,10 @@ index 7abf143eac7ce338874d15709a51fed965d96935..2478f1df6ed06d4cf3220eb895b41d25
  
  	_top->geometryValue() | rpl::on_next([=](QRect geometry) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fabe03e7bc 100644
+index 5152d85e89b6da554095d85a1a16d96d4f969c3d..91692e3658e850d5dbc21a679a776ff592085487 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_session_controller.h"
  #include "apiwrap.h"
  #include "api/api_rich_tasks.h"
@@ -147,7 +147,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_chat_style.h"
-@@ -1529,6 +1530,7 @@ QSize Message::performCountOptimalSize() {
+@@ -1600,6 +1601,7 @@ QSize Message::performCountOptimalSize() {
  					+ (_fromNameStatus
  						? st::dialogsPremiumIcon.icon.width()
  						: 0)
@@ -155,7 +155,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  					+ st::msgPadding.right();
  				if (via && !displayForwardedFrom()) {
  					namew += st::msgServiceFont->spacew + via->maxWidth
-@@ -2526,6 +2528,9 @@ void Message::paintFromName(
+@@ -2529,6 +2531,9 @@ void Message::paintFromName(
  	const auto statusWidth = _fromNameStatus
  		? st::dialogsPremiumIcon.icon.width()
  		: 0;
@@ -165,7 +165,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  	const auto via = item->Get<HistoryMessageVia>();
  	const auto viaShown = via && !displayForwardedFrom() && via->width;
  	const auto viaSkipWidth = viaShown
-@@ -2534,7 +2539,7 @@ void Message::paintFromName(
+@@ -2537,7 +2542,7 @@ void Message::paintFromName(
  	const auto nameAvailableWidth = std::max(
  		((statusWidth && availableWidth > statusWidth)
  			? (availableWidth - statusWidth)
@@ -174,7 +174,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  		0);
  	if (statusWidth && availableWidth > statusWidth) {
  		const auto x = availableLeft
-@@ -2573,6 +2578,17 @@ void Message::paintFromName(
+@@ -2576,6 +2581,17 @@ void Message::paintFromName(
  			st::dialogsPremiumIcon.icon.paint(p, x, y, width(), color);
  		}
  	}
@@ -192,7 +192,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  	p.setFont(st::msgNameFont);
  	p.setPen(nameFg);
  	const auto nameLinkHandler = fromLink();
-@@ -2593,9 +2609,12 @@ void Message::paintFromName(
+@@ -2596,9 +2612,12 @@ void Message::paintFromName(
  		nameLinkHandler,
  		QRect(availableLeft, trect.top(), nameWidth, st::msgNameFont->height),
  		trect.topLeft());
@@ -205,7 +205,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  		.elisionLines = 1,
  	});
  	const auto skipWidth = nameWidth
-@@ -2603,6 +2622,7 @@ void Message::paintFromName(
+@@ -2606,6 +2625,7 @@ void Message::paintFromName(
  			? (st::dialogsPremiumIcon.icon.width()
  				+ st::msgServiceFont->spacew)
  			: 0)
@@ -213,7 +213,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  		+ st::msgServiceFont->spacew;
  	availableLeft += skipWidth;
  	availableWidth -= skipWidth;
-@@ -3821,6 +3841,7 @@ bool Message::hasHeavyPart() const {
+@@ -3824,6 +3844,7 @@ bool Message::hasHeavyPart() const {
  void Message::unloadHeavyPart() {
  	Element::unloadHeavyPart();
  	_comments = nullptr;
@@ -221,7 +221,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  	if (_fromNameStatus) {
  		_fromNameStatus->custom = nullptr;
  		_fromNameStatus->id = EmojiStatusId();
-@@ -4238,6 +4259,9 @@ bool Message::getStateFromName(
+@@ -4243,6 +4264,9 @@ bool Message::getStateFromName(
  		const auto statusWidth = (from && _fromNameStatus)
  			? st::dialogsPremiumIcon.icon.width()
  			: 0;
@@ -231,7 +231,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  		const auto via = item->Get<HistoryMessageVia>();
  		const auto viaShown = via && !displayForwardedFrom() && via->width;
  		const auto viaSkipWidth = viaShown
-@@ -4246,7 +4270,7 @@ bool Message::getStateFromName(
+@@ -4251,7 +4275,7 @@ bool Message::getStateFromName(
  		const auto nameAvailableWidth = std::max(
  			((statusWidth && availableWidth > statusWidth)
  				? (availableWidth - statusWidth)
@@ -240,7 +240,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  			0);
  		const auto nameWidth = std::min(
  			nameText->maxWidth(),
-@@ -4278,6 +4302,7 @@ bool Message::getStateFromName(
+@@ -4283,6 +4307,7 @@ bool Message::getStateFromName(
  				? (st::dialogsPremiumIcon.icon.width()
  					+ st::msgServiceFont->spacew)
  				: 0)
@@ -248,7 +248,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  			+ st::msgServiceFont->spacew;
  		availableLeft += skipWidth;
  		availableWidth -= skipWidth;
-@@ -5485,12 +5510,21 @@ void Message::validateFromNameText(PeerData *from) const {
+@@ -5498,12 +5523,21 @@ void Message::validateFromNameText(PeerData *from) const {
  		return;
  	}
  	const auto version = from->nameVersion();
@@ -275,7 +275,7 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  	}
  	if (from->isPremium()
  		|| (from->isChannel()
-@@ -6359,7 +6393,8 @@ void Message::fromNameUpdated(int width) const {
+@@ -6435,7 +6469,8 @@ void Message::fromNameUpdated(int width) const {
  		- (_fromNameStatus
  			? (st::dialogsPremiumIcon.icon.width()
  				+ st::msgServiceFont->spacew)
@@ -286,10 +286,10 @@ index a1d94427aaf9a3bf60ecf7eaa29be99bb08411b5..db6ca0d6350ca844a3fe9d82d108b6fa
  	if (via && !displayForwardedFrom()) {
  		via->resize(available - st::msgServiceFont->spacew);
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.h b/Telegram/SourceFiles/history/view/history_view_message.h
-index bcffee1190496e5e495aa1434432bdc48ca6c18c..fc22360cdc8aee5d95999e47ec60106d3c62b505 100644
+index b907117d4f256be734cf4df888024e9dc7da5de9..d7430e322fe895ced1cae6e2f7dcf6b2a65f57ff 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.h
 +++ b/Telegram/SourceFiles/history/view/history_view_message.h
-@@ -538,6 +538,7 @@ private:
+@@ -544,6 +544,7 @@ private:
  
  	mutable Ui::Text::String _fromName;
  	mutable std::unique_ptr<FromNameStatus> _fromNameStatus;
@@ -314,7 +314,7 @@ index 78acde4d2b78d1c3c331598082513585d944af96..fcebcc983f76506e4fc496dea6ee80d4
  		if (statusOnlyForPremium && badge != BadgeType::Premium) {
  			emojiStatusId = EmojiStatusId();
 diff --git a/Telegram/SourceFiles/settings/sections/settings_information.cpp b/Telegram/SourceFiles/settings/sections/settings_information.cpp
-index 8ae0612a868e775ce245a34048c23fa9beb6f9f5..d6db3b07b1b53f91da14b86a53ad72a2bac3f610 100644
+index 8982b515b5a30600f5565c3b7e81dc5218c96950..41ba51ad2bc0466bf9e073795497c2554d83499a 100644
 --- a/Telegram/SourceFiles/settings/sections/settings_information.cpp
 +++ b/Telegram/SourceFiles/settings/sections/settings_information.cpp
 @@ -49,6 +49,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -408,7 +408,7 @@ index 8ae0612a868e775ce245a34048c23fa9beb6f9f5..d6db3b07b1b53f91da14b86a53ad72a2
  		if (_unread) {
  			_unread->moveToRight(
  				0,
-@@ -844,8 +874,11 @@ void SetupAccountsWrap(
+@@ -820,8 +850,11 @@ void SetupAccountsWrap(
  	auto result = object_ptr<Ui::SettingsButton>(
  		parent,
  		rpl::duplicate(text),
@@ -422,7 +422,7 @@ index 8ae0612a868e775ce245a34048c23fa9beb6f9f5..d6db3b07b1b53f91da14b86a53ad72a2
  	{
  		const auto container = Badge::AddRight(raw, st::mainMenuAccountLine);
 diff --git a/Telegram/SourceFiles/settings/sections/settings_main.cpp b/Telegram/SourceFiles/settings/sections/settings_main.cpp
-index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e918ebaec8 100644
+index cff3fa2dee33de2c28258d462048739145869d83..b9e85b475ae65537a7cead68401578f9c5649abb 100644
 --- a/Telegram/SourceFiles/settings/sections/settings_main.cpp
 +++ b/Telegram/SourceFiles/settings/sections/settings_main.cpp
 @@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -433,7 +433,7 @@ index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e9
  
  #include "api/api_cloud_password.h"
  #include "api/api_credits.h"
-@@ -123,6 +124,7 @@ private:
+@@ -125,6 +126,7 @@ private:
  	const not_null<UserData*> _user;
  	Info::Profile::EmojiStatusPanel _emojiStatusPanel;
  	Info::Profile::Badge _badge;
@@ -441,7 +441,7 @@ index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e9
  
  	object_ptr<Ui::UserpicButton> _userpic;
  	object_ptr<Ui::FlatLabel> _name = { nullptr };
-@@ -156,6 +158,9 @@ Cover::Cover(
+@@ -158,6 +160,9 @@ Cover::Cover(
  	},
  	0, // customStatusLoopsLimit
  	Info::Profile::BadgeType::Premium)
@@ -451,7 +451,7 @@ index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e9
  , _userpic(
  	this,
  	controller,
-@@ -218,7 +223,7 @@ Cover::Cover(
+@@ -220,7 +225,7 @@ Cover::Cover(
  			_badge.widget(),
  			_badge.sizeTag());
  	});
@@ -460,7 +460,7 @@ index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e9
  		refreshNameGeometry(width());
  	}, _name->lifetime());
  
-@@ -302,7 +307,7 @@ void Cover::initViewers() {
+@@ -304,7 +309,7 @@ void Cover::initViewers() {
  }
  
  void Cover::refreshNameGeometry(int newWidth) {
@@ -469,7 +469,7 @@ index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e9
  	const auto nameTop = st::settingsNameTop;
  	const auto qrButtonWidth = (_qrButton && !_qrButton->isHidden())
  		? (_qrButton->width() + st::infoProfileCover.rightSkip)
-@@ -310,7 +315,8 @@ void Cover::refreshNameGeometry(int newWidth) {
+@@ -312,7 +317,8 @@ void Cover::refreshNameGeometry(int newWidth) {
  	auto nameWidth = newWidth
  		- nameLeft
  		- st::infoProfileCover.rightSkip
@@ -479,7 +479,7 @@ index 049f01bb70447a97b7569d8583bca08f21b67fc6..4770344ab2be6b418eec9097944237e9
  	if (const auto width = _badge.widget() ? _badge.widget()->width() : 0) {
  		nameWidth -= st::infoVerifiedCheckPosition.x() + width;
  	}
-@@ -320,6 +326,13 @@ void Cover::refreshNameGeometry(int newWidth) {
+@@ -322,6 +328,13 @@ void Cover::refreshNameGeometry(int newWidth) {
  	const auto badgeTop = nameTop;
  	const auto badgeBottom = nameTop + _name->height();
  	_badge.move(badgeLeft, badgeTop, badgeBottom);
@@ -904,7 +904,7 @@ index 37bb050311647243b88629f3b9e10ad4adf55ad8..3a6a441e897e8128a79a6d52ce0443cd
  
  int PeerBadge::drawTextBadge(Painter &p, const Descriptor &descriptor) {
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index 0782599d4394bd544b26f24c919537de53ca6d5d..f5d50a012e5ff47eb4a8a1feb14db5dc4e7cd30a 100644
+index 3752e32e83aeeaabc913c4bfc0af6907967af8ac..05c377c5622e67542de8a1b45282ab01f2a6319a 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
 @@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -915,7 +915,7 @@ index 0782599d4394bd544b26f24c919537de53ca6d5d..f5d50a012e5ff47eb4a8a1feb14db5dc
  #include "settings/settings_common.h"
  #include "info/profile/info_profile_emoji_status_panel.h"
  #include "info/profile/info_profile_icon.h"
-@@ -324,6 +325,10 @@ MainMenu::MainMenu(
+@@ -328,6 +329,10 @@ MainMenu::MainMenu(
  	[=] { return controller->isGifPausedAtLeastFor(GifPauseReason::Layer); },
  	kPlayStatusLimit,
  	Info::Profile::BadgeType::Premium))
@@ -926,7 +926,7 @@ index 0782599d4394bd544b26f24c919537de53ca6d5d..f5d50a012e5ff47eb4a8a1feb14db5dc
  , _scroll(this, st::defaultSolidScroll)
  , _inner(_scroll->setOwnedWidget(
  	object_ptr<Ui::VerticalLayout>(_scroll.data())))
-@@ -412,7 +417,8 @@ MainMenu::MainMenu(
+@@ -416,7 +421,8 @@ MainMenu::MainMenu(
  
  	rpl::combine(
  		_toggleAccounts->rightSkipValue(),
@@ -936,7 +936,7 @@ index 0782599d4394bd544b26f24c919537de53ca6d5d..f5d50a012e5ff47eb4a8a1feb14db5dc
  	) | rpl::on_next([=] {
  		moveBadge();
  	}, lifetime());
-@@ -469,19 +475,19 @@ MainMenu::MainMenu(
+@@ -473,19 +479,19 @@ MainMenu::MainMenu(
  MainMenu::~MainMenu() = default;
  
  void MainMenu::moveBadge() {
@@ -966,7 +966,7 @@ index 0782599d4394bd544b26f24c919537de53ca6d5d..f5d50a012e5ff47eb4a8a1feb14db5dc
  }
  
  void MainMenu::setupArchive() {
-@@ -900,9 +906,11 @@ void MainMenu::drawName(Painter &p) {
+@@ -927,9 +933,11 @@ void MainMenu::drawName(Painter &p) {
  	p.setPen(st::windowBoldFg);
  	_name.drawLeftElided(
  		p,

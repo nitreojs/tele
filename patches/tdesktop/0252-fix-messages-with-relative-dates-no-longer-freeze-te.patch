@@ -4,32 +4,14 @@ Date: Tue, 6 Oct 2026 06:26:26 +0300
 Subject: [PATCH] fix: messages with relative dates no longer freeze tele
 
 ---
- Telegram/SourceFiles/data/data_session.cpp | 17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+ Telegram/SourceFiles/data/data_session.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index 4303962993c97a24bf9e75582f01f52d8f954b37..b773fc4b1e39c446e6baed73e4db3b9fb0ceea98 100644
+index 40186050f420bddfe81556687b569a49563d872c..908518e58c7a154c6e33afbc0c2ffc7c096965fa 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
-@@ -3306,8 +3306,15 @@ void Session::checkMediaDestroys() {
- void Session::registerFormattedDateUpdate(
- 		TimeId when,
- 		not_null<HistoryView::Element*> view) {
--	_formattedDateUpdates[when].push_back(
--		base::make_weak(view.get()));
-+	// Every refresh of an item registers all its views again.
-+	auto &list = _formattedDateUpdates[when];
-+	const auto registered = ranges::any_of(list, [&](const auto &weak) {
-+		return (weak.get() == view.get());
-+	});
-+	if (registered) {
-+		return;
-+	}
-+	list.push_back(base::make_weak(view.get()));
- 	const auto nearest = _formattedDateUpdates.begin()->first;
- 	if (nearest < when && _formattedDateTimer.isActive()) {
- 		return;
-@@ -3338,11 +3345,15 @@ void Session::checkFormattedDateUpdates() {
+@@ -3346,11 +3346,15 @@ void Session::checkFormattedDateUpdates() {
  		expired.insert(expired.end(), list.begin(), list.end());
  		_formattedDateUpdates.erase(_formattedDateUpdates.begin());
  	}

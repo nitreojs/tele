@@ -13,7 +13,7 @@ Subject: [PATCH] feat: see and release messages queued behind an upload
  6 files changed, 172 insertions(+), 7 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 7d6308ecf13498f042f1c9629cf9d3abf94492a7..ddfe90ecae5181cc9e0b91ee5429d86b1bb35aae 100644
+index fe7c59bac70ffbc32970a47f267106d3d209a5c6..fa617854ec1793424c61fccf34a1cdb247d4540b 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -145,6 +145,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -24,7 +24,7 @@ index 7d6308ecf13498f042f1c9629cf9d3abf94492a7..ddfe90ecae5181cc9e0b91ee5429d86b
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -3916,6 +3917,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3911,6 +3912,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		_menu.get(),
  		controller,
  		(isUponSelected != -2) ? _dragStateItem : nullptr);
@@ -35,7 +35,7 @@ index 7d6308ecf13498f042f1c9629cf9d3abf94492a7..ddfe90ecae5181cc9e0b91ee5429d86b
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index f2a02bbed6775773f6e7029b765bf6dbf484b71a..afc76c4a14e3e9cf85f728fdf32c64190d4b540f 100644
+index 35cc480468859bba2605dd4859238383a19587e0..22221b65fd6f0768075bf945819b28ac228e51e4 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -46,7 +46,7 @@ index f2a02bbed6775773f6e7029b765bf6dbf484b71a..afc76c4a14e3e9cf85f728fdf32c6419
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_layers.h"
-@@ -2031,6 +2032,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2017,6 +2018,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  	Tele::AddShotAction(result.get(), list, request);
  	Tele::AddRetryFailedActions(result.get(), item);
  	Tele::AddResendAsGifAction(result.get(), list->controller(), item);
@@ -55,10 +55,10 @@ index f2a02bbed6775773f6e7029b765bf6dbf484b71a..afc76c4a14e3e9cf85f728fdf32c6419
  		result.get(),
  		list->controller()->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index aedece104b23b835c15c02be288ed08573a57d2e..883d1102fce1795e5c1d2feef41560f5bd4a1241 100644
+index d18429f68c33ca7adf7ca6f4a68a9ff56c085e1f..67a121def863e42b796bbad941c21331369d98d4 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -76,6 +76,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ignored.h"
  #include "tele/tele_invisible.h"
  #include "tele/tele_options.h"
@@ -66,7 +66,7 @@ index aedece104b23b835c15c02be288ed08573a57d2e..883d1102fce1795e5c1d2feef41560f5
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
  #include "tele/tele_time.h"
-@@ -757,6 +758,9 @@ QString DateTooltipText(not_null<Element*> view) {
+@@ -763,6 +764,9 @@ QString DateTooltipText(not_null<Element*> view) {
  	if (const auto stars = item->out() ? item->starsPaid() : 0) {
  		dateText += '\n' + tr::lng_you_paid_stars(tr::now, lt_count, stars);
  	}
@@ -77,10 +77,10 @@ index aedece104b23b835c15c02be288ed08573a57d2e..883d1102fce1795e5c1d2feef41560f5
  }
  
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index cba955642a058fc6abb2a259cc1a6122b6f6b5ca..51548587dae978ad7bb41ffbacfe320144cf9aac 100644
+index 7440da35ca01d8b9fbbf3ddd6335dd292d146f80..cd15d990d830efbb7cb065a0fe4032df6aa3ddb3 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_past_limit.h"
  #include "tele/tele_protected.h"
  #include "tele/tele_punctual_scheduled.h"
@@ -88,7 +88,7 @@ index cba955642a058fc6abb2a259cc1a6122b6f6b5ca..51548587dae978ad7bb41ffbacfe3201
  #include "styles/style_layers.h"
  
  #ifndef TDESKTOP_DISABLE_SPELLCHECK
-@@ -580,7 +581,7 @@ void Session::uploadsStopWithConfirmation(Fn<void()> done) {
+@@ -584,7 +585,7 @@ void Session::uploadsStopWithConfirmation(Fn<void()> done) {
  		box->addRow(
  			object_ptr<Ui::FlatLabel>(
  				box.get(),

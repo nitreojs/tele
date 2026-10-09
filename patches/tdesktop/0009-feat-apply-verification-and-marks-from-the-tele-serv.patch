@@ -23,10 +23,10 @@ Subject: [PATCH] feat: apply verification and marks from the tele server
  create mode 100644 Telegram/SourceFiles/tele/tele_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index fd283c59cae2dedf4393c4848152bb07752dddfd..1c66697f8307b78a9312e49762f4c0d039ccb8ad 100644
+index 41c4a524dd7c745c4cc996fd4ea282d0cf41857a..138f30c41776293a46615d9499d96d3e8545388d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2213,6 +2213,8 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2371,6 +2371,8 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -61,10 +61,10 @@ index d3c1df50d87802d96d5b2a78abc1f3ddd8b04777..c040923da3bd7c98b9649cab76312a7e
  	}, lifetime());
  
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index c1fffa359d39b5d7d0eee936f277c97c1cdcebf3..523596b434022c500d01f9953109bcb110e341f3 100644
+index 2a62f837399db86a06c1d62960e8d7b7b81a3911..c12cdf4b7a8718b843e4b7e33ed0ecd5b2816d56 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/cached_webview_availability.h"
  #include "test/test_agent.h"
  #include "tele/tele_updater.h"
@@ -72,7 +72,7 @@ index c1fffa359d39b5d7d0eee936f277c97c1cdcebf3..523596b434022c500d01f9953109bcb1
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -351,6 +352,7 @@ void Application::run() {
+@@ -353,6 +354,7 @@ void Application::run() {
  	Media::Encode::ClearStaleTempFiles();
  	Storage::ClearStaleArchiveFiles();
  	Tele::StartUpdater();
@@ -101,7 +101,7 @@ index caf4932cc588b2bfa0af5e49cebdd7b7179be455..7354482435b0c7009dc61a8e03a5d6b0
  		if (_botVerifyDetails) {
  			_botVerifyDetails = nullptr;
 diff --git a/Telegram/SourceFiles/data/data_peer_values.cpp b/Telegram/SourceFiles/data/data_peer_values.cpp
-index fe008ba767f0990b747c5fd24e14f52ec366030f..994987f25f94bdb1da213a9cb2d62f54cc9d3d14 100644
+index edd65ef9868108b1fa6b8ed87199bee2da3bed0c..a318262805ac7618701a0c7f3e01249b46ce2a33 100644
 --- a/Telegram/SourceFiles/data/data_peer_values.cpp
 +++ b/Telegram/SourceFiles/data/data_peer_values.cpp
 @@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -122,7 +122,7 @@ index fe008ba767f0990b747c5fd24e14f52ec366030f..994987f25f94bdb1da213a9cb2d62f54
  	if (user->isNotificationsUser()) {
  		return tr::lng_status_service_notifications(tr::now);
  	} else if (user->isSupport()) {
-@@ -529,6 +533,7 @@ QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
+@@ -553,6 +557,7 @@ QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
  bool OnlineTextActive(not_null<UserData*> user, TimeId now) {
  	return !user->isServiceUser()
  		&& !user->isBot()
@@ -131,10 +131,10 @@ index fe008ba767f0990b747c5fd24e14f52ec366030f..994987f25f94bdb1da213a9cb2d62f54
  }
  
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index 49a6a033398c4a12eea57a022fd70c7ce8ddc7e0..edd9837e97a525f5ea7d9b498ca70e78513340cb 100644
+index d93703bd1ef76acc05cd0742abd3e042e235e27c..12ad0162a8a6a1cbb13f82034a6ce3388086784c 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
-@@ -92,6 +92,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -94,6 +94,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "base/call_delayed.h"
  #include "base/random.h"
  #include "spellcheck/spellcheck_highlight_syntax.h"
@@ -142,7 +142,7 @@ index 49a6a033398c4a12eea57a022fd70c7ce8ddc7e0..edd9837e97a525f5ea7d9b498ca70e78
  
  namespace Data {
  namespace {
-@@ -738,9 +739,9 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
+@@ -740,9 +741,9 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
  			? std::optional<Data::Stories::PeerSourceState>()
  			: stories().peerSourceState(result, *data.vstories_max_id());
  		const auto flagsSet = (data.is_deleted() ? Flag::Deleted : Flag())
@@ -155,7 +155,7 @@ index 49a6a033398c4a12eea57a022fd70c7ce8ddc7e0..edd9837e97a525f5ea7d9b498ca70e78
  			| (data.is_bot_inline_geo() ? Flag::BotInlineGeo : Flag())
  			| (data.is_bot_forum_view() ? Flag::Forum : Flag())
  			| (data.is_premium() ? Flag::Premium : Flag())
-@@ -1149,9 +1150,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
+@@ -1151,9 +1152,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
  			? std::optional<Data::Stories::PeerSourceState>()
  			: stories().peerSourceState(channel, *data.vstories_max_id());
  		const auto flagsSet = (data.is_broadcast() ? Flag::Broadcast : Flag())
@@ -169,10 +169,10 @@ index 49a6a033398c4a12eea57a022fd70c7ce8ddc7e0..edd9837e97a525f5ea7d9b498ca70e78
  			| (data.is_gigagroup() ? Flag::Gigagroup : Flag())
  			| (hasUsername ? Flag::Username : Flag())
 diff --git a/Telegram/SourceFiles/data/data_user.cpp b/Telegram/SourceFiles/data/data_user.cpp
-index 74fb183636d1a9cdaef801d9304f2f4583f733b2..77fc630c57400ae5b15a7ed3c4ea8e0828d28fcf 100644
+index 4f1f626f1aa9ed4f2df81128403d2307e80f1303..02f2acf603bc2f0fbdd702d819111eb70c997d6f 100644
 --- a/Telegram/SourceFiles/data/data_user.cpp
 +++ b/Telegram/SourceFiles/data/data_user.cpp
-@@ -37,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "api/api_peer_photo.h"
  #include "apiwrap.h"
  #include "lang/lang_keys.h"
@@ -180,7 +180,7 @@ index 74fb183636d1a9cdaef801d9304f2f4583f733b2..77fc630c57400ae5b15a7ed3c4ea8e08
  #include "window/notifications_manager.h"
  
  namespace {
-@@ -739,6 +740,7 @@ bool UserData::isUsernameEditable(QString username) const {
+@@ -774,6 +775,7 @@ bool UserData::isOldWalletBot() const {
  }
  
  void UserData::setBotVerifyDetails(Ui::BotVerifyDetails details) {

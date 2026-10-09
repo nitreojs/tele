@@ -9,10 +9,10 @@ Subject: [PATCH] feat: move tele tools to the bottom of the message menu
  2 files changed, 21 insertions(+), 17 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 9d90d4aa7225db118b6010e4a8aedf8650417718..d1ccdb6aae1725da2e57ed9cdc97aca74ff5fa67 100644
+index b0625adf278e8755aa00eb54d2d0ba9fbcf4cbda..c371d3a5824204788198c8f4f151955ce3cfedd2 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -3876,6 +3876,11 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3871,6 +3871,11 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  			Menu::RateTranscribeCallbackFactory(rateTranscriptionItem)));
  	}
  
@@ -24,7 +24,7 @@ index 9d90d4aa7225db118b6010e4a8aedf8650417718..d1ccdb6aae1725da2e57ed9cdc97aca7
  	if (!pollOptionLink.isEmpty() && leaderOrSelf && !_menu->empty()) {
  		const auto pollItemId = leaderOrSelf->fullId();
  		_menu->stashContent([=](not_null<Ui::PopupMenu*> menu) {
-@@ -3907,10 +3912,6 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3902,10 +3907,6 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				poll);
  		}
  	}

@@ -24,10 +24,10 @@ Subject: [PATCH] feat: show usernames for invisible names
  create mode 100644 Telegram/SourceFiles/tele/tele_invisible.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 526d828a60d46fae240d48d95afbac47fd1027f2..e65de5c6b07e4b4c504c404bcca4ffc13ffe2afd 100644
+index f78061e208eaf8be161940a2746a980bc4529537..4448e40423ff165f338af72c75492e83ee2657a8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2372,6 +2372,8 @@ PRIVATE
+@@ -2530,6 +2530,8 @@ PRIVATE
      tele/tele_inline_text.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -87,7 +87,7 @@ index d4688404bf21072c74d82a6226bff353a8aab444..af6b2b59674074adbd4c0058baea159c
  
  void ChatData::applyEditAdmin(not_null<UserData*> user, bool isAdmin) {
 diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
-index 1a93d1e773e54fae974d7e5a28281654b8db8b2e..00dafbbbb42348b85598be746a8eeb5e87dd8989 100644
+index bacf761f14ec6fc6ac388519783930711e628ad5..9188d195af9cad8b3e149577bb2a837381098f9e 100644
 --- a/Telegram/SourceFiles/data/data_peer.cpp
 +++ b/Telegram/SourceFiles/data/data_peer.cpp
 @@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -108,10 +108,10 @@ index 1a93d1e773e54fae974d7e5a28281654b8db8b2e..00dafbbbb42348b85598be746a8eeb5e
  		}
  		return user->firstName.isEmpty() ? user->lastName : user->firstName;
 diff --git a/Telegram/SourceFiles/data/data_user.cpp b/Telegram/SourceFiles/data/data_user.cpp
-index bd10b94b2e162c624928db45b00922f475f5efca..b442a6dfb05352bd105b92cc004be7e3423b5e68 100644
+index 0c7f720ba85f85582366444d58302c1102a2aad4..a048b53e7885aa65a4c8bd509c6e4ff388a1105c 100644
 --- a/Telegram/SourceFiles/data/data_user.cpp
 +++ b/Telegram/SourceFiles/data/data_user.cpp
-@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "lang/lang_keys.h"
  #include "tele/tele_badges.h"
@@ -119,7 +119,7 @@ index bd10b94b2e162c624928db45b00922f475f5efca..b442a6dfb05352bd105b92cc004be7e3
  #include "tele/tele_local_names.h"
  #include "window/notifications_manager.h"
  
-@@ -381,9 +382,10 @@ void UserData::setName(
+@@ -403,9 +404,10 @@ void UserData::setName(
  			lastName = newLastName;
  		}
  	}
@@ -155,7 +155,7 @@ index 7eec631db0b3d7ded82311fc1e6a20615d32360f..50274614c5eecbcb3758233604c307f7
  			chatListName(),
  			Ui::NameTextOptions());
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index 4c21f545333a88ad57bf13f23c78cc2e185fe6fe..5e195bc640d117edf4b18231424680a3d6610cb3 100644
+index 56d67433c1d11eec578cbf1ce74a40b12d05a6fd..1a681a292d5a92babd7e7201e86ffa525c812ccd 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 @@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -166,7 +166,7 @@ index 4c21f545333a88ad57bf13f23c78cc2e185fe6fe..5e195bc640d117edf4b18231424680a3
  #include "tele/tele_phones.h"
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h"
-@@ -667,7 +668,8 @@ void TopBarWidget::paintTopBar(Painter &p) {
+@@ -677,7 +678,8 @@ void TopBarWidget::paintTopBar(Painter &p) {
  	} else if (namePeer) {
  		if (_titleNameVersion < namePeer->nameVersion()) {
  			_titleNameVersion = namePeer->nameVersion();

@@ -13,7 +13,7 @@ Subject: [PATCH] feat: group and search tele settings
  6 files changed, 769 insertions(+), 402 deletions(-)
 
 diff --git a/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp b/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
-index eac57db85c6be9151af8e14b3b9b7ab3da6d897c..9c5a449edccb7770fa02d11e05821fe720ebb043 100644
+index d49e379207b8cc204f8f516d4d9eb27ed60f440b..68cb052fbd8e5a14ce0d68b67c1c57e6e8e2f12e 100644
 --- a/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
 +++ b/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
 @@ -563,10 +563,12 @@ void RegisterSettingsHandlers(Router &router) {

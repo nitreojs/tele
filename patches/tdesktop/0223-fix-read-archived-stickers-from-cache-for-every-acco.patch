@@ -9,10 +9,10 @@ Subject: [PATCH] fix: read archived stickers from cache for every account
  2 files changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/Telegram/SourceFiles/storage/storage_account.cpp b/Telegram/SourceFiles/storage/storage_account.cpp
-index dfcf449945d9559bc083b8a74d9c503662294012..b2c83e42bab9dd01267dd14900b09d6e61a6f18a 100644
+index 44b40f000d570243bd634e7964117398e6cdcffc..92fce4e42c8479bfa486989cbf94ff8cfd7271fa 100644
 --- a/Telegram/SourceFiles/storage/storage_account.cpp
 +++ b/Telegram/SourceFiles/storage/storage_account.cpp
-@@ -2656,26 +2656,22 @@ void Account::readFavedStickers() {
+@@ -2710,26 +2710,22 @@ void Account::readFavedStickers() {
  void Account::readArchivedStickers() {
  	DEBUG_LOG(("Init: Read archived stickers."));
  
@@ -44,10 +44,10 @@ index dfcf449945d9559bc083b8a74d9c503662294012..b2c83e42bab9dd01267dd14900b09d6e
  }
  
 diff --git a/Telegram/SourceFiles/storage/storage_account.h b/Telegram/SourceFiles/storage/storage_account.h
-index a35dcacd62ae88a0e9eb39cc142a6df1977aa908..253096f4435f13f1c4b58291338a11962cce80ac 100644
+index b372bca4b78068e4293724b8a624ddd0a25a0284..31cad9e977811e07925658952538b2c7a874bc2b 100644
 --- a/Telegram/SourceFiles/storage/storage_account.h
 +++ b/Telegram/SourceFiles/storage/storage_account.h
-@@ -373,6 +373,8 @@ private:
+@@ -399,6 +399,8 @@ private:
  	bool _searchSuggestionsRead = false;
  	bool _inlineBotsDownloadsRead = false;
  	bool _mediaLastPlaybackPositionsRead = false;

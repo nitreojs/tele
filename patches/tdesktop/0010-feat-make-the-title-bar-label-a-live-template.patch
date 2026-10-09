@@ -17,10 +17,10 @@ Subject: [PATCH] feat: make the title bar label a live template
  create mode 100644 Telegram/SourceFiles/tele/tele_title.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1c66697f8307b78a9312e49762f4c0d039ccb8ad..2dcbba89e7690a8c04995468eb6119e24129309a 100644
+index 138f30c41776293a46615d9499d96d3e8545388d..5ce39d3f40d714f2b0565cfa66a61d48fda60cdc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2223,6 +2223,8 @@ PRIVATE
+@@ -2381,6 +2381,8 @@ PRIVATE
      tele/tele_options.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -587,10 +587,10 @@ index f469c8cda38471623fb6b02ef4e65976373424f0..c5365571e3ab23a66bbfb46a09d5a52f
  
  	rpl::merge(
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index d90788ac7ec4a1574fef2fbca92be462943f9f01..6b3ca5429f817e73b7a166e490c76752198dca89 100644
+index 6f03468ec6cfca75eab3e113093e99627969c145..0f7b36dd0b24af6b99da8ec7ad093d20754c9933 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
-@@ -46,7 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -47,7 +47,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "mainwidget.h" // session->content()->windowShown().
  #include "tray.h"
@@ -599,7 +599,7 @@ index d90788ac7ec4a1574fef2fbca92be462943f9f01..6b3ca5429f817e73b7a166e490c76752
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
  
-@@ -699,7 +699,13 @@ void MainWindow::setupCanaryTitleLabel() {
+@@ -702,7 +702,13 @@ void MainWindow::setupCanaryTitleLabel() {
  	const auto label = Ui::CreateTitleSubWidget(
  		title,
  		st::titleSubWidgetStyle,
@@ -614,7 +614,7 @@ index d90788ac7ec4a1574fef2fbca92be462943f9f01..6b3ca5429f817e73b7a166e490c76752
  		layout->value(
  		) | rpl::map([](const Ui::Platform::TitleLayout &layout) {
  			return layout.onLeft() ? style::al_right : style::al_left;
-@@ -715,8 +721,9 @@ void MainWindow::setupCanaryTitleLabel() {
+@@ -718,8 +724,9 @@ void MainWindow::setupCanaryTitleLabel() {
  
  QString MainWindow::nativeTitleSuffix() const {
  	const auto title = titleWidget();

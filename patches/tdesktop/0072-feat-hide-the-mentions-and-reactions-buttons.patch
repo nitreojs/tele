@@ -16,10 +16,10 @@ Subject: [PATCH] feat: hide the mentions and reactions buttons
  create mode 100644 Telegram/SourceFiles/tele/tele_corner_buttons.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c5a7b8a4d5384d58464ac9a7f31ae6c2a0d7e3ad..59b328806202b6de482c0bb10a731a35647b241e 100644
+index 7c958c29c8a68b3e062245a82b11f4b117462b1c..c83ae6cfe0d026271312558eecc497addc1e0cf5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2235,6 +2235,8 @@ PRIVATE
+@@ -2393,6 +2393,8 @@ PRIVATE
      tele/tele_changelog.h
      tele/tele_chat_backgrounds.cpp
      tele/tele_chat_backgrounds.h
@@ -29,18 +29,18 @@ index c5a7b8a4d5384d58464ac9a7f31ae6c2a0d7e3ad..59b328806202b6de482c0bb10a731a35
      tele/tele_crash.h
      tele/tele_deleted.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp b/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp
-index 6ba23a0e16beb48076ffb1220b2cef02f4b7bdb5..f360033a82fffcf2e2d46e2cdf46f49df3fba941 100644
+index 3fa5e74298d577324c860bd10d74040da0004ebb..bd17e563c6787c5042e9a79c72e776f4406dc2ea 100644
 --- a/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_corner_buttons.cpp
-@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_forum_topic.h"
  #include "lang/lang_keys.h"
  #include "ui/toast/toast.h"
 +#include "tele/tele_corner_buttons.h"
  #include "styles/style_chat_helpers.h"
+ #include "styles/style_widgets.h"
  
- namespace HistoryView {
-@@ -115,6 +116,10 @@ CornerButtons::CornerButtons(
+@@ -275,6 +276,10 @@ CornerButtons::CornerButtons(
  	SendMenu::SetupUnreadPollVotesMenu(_pollVotes.widget.data(), [=] {
  		return _delegate->cornerButtonsThread();
  	});
@@ -51,7 +51,7 @@ index 6ba23a0e16beb48076ffb1220b2cef02f4b7bdb5..f360033a82fffcf2e2d46e2cdf46f49d
  }
  
  void CornerButtons::updateAccessibleDescription(CornerButton &button) {
-@@ -302,7 +307,9 @@ void CornerButtons::updateUnreadThingsVisibility() {
+@@ -473,7 +478,9 @@ void CornerButtons::updateUnreadThingsVisibility() {
  	const auto updateWithCount = [&](Type type, int count) {
  		updateVisibility(
  			type,

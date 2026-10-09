@@ -17,10 +17,10 @@ Subject: [PATCH] feat: smooth wheel scrolling
  create mode 100644 Telegram/SourceFiles/tele/tele_smooth_scroll.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2ed56a874189effeb1335668bbfc26e56fe0d852..338e50755ebba36eb56b58da8f47b4d38129f8a4 100644
+index c6e5d37d333184dcdcad7311492a7ad27130d0c2..b1428109c2ff9144da87aecd6a8c65c123a7a518 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2546,6 +2546,8 @@ PRIVATE
+@@ -2704,6 +2704,8 @@ PRIVATE
      tele/tele_show_pinned.h
      tele/tele_silent.cpp
      tele/tele_silent.h
@@ -30,10 +30,10 @@ index 2ed56a874189effeb1335668bbfc26e56fe0d852..338e50755ebba36eb56b58da8f47b4d3
      tele/tele_spoilers.h
      tele/tele_stars_tools.cpp
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 5907c6dcd7f07a2a53c583ba71b73d9ce3906976..990fe20c5b138586a6611b1147cab081ae3d9aad 100644
+index 847e309bed5292c3662df9e4abe588079dbf86d7..00cf01169b623f38279919fdfc423e8d0d18ff13 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_bubble_padding.h"
  #include "tele/tele_freeze_watchdog.h"
  #include "tele/tele_options.h"
@@ -41,7 +41,7 @@ index 5907c6dcd7f07a2a53c583ba71b73d9ce3906976..990fe20c5b138586a6611b1147cab081
  #include "tele/tele_start_menu.h"
  
  #include <QtCore/QStandardPaths>
-@@ -366,6 +367,7 @@ void Application::run() {
+@@ -368,6 +369,7 @@ void Application::run() {
  	Tele::StartChangelog();
  	Tele::StartBadges();
  	Tele::StartReduceMotion();

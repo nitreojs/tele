@@ -15,19 +15,19 @@ Subject: [PATCH] feat: more ghost mode options
  8 files changed, 172 insertions(+), 6 deletions(-)
 
 diff --git a/Telegram/SourceFiles/api/api_updates.cpp b/Telegram/SourceFiles/api/api_updates.cpp
-index deded5d3e7eeff110da8bb8fb33b5e82c1d4a08c..62fa4ed3ab26e007a86f6fde17f0f5325f819815 100644
+index 3e004eca90f30340e562b264395557730bf83614..063137c2efa79597bed5cd4474d3fc6a56649765 100644
 --- a/Telegram/SourceFiles/api/api_updates.cpp
 +++ b/Telegram/SourceFiles/api/api_updates.cpp
-@@ -1662,6 +1662,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
- 				} else if (local->isBusinessShortcut()) {
- 					session().data().shortcutMessages().apply(d, local);
+@@ -1705,6 +1705,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
+ 					// registerMessageSentData.
+ 					return;
  				} else {
 +					Tele::OfflineAfterSend(&session());
  					const auto existing = session().data().message(
  						id.peer,
  						newId);
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 1e24ddd32d944a8122a63126ddfa01d82f3207f5..127bfdd98927f01f42e16e6e24b86ba59179fb6a 100644
+index 72e99f623893b0229ca2d7cc212707e0e850429c..cfbe288a0338962881a136618f93a1640b35daed 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -1449,7 +1449,7 @@ void ApiWrap::markContentsRead(

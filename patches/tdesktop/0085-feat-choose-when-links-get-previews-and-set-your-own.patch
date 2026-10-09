@@ -20,10 +20,10 @@ Subject: [PATCH] feat: choose when links get previews and set your own
  create mode 100644 Telegram/SourceFiles/tele/tele_link_previews.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 84ccd5c7547028a1a0b13a4dd151b199c71b3df8..527cb643560e2984b268cb7726ba641cd10ddfd3 100644
+index 4dbfa6fd77d600d9d844fac84d71cf9307dd8331..bc96e51a06e65956e42225eba39d40a6c7b9ac9f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2283,6 +2283,8 @@ PRIVATE
+@@ -2441,6 +2441,8 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h
@@ -33,10 +33,10 @@ index 84ccd5c7547028a1a0b13a4dd151b199c71b3df8..527cb643560e2984b268cb7726ba641c
      tele/tele_link_rewrites.h
      tele/tele_link_rewrites_box.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index ab7d1846bee32b5536a465b5a46db688b957b471..ff68b9a713b18cc36b00f9291331676c6e29fa15 100644
+index 476a86e1369fe48c05583e46eb4fbe535b6f3016..ddc221d232fef161e214cf527664df799f5de314 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -168,6 +168,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
  #include "tele/tele_calcmula_preview.h"
@@ -44,7 +44,7 @@ index ab7d1846bee32b5536a465b5a46db688b957b471..ff68b9a713b18cc36b00f9291331676c
  #include "tele/tele_calls.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
-@@ -518,6 +519,16 @@ HistoryWidget::HistoryWidget(
+@@ -531,6 +532,16 @@ HistoryWidget::HistoryWidget(
  		},
  		.send = [=] { sendWithModifiers(Qt::KeyboardModifiers()); },
  	});
@@ -62,10 +62,10 @@ index ab7d1846bee32b5536a465b5a46db688b957b471..ff68b9a713b18cc36b00f9291331676c
  		checkCharsLimitation();
  		updateAiButtonVisibility();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 607a4f0227f08dda41f8f1534f8311efcc89e62b..da20736da03c7fdc8d777ef2546253077629f031 100644
+index 14ec0b67e77c8528f1baad7beddb4fee3adcda2d..e87fcbab2aa68e773cfda25ce4efacef9282a35b 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"
  #include "tele/tele_calcmula_preview.h"
@@ -73,7 +73,7 @@ index 607a4f0227f08dda41f8f1534f8311efcc89e62b..da20736da03c7fdc8d777ef254625307
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_emoji_panel.h"
  #include "support/support_helper.h"
-@@ -3142,6 +3143,12 @@ void ComposeControls::initField() {
+@@ -3266,6 +3267,12 @@ void ComposeControls::initField() {
  		},
  		.send = [=] { _fieldSubmits.fire({}); },
  	});
@@ -120,7 +120,7 @@ index 9dabfb109125f82f5b78b0103a2fe65b79e27f8d..7decfb7a368d0373ae448326cdad7a50
  			bottom,
  			tr::lng_link_remove(),
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_webpage_processor.cpp b/Telegram/SourceFiles/history/view/controls/history_view_webpage_processor.cpp
-index 644bf21030847744620e358d0ae573a87a2a3527..a44bb1f9182422b82ae83868d8d12318b7ec2031 100644
+index ad09615245a7680ca36a320e2da58bcfb89edfce..90a72cbaeac086e5ce866ca4394b40917a6600de 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_webpage_processor.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_webpage_processor.cpp
 @@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -131,7 +131,7 @@ index 644bf21030847744620e358d0ae573a87a2a3527..a44bb1f9182422b82ae83868d8d12318
  
  namespace HistoryView::Controls {
  
-@@ -205,6 +206,8 @@ WebpageProcessor::WebpageProcessor(
+@@ -206,6 +207,8 @@ WebpageProcessor::WebpageProcessor(
  		_repaintRequests.fire({});
  	}, _lifetime);
  
@@ -140,7 +140,7 @@ index 644bf21030847744620e358d0ae573a87a2a3527..a44bb1f9182422b82ae83868d8d12318
  	_history->owner().webPageUpdates(
  	) | rpl::filter([=](not_null<WebPageData*> page) {
  		return (_data == page.get());
-@@ -243,7 +246,7 @@ rpl::producer<> WebpageProcessor::repaintRequests() const {
+@@ -244,7 +247,7 @@ rpl::producer<> WebpageProcessor::repaintRequests() const {
  }
  
  Data::WebPageDraft WebpageProcessor::draft() const {
@@ -149,7 +149,7 @@ index 644bf21030847744620e358d0ae573a87a2a3527..a44bb1f9182422b82ae83868d8d12318
  }
  
  std::shared_ptr<WebpageResolver> WebpageProcessor::resolver() const {
-@@ -259,6 +262,7 @@ QString WebpageProcessor::link() const {
+@@ -260,6 +263,7 @@ QString WebpageProcessor::link() const {
  }
  
  void WebpageProcessor::apply(Data::WebPageDraft draft, bool reparse) {
@@ -157,7 +157,7 @@ index 644bf21030847744620e358d0ae573a87a2a3527..a44bb1f9182422b82ae83868d8d12318
  	const auto was = _link;
  	if (draft.removed) {
  		_draft = draft;
-@@ -362,7 +366,7 @@ void WebpageProcessor::checkPreview() {
+@@ -363,7 +367,7 @@ void WebpageProcessor::checkPreview() {
  		apply({ .removed = true });
  		_draft.removed = false;
  		return;

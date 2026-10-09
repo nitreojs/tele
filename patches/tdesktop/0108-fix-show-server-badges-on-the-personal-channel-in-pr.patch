@@ -13,10 +13,10 @@ Subject: [PATCH] fix: show server badges on the personal channel in profiles
  create mode 100644 Telegram/SourceFiles/tele/tele_name_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 973dbb76f57f7f05eddd7ae2ab8b3a5a915c4c2c..ffbf590620006783e1957e0cdee3187cecbed406 100644
+index 3fc1612997eb3fb9db90fd522ba87de0bfb1210f..7ac715922e3e4964f7782ca7f2faeb0b920cb4b0 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2323,6 +2323,8 @@ PRIVATE
+@@ -2481,6 +2481,8 @@ PRIVATE
      tele/tele_launch_flags.h
      tele/tele_links.cpp
      tele/tele_links.h
@@ -26,7 +26,7 @@ index 973dbb76f57f7f05eddd7ae2ab8b3a5a915c4c2c..ffbf590620006783e1957e0cdee3187c
      tele/tele_options.h
      tele/tele_peer_id.cpp
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 9e3f5c44ff467a537513c05b328e6e51d64c3c5e..74d604d36ff1949ae9dbb9c0d68f4dc3d0521317 100644
+index 789f8166ad8494eb8808b43d85ed318b4f95fc28..ec3ac52ce03f83001f4d0ae4ca96cb6676f204ff 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -78,6 +78,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -37,7 +37,7 @@ index 9e3f5c44ff467a537513c05b328e6e51d64c3c5e..74d604d36ff1949ae9dbb9c0d68f4dc3
  #include "tele/tele_options.h"
  #include "tele/tele_peer_id.h"
  #include "tele/tele_username_aliases.h"
-@@ -1956,6 +1957,11 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
+@@ -1959,6 +1960,11 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
  			st::infoLabel,
  			st::infoLabeled,
  			st::infoProfilePersonalChannelPadding);
@@ -49,7 +49,7 @@ index 9e3f5c44ff467a537513c05b328e6e51d64c3c5e..74d604d36ff1949ae9dbb9c0d68f4dc3
  		onlyChannelWrap->entity()->add(std::move(line.wrap));
  
  		line.text->setClickHandlerFilter([=](
-@@ -2031,6 +2037,10 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
+@@ -2034,6 +2040,10 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
  				line,
  				NameValue(item->history()->peer),
  				st::infoPersonalChannelNameLabel);
@@ -60,7 +60,7 @@ index 9e3f5c44ff467a537513c05b328e6e51d64c3c5e..74d604d36ff1949ae9dbb9c0d68f4dc3
  
  			const auto preview = Ui::CreateChild<Ui::RpWidget>(line);
  			auto &lifetime = preview->lifetime();
-@@ -2089,12 +2099,11 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
+@@ -2092,12 +2102,11 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
  				const auto top = stLabeled.top();
  				date->moveToRight(right, top, size.width());
  

@@ -15,10 +15,10 @@ Subject: [PATCH] feat: pick brush colors from the image
  create mode 100644 Telegram/SourceFiles/tele/tele_editor_eyedropper.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 66eceeba7013e84c99fab9c2bd3e2fb94ca3ca75..da0fcd391977f01dbbe04d4c1538aa2aeaa8b131 100644
+index 6712bddec7b59fdf4c724efc6a447c1abd7aedaf..036f228b4104e92b1ef9c40c7ecc5cbb08639e46 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2239,6 +2239,8 @@ PRIVATE
+@@ -2397,6 +2397,8 @@ PRIVATE
      tele/tele_deleted_section.h
      tele/tele_edit_history.cpp
      tele/tele_edit_history.h
@@ -28,7 +28,7 @@ index 66eceeba7013e84c99fab9c2bd3e2fb94ca3ca75..da0fcd391977f01dbbe04d4c1538aa2a
      tele/tele_folders.h
      tele/tele_gifts.cpp
 diff --git a/Telegram/SourceFiles/editor/color_picker.cpp b/Telegram/SourceFiles/editor/color_picker.cpp
-index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf74411de92 100644
+index 255583a2f674856659766f97562641db853ee3c2..0554fc5d808fa4d837441167074baa83d02603a8 100644
 --- a/Telegram/SourceFiles/editor/color_picker.cpp
 +++ b/Telegram/SourceFiles/editor/color_picker.cpp
 @@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -39,7 +39,7 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  #include "ui/abstract_button.h"
  #include "ui/layers/generic_box.h"
  #include "ui/painter.h"
-@@ -584,6 +585,16 @@ void ColorPicker::setColor(const QColor &color) {
+@@ -593,6 +594,16 @@ void ColorPicker::setColor(const QColor &color) {
  	}
  }
  
@@ -56,7 +56,7 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  void ColorPicker::setToolSelectionVisible(bool visible) {
  	_toolSelectionSuppressed = !visible;
  	_toolSelection->setVisible(visible);
-@@ -671,6 +682,10 @@ rpl::producer<> ColorPicker::toolClicks() const {
+@@ -750,6 +761,10 @@ rpl::producer<> ColorPicker::toolClicks() const {
  	return _toolClicks.events();
  }
  
@@ -67,7 +67,7 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  bool ColorPicker::preventHandleKeyPress() const {
  	return _sizeControl->isVisible()
  		&& (_sizeControlAnimation.animating() || _sizeDown.pressed);
-@@ -703,7 +718,7 @@ void ColorPicker::rebuildPalette() {
+@@ -782,7 +797,7 @@ void ColorPicker::rebuildPalette() {
  		const auto count = int(colors.size());
  		const auto paletteWidth = count * size
  			+ (count - 1) * gap
@@ -76,7 +76,7 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  		if (paletteWidth > barWidth && colors.size() > 2) {
  			colors.erase(colors.end() - 2);
  		}
-@@ -770,6 +785,9 @@ void ColorPicker::rebuildPalette() {
+@@ -849,6 +864,9 @@ void ColorPicker::rebuildPalette() {
  		}));
  	});
  	_palettePlus->show();
@@ -86,7 +86,7 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  	updatePaletteGeometry();
  }
  
-@@ -783,7 +801,7 @@ void ColorPicker::updatePaletteGeometry() {
+@@ -862,7 +880,7 @@ void ColorPicker::updatePaletteGeometry() {
  	const auto plusSize = size;
  	const auto width = (count * size)
  		+ ((count > 0) ? (count - 1) * gap : 0)
@@ -95,7 +95,7 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  	const auto height = std::max(size, plusSize);
  
  	_paletteWrap->resize(width, height);
-@@ -797,6 +815,10 @@ void ColorPicker::updatePaletteGeometry() {
+@@ -876,6 +894,10 @@ void ColorPicker::updatePaletteGeometry() {
  		_palettePlus->resize(plusSize, plusSize);
  		_palettePlus->move(x, (height - plusSize) / 2);
  	}
@@ -107,11 +107,11 @@ index 7e29244eca01f6d5e68874f2aad5f82e28f3ca64..29732b3be4826d24e4eb600b6e165bf7
  	if (_colorButtonCenter.isNull()) {
  		return;
 diff --git a/Telegram/SourceFiles/editor/color_picker.h b/Telegram/SourceFiles/editor/color_picker.h
-index 3d64431ce62fcb4c69359d38dcd3427b7895e771..1d4734b1e1a9e6e2648a41803a546a1c0c5ca3e8 100644
+index c8c1caa910c343a1d5200e6e10c67eed41d23a8d..f49a4948349a072f4f230fa9c9ef35ebf4b3cb02 100644
 --- a/Telegram/SourceFiles/editor/color_picker.h
 +++ b/Telegram/SourceFiles/editor/color_picker.h
-@@ -32,10 +32,12 @@ public:
- 	void setVisible(bool visible);
+@@ -34,10 +34,12 @@ public:
+ 		anim::type animated = anim::type::instant);
  	void setColor(const QColor &color);
  	void setToolSelectionVisible(bool visible);
 +	void applyColor(const QColor &color);
@@ -123,7 +123,7 @@ index 3d64431ce62fcb4c69359d38dcd3427b7895e771..1d4734b1e1a9e6e2648a41803a546a1c
  
  private:
  	void paintSizeControl(QPainter &p);
-@@ -99,9 +101,11 @@ private:
+@@ -109,9 +111,11 @@ private:
  
  	rpl::event_stream<Brush> _saveBrushRequests;
  	rpl::event_stream<> _toolClicks;
@@ -136,7 +136,7 @@ index 3d64431ce62fcb4c69359d38dcd3427b7895e771..1d4734b1e1a9e6e2648a41803a546a1c
  	QPoint _toolSelectionTo;
  
 diff --git a/Telegram/SourceFiles/editor/photo_editor.cpp b/Telegram/SourceFiles/editor/photo_editor.cpp
-index fc3ed5a12941af78b96035788b275e10e4eb4d9b..313a53819cb6940204f46a2449bc85d52c246b63 100644
+index 88a070e39e2fdbad1efeb5d04edaba6a649f0481..2f36a6f77d553757f7d202e88bea40bfdd4cbabf 100644
 --- a/Telegram/SourceFiles/editor/photo_editor.cpp
 +++ b/Telegram/SourceFiles/editor/photo_editor.cpp
 @@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -146,8 +146,8 @@ index fc3ed5a12941af78b96035788b275e10e4eb4d9b..313a53819cb6940204f46a2449bc85d5
 +#include "tele/tele_editor_eyedropper.h"
  #include "window/window_controller.h"
  #include "window/window_session_controller.h"
- #include "ui/layers/layer_widget.h"
-@@ -307,6 +308,11 @@ PhotoEditor::PhotoEditor(
+ #include "ui/layers/layer_manager.h"
+@@ -321,6 +322,11 @@ PhotoEditor::PhotoEditor(
  	_brushTool)) {
  	_modifications.cropType = data.cropType;
  	_modifications.cropMode = data.cropMode;
@@ -157,8 +157,8 @@ index fc3ed5a12941af78b96035788b275e10e4eb4d9b..313a53819cb6940204f46a2449bc85d5
 +		photo,
 +		_colorPicker.get());
  
- 	sizeValue(
- 	) | rpl::on_next([=](const QSize &size) {
+ 	events(
+ 	) | rpl::on_next([=](not_null<QEvent*> e) {
 diff --git a/Telegram/SourceFiles/tele/tele_editor_eyedropper.cpp b/Telegram/SourceFiles/tele/tele_editor_eyedropper.cpp
 new file mode 100644
 index 0000000000000000000000000000000000000000..5e84ebc86c09a024546aff1387d6200ade6f6bfe

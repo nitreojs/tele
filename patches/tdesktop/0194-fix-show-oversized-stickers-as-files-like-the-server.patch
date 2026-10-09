@@ -15,10 +15,10 @@ Subject: [PATCH] fix: show oversized stickers as files like the server does
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_truth.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ca50f6e4cbe873c357365e3c9019c245418fe89c..3603b73d5a082d2e398f01ca44dea7cc4dd3b21b 100644
+index 285a1fb8da21203a435025b022f113f924d264e7..20c62781c313f4457bcfe67322a73c8a0cd54f2d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2445,6 +2445,8 @@ PRIVATE
+@@ -2603,6 +2603,8 @@ PRIVATE
      tele/tele_stars_tools.h
      tele/tele_sticker_captions.cpp
      tele/tele_sticker_captions.h
@@ -28,7 +28,7 @@ index ca50f6e4cbe873c357365e3c9019c245418fe89c..3603b73d5a082d2e398f01ca44dea7cc
      tele/tele_streamer_mode.h
      tele/tele_streaming_audio.cpp
 diff --git a/Telegram/SourceFiles/data/data_document.cpp b/Telegram/SourceFiles/data/data_document.cpp
-index a985ed76332d69e130e214c0ecdb908b32bef2be..bbf17b85e9a18fa4c7210958f157217c6d0748be 100644
+index 4fb3a8d7e9a6888b5ffe934cf509a1d4ffcd6005..18aa8aeb8d8aa905565737314f6ebbac5688952d 100644
 --- a/Telegram/SourceFiles/data/data_document.cpp
 +++ b/Telegram/SourceFiles/data/data_document.cpp
 @@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -39,7 +39,7 @@ index a985ed76332d69e130e214c0ecdb908b32bef2be..bbf17b85e9a18fa4c7210958f157217c
  
  #include <QtCore/QBuffer>
  #include <QtCore/QMimeType>
-@@ -353,6 +354,10 @@ void DocumentData::setattributes(
+@@ -354,6 +355,10 @@ void DocumentData::setattributes(
  		| kStreamingSupportedMask);
  	_flags |= kStreamingSupportedUnknown;
  
@@ -69,7 +69,7 @@ index abecf28a17bb81347b01f5414729cc81029a2eb2..2f50a6a161638a2f8c23b63218308209
  
  std::unique_ptr<HistoryView::Media> MediaFile::createView(
 diff --git a/Telegram/SourceFiles/storage/localimageloader.cpp b/Telegram/SourceFiles/storage/localimageloader.cpp
-index 6e7b651c2c4848fc2001e8ac6b1d90b4706cf39e..7faba7e41be88e494ebd24fbdf22fafcaee9c428 100644
+index 12402a937f362df3f89c8f822e52bb3492c7cf80..2f581d6f7b4bceac01590b0b82d2c2dd3f381069 100644
 --- a/Telegram/SourceFiles/storage/localimageloader.cpp
 +++ b/Telegram/SourceFiles/storage/localimageloader.cpp
 @@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
