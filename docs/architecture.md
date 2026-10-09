@@ -32,10 +32,13 @@ docs/*.md                     user docs (launch flags, title template, link clea
 ci/notes.py                   github release notes and the in-app changelog json
 ci/announce.py                release announcement for the telegram channel
 ci/baselines.json             folded patch hashes of a previous release
+ci/publish.sh                 signs one platform's update feed and adds its files to the release
 ci/issue.sh                   opens, comments on and closes github issues from ci
 ci/msvc.cmd                   enters the msvc environment on windows runners
+ci/ccache-dated.py            compiles sources that use __DATE__ or __TIME__ again, past ccache
 ci/macos-setup.sh             macos runner setup
 ci/macos-libs.sh              pulls and pushes the prepared macos libraries in ghcr
+ci/macos-merge.sh             joins the arm64 and x86_64 builds into one universal tele.app
 ci/update-public-key.pem      public key of the update feed signature
 .github/workflows/            build.yml, sync.yml, canary.yml, promote.yml
 ```
@@ -169,13 +172,14 @@ rate limits come from one hook in `mtproto/mtp_instance.cpp` (`rpcErrorOccured`)
 - the download url has to point at this repository's releases.
 - it's off for local builds, in sandboxes and while `-noteleupdate` is set. the `tele-auto-update` option turns the periodic check off.
 - upstream's own updater is disabled at configure time with `DESKTOP_APP_DISABLE_AUTOUPDATE=ON`, so an official build can never replace tele.
+- a release goes out one platform at a time (see [build.yml](#buildyml-build)). until a platform is published, its feed in the new release is a copy of the previous release's, which still points at the previous zip, so its clients see no update instead of a missing file.
 
 ### what's new
 
 the release notes and the in-app "what's new" come from the same rows in `docs/releases.md`:
 
 1. a row describes a patch: `| [N](../patches/tdesktop/NNNN-....patch) | what it does | where to toggle |`.
-2. at publish time `ci/notes.py --json` writes `tele-changelog.json` with the new and changed patches, each with its text, where, url and category, and uploads it as a release asset.
+2. when the first platform is published, `ci/notes.py --json` writes `tele-changelog.json` with the new and changed patches, each with its text, where, url and category, and uploads it as a release asset.
 3. after an update, `tele/tele_changelog.cpp` fetches `releases/download/<tag>/tele-changelog.json` for the running build and posts it once per account in a local tele chat (`tele_changelog_chat.*`, `tele_changelog_section.*`), grouped by category. fresh installs and accounts that already saw this build skip it. the `tele-show-changelog` option turns it off.
 
 ### settings export and import
@@ -202,21 +206,43 @@ runs on a push to `main` that touches `UPSTREAM`, `patches/**`, `tele.py`, `ci/*
 | input | meaning |
 |---|---|
 | `platforms` | platforms to build, default `windows linux macos` |
-| `publish` | publish a release (only from `main`, only when every platform built) |
+| `publish` | publish a release (only from `main`, and only a run that builds every platform) |
 | `from_run` | publish the builds of this finished run instead of building again |
 | `number` | release number to build as, empty for the next free one |
 
+```mermaid
+graph LR
+  number --> windows --> publish-windows
+  number --> linux-env --> linux --> publish-linux
+  number --> macos-libs --> macos-build["macos-build (arm64, x86_64)"] --> macos --> publish-macos
+  publish-windows --> announce
+  publish-linux --> announce
+  publish-macos --> announce
+```
+
 jobs:
 
-- `number`: checks that the required repository secrets exist, picks the release number `N` (one above every existing `<UPSTREAM>-tele.*` release or tag), reads upstream's `AppVersion` from `Telegram/build/version` of the tag, and keeps them as an artifact so a later publish can reuse them.
-- `windows`: clones tdesktop at `UPSTREAM`, runs `tele.py apply`, prepares the libraries with upstream's `win.bat` (cached in the actions cache), configures with ninja multi-config, release only, and builds `tele.exe`. zipped as `tele-<tag>-win64.zip`.
+- `number`: checks that the required repository secrets exist, picks the release number `N` (one above every existing `<UPSTREAM>-tele.*` release or tag), reads upstream's `AppVersion` from `Telegram/build/version` of the tag, and keeps them as an artifact so a later publish can reuse them. it also picks the previous release (the newest one that isn't this one) before anything is published, and decides whether the run publishes: only on `main`, for a push or `publish=true`, and only when every platform is built.
+- `windows`: clones tdesktop at `UPSTREAM`, runs `tele.py apply`, prepares the libraries with upstream's `win.bat` (cached in the actions cache), configures with ninja multi-config, release only, and builds `tele.exe` with ccache. zipped as `tele-<tag>-win64.zip`.
 - `linux-env` then `linux`: builds upstream's docker build environment into `ghcr.io/<owner>/tele-linux-env`, keyed by the hash of upstream's recipe, then builds `tele` inside it with ccache. zipped as `tele-<tag>-linux64.zip`.
-- `macos-libs` then `macos`: prepares the universal libraries with upstream's `mac.sh`, stored in ghcr by `ci/macos-libs.sh`, then builds `tele.app`, signs it ad hoc and packs `tele-<tag>-macos.zip` (for the updater) and `tele-<tag>-macos.dmg`.
+- `macos-libs`, `macos-build`, then `macos`: prepares the universal libraries with upstream's `mac.sh`, stored in ghcr by `ci/macos-libs.sh`. `macos-build` builds `tele.app` twice in parallel, once for arm64 and once for x86_64 (`CMAKE_OSX_ARCHITECTURES`), and `macos` joins them with `ci/macos-merge.sh`: every Mach-O file that differs is combined with `lipo`, everything else has to be identical, and every Mach-O file of the result has to hold both architectures. then it signs the app ad hoc and packs `tele-<tag>-macos.zip` (for the updater) and `tele-<tag>-macos.dmg`.
 - every platform job configures with `DESKTOP_APP_DISABLE_AUTOUPDATE=ON`, `DESKTOP_APP_DISABLE_CRASH_REPORTS=OFF` and `TELE_BUILD=<N>`, attests its files with `actions/attest` and uploads them as artifacts kept for one day.
-- `publish`: signs one update feed per platform, verifies each signature against `ci/update-public-key.pem`, writes the notes with `ci/notes.py`, creates the release (`--latest`, titled `tele N · <upstream>`) with the zips, the dmg, a `-symbols.zip` for linux and macos, the three `tele-update-*.json` feeds and `tele-changelog.json`, then posts the announcement with `ci/announce.py` when the announcement secrets are set.
-- every job ends with `ci/notify.sh`, which sends the maintainer a private telegram message when the run starts, when each platform finishes or fails, and when the release is published or fails to. it does nothing without the `TELE_BOT_TOKEN` and `TELE_NOTIFY_CHAT` secrets.
-- with `from_run`, the build jobs are skipped. `publish` checks that the run succeeded and built the same `UPSTREAM`, `patches` and `tele.py` as the current commit, and publishes its artifacts.
-- a failed or cancelled job on `main` opens a `build-failure` issue. a publish closes it.
+- `publish-windows`, `publish-linux`, `publish-macos`: one per platform, each on a fresh runner as soon as its platform is built, so the signing key never reaches a build job. `ci/publish.sh` signs the platform's update feed, verifies the signature against `ci/update-public-key.pem` and adds the platform's files to the release:
+  1. the first one creates the release, titled `tele N · <upstream>`, without files and not yet marked as latest. when two finish together, the second one finds it already there.
+  2. it uploads `tele-changelog.json` and, for every other platform that has no feed yet, the previous release's feed as a placeholder. these uploads never overwrite: when the file is already there, it's left alone.
+  3. it uploads its own zip (and dmg and `-symbols.zip`) and its real feed, overwriting. a placeholder can never replace a real feed, and a real feed always replaces a placeholder, in whatever order the jobs run.
+  4. it marks the release as latest (unless a newer one came out meanwhile) and writes a short text saying which platforms are ready, or the full notes once all three are.
+- `announce`: runs once all three platforms are published. writes the full notes with `ci/notes.py`, closes the `build-failure` and `new-upstream` issues and posts the announcement with `ci/announce.py` when the announcement secrets are set.
+- every job ends with `ci/notify.sh`, which sends the maintainer a private telegram message when the run starts, when each platform finishes or fails, when each platform is out, and when the release is announced or fails to. it does nothing without the `TELE_BOT_TOKEN` and `TELE_NOTIFY_CHAT` secrets.
+- with `from_run`, the build jobs are skipped. `number` checks that the run succeeded, built the same `UPSTREAM`, `patches` and `tele.py` as the current commit and still has the artifacts of all three platforms, then the publish jobs publish them.
+- a failed or cancelled job on `main` opens a `build-failure` issue. `announce` closes it.
+
+caches:
+
+- windows libraries: the actions cache, keyed by the windows sdk and the hash of `prepare.py`, saved whenever the prepared libraries changed, even when the build fails.
+- windows objects: ccache (a pinned release, checked against its sha256) as the compiler launcher, in the actions cache under `win64-ccache-<run>-<attempt>`, at most 3 GB, saved on every branch when the build compiled more than 100 files, even when it fails. older ccaches of the same branch are deleted. precompiled headers need ccache's `time_macros` sloppiness, so `ci/ccache-dated.py` compiles the few sources that use `__DATE__` or `__TIME__` again after the build: a cache hit would carry the date of an older build.
+- linux objects: ccache in the actions cache under `linux-ccache-<run>-<attempt>`, saved on `main` only.
+- linux build environment and macos libraries: images in ghcr, not the actions cache.
 
 ### sync.yml (Sync)
 
