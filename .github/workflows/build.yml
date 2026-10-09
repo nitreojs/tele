@@ -417,6 +417,7 @@ jobs:
           fi
 
       - name: Upload ccache
+        id: upload-ccache
         if: always() && steps.ccache.outputs.save == 'true'
         uses: actions/cache/save@v6
         with:
@@ -424,7 +425,7 @@ jobs:
           key: win64-ccache-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Drop older ccaches
-        if: always() && steps.ccache.outputs.save == 'true'
+        if: always() && steps.upload-ccache.outcome == 'success'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -644,6 +645,7 @@ jobs:
           fi
 
       - name: Upload ccache
+        id: upload-ccache
         if: always() && env.SAVE_CCACHE == 'true'
         uses: actions/cache/save@v6
         with:
@@ -651,7 +653,7 @@ jobs:
           key: linux-ccache-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Drop older ccaches
-        if: always() && env.SAVE_CCACHE == 'true'
+        if: always() && steps.upload-ccache.outcome == 'success'
         run: |
           gh cache list --key linux-ccache- --ref "$GITHUB_REF" --json id,key --jq '.[] | select(.key != "linux-ccache-${{ github.run_id }}-${{ github.run_attempt }}") | .id' \
             | xargs -r -n1 gh cache delete

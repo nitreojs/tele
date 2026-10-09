@@ -45,6 +45,15 @@ has() {
   grep -qxF "$1" <<< "$(assets)"
 }
 
+# true when the release has an asset with this file's name and sha256
+unchanged() {
+  local name digest
+  name=$(basename "$1")
+  digest="sha256:$(sha256sum < "$1" | cut -c1-64)"
+  gh api "repos/$GH_REPO/releases/tags/$TAG" --jq ".assets[] | select(.name == \"$name\") | .digest" \
+    | grep -qxF "$digest"
+}
+
 # uploads a file unless the release already has one by that name. another platform's job can upload the same name
 # at the same time, so a failed upload is fine when the asset is there afterwards
 add() {
@@ -123,7 +132,18 @@ else
 fi
 
 add tele-changelog.json
-replace "${files[@]}" "tele-update-$platform.json"
+# gh uploads the files of one call in parallel: the zips go up first, so a live feed never points at a missing zip.
+# a re-run skips files the release already has byte for byte, so it doesn't take a live zip away for a while
+changed=()
+for file in "${files[@]}"; do
+  if ! unchanged "$file"; then
+    changed+=("$file")
+  fi
+done
+if [ ${#changed[@]} -gt 0 ]; then
+  replace "${changed[@]}"
+fi
+replace "tele-update-$platform.json"
 
 if [ -n "$PREVIOUS_TAG" ]; then
   mkdir -p previous
