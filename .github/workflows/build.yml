@@ -72,6 +72,7 @@ jobs:
           NUMBER: ${{ inputs.number }}
         run: |
           upstream=$(tr -d '[:space:]' < UPSTREAM)
+          base="$upstream-tele"
           # numbers go on across upstream bumps: the app compares build numbers (what's new, its history)
           pattern="^v[0-9.]*-tele\.\([0-9][0-9]*\)$"
           last=$( {
@@ -247,6 +248,10 @@ jobs:
         id: prepare
         run: |
           call tele\ci\msvc.cmd || exit /b 1
+          rem a cache trimmed before the trim kept the wallet binding source holds tdesktop_rust without it and its
+          rem source stages without their sources, so all three build again
+          set "keys=%TBUILD%\Libraries\win64\cache_keys"
+          if exist "%keys%\tdesktop_rust" if not exist "%TBUILD%\Libraries\win64\tdesktop_rust\out\src\wallet_engine\wallet_engine.cpp" del "%keys%\tdesktop_rust" "%keys%\tlottie" "%keys%\wallet-engine"
           %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
 
       - name: Trim libraries
@@ -261,7 +266,7 @@ jobs:
             exit 0
           fi
           # upstream ci's filter: keep what linking needs, drop sources and intermediates
-          find "$libs" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' ')' -type f ')' -o -empty ')' -delete
+          find "$libs" '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/nv-codec-headers/*' -o -path '*/src/wallet_engine/*' ')' -type f ')' -o -empty ')' -delete
           # the atl step only trusts a prepare that fully finished for this CACHE_KEY
           if [ "$PREPARE_OUTCOME" = success ]; then
             echo "$CACHE_KEY" > "$libs/cache_keys/tele-prepared"
@@ -611,6 +616,11 @@ jobs:
       - name: Restore libraries
         run: |
           bash tele/ci/macos-libs.sh pull "$LIBS_KEY" latest || true
+          # libraries trimmed before the trim kept the wallet binding source hold tdesktop_rust without it
+          # and its source stages without their sources, so all three build again
+          if [ -f Libraries/cache_keys/tdesktop_rust ] && [ ! -f Libraries/local/src/wallet_engine/wallet_engine.cpp ]; then
+            rm -f Libraries/cache_keys/tdesktop_rust Libraries/cache_keys/tlottie Libraries/cache_keys/wallet-engine Libraries/cache_keys/tele-prepared
+          fi
           state=$( { find ThirdParty/cache_keys Libraries/cache_keys -type f -exec shasum -a 256 {} + 2>/dev/null || true; } | sort | shasum -a 256)
           echo "LIBS_STATE=$state" >> "$GITHUB_ENV"
           if [ "$(cat Libraries/cache_keys/tele-prepared 2>/dev/null)" = "$LIBS_KEY" ]; then
@@ -630,7 +640,7 @@ jobs:
         run: |
           [ -d Libraries ] || exit 0
           # upstream ci's filter: keep what linking needs, drop sources and intermediates
-          find Libraries '(' '(' ! '(' -name '*.a' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -perm +111 ')' -type f ')' -o -empty ')' -delete
+          find Libraries '(' '(' ! '(' -name '*.a' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -name '*.pc' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' -o -path '*/src/wallet_engine/*' -o -perm +111 ')' -type f ')' -o -empty ')' -delete
           if [ "$PREPARE_OUTCOME" = success ]; then
             echo "$LIBS_KEY" > Libraries/cache_keys/tele-prepared
           fi
