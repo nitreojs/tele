@@ -74,6 +74,8 @@ settings → tele → chats.
 | [254](../patches/tdesktop/0254-feat-send-quick-replies-by-their-exact-name.patch) | a message that is exactly /name sends your quick reply with that name instead of the text, and that quick reply is the first suggestion | tele → chats, off |
 | [270](../patches/tdesktop/0270-feat-show-online-members-in-big-groups.patch) | big groups show how many members are online in the chat header and profile, like small groups do | tele → chats, off |
 | [271](../patches/tdesktop/0271-feat-select-more-than-100-messages.patch) | select up to 10000 messages instead of 100; deleting and forwarding them goes out in parts of 100 | tele → chats, off |
+| [283](../patches/tdesktop/0283-feat-hide-birthday-banners-and-effects.patch) | no birthday banners above the chat list, no confetti in profiles, no cake in the birthday row and no extra gift button in the message field on birthdays | tele → chats, off |
+| [285](../patches/tdesktop/0285-feat-filter-chat-search-by-message-type.patch) | search a chat by message type: photos, videos, files, music, voice messages, round videos, gifs or links. without text it lists every message of that type | tele → chats, off |
 
 ## messages
 
@@ -111,6 +113,7 @@ settings → tele → messages.
 | [272](../patches/tdesktop/0272-feat-no-outline-on-large-emoji.patch) | messages with a single emoji lose the white outline around it | tele → messages, off |
 | [274](../patches/tdesktop/0274-feat-classic-text-padding-in-bubbles.patch) | bubbles without tails can use the text padding of older telegram desktop: 13 px on the sides and 7 on top | with 269 |
 | [280](../patches/tdesktop/0280-fix-rewrite-tiktok-links-to-tnktok-now-that-vxtiktok.patch) | tiktok links are rewritten to tnktok.com: vxtiktok.com shut down, so the preset and rules you already saved no longer use it | with 77 |
+| [287](../patches/tdesktop/0287-feat-keep-deleted-chats-and-topics.patch) | chats and topics that get deleted, or that you leave or get removed from, stay in the list with their loaded messages until you delete them again | with 19 |
 
 ## sending
 
@@ -149,6 +152,7 @@ settings → tele → sending.
 | [262](../patches/tdesktop/0262-feat-record-voice-in-higher-quality.patch) | voice messages can be recorded at 128 kbps instead of 32, for clearer sound and 4 times bigger files | tele → sending, off |
 | [263](../patches/tdesktop/0263-feat-compress-photos-less.patch) | photos are compressed at jpeg quality 94 instead of 87 | tele → sending, off |
 | [264](../patches/tdesktop/0264-feat-thinner-brush-in-the-photo-editor.patch) | the photo editor's brush goes down to 1 px instead of 3.4 px | tele → sending, off |
+| [284](../patches/tdesktop/0284-feat-mention-several-people-in-a-row.patch) | right-click or tab in the @ list adds the person and opens the list again for the next one, and ctrl+click mentions by name instead of @username | tele → sending, off |
 
 ## notifications
 
@@ -249,6 +253,7 @@ settings → tele → profiles and ids.
 | [253](../patches/tdesktop/0253-fix-copy-peer-ids-as-plain-digits.patch) | copying a peer id from its profile row gives plain digits, even when the row shows them with spaces | with 14 |
 | [267](../patches/tdesktop/0267-feat-show-when-media-was-uploaded-in-the-media-viewe.patch) | the media viewer shows when a photo or file was uploaded, when that differs from the message date, like in forwards | tele → profiles and ids, off |
 | [268](../patches/tdesktop/0268-feat-copy-the-owner-id-of-sticker-sets.patch) | copy the id of the account that made a sticker or emoji set from the set's menu | tele → profiles and ids, off |
+| [286](../patches/tdesktop/0286-feat-peek-at-a-hidden-last-seen.patch) | peek at a last seen your own privacy hides: tele briefly shares yours with that person, reads theirs and puts your settings back, even after a crash | tele → profiles and ids, off |
 
 ### gift studio
 
@@ -280,6 +285,7 @@ settings → tele → debug.
 | [218](../patches/tdesktop/0218-fix-confirm-more-irreversible-methods-in-the-mtproto.patch) | the mtproto console asks before more methods that can't be undone | with 195 |
 | [275](../patches/tdesktop/0275-feat-fix-fonts-picked-in-chat-settings.patch) | a font picked in chat settings that comes out shifted or cut off, like google sans, can be measured by its real letters and drawn through directwrite, which reads the line heights such fonts mean (windows) | tele → debug, off, needs a restart |
 | [281](../patches/tdesktop/0281-feat-turn-on-the-wallet-before-telegram-does.patch) | the wallet from telegram desktop 7.3 can be turned on before telegram enables it for your account. the server may still refuse it | tele → debug, off, needs a restart |
+| [288](../patches/tdesktop/0288-feat-secret-chats-prototype.patch) | a secret chats prototype, ported from [freshGram](https://github.com/Snowy-Fluffy/freshGram): start and accept secret chats with text, replies, typing and read marks, and compare encryption keys. needs a local passcode, no media or timers yet | tele → debug, off, needs a restart |
 | [1003](../patches/Telegram/lib_ui/0003-feat-let-picked-fonts-use-their-real-metrics-on-wind.patch) | the part of the picked font fix that lives in the ui library | with 275 |
 
 ## server
@@ -397,5 +403,6 @@ always on, or without a switch of their own.
 | [273](../patches/tdesktop/0273-feat-add-tele-to-the-start-menu.patch) | tele adds itself to the start menu as "tele" on every launch, so windows search finds it, and stops overwriting the "Telegram" shortcut there (windows) | always on |
 | [278](../patches/tdesktop/0278-feat-badges-on-forwarded-and-reply-headers.patch) | with badges next to sender names on, forwarded from headers and the names above replies show the custom verification icon and the checkmark too | with 12 |
 | [279](../patches/tdesktop/0279-feat-select-table-cells-as-a-range.patch) | drag from one table cell to another to select whole cells as a rectangle, like in a spreadsheet. copying them pastes into excel or sheets as a grid | always on |
+| [282](../patches/tdesktop/0282-feat-turn-username-into-a-t.me-link-in-rich-message-.patch) | in the rich message editor, a button link written as @username becomes a t.me link | with 86 |
 | [1001](../patches/Telegram/lib_ui/0001-fix-fullscreen-mini-apps-cover-the-screen-with-their.patch) | a mini app that opens in fullscreen covers the screen from its corner, with its ⋮ and ✕ buttons, instead of hanging off the screen (windows) | always on |
 | [1002](../patches/Telegram/lib_ui/0002-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |

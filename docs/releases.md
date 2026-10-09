@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 286 patches, newest release first.
+all 293 patches, newest release first.
 
 ### [tele 19](https://github.com/nitreojs/tele/releases/tag/v7.3.0-tele.19)
 
@@ -12,6 +12,13 @@ all 286 patches, newest release first.
 | [279](../patches/tdesktop/0279-feat-select-table-cells-as-a-range.patch) | drag from one table cell to another to select whole cells as a rectangle, like in a spreadsheet. copying them pastes into excel or sheets as a grid | always on |
 | [280](../patches/tdesktop/0280-fix-rewrite-tiktok-links-to-tnktok-now-that-vxtiktok.patch) | tiktok links are rewritten to tnktok.com: vxtiktok.com shut down, so the preset and rules you already saved no longer use it | with 77 |
 | [281](../patches/tdesktop/0281-feat-turn-on-the-wallet-before-telegram-does.patch) | the wallet from telegram desktop 7.3 can be turned on before telegram enables it for your account. the server may still refuse it | tele → debug, off, needs a restart |
+| [282](../patches/tdesktop/0282-feat-turn-username-into-a-t.me-link-in-rich-message-.patch) | in the rich message editor, a button link written as @username becomes a t.me link | with 86 |
+| [283](../patches/tdesktop/0283-feat-hide-birthday-banners-and-effects.patch) | no birthday banners above the chat list, no confetti in profiles, no cake in the birthday row and no extra gift button in the message field on birthdays | tele → chats, off |
+| [284](../patches/tdesktop/0284-feat-mention-several-people-in-a-row.patch) | right-click or tab in the @ list adds the person and opens the list again for the next one, and ctrl+click mentions by name instead of @username | tele → sending, off |
+| [285](../patches/tdesktop/0285-feat-filter-chat-search-by-message-type.patch) | search a chat by message type: photos, videos, files, music, voice messages, round videos, gifs or links. without text it lists every message of that type | tele → chats, off |
+| [286](../patches/tdesktop/0286-feat-peek-at-a-hidden-last-seen.patch) | peek at a last seen your own privacy hides: tele briefly shares yours with that person, reads theirs and puts your settings back, even after a crash | tele → profiles and ids, off |
+| [287](../patches/tdesktop/0287-feat-keep-deleted-chats-and-topics.patch) | chats and topics that get deleted, or that you leave or get removed from, stay in the list with their loaded messages until you delete them again | with 19 |
+| [288](../patches/tdesktop/0288-feat-secret-chats-prototype.patch) | a secret chats prototype, ported from [freshGram](https://github.com/Snowy-Fluffy/freshGram): start and accept secret chats with text, replies, typing and read marks, and compare encryption keys. needs a local passcode, no media or timers yet | tele → debug, off, needs a restart |
 
 ### [tele 18](https://github.com/nitreojs/tele/releases/tag/v7.2.9-tele.18)
 
