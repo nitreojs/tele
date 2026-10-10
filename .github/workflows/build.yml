@@ -377,6 +377,9 @@ jobs:
             echo "CCACHE_DIR=$temp/ccache-cache"
             echo "CCACHE_MAXSIZE=3G"
             echo "CCACHE_SLOPPINESS=pch_defines,time_macros,include_file_mtime,include_file_ctime"
+            # depend mode takes the includes from msvc's /showIncludes instead of running the preprocessor first,
+            # which made a cold cache build half again as long
+            echo "CCACHE_DEPEND=true"
           } >> "$GITHUB_ENV"
 
       - name: Restore ccache
