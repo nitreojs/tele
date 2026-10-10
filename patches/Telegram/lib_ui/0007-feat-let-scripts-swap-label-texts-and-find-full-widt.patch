@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 11 Oct 2026 01:53:08 +0300
+Subject: [PATCH] feat: let scripts swap label texts and find full-width table
+ rows
+
+---
+ ui/widgets/labels.cpp  | 6 ++++++
+ ui/widgets/labels.h    | 1 +
+ ui/wrap/table_layout.h | 5 +++++
+ 3 files changed, 12 insertions(+)
+
+diff --git a/ui/widgets/labels.cpp b/ui/widgets/labels.cpp
+index ceed27c4f5525a2924648561e63a57446b698141..000ec99845343f0ae3dc559bd274fb1a37c1f19b 100644
+--- a/ui/widgets/labels.cpp
++++ b/ui/widgets/labels.cpp
+@@ -310,6 +310,12 @@ void FlatLabel::setMarkedText(
+ 	textUpdated();
+ }
+ 
++Text::String FlatLabel::exchangeText(Text::String text) {
++	auto result = std::exchange(_text, std::move(text));
++	textUpdated();
++	return result;
++}
++
+ void FlatLabel::setSelectable(bool selectable) {
+ 	if (_selectable != selectable) {
+ 		_selection = { 0, 0 };
+diff --git a/ui/widgets/labels.h b/ui/widgets/labels.h
+index 5204b84f8ecae327af8a9f1f463ae69fa154bd75..cb1513cdf5eaa9b71ef3b2765c4401442cfd9478 100644
+--- a/ui/widgets/labels.h
++++ b/ui/widgets/labels.h
+@@ -143,6 +143,7 @@ public:
+ 	void setMarkedText(
+ 		const TextWithEntities &textWithEntities,
+ 		Text::MarkedContext context = {});
++	Text::String exchangeText(Text::String text);
+ 	void setSelectable(bool selectable);
+ 	void setDoubleClickSelectsParagraph(bool doubleClickSelectsParagraph);
+ 	void setContextCopyText(const QString &copyText);
+diff --git a/ui/wrap/table_layout.h b/ui/wrap/table_layout.h
+index c7e877bd3a85f4938dac1604a91045cf06b2c5a1..6092de06ecdd8777556bc1ee82d1d9c42404fb9e 100644
+--- a/ui/wrap/table_layout.h
++++ b/ui/wrap/table_layout.h
+@@ -42,6 +42,11 @@ public:
+ 
+ 		return _rows[index].value.data();
+ 	}
++	[[nodiscard]] bool rowSpans(int index) const {
++		Expects(index >= 0 && index < rowsCount());
++
++		return !_rows[index].label || !_rows[index].value;
++	}
+ 
+ 	void insertRow(
+ 		int atPosition,
