@@ -19,10 +19,10 @@ Subject: [PATCH] feat: preview calcmula results while typing
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_preview.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 04e26ca6b19cb0014dd1068e191c51145b2578bc..527743ade3d684003b90da7cf891fce772e36bd0 100644
+index 911b915f41b53a68ed11e3736ffee9581e176f6e..61cb588f1426157c32ae45165a2b9c0e54948f4e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2387,6 +2387,8 @@ PRIVATE
+@@ -2391,6 +2391,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
      tele/tele_calcmula.h
@@ -32,10 +32,10 @@ index 04e26ca6b19cb0014dd1068e191c51145b2578bc..527743ade3d684003b90da7cf891fce7
      tele/tele_calls.h
      tele/tele_changelog.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 80ae930c578d4bafc6758813be7e4049a4eba037..476a86e1369fe48c05583e46eb4fbe535b6f3016 100644
+index 6191201865bf3b0a6cb1c0b69e869b9144097862..dfd97571f01ea8b3baec5e68f70739456cc18fca 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -170,6 +170,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/file_upload.h"
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
@@ -43,7 +43,7 @@ index 80ae930c578d4bafc6758813be7e4049a4eba037..476a86e1369fe48c05583e46eb4fbe53
  #include "tele/tele_calls.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
-@@ -512,6 +513,24 @@ HistoryWidget::HistoryWidget(
+@@ -501,6 +502,24 @@ HistoryWidget::HistoryWidget(
  	) | rpl::on_next([=] {
  		fieldChanged();
  	}, _field->lifetime());
@@ -69,10 +69,10 @@ index 80ae930c578d4bafc6758813be7e4049a4eba037..476a86e1369fe48c05583e46eb4fbe53
  		checkCharsLimitation();
  		updateAiButtonVisibility();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 4c8515aaf29078d1b3f5604a3b9aa2c280c08d6e..14ec0b67e77c8528f1baad7beddb4fee3adcda2d 100644
+index 58394982be0214d1893534b3c2fdb2758b1b7ff2..3faef1d6a1cb9e6c8587a91e1f8a1c2998d62116 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -112,6 +112,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "menu/menu_send.h"
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"

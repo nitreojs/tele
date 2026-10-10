@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide messages by keyword or regex
  create mode 100644 Telegram/SourceFiles/tele/tele_hidden_words.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e5aa732bbd9163c79d7bbf3c3b7a42efcbe21656..a0a6c3dba380d4128122ce7f48e652fd46e45db8 100644
+index 7185473dc5184dbbc0c0d71aaa9009649478dd29..991e8c2f91389a43ff5dfefab58b52101e0d8783 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2471,6 +2471,8 @@ PRIVATE
+@@ -2475,6 +2475,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ghost.cpp
      tele/tele_ghost.h

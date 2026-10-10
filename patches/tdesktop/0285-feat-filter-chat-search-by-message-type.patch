@@ -24,10 +24,10 @@ Subject: [PATCH] feat: filter chat search by message type
  create mode 100644 Telegram/SourceFiles/tele/tele_search_types.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3a711d6e22fdd4131fb3c9f8c6a6380c35d3fbc1..8daa67a3baeb916d134812a976137499e07439a4 100644
+index 4d1f82c13afb4736ca5e8495717f8e4c25c4e05f..0fb616bc6fd007617950caf9055efe8a8afc10e3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2682,6 +2682,8 @@ PRIVATE
+@@ -2686,6 +2686,8 @@ PRIVATE
      tele/tele_rmb_beside_bubble.h
      tele/tele_screen_capture.cpp
      tele/tele_screen_capture.h

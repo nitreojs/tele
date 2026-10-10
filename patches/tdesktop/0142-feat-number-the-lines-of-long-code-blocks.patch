@@ -21,10 +21,10 @@ Subject: [PATCH] feat: number the lines of long code blocks
  create mode 100644 Telegram/SourceFiles/tele/tele_code_lines.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 91823e237badd15473b4af4881a941029c440877..d10d5324560d6e7fdf655ff79536180e95365d5e 100644
+index 68d369979256f8725b3b46a6fde523f376aff05e..5d0284f3682d5798af98a24a3625ea11adf609d8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2407,6 +2407,8 @@ PRIVATE
+@@ -2411,6 +2411,8 @@ PRIVATE
      tele/tele_changelog_section.h
      tele/tele_chat_backgrounds.cpp
      tele/tele_chat_backgrounds.h

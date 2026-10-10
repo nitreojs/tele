@@ -14,10 +14,10 @@ Subject: [PATCH] feat: send an inline bot query as text
  create mode 100644 Telegram/SourceFiles/tele/tele_inline_text.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bd64bd4482fe6df3f0fc31bfb6b9595eacefc137..0e779e0e360c0837a9ecefe5d9af7d91499041cb 100644
+index 6890d6ee4f49c4f1f90dcbdab650e432f84d59da..232b6c0d6e638a8c7af36f3a18ec152057197b6f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2445,6 +2445,8 @@ PRIVATE
+@@ -2449,6 +2449,8 @@ PRIVATE
      tele/tele_ghost.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h
@@ -27,10 +27,10 @@ index bd64bd4482fe6df3f0fc31bfb6b9595eacefc137..0e779e0e360c0837a9ecefe5d9af7d91
      tele/tele_inline_via.h
      tele/tele_local_drafts.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 432a889f9e9144da3934d0787044ed26944a80c6..ba0eb94edf7f7f5e55c4e20eef1d5d621cdcf2b8 100644
+index 388cd50be4928c475a2578f295f9c874a46ad069..50354a9094cdf9f707dc34d7cac4f3e86cd05f7a 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -178,6 +178,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -179,6 +179,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_emoji_panel.h"
@@ -38,7 +38,7 @@ index 432a889f9e9144da3934d0787044ed26944a80c6..ba0eb94edf7f7f5e55c4e20eef1d5d62
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -533,6 +534,10 @@ HistoryWidget::HistoryWidget(
+@@ -522,6 +523,10 @@ HistoryWidget::HistoryWidget(
  		},
  		.send = [=] { sendWithModifiers(Qt::KeyboardModifiers()); },
  	});
@@ -49,7 +49,7 @@ index 432a889f9e9144da3934d0787044ed26944a80c6..ba0eb94edf7f7f5e55c4e20eef1d5d62
  	Tele::SetupAddLinkPreview({
  		.field = _field.data(),
  		.show = controller->uiShow(),
-@@ -6221,6 +6226,10 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
+@@ -6219,6 +6224,10 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
  		auto result = saveMenuDetails();
  		Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  		return result;
@@ -61,10 +61,10 @@ index 432a889f9e9144da3934d0787044ed26944a80c6..ba0eb94edf7f7f5e55c4e20eef1d5d62
  		return {};
  	}
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index b42a8085c6f5ba1d6127dac4ea37ae0c8ca11456..9d5a21d6624ef1b2e576099cbd9759ac1b842e01 100644
+index cd41c0212f20c8109dddf849f5174626de8a540a..a4aaff00f6a3606d88fa6aa3437f7fcfecd9a446 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_emoji_panel.h"

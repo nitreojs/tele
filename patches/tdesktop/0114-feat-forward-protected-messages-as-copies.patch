@@ -16,7 +16,7 @@ Subject: [PATCH] feat: forward protected messages as copies
  .../info_global_media_provider.cpp            |   5 +-
  .../info/media/info_media_provider.cpp        |   7 +-
  Telegram/SourceFiles/main/main_session.cpp    |   2 +
- .../media/view/media_view_overlay_widget.cpp  |  15 +-
+ .../media/view/media_view_overlay_widget.cpp  |  13 +-
  .../menu/menu_item_download_files.cpp         |   3 +-
  .../SourceFiles/settings/settings_tele.cpp    |   1 +
  Telegram/SourceFiles/tele/tele_options.cpp    |  12 +
@@ -24,15 +24,15 @@ Subject: [PATCH] feat: forward protected messages as copies
  Telegram/SourceFiles/tele/tele_protected.cpp  | 830 ++++++++++++++++++
  Telegram/SourceFiles/tele/tele_protected.h    |  31 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
- 20 files changed, 946 insertions(+), 38 deletions(-)
+ 20 files changed, 945 insertions(+), 37 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_protected.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_protected.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 874c28e31a37d513d763f34c67b3fdc17427a7ce..418a517fe4f4f43040aa437ec3cfb12c0ffc0b93 100644
+index de9a9b09ac4803912d7bae1b2740bf826e31f0da..e236c25a5681df07479af0f430bd06eb73353c4a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2491,6 +2491,8 @@ PRIVATE
+@@ -2495,6 +2495,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_phones.cpp
      tele/tele_phones.h
@@ -451,7 +451,7 @@ index 84256285e743db37b05ea3c1cf2a9e08732464ac..370a5df069228cda7a4443dcbd787236
  
  void Session::appConfigRefreshed() {
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index d4824e0146fa3a392088c33fed724e07b091535b..cb5da221cc74109a06ef54654374134b3ae40482 100644
+index afee0c9d44974ed17499a302700a08d538d3d817..e8893e3e6569f93aaead1dcca1e278f492f1abb4 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -482,16 +482,7 @@ index d4824e0146fa3a392088c33fed724e07b091535b..cb5da221cc74109a06ef54654374134b
  			&& _documentMedia->loaded(true)) {
  			redisplayContent();
  		} else if ((_document->loading() && _docCancel->isHidden())
-@@ -1733,7 +1734,7 @@ void OverlayWidget::updateControls() {
- 			_docSaveAs->hide();
- 			_docCancel->moveToLeft(_docRect.x() + 2 * st::mediaviewFilePadding + st::mediaviewFileIconSize, _docRect.y() + st::mediaviewFilePadding + st::mediaviewFileLinksTop);
- 			_docCancel->show();
--		} else if (_message && _message->forbidsSaving()) {
-+		} else if (_message && Tele::ForbidsSaving(_message)) {
- 			_docDownload->hide();
- 			_docSaveAs->hide();
- 			_docCancel->hide();
-@@ -2296,7 +2297,7 @@ void OverlayWidget::fillContextMenuActions(
+@@ -2286,7 +2287,7 @@ void OverlayWidget::fillContextMenuActions(
  	if ((!story || story->canDownloadChecked())
  		&& _document
  		&& !_document->filepath(true).isEmpty()
@@ -500,7 +491,7 @@ index d4824e0146fa3a392088c33fed724e07b091535b..cb5da221cc74109a06ef54654374134b
  		const auto text = Platform::IsMac()
  			? tr::lng_context_show_in_finder(tr::now)
  			: tr::lng_context_show_in_folder(tr::now);
-@@ -2329,7 +2330,7 @@ void OverlayWidget::fillContextMenuActions(
+@@ -2319,7 +2320,7 @@ void OverlayWidget::fillContextMenuActions(
  			[=] { showAttachedStickers(); },
  			&st::mediaMenuIconStickers);
  	}
@@ -509,7 +500,7 @@ index d4824e0146fa3a392088c33fed724e07b091535b..cb5da221cc74109a06ef54654374134b
  		addAction(
  			tr::lng_mediaview_forward(tr::now),
  			[=] { forwardMedia(); },
-@@ -3602,7 +3603,7 @@ void OverlayWidget::forwardMedia() {
+@@ -3592,7 +3593,7 @@ void OverlayWidget::forwardMedia() {
  	if (active.empty()) {
  		return;
  	}

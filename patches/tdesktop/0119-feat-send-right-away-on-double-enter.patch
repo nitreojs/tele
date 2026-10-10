@@ -15,10 +15,10 @@ Subject: [PATCH] feat: send right away on double enter
  8 files changed, 75 insertions(+), 2 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 1fd46189744b3f6813288d84df8e8af3365a84cf..8c13f8954102505d29b2a05a2e55159f45a74955 100644
+index ce6d465c66d4cf42146fc29aa323d2628e55a6db..e69f0984d3e6e7a331afa1ef3024718f0b1501d8 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -180,6 +180,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -181,6 +181,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_inline_text.h"
@@ -26,7 +26,7 @@ index 1fd46189744b3f6813288d84df8e8af3365a84cf..8c13f8954102505d29b2a05a2e55159f
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -475,7 +476,9 @@ HistoryWidget::HistoryWidget(
+@@ -464,7 +465,9 @@ HistoryWidget::HistoryWidget(
  	_reportMessages->addClickHandler([=] { reportSelectedMessages(); });
  	_field->submits(
  	) | rpl::on_next([=](Qt::KeyboardModifiers modifiers) {
@@ -38,10 +38,10 @@ index 1fd46189744b3f6813288d84df8e8af3365a84cf..8c13f8954102505d29b2a05a2e55159f
  	_field->cancelled(
  	) | rpl::on_next([=] {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 0d6d0e6cf4eba2b19db1a60b1c2e938469d838c0..cd8174421997694668d159e24a7e2e3fa737218c 100644
+index 16bd412da904cfd6b67f4c0e9c754ebdf955590f..56586cc4a31a430caf9a20dcf0dbdeb3092b8cf1 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_docked_media.h"
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_inline_text.h"

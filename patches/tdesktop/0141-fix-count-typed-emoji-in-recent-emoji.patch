@@ -16,10 +16,10 @@ Subject: [PATCH] fix: count typed emoji in recent emoji
  create mode 100644 Telegram/SourceFiles/tele/tele_recent_emoji.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a7fdd19b9c70e4d1e939b5a950fd7751fc8d9fc9..91823e237badd15473b4af4881a941029c440877 100644
+index 704c9bd0521ccae83c5e31d71a9f43f995cf1d4f..68d369979256f8725b3b46a6fde523f376aff05e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2519,6 +2519,8 @@ PRIVATE
+@@ -2523,6 +2523,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h

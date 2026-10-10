@@ -18,10 +18,10 @@ Subject: [PATCH] feat: preview chats in the chat area
  create mode 100644 Telegram/SourceFiles/tele/tele_full_preview.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7a9354e3bc7ae13e9492b31e11bc511c70abd62c..f55d5de194c93920516d36485b414915d37eedd9 100644
+index ced01dbe79d666c423faeea36b50d5da42c7f975..62877357d006af80805a493bab15b31d5f0888ff 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2467,6 +2467,8 @@ PRIVATE
+@@ -2471,6 +2471,8 @@ PRIVATE
      tele/tele_field_resize.h
      tele/tele_folders.cpp
      tele/tele_folders.h

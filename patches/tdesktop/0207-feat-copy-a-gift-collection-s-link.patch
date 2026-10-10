@@ -13,10 +13,10 @@ Subject: [PATCH] feat: copy a gift collection's link
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_collection_link.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2ff5baa939671beb51078f17ff6e224ab3d3a0e4..f78061e208eaf8be161940a2746a980bc4529537 100644
+index 47d930cb6fdcf94f7bbe75f062d33e9cc21a811a..c8da4e33f593e153b010eb6240c2accb7675209c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2474,6 +2474,8 @@ PRIVATE
+@@ -2478,6 +2478,8 @@ PRIVATE
      tele/tele_full_preview.h
      tele/tele_gif_video.cpp
      tele/tele_gif_video.h

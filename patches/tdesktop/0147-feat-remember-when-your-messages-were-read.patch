@@ -14,10 +14,10 @@ Subject: [PATCH] feat: remember when your messages were read
  create mode 100644 Telegram/SourceFiles/tele/tele_read_log.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 80b3ca0cd6cd99050ab04ee3b2dd1a84f6a3ed23..b14b1bf440a5b20aff4fce8c10f98e0117db2898 100644
+index 858ac51c6eadb6d9462911c17c38b460a59f5a77..77923641cc2897e583bae1faa308ad1f47a14f2e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2521,6 +2521,8 @@ PRIVATE
+@@ -2525,6 +2525,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h

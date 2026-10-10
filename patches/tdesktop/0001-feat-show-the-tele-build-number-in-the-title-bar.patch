@@ -13,10 +13,10 @@ Subject: [PATCH] feat: show the tele build number in the title bar
  create mode 100644 Telegram/SourceFiles/tele/tele_build.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7ffda8f085b8917889f5c1b06edbef160d975c5b..f74561b2e01e394abb59ece2abf1f3c1e5f1e6c7 100644
+index 811707d7fdcebc4bb80c7f9e20b8bb4cd885bf43..b4bd7fbc0bd0707aa5d3e3e73f033235fcb958fa 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2366,6 +2366,17 @@ else()
+@@ -2370,6 +2370,17 @@ else()
      )
  endif()
  

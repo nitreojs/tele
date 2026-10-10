@@ -25,10 +25,10 @@ Subject: [PATCH] feat: turn off ai features
  create mode 100644 Telegram/SourceFiles/tele/tele_no_ai.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 26d93ff5e2efc54506885c3b4352bf5f77a24400..518f1fe1804b8cfcea8c0a7f3ec30d8ef560fe51 100644
+index 3f46a72e3b71555e29e6415fea251b650bc497a1..aafd3f8365d61a9011ef81c887e4d4cf58ee9f4b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2485,6 +2485,8 @@ PRIVATE
+@@ -2489,6 +2489,8 @@ PRIVATE
      tele/tele_mtp_log.h
      tele/tele_new_settings.cpp
      tele/tele_new_settings.h

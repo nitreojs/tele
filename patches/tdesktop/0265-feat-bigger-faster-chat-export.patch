@@ -19,10 +19,10 @@ Subject: [PATCH] feat: bigger, faster chat export
  create mode 100644 Telegram/SourceFiles/tele/tele_export.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4fc9469091a2c52102d6b07636c716ad080be696..cba821f9db368c9666b2a264ba10b14d3b08e8ab 100644
+index ced7c50fc0097d5b8d82429ccfef4b4306a8a174..2a7867713c1f4f9dcff6b91586107fbe190a05ab 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2469,6 +2469,8 @@ PRIVATE
+@@ -2473,6 +2473,8 @@ PRIVATE
      tele/tele_editor_eyedropper.h
      tele/tele_emoji_panel.cpp
      tele/tele_emoji_panel.h

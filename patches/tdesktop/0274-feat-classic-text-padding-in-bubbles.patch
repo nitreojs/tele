@@ -17,10 +17,10 @@ Subject: [PATCH] feat: classic text padding in bubbles
  create mode 100644 Telegram/SourceFiles/tele/tele_bubble_padding.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d6c75999cbf2d33b0d341186e78eab051842a25e..c6e5d37d333184dcdcad7311492a7ad27130d0c2 100644
+index 1d55335e8f2536656e5355ba6037bfd81d94f42a..7e09f567da20259b9c0ac16206c956eb6952be96 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2395,6 +2395,8 @@ PRIVATE
+@@ -2399,6 +2399,8 @@ PRIVATE
      tele/tele_build.h
      tele/tele_bubble_badges.cpp
      tele/tele_bubble_badges.h

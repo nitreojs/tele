@@ -19,10 +19,10 @@ Subject: [PATCH] feat: never block screen capture
  create mode 100644 Telegram/SourceFiles/tele/tele_screen_capture.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 6000e1907d5726b715c48422c625bb4c4c9d7621..874c28e31a37d513d763f34c67b3fdc17427a7ce 100644
+index 5ba40e8302b21317832732ac3f3ca6da38acd387..de9a9b09ac4803912d7bae1b2740bf826e31f0da 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2495,6 +2495,8 @@ PRIVATE
+@@ -2499,6 +2499,8 @@ PRIVATE
      tele/tele_punctual_scheduled.h
      tele/tele_rich_timestamps.cpp
      tele/tele_rich_timestamps.h

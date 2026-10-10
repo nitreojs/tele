@@ -24,10 +24,10 @@ Subject: [PATCH] feat: show usernames for invisible names
  create mode 100644 Telegram/SourceFiles/tele/tele_invisible.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f78061e208eaf8be161940a2746a980bc4529537..4448e40423ff165f338af72c75492e83ee2657a8 100644
+index c8da4e33f593e153b010eb6240c2accb7675209c..65eac14698097c85fb7a2c40fc57ddf529f0599b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2530,6 +2530,8 @@ PRIVATE
+@@ -2534,6 +2534,8 @@ PRIVATE
      tele/tele_inline_text.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h

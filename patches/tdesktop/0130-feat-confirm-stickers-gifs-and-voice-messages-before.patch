@@ -24,10 +24,10 @@ Subject: [PATCH] feat: confirm stickers, gifs and voice messages before
  create mode 100644 Telegram/SourceFiles/tele/tele_confirm_send.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4ab4efdeaa6ed2d382ee3abe7973cd8323f6c1da..b0e6acd5149ca09276e106f448af9d54570fd33b 100644
+index 5e3617d6f9886eb604449c181ff22cd2f2fa8e1d..909d8f46323f544083e83eceb100a0d0fdf888f2 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2409,6 +2409,8 @@ PRIVATE
+@@ -2413,6 +2413,8 @@ PRIVATE
      tele/tele_chat_backgrounds.h
      tele/tele_collectible_price.cpp
      tele/tele_collectible_price.h
@@ -140,10 +140,10 @@ index 70f8b5511424f3753090c6817a3aace309a4ed6b..5217ed8bc6c24ae71d96843d10ac10b4
  					.document = document,
  					.messageSendingFrom = messageSentAnimationInfo(
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 876e072d99942a4122990bb0f0e0fda9aaea8344..8e50ca4fb46c6393dee3e3a8e0e28b4b5238a009 100644
+index 153ce89e3e14f8cc7fb48be37ff7ca2e4705d99c..f484f7b49c080da87aa860a7f4fc558201df97c7 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -173,6 +173,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_link_previews.h"
  #include "tele/tele_calls.h"
@@ -151,7 +151,7 @@ index 876e072d99942a4122990bb0f0e0fda9aaea8344..8e50ca4fb46c6393dee3e3a8e0e28b4b
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
  #include "tele/tele_ghost.h"
-@@ -1767,6 +1768,7 @@ void HistoryWidget::initTabbedSelector() {
+@@ -1765,6 +1766,7 @@ void HistoryWidget::initTabbedSelector() {
  	});
  
  	const auto selector = controller()->tabbedSelector();
@@ -160,10 +160,10 @@ index 876e072d99942a4122990bb0f0e0fda9aaea8344..8e50ca4fb46c6393dee3e3a8e0e28b4b
  	base::install_event_filter(this, selector, [=](not_null<QEvent*> e) {
  		if (_tabbedPanel && e->type() == QEvent::ParentChange) {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 9c9defbcd65090fd17a640641671548d46a95182..5a2330ff0b91b57d6ea125b0f732f273c0f7eaa7 100644
+index 3f90dde12d702f93262bb67fbc1297f6ef941656..26792babd52e25b3fb276039a2a608812a3e9bf8 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_link_previews.h"
  #include "tele/tele_deleted_reply.h"

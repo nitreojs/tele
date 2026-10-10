@@ -21,10 +21,10 @@ Subject: [PATCH] feat: browse every tele version's changes
  create mode 100644 Telegram/SourceFiles/tele/tele_changelog_history.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 450c08cb1759451a2d18917f223c6555eb6e4d2a..cb5796cd16da169fedde6ec5471beb1268d7fe0e 100644
+index 4e54da896499e358455ee6821f53795c04754168..288f569e5db7d1a6d9addd3ae0f235f54e9e8094 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2409,6 +2409,8 @@ PRIVATE
+@@ -2413,6 +2413,8 @@ PRIVATE
      tele/tele_changelog.h
      tele/tele_changelog_chat.cpp
      tele/tele_changelog_chat.h

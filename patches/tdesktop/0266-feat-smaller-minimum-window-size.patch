@@ -17,10 +17,10 @@ Subject: [PATCH] feat: smaller minimum window size
  create mode 100644 Telegram/SourceFiles/tele/tele_window_size.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index cba821f9db368c9666b2a264ba10b14d3b08e8ab..5bde1271dca4b3105c3fc9f8b941f1388d164b2b 100644
+index 2a7867713c1f4f9dcff6b91586107fbe190a05ab..2df09674e112766b1fc2a641022e002f3fcd523f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2749,6 +2749,8 @@ PRIVATE
+@@ -2753,6 +2753,8 @@ PRIVATE
      tele/tele_who_reacted.h
      tele/tele_who_read.cpp
      tele/tele_who_read.h

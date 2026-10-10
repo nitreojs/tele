@@ -25,10 +25,10 @@ Subject: [PATCH] feat: select more than 100 messages
  create mode 100644 Telegram/SourceFiles/tele/tele_select_many.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c80214ed55c04541d69aa346289dff21264422c6..267115f947abfc23d903701f151c212ec885cc24 100644
+index f6cae581514eae22327b8467189b04c8b14b244a..91f83fed28063ed94f21ad9fa8eb701c986407ed 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2676,6 +2676,8 @@ PRIVATE
+@@ -2680,6 +2680,8 @@ PRIVATE
      tele/tele_screen_capture.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h

@@ -33,10 +33,10 @@ Subject: [PATCH] feat: mtproto console
  create mode 100644 Telegram/SourceFiles/tele/tele_tl_runtime.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 20c62781c313f4457bcfe67322a73c8a0cd54f2d..8c0b957c294b10e30387a19d5a4a61ecdca9a41b 100644
+index aa64c6ae07835ca6ad94eb0932056b22cd5eb2a1..e4ed0415275a889d5fe09711ba2e54a6507a82bc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2517,6 +2517,10 @@ PRIVATE
+@@ -2521,6 +2521,10 @@ PRIVATE
      tele/tele_menu_registry.h
      tele/tele_message_menu.cpp
      tele/tele_message_menu.h
@@ -47,7 +47,7 @@ index 20c62781c313f4457bcfe67322a73c8a0cd54f2d..8c0b957c294b10e30387a19d5a4a61ec
      tele/tele_mtp_dump.cpp
      tele/tele_mtp_dump.h
      tele/tele_mtp_inspector.cpp
-@@ -2617,6 +2621,8 @@ PRIVATE
+@@ -2621,6 +2625,8 @@ PRIVATE
      tele/tele_title_box.h
      tele/tele_title_template.cpp
      tele/tele_title_template.h

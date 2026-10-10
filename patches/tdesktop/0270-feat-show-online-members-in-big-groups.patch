@@ -19,10 +19,10 @@ Subject: [PATCH] feat: show online members in big groups
  create mode 100644 Telegram/SourceFiles/tele/tele_onlines.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5bde1271dca4b3105c3fc9f8b941f1388d164b2b..c80214ed55c04541d69aa346289dff21264422c6 100644
+index 2df09674e112766b1fc2a641022e002f3fcd523f..f6cae581514eae22327b8467189b04c8b14b244a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2612,6 +2612,8 @@ PRIVATE
+@@ -2616,6 +2616,8 @@ PRIVATE
      tele/tele_notices_section.h
      tele/tele_online_notify.cpp
      tele/tele_online_notify.h

@@ -70,7 +70,7 @@ index b6a4bb3b948c923918face3f6a7f9b9c97329d6b..ee28bdd5e656e3c4220d288dc1c0d847
  	friend inline auto operator<=>(HeaderData, HeaderData) = default;
  	friend inline bool operator==(HeaderData, HeaderData) = default;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 6febaefb1352d8814925de5a95e82eb197091ec1..61b5191f8d86bc7aa7a2f8ad913cf5683accd68f 100644
+index d594c9c1baf64fb458d534e7636cf0c8c7ea8bea..32d2a17b26fe95090be9024bb7c2a4f1a09e0680 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -81,7 +81,7 @@ index 6febaefb1352d8814925de5a95e82eb197091ec1..61b5191f8d86bc7aa7a2f8ad913cf568
  #include "tele/tele_protected.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_spoilers.h"
-@@ -1843,6 +1844,10 @@ void OverlayWidget::updateControls() {
+@@ -1833,6 +1834,10 @@ void OverlayWidget::updateControls() {
  		return dNow;
  	}();
  	_dateText = d.isValid() ? Ui::FormatDateTime(d) : QString();

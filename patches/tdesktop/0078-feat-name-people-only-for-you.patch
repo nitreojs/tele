@@ -36,10 +36,10 @@ Subject: [PATCH] feat: name people only for you
  create mode 100644 Telegram/SourceFiles/tele/tele_local_names.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8ed4a87c49619efc281c065a8adf1783b11c0efc..330e7a79e3c6bda797b590ea8441e7051b7d5fdf 100644
+index b08279254ac9fc082244ccfc9da0e31b56af4656..8534912463f331bd83387e4769d917164d64c622 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2425,6 +2425,8 @@ PRIVATE
+@@ -2429,6 +2429,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -183,7 +183,7 @@ index 537e7d3ed9196a1934df5a9a8c52b2f0e453ec9b..e44937d3e8ac88ca02bd7ea940c96947
  			} else if (result.invited.size() > 1) {
  				showToast(tr::lng_group_call_invite_done_many(
 diff --git a/Telegram/SourceFiles/calls/group/calls_group_panel.cpp b/Telegram/SourceFiles/calls/group/calls_group_panel.cpp
-index 9fb9b2f00c96f240f4c148f396effefa245ce899..6069dd7696af89a01c6dca372b40874092f5ad12 100644
+index b2d3a68a0019def9662b5c58c62e6da394228006..22a2d51d6e556e7682e2f16364878da1c1c6e526 100644
 --- a/Telegram/SourceFiles/calls/group/calls_group_panel.cpp
 +++ b/Telegram/SourceFiles/calls/group/calls_group_panel.cpp
 @@ -1776,7 +1776,7 @@ void Panel::kickParticipant(not_null<PeerData*> participantPeer) {
@@ -317,10 +317,10 @@ index 44c2c823019782da3abbb3d5406448ec1be74840..73047b532b093f0c1cf1bda3c25d5118
  		text = tr::lng_guest_chat_for(tr::now, lt_user, firstName);
  		if (availw < maxWidth) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index d257be162060314a92f8a06afac3f3ffce8293ce..f875d9d8ddf0e651611d31fcce7c70e67f131b77 100644
+index 4c681857771147506855972d374699cb32545e1b..a50c48609769fa7edddbd7c3da1c3356c68b8ce3 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-@@ -612,7 +612,7 @@ QString Reply::senderName(
+@@ -613,7 +613,7 @@ QString Reply::senderName(
  		not_null<PeerData*> peer,
  		bool shorten) const {
  	const auto user = shorten ? peer->asUser() : nullptr;

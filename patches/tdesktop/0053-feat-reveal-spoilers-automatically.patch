@@ -24,10 +24,10 @@ Subject: [PATCH] feat: reveal spoilers automatically
  create mode 100644 Telegram/SourceFiles/tele/tele_spoilers.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index fd7e3b4b7a777db35492c85c95713904b4ec78c8..95f5607345f6e79ecd093dfae8ced238a1aad0ef 100644
+index 7171747b6972e7d117afcae97f2995cf3798542d..eb2e8c38e50affa5d92cfbb9d9b941f405b55262 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2425,6 +2425,8 @@ PRIVATE
+@@ -2429,6 +2429,8 @@ PRIVATE
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -119,7 +119,7 @@ index 79ff2ba631f4dae1a54b7069819a6ae7fc5fcd05..c761a58fc5a0816a6e5042714f040991
  };
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index d23c59cb45c35d2e2e3f51a76c7c19a1a19ff929..d257be162060314a92f8a06afac3f3ffce8293ce 100644
+index 8659b27911d1243b3555aa039092eff909b8c4ed..4c681857771147506855972d374699cb32545e1b 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -130,7 +130,7 @@ index d23c59cb45c35d2e2e3f51a76c7c19a1a19ff929..d257be162060314a92f8a06afac3f3ff
  #include "styles/style_chat.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_polls.h"
-@@ -470,6 +471,7 @@ void Reply::update(
+@@ -471,6 +472,7 @@ void Reply::update(
  	if (view->context() == Context::MediaEditor) {
  		_text.setSpoilerRevealed(true, anim::type::instant);
  	}
@@ -159,7 +159,7 @@ index 64e565d78223e580362dd33f41fe292a39065962..f63be855712f832a49c4eb32ac43f7ef
  		const auto weak = base::make_weak(view);
  		text.setBlockquoteExpandCallback([=](int quoteIndex, bool expanded) {
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index d8c25a2a61679960d50cf728b3724c6f6cfdb193..7fa83b6425bb3a0e4364cdf60f2edf5b7b8d28ce 100644
+index 854307f9e0f29d8ebdce71ef0654cb6c0e9cec73..d96356a860a1edb813d2f7407ddd155cd32627f4 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -179,10 +179,10 @@ index d8c25a2a61679960d50cf728b3724c6f6cfdb193..7fa83b6425bb3a0e4364cdf60f2edf5b
  
  	if ((_dataMedia = _data->activeMediaView())) {
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_photo.cpp b/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
-index 376b9285637edea0c0cfecee3e596e655fa3c964..3fac3c69f2802413424eaf225756a2506c24fe2b 100644
+index 2494eb2035d2b3184fe29d4398a9f2eaf30a0961..f3600aec873d6e5369b0acb1cf0f5d9e388ee922 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
-@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_web_page.h"
  #include "core/application.h"
  #include "core/ui_integration.h"
@@ -190,7 +190,7 @@ index 376b9285637edea0c0cfecee3e596e655fa3c964..3fac3c69f2802413424eaf225756a250
  #include "styles/style_chat.h"
  
  namespace HistoryView {
-@@ -169,6 +170,7 @@ void Photo::create(FullMsgId contextId, PeerData *chat) {
+@@ -267,6 +268,7 @@ void Photo::create(FullMsgId contextId, PeerData *chat) {
  	}
  	if (_spoiler) {
  		createSpoilerLink(_spoiler.get());
@@ -219,7 +219,7 @@ index 2fcab1a3e549d320ca38266373d562238c13fe29..7ab247c60ee6175abbc803142324da0c
  		leaf->setSpoilerLinkFilter([](const ClickContext &context) {
  			return context.button == Qt::LeftButton;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index f12abe7be1c1e64b91cc53d3b1cd4903db5d3717..225e92065f598e1b4fb899f7168394ee91fab91c 100644
+index 3b4c0b7910f65b899e1178f845bf82a51d3fd88a..02a1b6b357767877690e193b9bd4ef63a5f1b0f5 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -230,7 +230,7 @@ index f12abe7be1c1e64b91cc53d3b1cd4903db5d3717..225e92065f598e1b4fb899f7168394ee
  #include "tele/tele_view_tl.h"
  
  #include <QGraphicsOpacityEffect>
-@@ -4291,6 +4292,7 @@ void OverlayWidget::refreshCaption() {
+@@ -4281,6 +4282,7 @@ void OverlayWidget::refreshCaption() {
  			return (weak != nullptr);
  		});
  	}

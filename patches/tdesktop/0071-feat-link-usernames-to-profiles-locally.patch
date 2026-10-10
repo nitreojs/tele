@@ -22,10 +22,10 @@ Subject: [PATCH] feat: link usernames to profiles locally
  create mode 100644 Telegram/SourceFiles/tele/tele_username_aliases.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a9d3dd4f705acb9fb775f684a12abf3971d26f95..7c958c29c8a68b3e062245a82b11f4b117462b1c 100644
+index e3967e2f85b4e9ad722d6aa64165b54a83dc6931..5587e8df634c5eea5b20aaa36763ccbac21d478b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2450,6 +2450,8 @@ PRIVATE
+@@ -2454,6 +2454,8 @@ PRIVATE
      tele/tele_updater.cpp
      tele/tele_updater.h
      tele/tele_uploads.h

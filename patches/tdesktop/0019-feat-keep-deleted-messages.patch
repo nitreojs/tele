@@ -52,10 +52,10 @@ Subject: [PATCH] feat: keep deleted messages
  create mode 100644 Telegram/SourceFiles/tele/tele_deleted_section.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 91bd953c318102a783d564ec079773fd9555ffa5..07182d73562e4a103fc0948f7e6515b7703788a4 100644
+index 058b1a0edcc6097f82f195f75542ac887a87e3c5..f71fd51664d3cedecc373e750a29a874f13c0f84 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2381,6 +2381,10 @@ PRIVATE
+@@ -2385,6 +2385,10 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -397,7 +397,7 @@ index 77035641ed211d672b9976c738a10ec5df2b900a..7b0770278d18f48199306ec20b367a17
  					p.restore();
  				}
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 69601e7cf831896ab06efdbf556ce4d4634cef1c..d23c59cb45c35d2e2e3f51a76c7c19a1a19ff929 100644
+index 2b3a9caab878f746a776857ac717f3480dc8d5dc..8659b27911d1243b3555aa039092eff909b8c4ed 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -292,6 +292,7 @@ void FillBackgroundEmoji(
@@ -536,7 +536,7 @@ index 80074274eff52a1aa73f041abc834e2bd5f7c98f..f8d0e1c130b90eed7970fe7bc0153778
  				QRect rinner(inner.marginsRemoved(QMargins(st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine)));
  				_animation->radial.draw(p, rinner, st::msgFileRadialLine, sti->historyFileThumbRadialFg);
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 17584bbfa5939f7dfc3859fafde892575cc72fd7..90244a87b33a094f2d1fcd1705d60a8ee8832301 100644
+index 0e25d53afd1c6093df116ef6b98e24af2e485820..5dd14a758057df70041d022d3346a240932aff18 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -804,7 +804,8 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
@@ -594,7 +594,7 @@ index 17584bbfa5939f7dfc3859fafde892575cc72fd7..90244a87b33a094f2d1fcd1705d60a8e
  	} else if (_sensitiveSpoiler && !mediaEditor) {
  		drawSpoilerTag(p, rthumb, context, [&] {
  			return spoilerTagBackground();
-@@ -1881,22 +1883,24 @@ void Gif::drawGrouped(
+@@ -1887,22 +1889,24 @@ void Gif::drawGrouped(
  	}
  
  	if (revealed < 1.) {
@@ -623,7 +623,7 @@ index 17584bbfa5939f7dfc3859fafde892575cc72fd7..90244a87b33a094f2d1fcd1705d60a8e
  	}
  
  	const auto paintInCenter = !_sensitiveSpoiler
-@@ -1931,14 +1935,15 @@ void Gif::drawGrouped(
+@@ -1937,14 +1941,15 @@ void Gif::drawGrouped(
  				(_data->loading() || _data->uploading()) ? _cancell : _savel);
  			p.setBrush(over ? st->msgDateImgBgOver() : st->msgDateImgBg());
  		}
@@ -641,7 +641,7 @@ index 17584bbfa5939f7dfc3859fafde892575cc72fd7..90244a87b33a094f2d1fcd1705d60a8e
  		const auto icon = [&]() -> const style::icon * {
  			if (_data->waitingForAlbum()) {
  				return &sti->historyFileThumbWaiting;
-@@ -1962,7 +1967,7 @@ void Gif::drawGrouped(
+@@ -1968,7 +1973,7 @@ void Gif::drawGrouped(
  				icon->paintInCenter(p, inner);
  			}
  		}
@@ -650,7 +650,7 @@ index 17584bbfa5939f7dfc3859fafde892575cc72fd7..90244a87b33a094f2d1fcd1705d60a8e
  		if (radial) {
  			const auto line = st::historyGroupRadialLine;
  			const auto rinner = inner.marginsRemoved({ line, line, line, line });
-@@ -1983,7 +1988,7 @@ void Gif::drawGrouped(
+@@ -1989,7 +1994,7 @@ void Gif::drawGrouped(
  					sti->historyFileThumbRadialFg);
  			}
  		}
@@ -751,10 +751,10 @@ index d91c5d259987293e1238fdf90f2d9c604aadb207..3e2af3a74b28fa52ec8979d7cf3b9462
  }
  
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_photo.cpp b/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
-index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e655fa3c964 100644
+index 4a563307fe671139f6113e093351e4363fe72ebc..2494eb2035d2b3184fe29d4398a9f2eaf30a0961 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_photo.cpp
-@@ -395,10 +395,11 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
+@@ -483,10 +483,11 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
  			p.drawImage(rthumb, _imageCache);
  		}
  		if (revealed < 1.) {
@@ -768,7 +768,7 @@ index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e65
  		}
  		if (context.selected()) {
  			fillImageOverlay(p, rthumb, rounding, context);
-@@ -434,14 +435,15 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
+@@ -522,14 +523,15 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
  		const auto innerSize = st::msgFileLayout.thumbSize;
  		QRect inner(rthumb.x() + (rthumb.width() - innerSize) / 2, rthumb.y() + (rthumb.height() - innerSize) / 2, innerSize, innerSize);
  
@@ -786,7 +786,7 @@ index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e65
  		if (radial || _data->loading()) {
  			sti->historyFileThumbCancel.paintInCenter(p, inner);
  		} else if (ttlCovered) {
-@@ -450,7 +452,7 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
+@@ -538,7 +540,7 @@ void Photo::draw(Painter &p, const PaintContext &context) const {
  		} else {
  			sti->historyFileThumbDownload.paintInCenter(p, inner);
  		}
@@ -795,7 +795,7 @@ index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e65
  		if (radial) {
  			QRect rinner(inner.marginsRemoved(QMargins(st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine, st::msgFileRadialLine)));
  			_animation->radial.draw(p, rinner, st::msgFileRadialLine, sti->historyFileThumbRadialFg);
-@@ -856,22 +858,24 @@ void Photo::drawGrouped(
+@@ -950,22 +952,24 @@ void Photo::drawGrouped(
  		p.drawPixmap(geometry, *cache);
  	}
  	if (revealed < 1.) {
@@ -824,7 +824,7 @@ index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e65
  	}
  
  	const auto ttlCovered = _ttlCover
-@@ -907,7 +911,8 @@ void Photo::drawGrouped(
+@@ -1001,7 +1005,8 @@ void Photo::drawGrouped(
  			p.setBrush(over ? st->msgDateImgBgOver() : st->msgDateImgBg());
  		}
  
@@ -834,7 +834,7 @@ index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e65
  
  		{
  			PainterHighQualityEnabler hq(p);
-@@ -922,7 +927,7 @@ void Photo::drawGrouped(
+@@ -1016,7 +1021,7 @@ void Photo::drawGrouped(
  		const auto previous = _data->waitingForAlbum()
  			? &sti->historyFileThumbCancel
  			: nullptr;
@@ -843,7 +843,7 @@ index 44beb4ffa87e94f18184f0e3b7fb5d46b2dd9396..376b9285637edea0c0cfecee3e596e65
  		const auto ttlIdle = ttlCovered
  			&& !radial
  			&& !_data->loading()
-@@ -935,7 +940,7 @@ void Photo::drawGrouped(
+@@ -1029,7 +1034,7 @@ void Photo::drawGrouped(
  		} else {
  			icon.paintInCenter(p, inner);
  		}

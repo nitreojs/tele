@@ -22,10 +22,10 @@ Subject: [PATCH] feat: rewrite pasted links with your own rules
  create mode 100644 Telegram/SourceFiles/tele/tele_link_rewrites_box.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 807edaafdcceb9406c46f439074ba9e49e8f0c17..8ed4a87c49619efc281c065a8adf1783b11c0efc 100644
+index 04512820275f1bbf34b5e3a73810212df335e18a..b08279254ac9fc082244ccfc9da0e31b56af4656 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2433,6 +2433,10 @@ PRIVATE
+@@ -2437,6 +2437,10 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h

@@ -34,10 +34,10 @@ Subject: [PATCH] feat: show what's new in a local tele chat
  create mode 100644 Telegram/SourceFiles/tele/tele_changelog_section.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c83ae6cfe0d026271312558eecc497addc1e0cf5..642c37ab74a4f77a36f6ff33bcbf167e84583895 100644
+index c35cf9835eb2af58b8ec4944d17d795c16f5e9f4..7d4a62b23611a5895887cd6cd462608e21da44af 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2391,6 +2391,10 @@ PRIVATE
+@@ -2395,6 +2395,10 @@ PRIVATE
      tele/tele_calls.h
      tele/tele_changelog.cpp
      tele/tele_changelog.h

@@ -21,10 +21,10 @@ Subject: [PATCH] feat: keep saved gifs and stickers past the limit
  create mode 100644 Telegram/SourceFiles/tele/tele_past_limit.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5ad71dda7fab13578b73d3c97da5c2ab9412f893..b4be05c195cee337eb1ea9c89f2442a98cf8514a 100644
+index c9d5028f7a8225c001698c52599f05daa063ebf4..d594b8d80b1f5c8544aa50c69bb4f0e41bb6e4ba 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2523,6 +2523,8 @@ PRIVATE
+@@ -2527,6 +2527,8 @@ PRIVATE
      tele/tele_name_badges.h
      tele/tele_options.cpp
      tele/tele_options.h

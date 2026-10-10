@@ -17,10 +17,10 @@ Subject: [PATCH] feat: search gifts
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_search.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 17b12a12b24a2a05530014fd38c386cd63fb524e..1ac1afcbca5e0a1a972f85e2847fa314d1a6268f 100644
+index 32fb33780c9916af9fd43ec051544529ad868018..25913b2c05ef6fdf9fb55dcc07500f91bc7bcc5a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2475,6 +2475,8 @@ PRIVATE
+@@ -2479,6 +2479,8 @@ PRIVATE
      tele/tele_gift_quantity.h
      tele/tele_gift_list.cpp
      tele/tele_gift_list.h

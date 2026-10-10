@@ -1,0 +1,955 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 11 Oct 2026 00:07:17 +0300
+Subject: [PATCH] feat: remove all your messages from a chat
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/data/data_histories.cpp  |  10 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ .../SourceFiles/tele/tele_delete_fail.cpp     |   5 +-
+ Telegram/SourceFiles/tele/tele_delete_fail.h  |   3 +-
+ .../SourceFiles/tele/tele_menu_registry.cpp   |  31 +-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  11 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_remove_mine.cpp     | 593 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_remove_mine.h  |  30 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../SourceFiles/window/window_peer_menu.cpp   |   6 +
+ 12 files changed, 684 insertions(+), 14 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_remove_mine.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_remove_mine.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 2da2bca3a0a6e3ca90af55e0e63b28aaa1d1172c..7c8fae49e9d77667b60dee731d33b20806ced3fb 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2703,6 +2703,8 @@ PRIVATE
+     tele/tele_reduce_motion.h
+     tele/tele_regex_search.cpp
+     tele/tele_regex_search.h
++    tele/tele_remove_mine.cpp
++    tele/tele_remove_mine.h
+     tele/tele_rich_quote.cpp
+     tele/tele_rich_quote.h
+     tele/tele_rich_timestamps.cpp
+diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
+index 383b61e64aba4983f14c9777ff0247746ef92846..097d6e37aaba243650643c74b5882156670bb73b 100644
+--- a/Telegram/SourceFiles/data/data_histories.cpp
++++ b/Telegram/SourceFiles/data/data_histories.cpp
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_delete_fail.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_remove_mine.h"
+ #include "tele/tele_select_many.h"
+ #include "tele/tele_send_order.h"
+ 
+@@ -836,15 +837,22 @@ void Histories::deleteMessages(
+ 		}
+ 		return;
+ 	}
++	const auto tracker = Tele::TakeDeleteTracker();
+ 	sendRequest(history, RequestType::Delete, [=](Fn<void()> finish) {
+ 		const auto done = [=](const MTPmessages_AffectedMessages &result) {
+ 			session().api().applyAffectedMessages(history->peer, result);
+ 			finish();
+ 			history->requestChatListMessage();
++			if (tracker) {
++				tracker(nullptr);
++			}
+ 		};
+ 		const auto fail = [=](const MTP::Error &error) {
+ 			finish();
+-			Tele::DeleteFailed(history, ids, error.type());
++			Tele::DeleteFailed(history, ids, error.type(), !tracker);
++			if (tracker) {
++				tracker(&error);
++			}
+ 		};
+ 		if (const auto channel = history->peer->asChannel()) {
+ 			return session().api().request(MTPchannels_DeleteMessages(
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c203d4e3d058cf7425b3696af5588d72176807a3..303708f2f18f06fef8f46381c71c39eb153f3736 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3445,6 +3445,10 @@ void FillMenus(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Menu items"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionJumpToFirst);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionRemoveMyMessages,
++		{ u"delete"_q, u"clear"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+ 	AddOptionToggle(builder, ::Tele::kOptionCopyEmojiId);
+diff --git a/Telegram/SourceFiles/tele/tele_delete_fail.cpp b/Telegram/SourceFiles/tele/tele_delete_fail.cpp
+index e848035dc6fcc03a308e473d482eb3373a7e2b93..10b13f1fe1ba957188c5ea45c6ec623bb5e6cc09 100644
+--- a/Telegram/SourceFiles/tele/tele_delete_fail.cpp
++++ b/Telegram/SourceFiles/tele/tele_delete_fail.cpp
+@@ -83,7 +83,8 @@ void ReinsertDeleted(not_null<HistoryItem*> item) {
+ void DeleteFailed(
+ 		not_null<History*> history,
+ 		const QVector<MTPint> &ids,
+-		const QString &error) {
++		const QString &error,
++		bool toast) {
+ 	const auto session = &history->session();
+ 	const auto peer = history->peer;
+ 	for (const auto &id : ids) {
+@@ -97,7 +98,7 @@ void DeleteFailed(
+ 			}
+ 		});
+ 	}
+-	if (RepeatedFailToast(history, error)) {
++	if (!toast || RepeatedFailToast(history, error)) {
+ 		return;
+ 	} else if (const auto window = session->tryResolveWindow(peer)) {
+ 		ShowTeleToast(
+diff --git a/Telegram/SourceFiles/tele/tele_delete_fail.h b/Telegram/SourceFiles/tele/tele_delete_fail.h
+index 206b55e33f3d436f34fc22685263d919611c449e..29a41f470ced1c7766e3caa816ba8f9c7b49aed7 100644
+--- a/Telegram/SourceFiles/tele/tele_delete_fail.h
++++ b/Telegram/SourceFiles/tele/tele_delete_fail.h
+@@ -8,7 +8,8 @@ namespace Tele {
+ void DeleteFailed(
+ 	not_null<History*> history,
+ 	const QVector<MTPint> &ids,
+-	const QString &error);
++	const QString &error,
++	bool toast = true);
+ void ReinsertDeleted(not_null<HistoryItem*> item);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f5383922abc9d2 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -277,6 +277,15 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		kOptionKeepDeletedChats);
+ }
+ 
++[[nodiscard]] MenuItemInfo RemoveMineItem() {
++	return Tagged(
++		u"remove_mine"_q,
++		[] { return Lower(u"Remove my messages"_q); },
++		&st::menuIconDelete,
++		kPrivate | kGroup | kTopic,
++		kOptionRemoveMyMessages);
++}
++
+ [[nodiscard]] MenuItemInfo ViewTlItem(uint32 contexts = 0) {
+ 	return {
+ 		.key = u"view_as_tl"_q,
+@@ -971,6 +980,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			P([](int) { return tr::lng_profile_report(tr::now); },
+ 				st::menuIconReport),
+ 		}, .contexts = kChats | kBot },
++		RemoveMineItem(),
+ 		{ .key = u"clear_history"_q, .phrases = {
+ 			P([](int) { return tr::lng_profile_clear_history(tr::now); },
+ 				st::menuIconClear),
+@@ -1000,7 +1010,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"download_folder],|,"
+ 		"manage,manage_topic,boost,story_archive,create_poll,create_todo,"
+ 		"theme,export,no_forwards,support_info,close_topic,|,"
+-		"report,clear_history,delete_chat,leave,kept_delete_chat,"
++		"report,remove_mine,clear_history,delete_chat,leave,kept_delete_chat,"
+ 		"delete_topic,kept_delete_topic,|,"
+ 		"[Tools#tools:view_as_tl,mtp_inspector]"_q;
+ 	result.upstream = u""
+@@ -1011,7 +1021,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"view_as_topics,manage,story_archive,support_info,boost,"
+ 		"create_poll,create_todo,theme,background,download_folder,"
+ 		"no_forwards,discussion,direct_messages,export,deleted,translate,"
+-		"report,clear_history,delete_chat,leave,kept_delete_chat,"
++		"report,remove_mine,clear_history,delete_chat,leave,kept_delete_chat,"
+ 		"close_topic,delete_topic,kept_delete_topic,"
+ 		"view_as_tl,mtp_inspector"_q;
+ 	result.minimal = u""
+@@ -1026,7 +1036,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"alias,local_name,hidden_words,background,download_folder,|,"
+ 		"manage,manage_topic,boost,story_archive,create_poll,create_todo,"
+ 		"theme,export,no_forwards,support_info,close_topic,|,"
+-		"report,clear_history,delete_chat,leave,kept_delete_chat,"
++		"report,remove_mine,clear_history,delete_chat,leave,kept_delete_chat,"
+ 		"delete_topic,kept_delete_topic,|,"
+ 		"view_as_tl,mtp_inspector"_q;
+ 	return result;
+@@ -1085,6 +1095,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			.flags = MenuItemFlag::Submenu | MenuItemFlag::TopLevel },
+ 		{ .key = u"block"_q, .phrases = BlockPhrases(), .contexts = kUsers },
+ 		{ .key = u"ban"_q, .phrases = BanPhrases(), .contexts = kPrivate },
++		RemoveMineItem(),
+ 		{ .key = u"clear_history"_q, .phrases = {
+ 			P([](int) { return tr::lng_profile_clear_history(tr::now); },
+ 				st::menuIconClear),
+@@ -1105,14 +1116,14 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 	result.upstream = u""
+ 		"new_window,|,"
+ 		"ungroup,hide_promotion,archive,pin,info,mute,mark_read,"
+-		"close_topic,add_to_folder,block,ban,clear_history,delete_chat,"
+-		"leave,delete_topic,kept_delete_chat,kept_delete_topic,view_as_tl,"
+-		"mtp_inspector"_q;
++		"close_topic,add_to_folder,block,ban,remove_mine,clear_history,"
++		"delete_chat,leave,delete_topic,kept_delete_chat,kept_delete_topic,"
++		"view_as_tl,mtp_inspector"_q;
+ 	result.defaults = u""
+ 		"new_window,|,"
+ 		"ungroup,hide_promotion,archive,pin,info,mute,mark_read,"
+-		"close_topic,add_to_folder,block,ban,clear_history,delete_chat,"
+-		"leave,kept_delete_chat,delete_topic,kept_delete_topic,|,"
++		"close_topic,add_to_folder,block,ban,remove_mine,clear_history,"
++		"delete_chat,leave,kept_delete_chat,delete_topic,kept_delete_topic,|,"
+ 		"[Tools#tools:view_as_tl,mtp_inspector]"_q;
+ 	result.minimal = u""
+ 		"pin,mute,mark_read,|,"
+@@ -1122,8 +1133,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"new_window,|,"
+ 		"pin,mark_read,mute,archive,add_to_folder,info,|,"
+ 		"ungroup,hide_promotion,close_topic,|,"
+-		"block,ban,clear_history,delete_chat,leave,kept_delete_chat,"
+-		"delete_topic,kept_delete_topic,|,"
++		"block,ban,remove_mine,clear_history,delete_chat,leave,"
++		"kept_delete_chat,delete_topic,kept_delete_topic,|,"
+ 		"view_as_tl,mtp_inspector"_q;
+ 	return result;
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 050adb7d283c07b65e1be5eeac50833c22a3e36d..8078f4a75b6893384237245f8d81df78672951d8 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -249,6 +249,7 @@ const char kOptionInvisibleNamesPhrase[] = "tele-invisible-names-phrase";
+ const char kOptionShowHiddenChars[] = "tele-show-hidden-chars";
+ const char kOptionForwardOneByOne[] = "tele-forward-one-by-one";
+ const char kOptionProfilePhotoBg[] = "tele-profile-photo-bg";
++const char kOptionRemoveMyMessages[] = "tele-remove-my-messages";
+ 
+ namespace {
+ 
+@@ -1743,6 +1744,12 @@ base::options::toggle ProfilePhotoBgOption({
+ 	.name = "Blurred photo as profile background β",
+ });
+ 
++base::options::toggle RemoveMyMessagesOption({
++	.id = kOptionRemoveMyMessages,
++	.name = "Remove my messages",
++	.description = "Adds it to chat menus; deletes for everyone, newest first.",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -3585,4 +3592,8 @@ rpl::producer<> ProfilePhotoBackgroundChanges() {
+ 	return ProfilePhotoBgOption.changes();
+ }
+ 
++bool RemoveMyMessages() {
++	return RemoveMyMessagesOption.value();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 305827554531f1b422cd515462a2a06335060fb3..606d8946b956c51f32141e917ac1f1f1f52b32a8 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -244,6 +244,7 @@ extern const char kOptionInvisibleNamesPhrase[];
+ extern const char kOptionShowHiddenChars[];
+ extern const char kOptionForwardOneByOne[];
+ extern const char kOptionProfilePhotoBg[];
++extern const char kOptionRemoveMyMessages[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool WatchStoriesInvisibly();
+@@ -604,5 +605,6 @@ void SetInvisibleNamesPhrase(const QString &value);
+ [[nodiscard]] bool ForwardOneByOne();
+ [[nodiscard]] bool ProfilePhotoBackground();
+ [[nodiscard]] rpl::producer<> ProfilePhotoBackgroundChanges();
++[[nodiscard]] bool RemoveMyMessages();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_remove_mine.cpp b/Telegram/SourceFiles/tele/tele_remove_mine.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..e301e7971e477c6ffe5199ff276ea420597eb473
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_remove_mine.cpp
+@@ -0,0 +1,593 @@
++#include "tele/tele_remove_mine.h"
++
++#include "apiwrap.h"
++#include "base/random.h"
++#include "base/timer.h"
++#include "base/weak_ptr.h"
++#include "data/data_channel.h"
++#include "data/data_chat.h"
++#include "data/data_forum_topic.h"
++#include "data/data_histories.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "data/data_types.h"
++#include "data/data_user.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "main/main_session.h"
++#include "mtproto/sender.h"
++#include "tele/secret/secret_chats.h"
++#include "tele/tele_changelog_chat.h"
++#include "tele/tele_deleted.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_menu_apply.h"
++#include "tele/tele_notices.h"
++#include "tele/tele_options.h"
++#include "ui/boxes/confirm_box.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "window/window_session_controller.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QRegularExpression>
++
++namespace Tele {
++namespace {
++
++constexpr auto kPerPage = 100;
++constexpr auto kPause = crl::time(300);
++constexpr auto kPauseJitter = 200;
++constexpr auto kWaitJitter = 1000;
++constexpr auto kAnnounceWait = 10;
++
++using Key = std::pair<PeerId, MsgId>;
++
++[[nodiscard]] DeleteTracker &Tracker() {
++	static auto result = DeleteTracker();
++	return result;
++}
++
++[[nodiscard]] crl::time Pause() {
++	return kPause + base::RandomIndex(kPauseJitter);
++}
++
++[[nodiscard]] int FloodWait(const QString &type) {
++	static const auto expression = QRegularExpression(
++		u"^FLOOD(?:_PREMIUM)?_WAIT_(\\d+)$"_q);
++	const auto match = expression.match(type);
++	return match.hasMatch() ? std::max(match.captured(1).toInt(), 1) : 0;
++}
++
++[[nodiscard]] QString RemovedText(int count) {
++	return (count == 1)
++		? Lower(u"Removed 1 message."_q)
++		: Lower(u"Removed %1 messages."_q).arg(count);
++}
++
++[[nodiscard]] MTPmessages_Search SearchRequest(
++		not_null<PeerData*> peer,
++		MsgId topicRootId,
++		MsgId offsetId,
++		int limit) {
++	using Flag = MTPmessages_Search::Flag;
++	return MTPmessages_Search(
++		MTP_flags(Flag::f_from_id
++			| (topicRootId ? Flag::f_top_msg_id : Flag(0))),
++		peer->input(),
++		MTP_string(),
++		MTP_inputPeerSelf(),
++		MTPInputPeer(),
++		MTPVector<MTPReaction>(),
++		MTP_int(int(topicRootId.bare)),
++		MTP_inputMessagesFilterEmpty(),
++		MTP_int(0),
++		MTP_int(0),
++		MTP_int(int(offsetId.bare)),
++		MTP_int(0),
++		MTP_int(limit),
++		MTP_int(0),
++		MTP_int(0),
++		MTP_long(0));
++}
++
++[[nodiscard]] int CountOf(const MTPmessages_Messages &result) {
++	return result.match([](const MTPDmessages_messages &data) {
++		return int(data.vmessages().v.size());
++	}, [](const MTPDmessages_messagesSlice &data) {
++		return data.vcount().v;
++	}, [](const MTPDmessages_channelMessages &data) {
++		return data.vcount().v;
++	}, [](const MTPDmessages_messagesNotModified &data) {
++		return data.vcount().v;
++	});
++}
++
++[[nodiscard]] bool Eligible(Data::Thread *thread) {
++	if (!thread) {
++		return false;
++	}
++	const auto topic = thread->asTopic();
++	if (!topic && !thread->asHistory()) {
++		return false;
++	} else if (topic && topic->creating()) {
++		return false;
++	}
++	const auto peer = thread->peer();
++	if (peer->isSelf()
++		|| peer->isRepliesChat()
++		|| peer->isVerifyCodes()
++		|| peer->isServiceUser()
++		|| IsChangelogPeer(peer)
++		|| Secret::IsSecretPeer(peer)) {
++		return false;
++	} else if (const auto user = peer->asUser()) {
++		return !user->isBot();
++	} else if (const auto chat = peer->asChat()) {
++		return chat->amIn();
++	} else if (const auto channel = peer->asChannel()) {
++		return channel->isMegagroup()
++			&& !channel->isMonoforum()
++			&& channel->amIn();
++	}
++	return false;
++}
++
++[[nodiscard]] Key KeyOf(not_null<Data::Thread*> thread) {
++	const auto topic = thread->asTopic();
++	return { thread->peer()->id, topic ? topic->rootId() : MsgId() };
++}
++
++class Run final : public base::has_weak_ptr {
++public:
++	Run(not_null<PeerData*> peer, MsgId topicRootId);
++
++	void start();
++	void stop();
++	[[nodiscard]] bool finished() const;
++
++private:
++	void requestPage();
++	void pageReceived(const MTPmessages_Messages &result);
++	void pageFailed(const MTP::Error &error);
++	void deleteNext();
++	void deleted(const MTP::Error *error);
++	void advance();
++	void passFinished();
++	void schedule(crl::time delay, void (Run::*method)());
++	void finish(const QString &text);
++	void toast(const QString &text) const;
++
++	const not_null<PeerData*> _peer;
++	const MsgId _topicRootId;
++	ChatData * const _migrated = nullptr;
++	not_null<PeerData*> _target;
++	MTP::Sender _api;
++	base::Timer _timer;
++	void (Run::*_scheduled)() = nullptr;
++	base::flat_set<MsgId> _skip;
++	base::flat_set<MsgId> _done;
++	std::vector<std::vector<MsgId>> _chunks;
++	std::vector<MsgId> _chunk;
++	MsgId _offsetId = 0;
++	MsgId _nextOffsetId = 0;
++	int _chunkLimit = kPerPage;
++	int _removed = 0;
++	bool _finished = false;
++
++};
++
++[[nodiscard]] auto Sessions()
++-> base::flat_map<
++		not_null<Main::Session*>,
++		base::flat_map<Key, std::unique_ptr<Run>>> & {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		base::flat_map<Key, std::unique_ptr<Run>>>();
++	return result;
++}
++
++[[nodiscard]] Run *FindRun(not_null<Main::Session*> session, Key key) {
++	const auto i = Sessions().find(session);
++	if (i == end(Sessions())) {
++		return nullptr;
++	}
++	const auto j = i->second.find(key);
++	return (j != end(i->second) && !j->second->finished())
++		? j->second.get()
++		: nullptr;
++}
++
++void EraseRun(
++		not_null<Main::Session*> session,
++		Key key,
++		not_null<Run*> run) {
++	const auto i = Sessions().find(session);
++	if (i == end(Sessions())) {
++		return;
++	}
++	const auto j = i->second.find(key);
++	if (j != end(i->second) && j->second.get() == run.get()) {
++		i->second.erase(j);
++	}
++}
++
++Run::Run(not_null<PeerData*> peer, MsgId topicRootId)
++: _peer(peer)
++, _topicRootId(topicRootId)
++, _migrated(topicRootId ? nullptr : peer->migrateFrom())
++, _target(peer)
++, _api(&peer->session().mtp())
++, _timer([=] {
++	if (const auto method = base::take(_scheduled)) {
++		(this->*method)();
++	}
++}) {
++}
++
++void Run::start() {
++	toast(Lower(u"Removing your messages"_q) + QChar(0x2026));
++	requestPage();
++}
++
++void Run::stop() {
++	finish(Lower(u"Stopped. "_q) + RemovedText(_removed));
++}
++
++bool Run::finished() const {
++	return _finished;
++}
++
++void Run::requestPage() {
++	if (_finished) {
++		return;
++	}
++	_api.request(SearchRequest(
++		_target,
++		_topicRootId,
++		_offsetId,
++		kPerPage
++	)).done([=](const MTPmessages_Messages &result) {
++		pageReceived(result);
++	}).fail([=](const MTP::Error &error) {
++		pageFailed(error);
++	}).handleFloodErrors().send();
++}
++
++void Run::pageReceived(const MTPmessages_Messages &result) {
++	if (_finished) {
++		return;
++	}
++	auto &owner = _peer->owner();
++	const auto messages = result.match([](
++			const MTPDmessages_messagesNotModified &) {
++		return QVector<MTPMessage>();
++	}, [&](const auto &data) {
++		owner.processUsers(data.vusers());
++		owner.processChats(data.vchats());
++		return QVector<MTPMessage>(data.vmessages().v);
++	});
++	if (messages.isEmpty()) {
++		passFinished();
++		return;
++	}
++	auto ids = std::vector<MsgId>();
++	ids.reserve(messages.size());
++	auto minId = MsgId();
++	for (const auto &message : messages) {
++		const auto id = IdFromMessage(message);
++		if (!minId || id < minId) {
++			minId = id;
++		}
++		if (_done.contains(id) || _skip.contains(id)) {
++			continue;
++		} else if (PeerFromMessage(message) != _target->id
++			|| !DateFromMessage(message)) {
++			_skip.emplace(id);
++			continue;
++		}
++		const auto item = owner.addNewMessage(
++			message,
++			MessageFlags(),
++			NewMessageType::Existing);
++		if (!item
++			|| !item->out()
++			|| !item->canDelete()
++			|| IsKeptDeleted(item)) {
++			_skip.emplace(id);
++			continue;
++		}
++		ids.push_back(id);
++	}
++	_nextOffsetId = minId;
++	if (ids.empty()) {
++		advance();
++		return;
++	}
++	ranges::sort(ids, std::greater<>());
++	_chunks.clear();
++	for (auto i = 0; i < int(ids.size()); i += _chunkLimit) {
++		const auto till = std::min(i + _chunkLimit, int(ids.size()));
++		_chunks.emplace_back(begin(ids) + i, begin(ids) + till);
++	}
++	deleteNext();
++}
++
++void Run::pageFailed(const MTP::Error &error) {
++	if (_finished) {
++		return;
++	}
++	if (const auto wait = FloodWait(error.type())) {
++		if (wait >= kAnnounceWait) {
++			toast(Lower(u"Rate limited, going on in %1 s."_q).arg(wait));
++		}
++		schedule(
++			wait * crl::time(1000) + base::RandomIndex(kWaitJitter),
++			&Run::requestPage);
++		return;
++	}
++	finish(Lower(u"Couldn't remove messages: "_q) + error.type());
++}
++
++void Run::deleteNext() {
++	if (_finished) {
++		return;
++	}
++	auto &owner = _peer->owner();
++	while (!_chunks.empty()) {
++		auto list = MessageIdsList();
++		_chunk.clear();
++		for (const auto id : _chunks.front()) {
++			if (const auto item = owner.message(_target->id, id)) {
++				_chunk.push_back(id);
++				list.push_back(item->fullId());
++			}
++		}
++		_chunks.erase(begin(_chunks));
++		if (list.empty()) {
++			continue;
++		}
++		const auto weak = base::make_weak(this);
++		Tracker() = [=](const MTP::Error *error) {
++			if (const auto strong = weak.get()) {
++				strong->deleted(error);
++			}
++		};
++		owner.histories().deleteMessages(list, true);
++		if (!base::take(Tracker())) {
++			return;
++		}
++		for (const auto id : base::take(_chunk)) {
++			_skip.emplace(id);
++		}
++	}
++	advance();
++}
++
++void Run::deleted(const MTP::Error *error) {
++	if (_finished) {
++		return;
++	} else if (!error) {
++		_removed += int(_chunk.size());
++		for (const auto id : base::take(_chunk)) {
++			_done.emplace(id);
++		}
++		schedule(Pause(), &Run::deleteNext);
++		return;
++	}
++	const auto &type = error->type();
++	if (type == u"MESSAGE_DELETE_FORBIDDEN"_q
++		|| type == u"MESSAGE_ID_INVALID"_q) {
++		if (_chunk.size() == 1) {
++			_skip.emplace(_chunk.front());
++			_chunk.clear();
++			schedule(Pause(), &Run::deleteNext);
++			return;
++		}
++		_chunkLimit = std::max(int(_chunk.size()) / 2, 1);
++		_chunk.clear();
++		_chunks.clear();
++		schedule(Pause(), &Run::requestPage);
++		return;
++	}
++	finish(Lower(u"Couldn't remove messages: "_q) + type);
++}
++
++void Run::advance() {
++	if (!_nextOffsetId || (_offsetId && _nextOffsetId >= _offsetId)) {
++		passFinished();
++		return;
++	}
++	_offsetId = _nextOffsetId;
++	_chunkLimit = kPerPage;
++	schedule(Pause(), &Run::requestPage);
++}
++
++void Run::passFinished() {
++	if (!_migrated || _target != _peer) {
++		finish(RemovedText(_removed));
++		return;
++	}
++	_target = _migrated;
++	_skip.clear();
++	_done.clear();
++	_chunks.clear();
++	_chunk.clear();
++	_offsetId = _nextOffsetId = MsgId();
++	_chunkLimit = kPerPage;
++	schedule(Pause(), &Run::requestPage);
++}
++
++void Run::schedule(crl::time delay, void (Run::*method)()) {
++	_scheduled = method;
++	_timer.callOnce(delay);
++}
++
++void Run::finish(const QString &text) {
++	if (_finished) {
++		return;
++	}
++	_finished = true;
++	_scheduled = nullptr;
++	_timer.cancel();
++	toast(text);
++	const auto session = &_peer->session();
++	const auto key = Key{ _peer->id, _topicRootId };
++	crl::on_main(this, [=] {
++		EraseRun(session, key, this);
++	});
++}
++
++void Run::toast(const QString &text) const {
++	if (const auto window = _peer->session().tryResolveWindow(_peer)) {
++		ShowTeleToast(window, text);
++	}
++}
++
++void Start(not_null<Data::Thread*> thread) {
++	if (!Eligible(thread)) {
++		return;
++	}
++	const auto peer = thread->peer();
++	const auto session = not_null<Main::Session*>(&peer->session());
++	const auto key = KeyOf(thread);
++	if (FindRun(session, key)) {
++		return;
++	}
++	auto &sessions = Sessions();
++	if (!sessions.contains(session)) {
++		session->lifetime().add([=] {
++			Sessions().remove(session);
++		});
++	}
++	auto &runs = sessions[session];
++	runs.remove(key);
++	const auto run = runs.emplace(
++		key,
++		std::make_unique<Run>(peer, key.second)).first->second.get();
++	run->start();
++}
++
++void Confirm(
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread,
++		int count) {
++	const auto peer = thread->peer();
++	const auto topic = thread->asTopic();
++	const auto name = topic ? topic->title() : peer->name();
++	const auto text = (peer->isUser()
++		? Lower(u"Remove %1 of your messages from %2 for both of you? "
++			"This can't be undone."_q)
++		: Lower(u"Remove %1 of your messages from %2 for everyone? "
++			"This can't be undone."_q)).arg(count).arg(name);
++	const auto weak = base::make_weak(thread);
++	controller->show(Ui::MakeConfirmBox({
++		.text = text,
++		.confirmed = [=](Fn<void()> &&close) {
++			close();
++			if (const auto strong = weak.get()) {
++				Start(strong);
++			}
++		},
++		.confirmText = Lower(u"Remove"_q),
++		.confirmStyle = &st::attentionBoxButton,
++	}));
++}
++
++void Count(
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread) {
++	const auto peer = thread->peer();
++	const auto key = KeyOf(thread);
++	const auto migrated = key.second ? nullptr : peer->migrateFrom();
++	const auto weak = base::make_weak(controller);
++	const auto weakThread = base::make_weak(thread);
++	const auto api = &peer->session().api();
++	const auto fail = [=](const MTP::Error &error) {
++		if (const auto strong = weak.get()) {
++			ShowTeleToast(
++				strong,
++				Lower(u"Couldn't count your messages: "_q) + error.type());
++		}
++	};
++	const auto counted = [=](int count) {
++		const auto strong = weak.get();
++		const auto strongThread = weakThread.get();
++		if (!strong || !strongThread) {
++			return;
++		} else if (count <= 0) {
++			ShowTeleToast(strong, Lower(u"You have no messages here."_q));
++			return;
++		}
++		Confirm(strong, strongThread, count);
++	};
++	api->request(SearchRequest(
++		peer,
++		key.second,
++		MsgId(),
++		1
++	)).done([=](const MTPmessages_Messages &result) {
++		const auto count = std::max(CountOf(result), 0);
++		if (!migrated) {
++			counted(count);
++			return;
++		}
++		api->request(SearchRequest(
++			migrated,
++			MsgId(),
++			MsgId(),
++			1
++		)).done([=](const MTPmessages_Messages &result) {
++			counted(count + std::max(CountOf(result), 0));
++		}).fail(fail).send();
++	}).fail(fail).send();
++}
++
++} // namespace
++
++void AddRemoveMyMessagesAction(
++		not_null<Window::SessionController*> controller,
++		Data::Thread *thread,
++		const Ui::Menu::MenuCallback &addAction) {
++	if (!Eligible(thread)) {
++		return;
++	}
++	const auto session = not_null<Main::Session*>(&thread->session());
++	const auto key = KeyOf(thread);
++	if (FindRun(session, key)) {
++		const auto weak = base::make_weak(session);
++		TagMenuAction(addAction({
++			.text = Lower(u"Stop removing my messages"_q),
++			.handler = [=] {
++				if (const auto strong = weak.get()) {
++					if (const auto run = FindRun(strong, key)) {
++						run->stop();
++					}
++				}
++			},
++			.icon = &st::menuIconCancel,
++		}), u"remove_mine"_q);
++		return;
++	} else if (!RemoveMyMessages()) {
++		return;
++	}
++	const auto weak = base::make_weak(controller);
++	const auto weakThread = base::make_weak(thread);
++	TagMenuAction(addAction({
++		.text = Lower(u"Remove my messages"_q),
++		.handler = [=] {
++			const auto strong = weak.get();
++			const auto strongThread = weakThread.get();
++			if (strong && strongThread) {
++				Count(strong, strongThread);
++			}
++		},
++		.icon = &st::menuIconDelete,
++	}), u"remove_mine"_q);
++}
++
++DeleteTracker TakeDeleteTracker() {
++	return base::take(Tracker());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_remove_mine.h b/Telegram/SourceFiles/tele/tele_remove_mine.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..6cca96d837d4956ca46f37b4c647a861cea5a9fd
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_remove_mine.h
+@@ -0,0 +1,30 @@
++#pragma once
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace MTP {
++class Error;
++} // namespace MTP
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++using DeleteTracker = Fn<void(const MTP::Error *error)>;
++
++void AddRemoveMyMessagesAction(
++	not_null<Window::SessionController*> controller,
++	Data::Thread *thread,
++	const Ui::Menu::MenuCallback &addAction);
++
++[[nodiscard]] DeleteTracker TakeDeleteTracker();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 421e7f8e6d237549c23e6ccd2a470b50a95f3aa0..fc019b841c05e26547b7c0d3192c0c02eed2a3fc 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -269,6 +269,7 @@ struct Spec {
+ 		Toggle(kOptionNoPhoneInHeader),
+ 		Toggle(kOptionHidePhoneInProfile),
+ 		Toggle(kOptionProfilePhotoBg),
++		Toggle(kOptionRemoveMyMessages),
+ 		Toggle(kOptionStickerCaptionsShow),
+ 		Toggle(kOptionStickerCaptionsSend),
+ 		Toggle(kOptionChainMentions),
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index 0e138fe54137c869ce4cc5fc9f087ae31062c923..b0f562fdb5649ea9e22d169d2a760c3d286bbe56 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -144,6 +144,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_mtp_inspector.h"
+ #include "tele/tele_online_notify.h"
+ #include "tele/tele_peek.h"
++#include "tele/tele_remove_mine.h"
+ #include "tele/tele_show_pinned.h"
+ #include "tele/tele_silent.h"
+ #include "tele/tele_unsorted_folder.h"
+@@ -1955,6 +1956,7 @@ void Filler::fillContextMenuActions() {
+ 		}
+ 	}
+ 	addBanFromChannel();
++	Tele::AddRemoveMyMessagesAction(_controller, _thread, _addAction);
+ 	addClearHistory();
+ 	addDeleteChat();
+ 	addLeaveChat();
+@@ -1994,6 +1996,7 @@ void Filler::fillHistoryActions() {
+ 	Tele::AddDeletedActions(_controller, _thread, _addAction);
+ 	addTranslate();
+ 	addReport();
++	Tele::AddRemoveMyMessagesAction(_controller, _thread, _addAction);
+ 	addClearHistory();
+ 	addDeleteChat();
+ 	addLeaveChat();
+@@ -2051,6 +2054,9 @@ void Filler::fillRepliesActions() {
+ 	addBoostChat();
+ 	addCreatePoll();
+ 	addCreateTodoList();
++	if (_topic) {
++		Tele::AddRemoveMyMessagesAction(_controller, _topic, _addAction);
++	}
+ 	addToggleTopicClosed();
+ 	addDeleteTopic();
+ 	Tele::AddKeptChatActions(_controller, _thread, _addAction);

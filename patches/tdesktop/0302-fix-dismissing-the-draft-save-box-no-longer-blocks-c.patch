@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 14:52:47 +0300
+Subject: [PATCH] fix: dismissing the draft save box no longer blocks closing
+ the rich editor
+
+---
+ Telegram/SourceFiles/iv/editor/iv_editor_session.cpp | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+index b1a427899222b09995efede028786df0c1264419..7dd8c8dda48d1fbc6bb57560724081b61a08945b 100644
+--- a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
++++ b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+@@ -4527,7 +4527,11 @@ void ArticleSession::saveRichDraftNow() {
+ 
+ void ArticleSession::startCloseWithDraftSave() {
+ 	if (_closeDraftSaveActive) {
+-		return;
++		if (_closeDraftSaveBox) {
++			return;
++		}
++		// The box was dismissed without an answer: that was a cancel.
++		cancelCloseWithDraftSave(_closeDraftSaveGeneration);
+ 	}
+ 	_closeDraftSaveActive = true;
+ 	_closeDraftSaveWaiting = false;

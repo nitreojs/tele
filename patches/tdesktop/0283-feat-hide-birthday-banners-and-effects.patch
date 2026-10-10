@@ -24,10 +24,10 @@ Subject: [PATCH] feat: hide birthday banners and effects
  create mode 100644 Telegram/SourceFiles/tele/tele_birthdays.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2c0de4ba6cbba0a705a9ead0eb191e7cf8f397db..f19e2bdcc89db0acfe17478a27a32c9c692caa6d 100644
+index 4edec165c6f0d456c62390843c76931e8f983a7e..0a081adb8be19771ff763d0df0fa7399accf9dae 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2385,6 +2385,8 @@ PRIVATE
+@@ -2389,6 +2389,8 @@ PRIVATE
      tele/tele_audio_voice.h
      tele/tele_badges.cpp
      tele/tele_badges.h
@@ -103,10 +103,10 @@ index fe4cefd82cf6ef292927ad48ea5a777ad480baa1..46d4154e8357d8498aa454cfbc199594
  }
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 1454c82879b45f90aa00efe898b2d2a9709ffc9a..f1b8733e79ce351d9ca41daa0657117fd76d009a 100644
+index 7812dca193f92cdf438e24a09dc52bdb05536d93..74a86fa56f95797bf095ce5efbbfe1cf237a2dd9 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -181,6 +181,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -182,6 +182,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
  #include "tele/tele_audio_voice.h"
@@ -114,7 +114,7 @@ index 1454c82879b45f90aa00efe898b2d2a9709ffc9a..f1b8733e79ce351d9ca41daa0657117f
  #include "tele/tele_field_resize.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
-@@ -3757,7 +3758,7 @@ void HistoryWidget::showHistory(
+@@ -3755,7 +3756,7 @@ void HistoryWidget::showHistory(
  				Info::Profile::BirthdayValue(
  					user
  				) | rpl::map(
@@ -123,7 +123,7 @@ index 1454c82879b45f90aa00efe898b2d2a9709ffc9a..f1b8733e79ce351d9ca41daa0657117f
  				) | rpl::flatten_latest(
  				) | rpl::distinct_until_changed(
  				) | rpl::on_next([=] {
-@@ -4242,7 +4243,7 @@ void HistoryWidget::refreshSendGiftToggle() {
+@@ -4240,7 +4241,7 @@ void HistoryWidget::refreshSendGiftToggle() {
  		&& !user->isBot()
  		&& ((disallowed & Type::SendHide)
  			|| (session().user()->disallowedGiftTypes() & Type::SendHide)
@@ -133,10 +133,10 @@ index 1454c82879b45f90aa00efe898b2d2a9709ffc9a..f1b8733e79ce351d9ca41daa0657117f
  	if (!_giftToUser && has) {
  		_giftToUser.create(this, st::historyGiftToUser);
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 73eec0d8b2bbf211c15c8797458ae8f282469e2d..da147e8dd6ef6c6a318124a157e3b8b689e0ab6d 100644
+index b4d74ca4932c7bcf0559935eb37ffa6020946901..046277775a2a53489f45419eb5817cea22dbb1a8 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -125,6 +125,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
  #include "tele/tele_audio_voice.h"
@@ -144,7 +144,7 @@ index 73eec0d8b2bbf211c15c8797458ae8f282469e2d..da147e8dd6ef6c6a318124a157e3b8b6
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_field_resize.h"
  #include "tele/tele_inline_text.h"
-@@ -5861,7 +5862,7 @@ void ComposeControls::refreshSendGiftToggle() {
+@@ -5836,7 +5837,7 @@ void ComposeControls::refreshSendGiftToggle() {
  		&& !user->isBot()
  		&& ((disallowed & Type::SendHide)
  			|| (session().user()->disallowedGiftTypes() & Type::SendHide)
@@ -153,7 +153,7 @@ index 73eec0d8b2bbf211c15c8797458ae8f282469e2d..da147e8dd6ef6c6a318124a157e3b8b6
  		&& ((disallowed & all) != all);
  	if (!_giftToUser && has) {
  		_giftToUser = base::make_unique_q<Ui::IconButton>(
-@@ -6463,7 +6464,7 @@ void ComposeControls::initWebpageProcess() {
+@@ -6438,7 +6439,7 @@ void ComposeControls::initWebpageProcess() {
  		Info::Profile::BirthdayValue(
  			user
  		) | rpl::map(

@@ -14,10 +14,10 @@ Subject: [PATCH] feat: send crash reports to the tele server
  create mode 100644 Telegram/SourceFiles/tele/tele_crash.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 65c92211249d535cf4748fdb041cd00fb322c555..b7937cbafb8a4a4784a6616363db30f63baabdaa 100644
+index 3db2bb62b60b0699c666b4607fc869cb960ad86e..38bdfb1b9e923a3c76e3dc68971376c6bdb8c1d5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2381,6 +2381,8 @@ PRIVATE
+@@ -2385,6 +2385,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h

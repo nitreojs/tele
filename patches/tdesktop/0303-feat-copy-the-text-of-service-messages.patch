@@ -1,0 +1,201 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 14:55:27 +0300
+Subject: [PATCH] feat: copy the text of service messages
+
+---
+ .../history/history_inner_widget.cpp          |  6 +++++
+ .../view/history_view_context_menu.cpp        |  7 +++++-
+ .../SourceFiles/tele/tele_menu_registry.cpp   | 23 +++++++++++++------
+ .../SourceFiles/tele/tele_message_menu.cpp    | 22 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_message_menu.h |  4 ++++
+ 5 files changed, 54 insertions(+), 8 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index a4bf38311fcbd6224064e10093ef6638a6ec278f..1eaedb50f0bfaf1d3912b3ae9fcf3cd1f365c591 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -3731,6 +3731,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 						}
+ 					}
+ 				}
++				if (view && actionText.isEmpty() && !hasCopyRestriction(item)) {
++					Tele::AddCopyServiceTextAction(_menu.get(), view, [=] {
++						return showCopyRestriction(
++							session->data().message(itemId));
++					});
++				}
+ 			}
+ 		}
+ 		if (!actionText.isEmpty()) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index e88d8f3b43e0901f5a674b54b38b1d83122038cf..6ff7b993c25feb06975eeee25d021aad61866e52 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -1909,8 +1909,13 @@ void FillContextMenuItems(
+ 		if (const auto document = media ? media->getDocument() : nullptr) {
+ 			AddDocumentActions(result, document, view->data(), list);
+ 		}
++		const auto serviceCopy = !link
++			&& !list->hasCopyRestriction(view->data())
++			&& Tele::AddCopyServiceTextAction(result, view, [=] {
++				return list->showCopyRestriction(owner->message(itemId));
++			});
+ 		if (!link && (view->hasVisibleText() || mediaHasTextForCopy)) {
+-			if (!list->hasCopyRestriction(view->data())) {
++			if (!serviceCopy && !list->hasCopyRestriction(view->data())) {
+ 				const auto asGroup = (request.pointState != PointState::GroupPart);
+ 				result->addAction(tr::lng_context_copy_text(tr::now), [=] {
+ 					if (const auto item = owner->message(itemId)) {
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index 4fc230d37c26c3f4421c8743148d25fb6aa78d1c..efb82dd54daf2abbc06e00b9e1e9aabc1462e560 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -7,6 +7,7 @@
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_menu_icons.h"
++#include "styles/style_wallet.h"
+ 
+ namespace Tele {
+ namespace {
+@@ -550,10 +551,14 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			P([](int) { return tr::lng_context_gift_send(tr::now); },
+ 				st::menuIconGiftPremium),
+ 		}, .contexts = kOwn | kService },
++		{ .key = u"send_money"_q, .phrases = {
++			P([](int) { return tr::lng_wallet_profile_send_money(tr::now); },
++				st::walletMenuIcon),
++		}, .contexts = kService },
+ 		{ .key = u"copy_text"_q, .phrases = {
+ 			P([](int) { return tr::lng_context_copy_text(tr::now); },
+ 				st::menuIconCopy),
+-		}, .contexts = kMessage },
++		}, .contexts = kMessage | kService },
+ 		{ .key = u"copy_markdown"_q, .phrases = {
+ 			P([](int) { return Lower(u"Copy as Markdown"_q); },
+ 				st::menuIconCopy),
+@@ -774,7 +779,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"attached_stickers,send_as_gif,open_gif,save_gif,save_sound,"
+ 		"cancel_download,edit_caption,cancel_upload,download_selected,"
+ 		"save_html,|,"
+-		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,"
++		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,send_money,"
+ 		"view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,[Copy#copy:copy_markdown,copy_html,"
+ 		"copy_link,alias_copy,copy_message_link,copy_id,copy_emoji_id,"
+@@ -797,7 +802,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"open_gif,save_gif,sticker_set,fave_sticker,show_in_folder,"
+ 		"save_sound,save_as,copy_image,copy_filename,copy_file_path,"
+ 		"attached_stickers,"
+-		"copy_phone,send_gift,copy_text,translate,copy_link,"
++		"copy_phone,send_gift,send_money,copy_text,translate,copy_link,"
+ 		"open_uncleaned,open_username,alias_copy,alias_open,alias_delete,"
+ 		"copy_button_data,copy_message_link,"
+ 		"forward,add_offer,send_now,ghost_cancel,edit_caption,cancel_upload,"
+@@ -824,7 +829,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"attached_stickers,send_as_gif,open_gif,save_gif,save_sound,"
+ 		"cancel_download,edit_caption,cancel_upload,download_selected,"
+ 		"save_html,|,"
+-		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,"
++		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,send_money,"
+ 		"view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,copy_markdown,copy_html,copy_link,"
+ 		"alias_copy,copy_message_link,copy_id,copy_emoji_id,"
+@@ -1220,6 +1225,10 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			P([](int) { return tr::lng_profile_gift_premium(tr::now); },
+ 				st::menuIconGiftPremium),
+ 		}, .contexts = kPrivate | kChannel },
++		{ .key = u"send_money"_q, .phrases = {
++			P([](int) { return tr::lng_wallet_profile_send_money(tr::now); },
++				st::walletMenuIcon),
++		}, .contexts = kPrivate },
+ 		{ .key = u"statistics"_q, .phrases = {
+ 			P([](int) { return tr::lng_stats_title(tr::now); },
+ 				st::menuIconStats),
+@@ -1290,7 +1299,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 	result.defaults = u""
+ 		"ttl,|,"
+ 		"add_contact,share_contact,edit_contact,secret_start,send_gift,"
+-		"bot_to_group,add_members,|,"
++		"send_money,bot_to_group,add_members,|,"
+ 		"online_notify,peek_last_seen,pinned_bar,[For me#forme:alias,"
+ 		"local_name,"
+ 		"hidden_words,background,download_folder],|,"
+@@ -1305,7 +1314,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"alias,"
+ 		"local_name,hidden_words,background,download_folder,"
+ 		"online_notify,peek_last_seen,pinned_bar,bot_to_group,add_members,"
+-		"send_gift,"
++		"send_gift,send_money,"
+ 		"statistics,boosts,earn,story_archive,manage,personal_channel,"
+ 		"topic_link,manage_topic,close_topic,discussion,direct_messages,"
+ 		"export,no_forwards,add_to_folder,block,ban,report,leave,"
+@@ -1317,7 +1326,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 	result.power = u""
+ 		"ttl,|,"
+ 		"add_contact,share_contact,edit_contact,secret_start,send_gift,"
+-		"bot_to_group,add_members,|,"
++		"send_money,bot_to_group,add_members,|,"
+ 		"online_notify,peek_last_seen,pinned_bar,alias,local_name,"
+ 		"hidden_words,"
+ 		"background,download_folder,|,"
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.cpp b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+index cea38f1190b6fcad7455c77a5166b0baa1125bf5..edd088c000abfa129a45147fe7ee78773d706e6d 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.cpp
++++ b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+@@ -8,6 +8,8 @@
+ #include "history/history_item.h"
+ #include "history/view/history_view_cursor_state.h"
+ #include "history/view/history_view_element.h"
++#include "lang/lang_keys.h"
++#include "layout/layout_selection.h"
+ #include "main/session/session_show.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_menu_apply.h"
+@@ -15,6 +17,7 @@
+ #include "tele/tele_notices.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_view_tl.h"
++#include "ui/text/text_entity.h"
+ #include "ui/text/text_isolated_emoji.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/menu/menu_action.h"
+@@ -227,4 +230,23 @@ void AddCopyFilePathAction(
+ 	}, &st::menuIconCopy);
+ }
+ 
++bool AddCopyServiceTextAction(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<const HistoryView::Element*> view,
++		Fn<bool()> showCopyRestriction) {
++	if (!view->data()->isService()) {
++		return false;
++	}
++	const auto text = view->selectedText(FullSelection);
++	if (text.empty()) {
++		return false;
++	}
++	menu->addAction(tr::lng_context_copy_text(tr::now), [=] {
++		if (!showCopyRestriction()) {
++			TextUtilities::SetClipboardText(text);
++		}
++	}, &st::menuIconCopy);
++	return true;
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.h b/Telegram/SourceFiles/tele/tele_message_menu.h
+index cdb419c338e5162893d7595ae1c00f5b0077bdad..4591815f9f8c5f296138a12d7f5214c24f0c3cca 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.h
++++ b/Telegram/SourceFiles/tele/tele_message_menu.h
+@@ -32,5 +32,9 @@ void AddCopyFilePathAction(
+ 	not_null<Ui::PopupMenu*> menu,
+ 	not_null<DocumentData*> document,
+ 	Fn<bool()> showCopyRestriction);
++bool AddCopyServiceTextAction(
++	not_null<Ui::PopupMenu*> menu,
++	not_null<const HistoryView::Element*> view,
++	Fn<bool()> showCopyRestriction);
+ 
+ } // namespace Tele

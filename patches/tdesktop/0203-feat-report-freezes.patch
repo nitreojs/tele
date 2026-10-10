@@ -17,10 +17,10 @@ Subject: [PATCH] feat: report freezes
  create mode 100644 Telegram/SourceFiles/tele/tele_freeze_watchdog.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bda1009d1ad56ade349fd259e08138066545d64a..26974c0f3dc21d789d7aba7da0cdfe339397b936 100644
+index 4ff9eb89546904a74661d34b2c51c35c2074ed8d..2fe888505924d81ce911eef65b2b07d265f3d2c4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2467,6 +2467,8 @@ PRIVATE
+@@ -2471,6 +2471,8 @@ PRIVATE
      tele/tele_field_resize.h
      tele/tele_folders.cpp
      tele/tele_folders.h

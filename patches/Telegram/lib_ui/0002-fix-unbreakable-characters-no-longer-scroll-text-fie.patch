@@ -9,7 +9,7 @@ Subject: [PATCH] fix: unbreakable characters no longer scroll text fields
  1 file changed, 9 insertions(+)
 
 diff --git a/ui/widgets/fields/input_field.cpp b/ui/widgets/fields/input_field.cpp
-index 878dccf59ce9e3c85cdc6b4ae1c82ba23baeeb16..308d948347024007662d4c454df796c2507b1f9a 100644
+index beeec90d6425d42e445199f446e02238f69507af..ccbb7c0d99aae14279c5315462a78c17dcfbddbc 100644
 --- a/ui/widgets/fields/input_field.cpp
 +++ b/ui/widgets/fields/input_field.cpp
 @@ -2023,6 +2023,15 @@ InputField::InputField(

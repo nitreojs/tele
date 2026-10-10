@@ -16,10 +16,10 @@ Subject: [PATCH] feat: jump to the first message of a chat
  create mode 100644 Telegram/SourceFiles/tele/tele_jump_to_first.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 0aa30b6ec42f1ce2128c641894dfd86a4dd23972..ffb84d4ad844a9ab19447b6c3becb9d9df95edf5 100644
+index f4bebfa83c02bc6e42e8b84a8f1f716f3cddd3ac..69f9ab72790072912c83df3df2c509722a3fc8a9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2397,6 +2397,8 @@ PRIVATE
+@@ -2401,6 +2401,8 @@ PRIVATE
      tele/tele_lowercase.h
      tele/tele_message_menu.cpp
      tele/tele_message_menu.h

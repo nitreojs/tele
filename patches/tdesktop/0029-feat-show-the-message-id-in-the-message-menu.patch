@@ -17,10 +17,10 @@ Subject: [PATCH] feat: show the message id in the message menu
  create mode 100644 Telegram/SourceFiles/tele/tele_message_menu.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ef321e6b48c5adb22ca143ab5a92d622c5a676a5..9cf0afcc3b4f7451e0b3ade6778181d922f97997 100644
+index cf3db6d46487ff2b1aa357a3a0b1fbd5ec3d06a8..bf9a3eb46cf3a9b2cb9da126e16b6024040f7a69 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2393,6 +2393,8 @@ PRIVATE
+@@ -2397,6 +2397,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_lowercase.cpp
      tele/tele_lowercase.h

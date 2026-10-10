@@ -20,10 +20,10 @@ Subject: [PATCH] feat: choose when links get previews and set your own
  create mode 100644 Telegram/SourceFiles/tele/tele_link_previews.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4dbfa6fd77d600d9d844fac84d71cf9307dd8331..bc96e51a06e65956e42225eba39d40a6c7b9ac9f 100644
+index d4a2f08a17da434948f3a1d8156ac7c900297d73..0e2edcfa08d1e97ce27e49682fe48fe0f8e040a4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2441,6 +2441,8 @@ PRIVATE
+@@ -2445,6 +2445,8 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h
@@ -33,10 +33,10 @@ index 4dbfa6fd77d600d9d844fac84d71cf9307dd8331..bc96e51a06e65956e42225eba39d40a6
      tele/tele_link_rewrites.h
      tele/tele_link_rewrites_box.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 476a86e1369fe48c05583e46eb4fbe535b6f3016..ddc221d232fef161e214cf527664df799f5de314 100644
+index dfd97571f01ea8b3baec5e68f70739456cc18fca..4aee21787a3661b380f93ed0035bbcdbc4088b09 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -172,6 +172,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
  #include "tele/tele_calcmula_preview.h"
@@ -44,7 +44,7 @@ index 476a86e1369fe48c05583e46eb4fbe535b6f3016..ddc221d232fef161e214cf527664df79
  #include "tele/tele_calls.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
-@@ -531,6 +532,16 @@ HistoryWidget::HistoryWidget(
+@@ -520,6 +521,16 @@ HistoryWidget::HistoryWidget(
  		},
  		.send = [=] { sendWithModifiers(Qt::KeyboardModifiers()); },
  	});
@@ -62,10 +62,10 @@ index 476a86e1369fe48c05583e46eb4fbe535b6f3016..ddc221d232fef161e214cf527664df79
  		checkCharsLimitation();
  		updateAiButtonVisibility();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 14ec0b67e77c8528f1baad7beddb4fee3adcda2d..e87fcbab2aa68e773cfda25ce4efacef9282a35b 100644
+index 3faef1d6a1cb9e6c8587a91e1f8a1c2998d62116..d7e64d5ceca8fc03013195f8ce8e9413eb49506b 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"
  #include "tele/tele_calcmula_preview.h"

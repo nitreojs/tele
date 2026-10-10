@@ -19,10 +19,10 @@ Subject: [PATCH] feat: show new settings after an update
  create mode 100644 Telegram/SourceFiles/tele/tele_new_settings.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7ac715922e3e4964f7782ca7f2faeb0b920cb4b0..6000e1907d5726b715c48422c625bb4c4c9d7621 100644
+index 28c56b646f09ae14cf584bb699e9d13a363cb78f..5ba40e8302b21317832732ac3f3ca6da38acd387 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2469,6 +2469,8 @@ PRIVATE
+@@ -2473,6 +2473,8 @@ PRIVATE
      tele/tele_mtp_inspector.h
      tele/tele_mtp_log.cpp
      tele/tele_mtp_log.h

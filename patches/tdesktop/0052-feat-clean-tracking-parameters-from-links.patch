@@ -20,10 +20,10 @@ Subject: [PATCH] feat: clean tracking parameters from links
  create mode 100644 Telegram/SourceFiles/tele/tele_links.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1b4a5d8e9d46bdf85ea2b33ad7ef45e2bab47f3e..fd7e3b4b7a777db35492c85c95713904b4ec78c8 100644
+index 14afbe6e1542e035153c673718c11647e2460f39..7171747b6972e7d117afcae97f2995cf3798542d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2411,6 +2411,8 @@ PRIVATE
+@@ -2415,6 +2415,8 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h

@@ -28,10 +28,10 @@ Subject: [PATCH] feat: streamer mode
  create mode 100644 Telegram/SourceFiles/tele/tele_streamer_mode.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ceb28404dc5803d7708166d3b238db87529899a2..751199bfb82f8d10b43bd3b4a0ccb207081f4cf9 100644
+index ffcd32d6ecce34eb718ac5288a3d3230ada41da6..853b9b34e19d494b43a424b791b11d19c421f4aa 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2565,6 +2565,8 @@ PRIVATE
+@@ -2569,6 +2569,8 @@ PRIVATE
      tele/tele_silent.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h

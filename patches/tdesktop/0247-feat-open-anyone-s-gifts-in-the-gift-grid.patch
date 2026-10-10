@@ -21,10 +21,10 @@ Subject: [PATCH] feat: open anyone's gifts in the gift grid
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_grid_import.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f76fdd037fd911930e0d6db848494c54fb4a47d1..9b6ae353f87e5f3b424151e4fcb042219252d3cc 100644
+index a47824ba362f9c8e48adc0dd556f6ccfe7ed18e3..6733cf19eef1a9175b481eeb74c4482d72691395 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2496,6 +2496,8 @@ PRIVATE
+@@ -2500,6 +2500,8 @@ PRIVATE
      tele/tele_gift_grid_editor.h
      tele/tele_gift_grid_export.cpp
      tele/tele_gift_grid_export.h

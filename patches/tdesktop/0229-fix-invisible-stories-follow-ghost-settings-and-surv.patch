@@ -21,10 +21,10 @@ Subject: [PATCH] fix: invisible stories follow ghost settings and survive a
  create mode 100644 Telegram/SourceFiles/tele/tele_invisible_stories.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a62d5c640278581f4ab94d8ad6b2808f1e200493..d8f583a6ff9d25a4ae50374c8844d10c4dc69b37 100644
+index ccf88fcbe9b120bd53e309ca4643d85fa4a32be7..9c745513816513cd99fd83670050c1c0db495574 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2540,6 +2540,8 @@ PRIVATE
+@@ -2544,6 +2544,8 @@ PRIVATE
      tele/tele_inline_via.h
      tele/tele_invisible.cpp
      tele/tele_invisible.h
@@ -155,7 +155,7 @@ index bca7823440fa3a20b5153ec36e706c99a2a931b1..efa1754963a54b1996a39bca6d0d4384
  	const auto st2 = st1.shareBox.get();
  	const auto st3 = st2 ? st2->scheduleBox.get() : nullptr;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 61b5191f8d86bc7aa7a2f8ad913cf5683accd68f..6e4bab7de32dd247a20e55369404128b352a9050 100644
+index 32d2a17b26fe95090be9024bb7c2a4f1a09e0680..a91f550e5c03f08bd1753a9709d8461589dfca6d 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -166,7 +166,7 @@ index 61b5191f8d86bc7aa7a2f8ad913cf5683accd68f..6e4bab7de32dd247a20e55369404128b
  #include "tele/tele_lowercase.h"
  #include "tele/tele_options.h"
  #include "tele/tele_peer_id.h"
-@@ -4544,8 +4545,11 @@ void OverlayWidget::show(OpenRequest request) {
+@@ -4534,8 +4535,11 @@ void OverlayWidget::show(OpenRequest request) {
  	const auto story = request.story();
  	if (story && Tele::HideStories()) {
  		return;
@@ -180,7 +180,7 @@ index 61b5191f8d86bc7aa7a2f8ad913cf5683accd68f..6e4bab7de32dd247a20e55369404128b
  		return;
  	}
  	const auto document = story ? story->document() : request.document();
-@@ -4905,9 +4909,11 @@ void OverlayWidget::displayDocument(
+@@ -4895,9 +4899,11 @@ void OverlayWidget::displayDocument(
  void OverlayWidget::displayVideoStream(
  		const std::shared_ptr<Data::GroupCall> &call,
  		anim::activation activation) {

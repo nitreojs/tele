@@ -1,0 +1,514 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 18:23:49 +0300
+Subject: [PATCH] feat: use the blurred profile photo as the profile background
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../info/profile/info_profile_top_bar.cpp     |  30 ++-
+ .../info/profile/info_profile_top_bar.h       |   5 +
+ .../SourceFiles/settings/settings_tele.cpp    |   6 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  14 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../tele/tele_profile_photo_bg.cpp            | 212 ++++++++++++++++++
+ .../SourceFiles/tele/tele_profile_photo_bg.h  |  43 ++++
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 9 files changed, 310 insertions(+), 6 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_profile_photo_bg.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_profile_photo_bg.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index ee848774f7a3c4892b6e6d80f964e1f1be3d19ff..6c77900bede966332a0f5017eb782631c9a17911 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2677,6 +2677,8 @@ PRIVATE
+     tele/tele_phones.h
+     tele/tele_pin_sets.cpp
+     tele/tele_pin_sets.h
++    tele/tele_profile_photo_bg.cpp
++    tele/tele_profile_photo_bg.h
+     tele/tele_profile_preview.cpp
+     tele/tele_profile_preview.h
+     tele/tele_protected.cpp
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
+index e0a9bf602b470fd9a3eb5b4b3f84a1a60145dfad..8030cfba7fc547caae804535dd5f16ba79013ea0 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
+@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calls.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_onlines.h"
++#include "tele/tele_profile_photo_bg.h"
+ #include "tele/tele_verify_details.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_info.h"
+@@ -456,6 +457,9 @@ TopBar::TopBar(
+ 		broadcast->updateFull();
+ 	}
+ 	const auto controller = descriptor.controller;
++	_photoBg = Tele::MakeProfilePhotoBg(
++		_peer,
++		!_topic && !_savedMessages && _source != Source::Preview);
+ 
+ 	if (_peer->isMegagroup() || _peer->isChat()) {
+ 		_statusLabel->setMembersLinkCallback([=, peer = _peer] {
+@@ -576,6 +580,7 @@ TopBar::TopBar(
+ 
+ 	rpl::merge(
+ 		style::PaletteChanged(),
++		Tele::ProfilePhotoBgChanges(_photoBg.get()),
+ 		_peer->session().data().giftUpdates() | rpl::filter([=](
+ 				const Data::GiftUpdate &update) {
+ 			if (update.action == Data::GiftUpdate::Action::Pin) {
+@@ -764,9 +769,11 @@ void TopBar::adjustColors(const std::optional<QColor> &edgeColor) {
+ }
+ 
+ void TopBar::updateCollectibleStatus() {
++	const auto photoEdge = Tele::ProfilePhotoBgEdge(_photoBg.get());
+ 	const auto collectible = effectiveCollectible();
+ 	const auto colorProfile = effectiveColorProfile();
+-	_hasGradientBg = (collectible != nullptr)
++	_hasGradientBg = photoEdge.has_value()
++		|| (collectible != nullptr)
+ 		|| (colorProfile && colorProfile->bg.size() > 1);
+ 	_solidBg = (colorProfile && colorProfile->bg.size() == 1)
+ 		? std::make_optional(colorProfile->bg.front())
+@@ -780,7 +787,7 @@ void TopBar::updateCollectibleStatus() {
+ 		: collectible && collectible->patternDocumentId
+ 		? collectible->patternDocumentId
+ 		: _peer->profileBackgroundEmojiId();
+-	if (patternEmojiId) {
++	if (patternEmojiId && !photoEdge) {
+ 		const auto document = _peer->owner().document(patternEmojiId);
+ 		if (!_patternEmoji
+ 			|| _patternEmoji->entityData()
+@@ -800,7 +807,9 @@ void TopBar::updateCollectibleStatus() {
+ 		_pinnedToTopGifts.clear();
+ 	}
+ 	const auto verifiedFg = [&]() -> std::optional<QColor> {
+-		if (collectible) {
++		if (photoEdge) {
++			return photoEdge;
++		} else if (collectible) {
+ 			return Ui::BlendColors(
+ 				collectible->edgeColor,
+ 				collectible->centerColor,
+@@ -840,7 +849,9 @@ void TopBar::updateCollectibleStatus() {
+ 		_verifiedSt = nullptr;
+ 	}
+ 	update();
+-	adjustColors(collectible
++	adjustColors(photoEdge
++		? photoEdge
++		: collectible
+ 		? std::optional<QColor>(collectible->edgeColor)
+ 		: (colorProfile && !colorProfile->bg.empty())
+ 		? std::optional<QColor>(colorProfile->bg.front())
+@@ -1841,7 +1852,9 @@ void TopBar::setLocalEmojiStatusId(EmojiStatusId emojiStatusId) {
+ }
+ 
+ std::optional<Data::ColorProfileSet> TopBar::effectiveColorProfile() const {
+-	return _localColorProfileIndex
++	return Tele::ProfilePhotoBgActive(_photoBg.get())
++		? std::nullopt
++		: _localColorProfileIndex
+ 		? _peer->session().api().peerColors().colorProfileFor(
+ 			*_localColorProfileIndex)
+ 		: _source == Source::Preview
+@@ -1851,7 +1864,9 @@ std::optional<Data::ColorProfileSet> TopBar::effectiveColorProfile() const {
+ 
+ auto TopBar::effectiveCollectible() const
+ -> std::shared_ptr<Data::EmojiStatusCollectible> {
+-	return _localCollectible
++	return Tele::ProfilePhotoBgActive(_photoBg.get())
++		? nullptr
++		: _localCollectible
+ 		? _localCollectible
+ 		: _localColorProfileIndex
+ 		? nullptr
+@@ -2912,6 +2927,9 @@ void TopBar::paintEvent(QPaintEvent *e) {
+ 				colorProfile->bg[0],
+ 				false,
+ 				offset);
++		} else if (_photoBg) {
++			_cachedGradient = _photoBg->prepare(
++				QSize(width(), maximumHeight()));
+ 		}
+ 	}
+ 	if (!_hasGradientBg) {
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.h b/Telegram/SourceFiles/info/profile/info_profile_top_bar.h
+index 7837dab08c1798c5c595547b7aea4663465e5164..0cf6ce4c4b89120e814d3d2a6a2a6dfff119b5e7 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.h
++++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.h
+@@ -83,6 +83,10 @@ namespace Ui::Menu {
+ struct MenuCallback;
+ } //namespace Ui::Menu
+ 
++namespace Tele {
++class ProfilePhotoBg;
++} // namespace Tele
++
+ namespace Info::Profile {
+ 
+ class Badge;
+@@ -387,6 +391,7 @@ private:
+ 	std::optional<uint8> _localColorProfileIndex;
+ 	std::optional<DocumentId> _localPatternEmojiId;
+ 	std::shared_ptr<Data::EmojiStatusCollectible> _localCollectible;
++	std::unique_ptr<Tele::ProfilePhotoBg> _photoBg;
+ 
+ };
+ 
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 37bd702260184aa8b30042109c1fce90b3741479..a63df902d34fee7ab2aba305b1d6f17f4f18b760 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3753,6 +3753,12 @@ void FillProfiles(SectionBuilder &builder) {
+ 		{ u"invisible"_q, u"unicode"_q, u"zero width"_q, u"blank"_q });
+ 	AddHiddenCharsPreview(builder);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Appearance"_q);
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionProfilePhotoBg,
++		{ u"blur"_q, u"avatar"_q, u"cover"_q, u"background"_q });
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Gifts"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowRegularGiftIds);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 651b0e314561082a10e023554334a3ce63bce2b4..87da799b359686d3471102736dffa07f5f8a34d2 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -247,6 +247,7 @@ const char kOptionInvisibleNamesFallback[] = "tele-invisible-names-fallback";
+ const char kOptionInvisibleNamesPhrase[] = "tele-invisible-names-phrase";
+ const char kOptionShowHiddenChars[] = "tele-show-hidden-chars";
+ const char kOptionForwardOneByOne[] = "tele-forward-one-by-one";
++const char kOptionProfilePhotoBg[] = "tele-profile-photo-bg";
+ 
+ namespace {
+ 
+@@ -1730,6 +1731,11 @@ base::options::toggle ForwardOneByOneOption({
+ 	.description = "Albums stay together; many at once can hit rate limits.",
+ });
+ 
++base::options::toggle ProfilePhotoBgOption({
++	.id = kOptionProfilePhotoBg,
++	.name = "Blurred photo as profile background β",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -3550,4 +3556,12 @@ bool ForwardOneByOne() {
+ 	return ForwardOneByOneOption.value();
+ }
+ 
++bool ProfilePhotoBackground() {
++	return ProfilePhotoBgOption.value();
++}
++
++rpl::producer<> ProfilePhotoBackgroundChanges() {
++	return ProfilePhotoBgOption.changes();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index b3d891168da0970a8ac31253e8396b9a1f41c86d..23fc4aa8c0d87d58f125536b9e51fed982908b7b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -242,6 +242,7 @@ extern const char kOptionInvisibleNamesFallback[];
+ extern const char kOptionInvisibleNamesPhrase[];
+ extern const char kOptionShowHiddenChars[];
+ extern const char kOptionForwardOneByOne[];
++extern const char kOptionProfilePhotoBg[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool WatchStoriesInvisibly();
+@@ -598,5 +599,7 @@ void SetInvisibleNamesPhrase(const QString &value);
+ [[nodiscard]] bool ShowHiddenChars();
+ [[nodiscard]] rpl::producer<bool> ShowHiddenCharsValue();
+ [[nodiscard]] bool ForwardOneByOne();
++[[nodiscard]] bool ProfilePhotoBackground();
++[[nodiscard]] rpl::producer<> ProfilePhotoBackgroundChanges();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_profile_photo_bg.cpp b/Telegram/SourceFiles/tele/tele_profile_photo_bg.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..89534b96697a42f4fd1f21f566d1458c9704d20b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_profile_photo_bg.cpp
+@@ -0,0 +1,212 @@
++#include "tele/tele_profile_photo_bg.h"
++
++#include "data/data_changes.h"
++#include "data/data_channel.h"
++#include "data/data_peer.h"
++#include "data/data_user.h"
++#include "main/main_session.h"
++#include "tele/secret/secret_chats.h"
++#include "tele/tele_options.h"
++#include "ui/image/image_prepare.h"
++#include "ui/painter.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kSide = 96;
++constexpr auto kRadius = 16;
++constexpr auto kTargetLightness = 0.3;
++constexpr auto kMinDarken = 0.2;
++constexpr auto kMaxDarken = 0.7;
++
++[[nodiscard]] not_null<PeerData*> PhotoPeer(not_null<PeerData*> peer) {
++	if (const auto broadcast = peer->monoforumBroadcast()) {
++		return broadcast;
++	} else if (const auto real = Secret::RealUser(peer)) {
++		return real;
++	}
++	return peer;
++}
++
++[[nodiscard]] QColor Average(const QImage &image) {
++	auto r = int64();
++	auto g = int64();
++	auto b = int64();
++	const auto width = image.width();
++	const auto height = image.height();
++	for (auto y = 0; y != height; ++y) {
++		const auto line = reinterpret_cast<const QRgb*>(
++			image.constScanLine(y));
++		for (auto x = 0; x != width; ++x) {
++			r += qRed(line[x]);
++			g += qGreen(line[x]);
++			b += qBlue(line[x]);
++		}
++	}
++	const auto count = std::max(int64(width) * height, int64(1));
++	return QColor(int(r / count), int(g / count), int(b / count));
++}
++
++[[nodiscard]] QImage Blurred(const QImage &photo, QColor &edge) {
++	const auto side = std::min(photo.width(), photo.height());
++	const auto square = (photo.width() == photo.height())
++		? photo
++		: photo.copy(
++			(photo.width() - side) / 2,
++			(photo.height() - side) / 2,
++			side,
++			side);
++	auto result = QImage(
++		QSize(kSide, kSide),
++		QImage::Format_ARGB32_Premultiplied);
++	result.fill(Qt::black);
++	{
++		auto p = QPainter(&result);
++		p.drawImage(0, 0, square.scaled(
++			QSize(kSide, kSide),
++			Qt::IgnoreAspectRatio,
++			Qt::SmoothTransformation));
++	}
++	result = Images::BlurLargeImage(std::move(result), kRadius);
++	result = Images::BlurLargeImage(std::move(result), kRadius);
++	const auto average = Average(result);
++	const auto lightness = 0.299 * average.redF()
++		+ 0.587 * average.greenF()
++		+ 0.114 * average.blueF();
++	const auto darken = (lightness > 0.)
++		? std::clamp(1. - kTargetLightness / lightness, kMinDarken, kMaxDarken)
++		: kMinDarken;
++	{
++		auto p = QPainter(&result);
++		p.fillRect(
++			QRect(0, 0, kSide, kSide),
++			QColor(0, 0, 0, int(darken * 255. + 0.5)));
++	}
++	edge = Average(result);
++	return result;
++}
++
++} // namespace
++
++ProfilePhotoBg::ProfilePhotoBg(not_null<PeerData*> peer)
++: _peer(PhotoPeer(peer)) {
++	[[maybe_unused]] const auto initial = refresh();
++	rpl::merge(
++		ProfilePhotoBackgroundChanges(),
++		_peer->session().changes().peerUpdates(
++			_peer,
++			Data::PeerUpdate::Flag::Photo) | rpl::to_empty
++	) | rpl::on_next([=] {
++		if (refresh()) {
++			_changes.fire({});
++		}
++	}, _lifetime);
++}
++
++bool ProfilePhotoBg::active() const {
++	return !_blurred.isNull();
++}
++
++QColor ProfilePhotoBg::edgeColor() const {
++	return _edge;
++}
++
++rpl::producer<> ProfilePhotoBg::changes() const {
++	return _changes.events();
++}
++
++QImage ProfilePhotoBg::prepare(QSize size) const {
++	const auto ratio = style::DevicePixelRatio();
++	const auto full = size * ratio;
++	if (_blurred.isNull() || full.isEmpty()) {
++		return QImage();
++	}
++	const auto side = _blurred.width();
++	const auto part = (int64(full.width()) >= int64(full.height()))
++		? [&] {
++			const auto height = std::clamp(
++				int(int64(side) * full.height() / full.width()),
++				1,
++				side);
++			return QRect(0, (side - height) / 2, side, height);
++		}()
++		: [&] {
++			const auto width = std::clamp(
++				int(int64(side) * full.width() / full.height()),
++				1,
++				side);
++			return QRect((side - width) / 2, 0, width, side);
++		}();
++	auto result = _blurred.copy(part).scaled(
++		full,
++		Qt::IgnoreAspectRatio,
++		Qt::SmoothTransformation);
++	result.setDevicePixelRatio(ratio);
++	return result;
++}
++
++bool ProfilePhotoBg::refresh() {
++	const auto image = ProfilePhotoBackground()
++		? _peer->userpicCloudImage(_view)
++		: nullptr;
++	if (!image) {
++		if (!ProfilePhotoBackground()) {
++			_view = {};
++			_loading.destroy();
++		} else if (Ui::PeerUserpicLoading(_view)) {
++			waitForLoad();
++			return false;
++		}
++		if (_blurred.isNull()) {
++			return false;
++		}
++		_blurred = QImage();
++		_key = InMemoryKey();
++		return true;
++	}
++	_loading.destroy();
++	const auto key = _peer->userpicUniqueKey(_view);
++	if (!_blurred.isNull() && key == _key) {
++		return false;
++	}
++	_key = key;
++	_blurred = Blurred(*image, _edge);
++	return true;
++}
++
++void ProfilePhotoBg::waitForLoad() {
++	if (_loading) {
++		return;
++	}
++	_peer->session().downloaderTaskFinished(
++	) | rpl::filter([=] {
++		return !Ui::PeerUserpicLoading(_view);
++	}) | rpl::on_next([=] {
++		_loading.destroy();
++		if (refresh()) {
++			_changes.fire({});
++		}
++	}, _loading);
++}
++
++std::unique_ptr<ProfilePhotoBg> MakeProfilePhotoBg(
++		not_null<PeerData*> peer,
++		bool allowed) {
++	return allowed ? std::make_unique<ProfilePhotoBg>(peer) : nullptr;
++}
++
++bool ProfilePhotoBgActive(const ProfilePhotoBg *bg) {
++	return bg && bg->active();
++}
++
++std::optional<QColor> ProfilePhotoBgEdge(const ProfilePhotoBg *bg) {
++	return ProfilePhotoBgActive(bg)
++		? std::make_optional(bg->edgeColor())
++		: std::nullopt;
++}
++
++rpl::producer<> ProfilePhotoBgChanges(const ProfilePhotoBg *bg) {
++	return bg ? bg->changes() : rpl::never<>();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_profile_photo_bg.h b/Telegram/SourceFiles/tele/tele_profile_photo_bg.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..a2c91e2ed6225c7eb4fb4bc926e9a73aec6ff8b0
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_profile_photo_bg.h
+@@ -0,0 +1,43 @@
++#pragma once
++
++#include "ui/image/image_location.h"
++#include "ui/userpic_view.h"
++
++class PeerData;
++
++namespace Tele {
++
++class ProfilePhotoBg final {
++public:
++	explicit ProfilePhotoBg(not_null<PeerData*> peer);
++
++	[[nodiscard]] bool active() const;
++	[[nodiscard]] QColor edgeColor() const;
++	[[nodiscard]] QImage prepare(QSize size) const;
++	[[nodiscard]] rpl::producer<> changes() const;
++
++private:
++	[[nodiscard]] bool refresh();
++	void waitForLoad();
++
++	const not_null<PeerData*> _peer;
++	Ui::PeerUserpicView _view;
++	InMemoryKey _key;
++	QImage _blurred;
++	QColor _edge;
++	rpl::event_stream<> _changes;
++	rpl::lifetime _loading;
++	rpl::lifetime _lifetime;
++
++};
++
++[[nodiscard]] std::unique_ptr<ProfilePhotoBg> MakeProfilePhotoBg(
++	not_null<PeerData*> peer,
++	bool allowed);
++[[nodiscard]] bool ProfilePhotoBgActive(const ProfilePhotoBg *bg);
++[[nodiscard]] std::optional<QColor> ProfilePhotoBgEdge(
++	const ProfilePhotoBg *bg);
++[[nodiscard]] rpl::producer<> ProfilePhotoBgChanges(
++	const ProfilePhotoBg *bg);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 00ff6402cc4630025c08547ab7fd1c380aac40a6..daf7971f08fe80c0280a92ea9e1e78385e4299c6 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -267,6 +267,7 @@ struct Spec {
+ 		Toggle(kOptionResizableField),
+ 		Toggle(kOptionNoPhoneInHeader),
+ 		Toggle(kOptionHidePhoneInProfile),
++		Toggle(kOptionProfilePhotoBg),
+ 		Toggle(kOptionStickerCaptionsShow),
+ 		Toggle(kOptionStickerCaptionsSend),
+ 		Toggle(kOptionChainMentions),

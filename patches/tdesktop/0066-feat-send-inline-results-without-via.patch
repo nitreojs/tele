@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send inline results without via
  create mode 100644 Telegram/SourceFiles/tele/tele_inline_via.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9faf752cb9d6dcc0dbe55445ca7d19110ca23349..1665058513530a2df784d63e2de8eaae0ab73c2c 100644
+index eae748e55735fc11fbecf0176a1d7c7536be583e..251d61d8fcacbe9905bfd3f85e7de781f107d745 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2411,6 +2411,8 @@ PRIVATE
+@@ -2415,6 +2415,8 @@ PRIVATE
      tele/tele_ghost.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h

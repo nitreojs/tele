@@ -16,10 +16,10 @@ Subject: [PATCH] feat: show collectible prices at the purchase date
  create mode 100644 Telegram/SourceFiles/tele/tele_collectible_price.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 15dc78b3538f51396bb62be73951e2c7e7e6f532..174930d6c4f78119d75b6a87b4e63b4dbeaef501 100644
+index 5746b0e065cb33af5f8fd2f76d9a82c631ca1fac..ad2710a40eab95882f4c38e2de67ae0ea7c8e0a3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2399,6 +2399,8 @@ PRIVATE
+@@ -2403,6 +2403,8 @@ PRIVATE
      tele/tele_changelog_section.h
      tele/tele_chat_backgrounds.cpp
      tele/tele_chat_backgrounds.h

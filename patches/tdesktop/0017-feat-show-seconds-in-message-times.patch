@@ -18,10 +18,10 @@ Subject: [PATCH] feat: show seconds in message times
  create mode 100644 Telegram/SourceFiles/tele/tele_time.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a5378aeee88abc3e230d1bdd04108cfdca6b5f9f..7ac06bf74ac10159b9857de91c69918b5cb3fb05 100644
+index 44fc0c0edd2a8a65c31067ae50adcf830ec44e65..3f4e5390ed24324861b38efcb914240a28aa25bf 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2391,6 +2391,8 @@ PRIVATE
+@@ -2395,6 +2395,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h

@@ -29,10 +29,10 @@ Subject: [PATCH] feat: folders past the limit
  create mode 100644 Telegram/SourceFiles/tele/tele_local_folders.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 11e381203e66da23f5f55b018d6bdcdb896884d1..91a8f527e3735e0ed4e81b9ea7bc58f61ec8278c 100644
+index da3308f40d5d53c73ca96419b4c6ff7521acc628..9a379513b48a93adeffc055ae0b685b73f306dd2 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2457,6 +2457,8 @@ PRIVATE
+@@ -2461,6 +2461,8 @@ PRIVATE
      tele/tele_inline_via.h
      tele/tele_local_drafts.cpp
      tele/tele_local_drafts.h

@@ -25,10 +25,10 @@ Subject: [PATCH] feat: view messages and telegram objects as tl
  create mode 100644 Telegram/SourceFiles/tele/tele_view_tl.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b7f5fc2f14cd49d50d0020f63606374237f669c3..65c92211249d535cf4748fdb041cd00fb322c555 100644
+index aa6e8de59d0cad4af8d49c83f48edfbf22ad762c..3db2bb62b60b0699c666b4607fc869cb960ad86e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2415,6 +2415,8 @@ PRIVATE
+@@ -2419,6 +2419,8 @@ PRIVATE
      tele/tele_title.h
      tele/tele_updater.cpp
      tele/tele_updater.h
@@ -137,7 +137,7 @@ index 2346bf37de5bf2ffcce351cc2ac487b7e67174dc..77e42a05e2616c6906ec664da97adc63
  		menu->addSeparator();
  		menu->addAction(
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 286267b43868d672ea8de016294d1fbba6061329..1bdbfc62dbbe03b14e46a8675fd234823e2e9859 100644
+index 9facc4f57b8e9c3e477aa3fc084732ac1eeaa75e..11be5fec31574833d48d9f31c5fb077b44e55876 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -148,7 +148,7 @@ index 286267b43868d672ea8de016294d1fbba6061329..1bdbfc62dbbe03b14e46a8675fd23482
  
  #include <QGraphicsOpacityEffect>
  
-@@ -2519,6 +2520,7 @@ void OverlayWidget::fillContextMenuActions(
+@@ -2509,6 +2510,7 @@ void OverlayWidget::fillContextMenuActions(
  			_stories->reportRequested();
  		}, &st::mediaMenuIconReport);
  	}

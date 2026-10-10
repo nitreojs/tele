@@ -18,10 +18,10 @@ Subject: [PATCH] feat: regex search in loaded history
  create mode 100644 Telegram/SourceFiles/tele/tele_regex_search.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a0a6c3dba380d4128122ce7f48e652fd46e45db8..3322770a59715d151550974320486bb8c494ebdd 100644
+index 991e8c2f91389a43ff5dfefab58b52101e0d8783..e7825a211b9df1acd76e84038c2f394d5e33a164 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2545,6 +2545,8 @@ PRIVATE
+@@ -2549,6 +2549,8 @@ PRIVATE
      tele/tele_recent_emoji.h
      tele/tele_reduce_motion.cpp
      tele/tele_reduce_motion.h

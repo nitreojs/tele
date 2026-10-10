@@ -20,10 +20,10 @@ Subject: [PATCH] feat: ignore users by hiding or fading their messages
  create mode 100644 Telegram/SourceFiles/tele/tele_ignored.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b3920ad929d19e676bd5125ac4efc794b73b87b3..a5378aeee88abc3e230d1bdd04108cfdca6b5f9f 100644
+index 44f26a278216e3c7dc0acc8780d367bcd67bc84b..44fc0c0edd2a8a65c31067ae50adcf830ec44e65 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2383,6 +2383,8 @@ PRIVATE
+@@ -2387,6 +2387,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_gifts.cpp
      tele/tele_gifts.h

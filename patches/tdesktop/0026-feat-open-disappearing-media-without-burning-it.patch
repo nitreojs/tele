@@ -21,10 +21,10 @@ Subject: [PATCH] feat: open disappearing media without burning it
  create mode 100644 Telegram/SourceFiles/tele/tele_secret_media.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3b0f62059add1c0ac8a870c59ea1d1154864dd14..ef321e6b48c5adb22ca143ab5a92d622c5a676a5 100644
+index 2afa31b5ada3b3d62cb7b14acec2e346391ebc2d..cf3db6d46487ff2b1aa357a3a0b1fbd5ec3d06a8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2397,6 +2397,8 @@ PRIVATE
+@@ -2401,6 +2401,8 @@ PRIVATE
      tele/tele_options.h
      tele/tele_peer_id.cpp
      tele/tele_peer_id.h
@@ -130,7 +130,7 @@ index f8d0e1c130b90eed7970fe7bc01537788e9d3bec..add37f41264c654c9b13b3ab954eedeb
  
  				auto lifetime = std::make_shared<rpl::lifetime>();
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 90244a87b33a094f2d1fcd1705d60a8ee8832301..d8c25a2a61679960d50cf728b3724c6f6cfdb193 100644
+index 5dd14a758057df70041d022d3346a240932aff18..854307f9e0f29d8ebdce71ef0654cb6c0e9cec73 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -63,6 +63,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -152,7 +152,7 @@ index 90244a87b33a094f2d1fcd1705d60a8ee8832301..d8c25a2a61679960d50cf728b3724c6f
  			TTLVoiceStops(fullId) | rpl::on_next([=]() mutable {
  				if (lifetime) {
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 4b7d030e97b1f1f1eea0899c560ef25325c39dea..df5d483381d4f4aa6d428b14e76b48c5000cb446 100644
+index 74666e204aacc917ccc94a1f82e4426a4b1882ad..bc50a18533d4e25a0986cd077642ba3669b09b15 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

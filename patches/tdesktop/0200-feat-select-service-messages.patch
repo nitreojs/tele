@@ -18,10 +18,10 @@ Subject: [PATCH] feat: select service messages
  create mode 100644 Telegram/SourceFiles/tele/tele_select_service.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c2ba1caf9a1eed24c220e75fb71fae4aa65aa2f7..73ca46a8cc9144f4d7fc8cc94a0587e9b796410a 100644
+index fa50f2905b00f511e9ca85976bec4936a86e3c6f..3eef8fee195f9992e88a2cc3c95ed1ebb39cfbb3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2609,6 +2609,8 @@ PRIVATE
+@@ -2613,6 +2613,8 @@ PRIVATE
      tele/tele_screen_capture.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h

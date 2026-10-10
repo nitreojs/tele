@@ -17,10 +17,10 @@ Subject: [PATCH] feat: compute messages starting with = via calcmula
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 0d0632904c958baf60e273a4c489e6e1c2986796..a4f518fea2d0b0d9eaeec03f06bcfe6cf577ebe3 100644
+index 29b4a6881aa1bd457f853a753de7ed4d6f16aa8c..159bbdac19b7f230c783ffdf861e185aa94a3ccf 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2383,6 +2383,8 @@ PRIVATE
+@@ -2387,6 +2387,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h

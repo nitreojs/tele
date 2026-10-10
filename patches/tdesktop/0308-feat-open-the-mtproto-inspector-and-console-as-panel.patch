@@ -1,0 +1,576 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 18:10:59 +0300
+Subject: [PATCH] feat: open the mtproto inspector and console as panels
+
+---
+ Telegram/SourceFiles/core/application.cpp     |   7 +-
+ .../SourceFiles/tele/tele_mtp_console.cpp     | 116 +++++------
+ .../SourceFiles/tele/tele_mtp_inspector.cpp   | 185 +++++++++++-------
+ .../SourceFiles/tele/tele_mtp_inspector.h     |   9 +
+ 4 files changed, 182 insertions(+), 135 deletions(-)
+
+diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
+index 00cf01169b623f38279919fdfc423e8d0d18ff13..762ce9abd0e0843ee30c71d765d14b32112009f8 100644
+--- a/Telegram/SourceFiles/core/application.cpp
++++ b/Telegram/SourceFiles/core/application.cpp
+@@ -107,6 +107,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_reduce_motion.h"
+ #include "tele/tele_list_keys.h"
+ #include "tele/tele_mtp_console.h"
++#include "tele/tele_mtp_inspector.h"
+ #include "tele/tele_counters.h"
+ #include "tele/tele_bubble_padding.h"
+ #include "tele/tele_freeze_watchdog.h"
+@@ -1841,7 +1842,8 @@ bool Application::closeActiveWindow() {
+ 		|| Iv::Editor::CloseActiveWindow()
+ 		|| calls().closeCurrentActiveCall()
+ 		|| (_savedWindows && _savedWindows->closeActiveShell())
+-		|| Wallet::CloseActiveWindow()) {
++		|| Wallet::CloseActiveWindow()
++		|| Tele::CloseActiveMtpPanel()) {
+ 		return true;
+ 	} else if (const auto window = activeWindow()) {
+ 		if (window->widget()->isActive()) {
+@@ -1859,7 +1861,8 @@ bool Application::minimizeActiveWindow() {
+ 	} else if (_iv->minimizeActive()
+ 		|| Iv::Editor::MinimizeActiveWindow()
+ 		|| calls().minimizeCurrentActiveCall()
+-		|| Wallet::MinimizeActiveWindow()) {
++		|| Wallet::MinimizeActiveWindow()
++		|| Tele::MinimizeActiveMtpPanel()) {
+ 		return true;
+ 	} else if (const auto window = activeWindow()) {
+ 		if (window->widget()->isActive()) {
+diff --git a/Telegram/SourceFiles/tele/tele_mtp_console.cpp b/Telegram/SourceFiles/tele/tele_mtp_console.cpp
+index 17ccc12bcb7254cb2727abf28f00fa6f43683ab8..188084b833c0a0a14971010c1cdf544b60cc2370 100644
+--- a/Telegram/SourceFiles/tele/tele_mtp_console.cpp
++++ b/Telegram/SourceFiles/tele/tele_mtp_console.cpp
+@@ -1,5 +1,8 @@
+ #include "tele/tele_mtp_console.h"
+ 
++#include "base/event_filter.h"
++#include "base/invoke_queued.h"
++#include "base/qt_signal_producer.h"
+ #include "core/application.h"
+ #include "core/file_utilities.h"
+ #include "core/shortcuts.h"
+@@ -15,20 +18,18 @@
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/attach/attach_bot_webview.h"
+ #include "ui/webview_helpers.h"
+-#include "ui/widgets/rp_window.h"
++#include "ui/widgets/separate_panel.h"
+ #include "webview/webview_data_stream_memory.h"
+ #include "webview/webview_embed.h"
+ #include "webview/webview_interface.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+ #include "styles/palette.h"
+-#include "styles/style_window.h"
+ 
+ #include <QtCore/QJsonDocument>
+ #include <QtGui/QClipboard>
+ #include <QtGui/QGuiApplication>
+-#include <QtGui/QPainter>
+-#include <QtGui/QScreen>
++#include <QtGui/QWindow>
+ #include <QtWidgets/QApplication>
+ 
+ #include <charconv>
+@@ -77,7 +78,7 @@ public:
+ 	void activate();
+ 
+ private:
+-	void createWindow(QRect parent);
++	void createPanel();
+ 	[[nodiscard]] bool createWebview(const Webview::StorageId &storageId);
+ 	void handle(const QJsonObject &message);
+ 	void notify(const QString &method, const QJsonValue &argument);
+@@ -86,7 +87,7 @@ private:
+ 
+ 	const not_null<Main::Session*> _session;
+ 	MtpConsoleRequests _requests;
+-	std::unique_ptr<Ui::RpWindow> _window;
++	std::unique_ptr<Ui::SeparatePanel> _panel;
+ 	Ui::RpWidget *_container = nullptr;
+ 	std::unique_ptr<Webview::Window> _webview;
+ 
+@@ -124,22 +125,19 @@ Console::Console(std::shared_ptr<Main::SessionShow> show)
+ 		notify(u"history"_q, _requests.history());
+ 	},
+ }) {
+-	const auto active = QApplication::activeWindow();
+-	createWindow(active
+-		? active->geometry()
+-		: QGuiApplication::primaryScreen()->availableGeometry());
++	createPanel();
+ 	if (!createWebview(_session->local().resolveStorageIdOther())) {
+ 		return;
+ 	}
+ }
+ 
+ Console::~Console() {
+-	if (_window) {
+-		_window->hide();
++	if (_panel) {
++		_panel->hide();
+ 	}
+ 	base::take(_webview);
+ 	_container = nullptr;
+-	base::take(_window);
++	base::take(_panel);
+ }
+ 
+ bool Console::valid() const {
+@@ -151,63 +149,38 @@ not_null<Main::Session*> Console::session() const {
+ }
+ 
+ void Console::activate() {
+-	if (_window->isMinimized()) {
+-		_window->showNormal();
+-	} else if (_window->isHidden()) {
+-		_window->show();
++	const auto state = _panel->windowState();
++	if (state & Qt::WindowMinimized) {
++		_panel->setWindowState(state & ~Qt::WindowMinimized);
+ 	}
+-	_window->raise();
+-	_window->activateWindow();
+-	if (_webview) {
+-		_webview->focus();
++	_panel->showAndActivate();
++	if (const auto widget = _webview ? _webview->widget() : nullptr) {
++		InvokeQueued(widget, [=] {
++			if (_webview && widget->isVisible()) {
++				_webview->focus();
++			}
++		});
+ 		notify(u"focus"_q, QJsonObject());
+ 	}
+ }
+ 
+-void Console::createWindow(QRect parent) {
+-	_window = std::make_unique<Ui::RpWindow>();
+-	const auto window = _window.get();
+-	window->setWindowTitle(Lower(u"MTProto console"_q));
+-	window->setMinimumSize({ st::windowMinWidth, st::windowMinHeight });
+-
+-	auto rect = QRect(
+-		QPoint(),
+-		QSize(style::ConvertScale(1100), style::ConvertScale(720)));
+-	if (const auto screen = QGuiApplication::screenAt(parent.center())) {
+-		const auto available = screen->availableGeometry();
+-		rect.setSize(rect.size().boundedTo(available.size()));
+-		rect.moveCenter(parent.center());
+-		rect.moveLeft(std::clamp(
+-			rect.left(),
+-			available.left(),
+-			available.left() + available.width() - rect.width()));
+-		rect.moveTop(std::clamp(
+-			rect.top(),
+-			available.top(),
+-			available.top() + available.height() - rect.height()));
+-	} else {
+-		rect.moveCenter(parent.center());
+-	}
+-	window->setGeometry(rect);
+-
+-	_container = Ui::CreateChild<Ui::RpWidget>(window->body().get());
+-	window->body()->sizeValue(
+-	) | rpl::on_next([=](QSize size) {
+-		_container->setGeometry(QRect(QPoint(), size));
+-	}, _container->lifetime());
+-	_container->paintRequest() | rpl::on_next([=](QRect clip) {
+-		QPainter(_container).fillRect(clip, st::windowBg);
+-	}, _container->lifetime());
+-
+-	window->events(
+-	) | rpl::on_next([=](not_null<QEvent*> e) {
+-		if (e->type() == QEvent::Close) {
+-			RequestClose(this);
+-		}
+-	}, window->lifetime());
++void Console::createPanel() {
++	_panel = CreateMtpPanel(Lower(u"MTProto console"_q));
++	const auto panel = _panel.get();
++	base::install_event_filter(panel, [](not_null<QEvent*> e) {
++		return (e->type() == QEvent::KeyPress
++			&& static_cast<QKeyEvent*>(e.get())->key() == Qt::Key_Escape)
++			? base::EventFilterResult::Cancel
++			: base::EventFilterResult::Continue;
++	});
++	panel->closeRequests(
++	) | rpl::on_next([=] {
++		RequestClose(this);
++	}, panel->lifetime());
+ 
+-	_container->show();
+-	window->show();
++	auto container = base::make_unique_q<Ui::RpWidget>(panel);
++	_container = container.get();
++	panel->showInner(std::move(container));
+ }
+ 
+ bool Console::createWebview(const Webview::StorageId &storageId) {
+@@ -231,6 +204,19 @@ bool Console::createWebview(const Webview::StorageId &storageId) {
+ 			widget->setGeometry(QRect(QPoint(), size));
+ 		}
+ 	}, _container->lifetime());
++	base::qt_signal_producer(
++		qApp,
++		&QGuiApplication::focusWindowChanged
++	) | rpl::filter([=](QWindow *focused) {
++		const auto handle = _panel->windowHandle();
++		const auto widget = raw->widget();
++		return widget
++			&& !widget->isHidden()
++			&& handle
++			&& (focused == handle);
++	}) | rpl::on_next([=] {
++		raw->focus();
++	}, raw->lifetime());
+ 	QObject::connect(widget, &QObject::destroyed, [=] {
+ 		if (_webview) {
+ 			RequestClose(this);
+@@ -258,7 +244,7 @@ bool Console::createWebview(const Webview::StorageId &storageId) {
+ 	raw->setNavigationDoneHandler([](bool) {
+ 	});
+ 	raw->setMessageHandler([=](const QJsonDocument &message) {
+-		crl::on_main(_window.get(), [=] {
++		crl::on_main(_panel.get(), [=] {
+ 			handle(message.object());
+ 		});
+ 	});
+diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
+index df6086906fe0033c03545ad1a2a3bd0cc96a21c2..1b276d0c2a35b63da88fd78f35db70e7c9e9f356 100644
+--- a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
++++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
+@@ -1,6 +1,9 @@
+ #include "tele/tele_mtp_inspector.h"
+ 
++#include "base/invoke_queued.h"
++#include "base/qt_signal_producer.h"
+ #include "core/file_utilities.h"
++#include "core/shortcuts.h"
+ #include "data/data_peer.h"
+ #include "dialogs/dialogs_key.h"
+ #include "history/history.h"
+@@ -16,15 +19,15 @@
+ #include "tele/tele_view_tl.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/attach/attach_bot_webview.h"
++#include "ui/ui_utility.h"
+ #include "ui/webview_helpers.h"
+-#include "ui/widgets/rp_window.h"
++#include "ui/widgets/separate_panel.h"
+ #include "webview/webview_data_stream_memory.h"
+ #include "webview/webview_embed.h"
+ #include "webview/webview_interface.h"
+ #include "window/themes/window_theme.h"
+ #include "styles/palette.h"
+ #include "styles/style_menu_icons.h"
+-#include "styles/style_window.h"
+ 
+ #include <QtCore/QFile>
+ #include <QtCore/QJsonArray>
+@@ -35,8 +38,8 @@
+ #include <QtWidgets/QApplication>
+ #include <QtGui/QDesktopServices>
+ #include <QtGui/QGuiApplication>
+-#include <QtGui/QPainter>
+ #include <QtGui/QScreen>
++#include <QtGui/QWindow>
+ 
+ #include <charconv>
+ 
+@@ -46,6 +49,7 @@ namespace {
+ constexpr auto kPrefix = std::string_view("tele-mtp/");
+ constexpr auto kSchemaPrefix = "https://schema.jppgr.am/";
+ constexpr auto kJson = "application/json; charset=utf-8";
++constexpr auto kPanelName = "TeleMtpPanel";
+ 
+ [[nodiscard]] QByteArray Page(const QString &query) {
+ 	auto result = MtpWebviewResource(u"mtp_inspector.html"_q);
+@@ -83,7 +87,7 @@ public:
+ 	void setQuery(const QString &query);
+ 
+ private:
+-	void createWindow(QRect parent);
++	void createPanel();
+ 	[[nodiscard]] bool createWebview(const Webview::StorageId &storageId);
+ 	void handle(const QJsonObject &message);
+ 	void notify(const QString &method, const QJsonObject &argument);
+@@ -94,7 +98,7 @@ private:
+ 	const not_null<Main::Session*> _session;
+ 	MtpLog _log;
+ 	QString _query;
+-	std::unique_ptr<Ui::RpWindow> _window;
++	std::unique_ptr<Ui::SeparatePanel> _panel;
+ 	Ui::RpWidget *_container = nullptr;
+ 	std::unique_ptr<Webview::Window> _webview;
+ 	rpl::lifetime _lifetime;
+@@ -103,6 +107,12 @@ private:
+ 
+ std::unique_ptr<Inspector> Instance;
+ 
++[[nodiscard]] QWidget *ActivePanel() {
++	const auto window = QApplication::activeWindow();
++	const auto name = QString::fromLatin1(kPanelName);
++	return (window && window->objectName() == name) ? window : nullptr;
++}
++
+ void RequestClose(not_null<Inspector*> inspector) {
+ 	crl::on_main([=] {
+ 		if (Instance.get() == inspector) {
+@@ -114,10 +124,7 @@ void RequestClose(not_null<Inspector*> inspector) {
+ Inspector::Inspector(not_null<Main::Session*> session, const QString &query)
+ : _session(session)
+ , _query(query) {
+-	const auto active = QApplication::activeWindow();
+-	createWindow(active
+-		? active->geometry()
+-		: QGuiApplication::primaryScreen()->availableGeometry());
++	createPanel();
+ 	if (!createWebview(session->local().resolveStorageIdOther())) {
+ 		return;
+ 	}
+@@ -135,12 +142,12 @@ Inspector::Inspector(not_null<Main::Session*> session, const QString &query)
+ }
+ 
+ Inspector::~Inspector() {
+-	if (_window) {
+-		_window->hide();
++	if (_panel) {
++		_panel->hide();
+ 	}
+ 	base::take(_webview);
+ 	_container = nullptr;
+-	base::take(_window);
++	base::take(_panel);
+ }
+ 
+ bool Inspector::valid() const {
+@@ -148,15 +155,17 @@ bool Inspector::valid() const {
+ }
+ 
+ void Inspector::activate() {
+-	if (_window->isMinimized()) {
+-		_window->showNormal();
+-	} else if (_window->isHidden()) {
+-		_window->show();
++	const auto state = _panel->windowState();
++	if (state & Qt::WindowMinimized) {
++		_panel->setWindowState(state & ~Qt::WindowMinimized);
+ 	}
+-	_window->raise();
+-	_window->activateWindow();
+-	if (_webview) {
+-		_webview->focus();
++	_panel->showAndActivate();
++	if (const auto widget = _webview ? _webview->widget() : nullptr) {
++		InvokeQueued(widget, [=] {
++			if (_webview && widget->isVisible()) {
++				_webview->focus();
++			}
++		});
+ 	}
+ 	_log.refresh();
+ }
+@@ -166,53 +175,17 @@ void Inspector::setQuery(const QString &query) {
+ 	notify(u"setQuery"_q, { { u"query"_q, query } });
+ }
+ 
+-void Inspector::createWindow(QRect parent) {
+-	_window = std::make_unique<Ui::RpWindow>();
+-	const auto window = _window.get();
+-	window->setWindowTitle(Lower(u"MTProto inspector"_q));
+-	window->setMinimumSize({ st::windowMinWidth, st::windowMinHeight });
+-
+-	auto rect = QRect(
+-		QPoint(),
+-		QSize(style::ConvertScale(1100), style::ConvertScale(720)));
+-	if (const auto screen = QGuiApplication::screenAt(parent.center())) {
+-		const auto available = screen->availableGeometry();
+-		rect.setSize(rect.size().boundedTo(available.size()));
+-		rect.moveCenter(parent.center());
+-		rect.moveLeft(std::clamp(
+-			rect.left(),
+-			available.left(),
+-			available.left() + available.width() - rect.width()));
+-		rect.moveTop(std::clamp(
+-			rect.top(),
+-			available.top(),
+-			available.top() + available.height() - rect.height()));
+-	} else {
+-		rect.moveCenter(parent.center());
+-	}
+-	window->setGeometry(rect);
+-
+-	_container = Ui::CreateChild<Ui::RpWidget>(window->body().get());
+-	window->body()->sizeValue(
+-	) | rpl::on_next([=](QSize size) {
+-		_container->setGeometry(QRect(QPoint(), size));
+-	}, _container->lifetime());
+-	_container->paintRequest() | rpl::on_next([=](QRect clip) {
+-		QPainter(_container).fillRect(clip, st::windowBg);
+-	}, _container->lifetime());
+-
+-	window->events(
+-	) | rpl::on_next([=](not_null<QEvent*> e) {
+-		if (e->type() == QEvent::Close) {
+-			RequestClose(this);
+-		} else if (e->type() == QEvent::KeyPress
+-			&& static_cast<QKeyEvent*>(e.get())->key() == Qt::Key_Escape) {
+-			RequestClose(this);
+-		}
+-	}, window->lifetime());
++void Inspector::createPanel() {
++	_panel = CreateMtpPanel(Lower(u"MTProto inspector"_q));
++	const auto panel = _panel.get();
++	panel->closeRequests(
++	) | rpl::on_next([=] {
++		RequestClose(this);
++	}, panel->lifetime());
+ 
+-	_container->show();
+-	window->show();
++	auto container = base::make_unique_q<Ui::RpWidget>(panel);
++	_container = container.get();
++	panel->showInner(std::move(container));
+ }
+ 
+ bool Inspector::createWebview(const Webview::StorageId &storageId) {
+@@ -236,6 +209,19 @@ bool Inspector::createWebview(const Webview::StorageId &storageId) {
+ 			widget->setGeometry(QRect(QPoint(), size));
+ 		}
+ 	}, _container->lifetime());
++	base::qt_signal_producer(
++		qApp,
++		&QGuiApplication::focusWindowChanged
++	) | rpl::filter([=](QWindow *focused) {
++		const auto handle = _panel->windowHandle();
++		const auto widget = raw->widget();
++		return widget
++			&& !widget->isHidden()
++			&& handle
++			&& (focused == handle);
++	}) | rpl::on_next([=] {
++		raw->focus();
++	}, raw->lifetime());
+ 	QObject::connect(widget, &QObject::destroyed, [=] {
+ 		if (_webview) {
+ 			RequestClose(this);
+@@ -263,7 +249,7 @@ bool Inspector::createWebview(const Webview::StorageId &storageId) {
+ 	raw->setNavigationDoneHandler([](bool) {
+ 	});
+ 	raw->setMessageHandler([=](const QJsonDocument &message) {
+-		crl::on_main(_window.get(), [=] {
++		crl::on_main(_panel.get(), [=] {
+ 			handle(message.object());
+ 		});
+ 	});
+@@ -299,7 +285,7 @@ void Inspector::handle(const QJsonObject &message) {
+ 	} else if (event == u"refresh"_q) {
+ 		_log.refresh();
+ 	} else if (event == u"clear"_q) {
+-		ClearDebugLogs(crl::guard(_window.get(), [=](QString text) {
++		ClearDebugLogs(crl::guard(_panel.get(), [=](QString text) {
+ 			notify(u"flash"_q, { { u"text"_q, text } });
+ 		}));
+ 	} else if (event == u"close"_q) {
+@@ -457,6 +443,69 @@ QByteArray MtpWebviewResource(const QString &name) {
+ 	return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+ }
+ 
++std::unique_ptr<Ui::SeparatePanel> CreateMtpPanel(const QString &title) {
++	auto result = std::make_unique<Ui::SeparatePanel>();
++	const auto panel = result.get();
++	panel->setObjectName(QString::fromLatin1(kPanelName));
++	panel->setWindowFlag(Qt::WindowStaysOnTopHint, false);
++	panel->setWindowTitle(title);
++	panel->setTitle(rpl::single(title));
++	Shortcuts::Listen(panel);
++
++	const auto active = QApplication::activeWindow();
++	const auto screen = active
++		? active->screen()
++		: QGuiApplication::primaryScreen();
++	const auto available = screen ? screen->availableGeometry() : QRect();
++	auto size = QSize(style::ConvertScale(1100), style::ConvertScale(720));
++	if (!available.isEmpty()) {
++		size = size.boundedTo(available.size());
++	}
++	panel->setInnerSize(size, true);
++
++	const auto frame = panel->size() - panel->innerGeometry().size();
++	panel->setMinimumSize(
++		QSize(style::ConvertScale(560), style::ConvertScale(400)) + frame);
++	if (!available.isEmpty()) {
++		const auto geometry = panel->geometry();
++		const auto bounded = geometry.size().boundedTo(
++			available.size()
++		).expandedTo(panel->minimumSize());
++		if (bounded != geometry.size()) {
++			auto rect = QRect(QPoint(), bounded);
++			rect.moveCenter(geometry.center());
++			rect.moveLeft(std::max(
++				available.left(),
++				std::min(
++					rect.left(),
++					available.left() + available.width() - rect.width())));
++			rect.moveTop(std::max(
++				available.top(),
++				std::min(
++					rect.top(),
++					available.top() + available.height() - rect.height())));
++			Ui::SetGeometryAndScreen(panel, rect);
++		}
++	}
++	return result;
++}
++
++bool CloseActiveMtpPanel() {
++	if (const auto panel = ActivePanel()) {
++		panel->close();
++		return true;
++	}
++	return false;
++}
++
++bool MinimizeActiveMtpPanel() {
++	if (const auto panel = ActivePanel()) {
++		panel->setWindowState(panel->windowState() | Qt::WindowMinimized);
++		return true;
++	}
++	return false;
++}
++
+ void ShowMtpInspector(
+ 		std::shared_ptr<Main::SessionShow> show,
+ 		const QString &query) {
+diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.h b/Telegram/SourceFiles/tele/tele_mtp_inspector.h
+index 01cad26a0aab8765b2fcaea9bea55a73a38e97a3..6cfbe84dd02db6b964876135fc8a289fb4fd6db7 100644
+--- a/Telegram/SourceFiles/tele/tele_mtp_inspector.h
++++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.h
+@@ -13,11 +13,20 @@ namespace Main {
+ class SessionShow;
+ } // namespace Main
+ 
++namespace Ui {
++class SeparatePanel;
++} // namespace Ui
++
+ namespace Tele {
+ 
+ [[nodiscard]] QByteArray MtpWebviewStyles();
+ [[nodiscard]] QByteArray MtpWebviewResource(const QString &name);
+ 
++[[nodiscard]] std::unique_ptr<Ui::SeparatePanel> CreateMtpPanel(
++	const QString &title);
++bool CloseActiveMtpPanel();
++bool MinimizeActiveMtpPanel();
++
+ void ShowMtpInspector(
+ 	std::shared_ptr<Main::SessionShow> show,
+ 	const QString &query = QString());

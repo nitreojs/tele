@@ -19,10 +19,10 @@ Subject: [PATCH] feat: select table cells as a range
  create mode 100644 Telegram/SourceFiles/tele/tele_table_selection.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b1428109c2ff9144da87aecd6a8c65c123a7a518..2c0de4ba6cbba0a705a9ead0eb191e7cf8f397db 100644
+index d18a24fb0eeebfe19cfc17bca15e51d6f3538b91..4edec165c6f0d456c62390843c76931e8f983a7e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2718,6 +2718,8 @@ PRIVATE
+@@ -2722,6 +2722,8 @@ PRIVATE
      tele/tele_sticker_captions.h
      tele/tele_sticker_truth.cpp
      tele/tele_sticker_truth.h

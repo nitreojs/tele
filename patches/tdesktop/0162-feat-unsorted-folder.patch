@@ -26,10 +26,10 @@ Subject: [PATCH] feat: unsorted folder
  create mode 100644 Telegram/SourceFiles/tele/tele_unsorted_folder.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2c7d88917ec72deb2d15b28af949d4fdd41fe32b..a00da4fb585a77ced22b45eb95b9826af04d37c3 100644
+index 156aa9ebaf9682474a20b17e5a8aa468f50c4c50..24b5febebe229778254aeb8924f9ba02c0d658ec 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2579,6 +2579,8 @@ PRIVATE
+@@ -2583,6 +2583,8 @@ PRIVATE
      tele/tele_title_template.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h

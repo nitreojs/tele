@@ -22,10 +22,10 @@ Subject: [PATCH] feat: hide or confirm call and voice chat buttons
  create mode 100644 Telegram/SourceFiles/tele/tele_calls.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b54ae98ea9c5f41eea0055e45d0ce50b8292ffc0..9faf752cb9d6dcc0dbe55445ca7d19110ca23349 100644
+index a0e70a64f045756636af9089691efe7bc948ce7a..eae748e55735fc11fbecf0176a1d7c7536be583e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2387,6 +2387,8 @@ PRIVATE
+@@ -2391,6 +2391,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
      tele/tele_calcmula.h
@@ -58,10 +58,10 @@ index 6c2b09c95d3064e0ed685d7c069d368174e83575..df3d40f9f0c047f5894f5305b7e86a71
  		}, _forumGroupCallBar->lifetime());
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index b68e692488704974b42092f22ad14a8a2af4a8ee..8869b06bc0e6a24bf0b69b93a19a9bc84e35df80 100644
+index fa2a4b04a394f5a84484d8c6895017ca51b5215f..80848785ca77cf8f432edd5a25fd4ddb3bd12f7b 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -170,6 +170,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/file_upload.h"
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
@@ -69,7 +69,7 @@ index b68e692488704974b42092f22ad14a8a2af4a8ee..8869b06bc0e6a24bf0b69b93a19a9bc8
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
  #include "media/audio/media_audio.h"
-@@ -9963,7 +9964,9 @@ void HistoryWidget::setupGroupCallBar() {
+@@ -9934,7 +9935,9 @@ void HistoryWidget::setupGroupCallBar() {
  	) | rpl::on_next([=] {
  		const auto peer = _history->peer;
  		if (peer->groupCall()) {

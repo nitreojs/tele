@@ -18,10 +18,10 @@ Subject: [PATCH] feat: select several chats in the list
  create mode 100644 Telegram/SourceFiles/tele/tele_chats_selection.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b4be05c195cee337eb1ea9c89f2442a98cf8514a..e5aa732bbd9163c79d7bbf3c3b7a42efcbe21656 100644
+index d594b8d80b1f5c8544aa50c69bb4f0e41bb6e4ba..7185473dc5184dbbc0c0d71aaa9009649478dd29 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2409,6 +2409,8 @@ PRIVATE
+@@ -2413,6 +2413,8 @@ PRIVATE
      tele/tele_changelog_section.h
      tele/tele_chat_backgrounds.cpp
      tele/tele_chat_backgrounds.h

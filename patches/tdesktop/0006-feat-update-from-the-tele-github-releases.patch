@@ -18,10 +18,10 @@ Subject: [PATCH] feat: update from the tele github releases
  create mode 100644 Telegram/SourceFiles/tele/tele_updater.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 40686b7a9af667a01179800681d195d68b8d65fe..841f734000dc19bf415815b3ed9254a0ab030311 100644
+index c2919e9192de64a200dbd762875a9308f4c00e62..cbc869e4d46dccabd6ef361bfa4bde49af7472d8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2377,6 +2377,8 @@ PRIVATE
+@@ -2381,6 +2381,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h

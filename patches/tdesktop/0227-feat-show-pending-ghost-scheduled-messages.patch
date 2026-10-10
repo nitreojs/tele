@@ -20,10 +20,10 @@ Subject: [PATCH] feat: show pending ghost-scheduled messages
  create mode 100644 Telegram/SourceFiles/tele/tele_ghost_pending.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 590318854dcfa3b319b8c1a5d0e7e29198350a9d..a62d5c640278581f4ab94d8ad6b2808f1e200493 100644
+index 4bb376bbdec11f275bb0aed97575d5b80a954642..ccf88fcbe9b120bd53e309ca4643d85fa4a32be7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2528,6 +2528,8 @@ PRIVATE
+@@ -2532,6 +2532,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ghost.cpp
      tele/tele_ghost.h

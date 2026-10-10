@@ -1,0 +1,225 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 15:58:33 +0300
+Subject: [PATCH] feat: copy and open transaction links from money transfer
+ messages
+
+---
+ .../history/history_inner_widget.cpp          |  5 ++
+ .../view/history_view_context_menu.cpp        |  5 ++
+ .../SourceFiles/tele/tele_menu_registry.cpp   | 21 ++++++--
+ .../SourceFiles/tele/tele_wallet_links.cpp    | 49 ++++++++++++++++---
+ Telegram/SourceFiles/tele/tele_wallet_links.h |  6 +++
+ 5 files changed, 75 insertions(+), 11 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 1eaedb50f0bfaf1d3912b3ae9fcf3cd1f365c591..25a3f406b4b4b2e5e2c9adb8fc520cfb82679c82 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -148,6 +148,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_rmb_beside_bubble.h"
+ #include "tele/tele_select_service.h"
+ #include "tele/tele_send_order.h"
++#include "tele/tele_wallet_links.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -3699,6 +3700,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 							Ui::Menu::CreateAddActionCallback(_menu));
+ 					}
+ 				}
++				Tele::AddTransferMessageLinkActions(
++					_menu.get(),
++					controller->uiShow(),
++					item);
+ 				if (!item->isService() && view && actionText.isEmpty()) {
+ 					const auto hasRestriction = hasCopyRestriction(item);
+ 					if (!hasRestriction
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 6ff7b993c25feb06975eeee25d021aad61866e52..879ac9c8db258ff39ce229fa6a09b82170bfd6b9 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_read_log.h"
+ #include "tele/tele_rich_quote.h"
+ #include "tele/tele_send_order.h"
++#include "tele/tele_wallet_links.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_layers.h"
+@@ -1906,6 +1907,10 @@ void FillContextMenuItems(
+ 					Ui::Menu::CreateAddActionCallback(result));
+ 			}
+ 		}
++		Tele::AddTransferMessageLinkActions(
++			result.get(),
++			list->controller()->uiShow(),
++			view->data());
+ 		if (const auto document = media ? media->getDocument() : nullptr) {
+ 			AddDocumentActions(result, document, view->data(), list);
+ 		}
+diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+index efb82dd54daf2abbc06e00b9e1e9aabc1462e560..b061beb1683e4551b7882553ac3c62788f09d509 100644
+--- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
++++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
+@@ -555,6 +555,15 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 			P([](int) { return tr::lng_wallet_profile_send_money(tr::now); },
+ 				st::walletMenuIcon),
+ 		}, .contexts = kService },
++		{ .key = u"copy_tx_link"_q, .phrases = {
++			P([](int) { return Lower(u"Copy Transaction Link"_q); },
++				st::menuIconLink),
++		}, .contexts = kService },
++		{ .key = u"view_in_explorer"_q, .phrases = {
++			P([](int) {
++				return tr::lng_channel_earn_history_out_button(tr::now);
++			}, st::menuIconSearch),
++		}, .contexts = kService },
+ 		{ .key = u"copy_text"_q, .phrases = {
+ 			P([](int) { return tr::lng_context_copy_text(tr::now); },
+ 				st::menuIconCopy),
+@@ -780,9 +789,10 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"cancel_download,edit_caption,cancel_upload,download_selected,"
+ 		"save_html,|,"
+ 		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,send_money,"
+-		"view_replies,factcheck,statistics,add_offer,|,"
++		"view_in_explorer,view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,[Copy#copy:copy_markdown,copy_html,"
+-		"copy_link,alias_copy,copy_message_link,copy_id,copy_emoji_id,"
++		"copy_link,copy_tx_link,alias_copy,copy_message_link,copy_id,"
++		"copy_emoji_id,"
+ 		"copy_button_data,copy_filename,copy_file_path,copy_phone],"
+ 		"translate_selected,"
+ 		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+@@ -802,7 +812,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"open_gif,save_gif,sticker_set,fave_sticker,show_in_folder,"
+ 		"save_sound,save_as,copy_image,copy_filename,copy_file_path,"
+ 		"attached_stickers,"
+-		"copy_phone,send_gift,send_money,copy_text,translate,copy_link,"
++		"copy_phone,send_gift,send_money,copy_tx_link,view_in_explorer,"
++		"copy_text,translate,copy_link,"
+ 		"open_uncleaned,open_username,alias_copy,alias_open,alias_delete,"
+ 		"copy_button_data,copy_message_link,"
+ 		"forward,add_offer,send_now,ghost_cancel,edit_caption,cancel_upload,"
+@@ -830,9 +841,9 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"cancel_download,edit_caption,cancel_upload,download_selected,"
+ 		"save_html,|,"
+ 		"poll_results,poll_retract,poll_stop,add_tasks,send_gift,send_money,"
+-		"view_replies,factcheck,statistics,add_offer,|,"
++		"view_in_explorer,view_replies,factcheck,statistics,add_offer,|,"
+ 		"copy_selected,copy_text,copy_markdown,copy_html,copy_link,"
+-		"alias_copy,copy_message_link,copy_id,copy_emoji_id,"
++		"copy_tx_link,alias_copy,copy_message_link,copy_id,copy_emoji_id,"
+ 		"copy_button_data,copy_filename,copy_file_path,copy_phone,"
+ 		"translate_selected,"
+ 		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+diff --git a/Telegram/SourceFiles/tele/tele_wallet_links.cpp b/Telegram/SourceFiles/tele/tele_wallet_links.cpp
+index 3a984cd04c38f01c5ab8fb7a76e338d96d3024af..eba77b6f02e2a39703071638168ebd8efbf1f00e 100644
+--- a/Telegram/SourceFiles/tele/tele_wallet_links.cpp
++++ b/Telegram/SourceFiles/tele/tele_wallet_links.cpp
+@@ -1,15 +1,20 @@
+ #include "tele/tele_wallet_links.h"
+ 
+ #include "base/unique_qptr.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
+ #include "lang/lang_keys.h"
+ #include "main/session/session_show.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
++#include "tele/tele_options.h"
+ #include "ui/basic_click_handlers.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/text/text_utilities.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "ui/rp_widget.h"
+ #include "wallet/wallet_palette.h"
++#include "wallet/wallet_session.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_menu_icons.h"
+ #include "styles/style_widgets.h"
+@@ -17,6 +22,20 @@
+ #include <QtGui/QCursor>
+ 
+ namespace Tele {
++namespace {
++
++void CopyTransactionLink(
++		const std::shared_ptr<Main::SessionShow> &show,
++		const QString &url) {
++	TextUtilities::SetClipboardText(TextForMimeData::Simple(url));
++	ShowCopiedToast(show, {
++		.text = { tr::lng_background_link_copied(tr::now) },
++		.iconLottie = u"toast/voip_invite"_q,
++		.iconLottieSize = st::toastLottieIconSize,
++	}, { url });
++}
++
++} // namespace
+ 
+ QString WalletTransactionUrl(const QByteArray &hash) {
+ 	return hash.isEmpty()
+@@ -35,12 +54,7 @@ void AddWalletTransactionCopyLink(
+ 		std::shared_ptr<Main::SessionShow> show,
+ 		const QString &url) {
+ 	menu->addAction(tr::lng_context_copy_link(tr::now), [=] {
+-		TextUtilities::SetClipboardText(TextForMimeData::Simple(url));
+-		ShowCopiedToast(show, {
+-			.text = { tr::lng_background_link_copied(tr::now) },
+-			.iconLottie = u"toast/voip_invite"_q,
+-			.iconLottieSize = st::toastLottieIconSize,
+-		}, { url });
++		CopyTransactionLink(show, url);
+ 	}, &st::menuIconLink);
+ }
+ 
+@@ -74,4 +88,27 @@ void SetupWalletTransactionMenu(
+ 	}, row->lifetime());
+ }
+ 
++void AddTransferMessageLinkActions(
++		not_null<Ui::PopupMenu*> menu,
++		std::shared_ptr<Main::SessionShow> show,
++		not_null<const HistoryItem*> item) {
++	const auto transfer = item->Get<HistoryServiceGramTransfer>();
++	if (NoMoney() || !transfer || transfer->transactionId.isEmpty()) {
++		return;
++	}
++	const auto url = WalletTransactionUrl(
++		Wallet::TransactionHashFromServer(transfer->transactionId));
++	if (url.isEmpty()) {
++		return;
++	}
++	menu->addAction(Lower(u"Copy Transaction Link"_q), [=] {
++		CopyTransactionLink(show, url);
++	}, &st::menuIconLink);
++	menu->addAction(
++		Ui::Text::FixAmpersandInAction(
++			tr::lng_channel_earn_history_out_button(tr::now)),
++		[=] { UrlClickHandler::Open(url); },
++		&st::menuIconSearch);
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_wallet_links.h b/Telegram/SourceFiles/tele/tele_wallet_links.h
+index 8a2c4e498fe8fc53f0a2db87dde155761d5af078..bc7f81c671dfb7bac424dbcb0943693579fd4bb6 100644
+--- a/Telegram/SourceFiles/tele/tele_wallet_links.h
++++ b/Telegram/SourceFiles/tele/tele_wallet_links.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++class HistoryItem;
++
+ namespace Main {
+ class SessionShow;
+ } // namespace Main
+@@ -21,5 +23,9 @@ void SetupWalletTransactionMenu(
+ 	not_null<Ui::RpWidget*> row,
+ 	std::shared_ptr<Main::SessionShow> show,
+ 	Fn<QByteArray()> hash);
++void AddTransferMessageLinkActions(
++	not_null<Ui::PopupMenu*> menu,
++	std::shared_ptr<Main::SessionShow> show,
++	not_null<const HistoryItem*> item);
+ 
+ } // namespace Tele

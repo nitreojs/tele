@@ -18,10 +18,10 @@ Subject: [PATCH] feat: set your own app and tray icons
  create mode 100644 Telegram/SourceFiles/tele/tele_app_icons.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 174930d6c4f78119d75b6a87b4e63b4dbeaef501..4dbfa6fd77d600d9d844fac84d71cf9307dd8331 100644
+index ad2710a40eab95882f4c38e2de67ae0ea7c8e0a3..d4a2f08a17da434948f3a1d8156ac7c900297d73 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2373,6 +2373,8 @@ PRIVATE
+@@ -2377,6 +2377,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_account_badges.cpp
      tele/tele_account_badges.h

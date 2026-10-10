@@ -23,10 +23,10 @@ Subject: [PATCH] feat: fake gift upgrades
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_roll.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 52e2812e827cb5da1a388281b4ecdf2a98b5ac22..18b7a7cc4dd566721b240ee71ab2640bebfff55c 100644
+index eb36e86c4134d2d1190439aad630ecfa3a228350..93a7bf7e7caa317ff4ed7939f6366c2519a31831 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2471,6 +2471,8 @@ PRIVATE
+@@ -2475,6 +2475,8 @@ PRIVATE
      tele/tele_full_preview.h
      tele/tele_gif_video.cpp
      tele/tele_gif_video.h
@@ -35,7 +35,7 @@ index 52e2812e827cb5da1a388281b4ecdf2a98b5ac22..18b7a7cc4dd566721b240ee71ab2640b
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
      tele/tele_gift_studio.cpp
-@@ -2485,6 +2487,8 @@ PRIVATE
+@@ -2489,6 +2491,8 @@ PRIVATE
      tele/tele_gift_studio_owned.h
      tele/tele_gift_studio_render.cpp
      tele/tele_gift_studio_render.h

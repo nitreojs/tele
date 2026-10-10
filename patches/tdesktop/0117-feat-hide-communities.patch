@@ -33,10 +33,10 @@ Subject: [PATCH] feat: hide communities
  create mode 100644 Telegram/SourceFiles/tele/tele_communities.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 40acff57c82b5a122d75a8374ef51509e013a046..9923df602d9c3cb5dc572b1cbb708a0f75720206 100644
+index 35587e9274cf2df7f83f789a95427407b0cc19dd..5278a9d9ce0ccc80063adaa6fd943ef611072baf 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2405,6 +2405,8 @@ PRIVATE
+@@ -2409,6 +2409,8 @@ PRIVATE
      tele/tele_chat_backgrounds.h
      tele/tele_collectible_price.cpp
      tele/tele_collectible_price.h

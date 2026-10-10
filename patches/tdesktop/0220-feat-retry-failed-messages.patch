@@ -18,10 +18,10 @@ Subject: [PATCH] feat: retry failed messages
  create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f0cf7b1af5a30798fd233f72c810db1242d5c6e7..e6c6fb8f8787d72ddd36fd0039ed9955e20c4b1e 100644
+index 69e281930f5e96fc0cffe2dbbfb8a3498dea6ce3..68de200e7a30af160566fd18831d7195ae701bdc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2465,6 +2465,8 @@ PRIVATE
+@@ -2469,6 +2469,8 @@ PRIVATE
      tele/tele_emoji_panel.h
      tele/tele_edit_history_section.cpp
      tele/tele_edit_history_section.h

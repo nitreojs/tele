@@ -26,10 +26,10 @@ Subject: [PATCH] feat: send gifs as videos and videos as gifs
  create mode 100644 Telegram/SourceFiles/tele/tele_send_files.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 28768214d3236abc0914da268f03a50ffe45c786..3e3f059a6b3f19b073ae3a50d2d50ed58f3b472f 100644
+index 7cf896b0905dc1504a6fa05dfdfaf1092c0e6f8a..c5789f355deb34de98d0d4112be20afef6d16fdf 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2427,6 +2427,8 @@ PRIVATE
+@@ -2431,6 +2431,8 @@ PRIVATE
      tele/tele_edit_history_section.h
      tele/tele_folders.cpp
      tele/tele_folders.h
@@ -38,7 +38,7 @@ index 28768214d3236abc0914da268f03a50ffe45c786..3e3f059a6b3f19b073ae3a50d2d50ed5
      tele/tele_gifts.cpp
      tele/tele_gifts.h
      tele/tele_ghost.cpp
-@@ -2471,6 +2473,8 @@ PRIVATE
+@@ -2475,6 +2477,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h

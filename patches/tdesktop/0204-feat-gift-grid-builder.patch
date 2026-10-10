@@ -38,10 +38,10 @@ Subject: [PATCH] feat: gift grid builder
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 26974c0f3dc21d789d7aba7da0cdfe339397b936..295501388569b09fee758e21a6107c3201ed314c 100644
+index 2fe888505924d81ce911eef65b2b07d265f3d2c4..455bcd0637e61bb81eb16e7883c64992c459a89e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2475,6 +2475,14 @@ PRIVATE
+@@ -2479,6 +2479,14 @@ PRIVATE
      tele/tele_gif_video.h
      tele/tele_gift_fake_upgrade.cpp
      tele/tele_gift_fake_upgrade.h
@@ -56,7 +56,7 @@ index 26974c0f3dc21d789d7aba7da0cdfe339397b936..295501388569b09fee758e21a6107c32
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
      tele/tele_gift_roll_number.cpp
-@@ -2501,6 +2509,8 @@ PRIVATE
+@@ -2505,6 +2513,8 @@ PRIVATE
      tele/tele_gift_studio_sweep.h
      tele/tele_gift_studio_video.cpp
      tele/tele_gift_studio_video.h

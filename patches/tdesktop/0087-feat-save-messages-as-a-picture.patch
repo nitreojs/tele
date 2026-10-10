@@ -20,10 +20,10 @@ Subject: [PATCH] feat: save messages as a picture
  create mode 100644 Telegram/SourceFiles/tele/tele_shot.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bc96e51a06e65956e42225eba39d40a6c7b9ac9f..07a058557f58da60646b0a0d00673c99695361db 100644
+index 0e2edcfa08d1e97ce27e49682fe48fe0f8e040a4..07dae7d13379ae2dd33f538d3367332e88ba7019 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2465,6 +2465,8 @@ PRIVATE
+@@ -2469,6 +2469,8 @@ PRIVATE
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h

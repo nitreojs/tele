@@ -21,10 +21,10 @@ Subject: [PATCH] feat: hide unread counters
  create mode 100644 Telegram/SourceFiles/tele/tele_counters.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b0e6acd5149ca09276e106f448af9d54570fd33b..29564b689f2783b5d00d131f6f8ddfc823786de1 100644
+index 909d8f46323f544083e83eceb100a0d0fdf888f2..4422dc7ccb0ec13b311a689d6b91f9ad83d40f39 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2415,6 +2415,8 @@ PRIVATE
+@@ -2419,6 +2419,8 @@ PRIVATE
      tele/tele_communities.h
      tele/tele_corner_buttons.cpp
      tele/tele_corner_buttons.h

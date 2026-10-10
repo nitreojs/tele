@@ -17,10 +17,10 @@ Subject: [PATCH] feat: mention several people in a row
  create mode 100644 Telegram/SourceFiles/tele/tele_chain_mentions.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f19e2bdcc89db0acfe17478a27a32c9c692caa6d..3a711d6e22fdd4131fb3c9f8c6a6380c35d3fbc1 100644
+index 0a081adb8be19771ff763d0df0fa7399accf9dae..4d1f82c13afb4736ca5e8495717f8e4c25c4e05f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2409,6 +2409,8 @@ PRIVATE
+@@ -2413,6 +2413,8 @@ PRIVATE
      tele/tele_calcmula_preview.h
      tele/tele_calls.cpp
      tele/tele_calls.h

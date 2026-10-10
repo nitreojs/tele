@@ -14,10 +14,10 @@ Subject: [PATCH] feat: add tele to the start menu
  create mode 100644 Telegram/SourceFiles/tele/tele_start_menu.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 183347ead1e4dd397e98029e72e42b20e58f0419..d6c75999cbf2d33b0d341186e78eab051842a25e 100644
+index 7017774fe92ba57888a6e4e14bf180438e843d2e..1d55335e8f2536656e5355ba6037bfd81d94f42a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2706,6 +2706,8 @@ PRIVATE
+@@ -2710,6 +2710,8 @@ PRIVATE
      tele/tele_spoilers.h
      tele/tele_stars_tools.cpp
      tele/tele_stars_tools.h

@@ -17,10 +17,10 @@ Subject: [PATCH] feat: clear server data and explain custom verifications
  create mode 100644 Telegram/SourceFiles/tele/tele_verify_details.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 527743ade3d684003b90da7cf891fce772e36bd0..15dc78b3538f51396bb62be73951e2c7e7e6f532 100644
+index 61cb588f1426157c32ae45165a2b9c0e54948f4e..5746b0e065cb33af5f8fd2f76d9a82c631ca1fac 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2472,6 +2472,8 @@ PRIVATE
+@@ -2476,6 +2476,8 @@ PRIVATE
      tele/tele_uploads.h
      tele/tele_username_aliases.cpp
      tele/tele_username_aliases.h

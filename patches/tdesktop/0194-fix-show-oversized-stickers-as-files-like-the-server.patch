@@ -15,10 +15,10 @@ Subject: [PATCH] fix: show oversized stickers as files like the server does
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_truth.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 285a1fb8da21203a435025b022f113f924d264e7..20c62781c313f4457bcfe67322a73c8a0cd54f2d 100644
+index 0c23a211803ce6e4b7f7d3f7a90793d7750904d8..aa64c6ae07835ca6ad94eb0932056b22cd5eb2a1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2603,6 +2603,8 @@ PRIVATE
+@@ -2607,6 +2607,8 @@ PRIVATE
      tele/tele_stars_tools.h
      tele/tele_sticker_captions.cpp
      tele/tele_sticker_captions.h

@@ -26,10 +26,10 @@ Subject: [PATCH] feat: more gifts and models in the gift studio
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_emoji.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 30eaaa05d6f758cefba37060c4e1c05e7040087c..5651513fd4015c96ac1a6e0f2794029472499be3 100644
+index 2a95b1d1a346211906379ba9047417a0eea8dfdd..a7cb26126b84cfaefdd0cb3766a1885436709e7b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2502,6 +2502,8 @@ PRIVATE
+@@ -2506,6 +2506,8 @@ PRIVATE
      tele/tele_gift_studio.h
      tele/tele_gift_studio_data.cpp
      tele/tele_gift_studio_data.h

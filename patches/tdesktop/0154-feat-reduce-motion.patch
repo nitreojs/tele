@@ -19,10 +19,10 @@ Subject: [PATCH] feat: reduce motion
  create mode 100644 Telegram/SourceFiles/tele/tele_reduce_motion.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 266acc031e97aab443abc4b455735b55f4dcca56..697d552056e6aca186d8d66d43b8b120ba847c08 100644
+index a8af0df12d7de7377e8c72a6dae028c637cb5b93..b4570a0316007f87648c5a20d8877bef6eaefc41 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2525,6 +2525,8 @@ PRIVATE
+@@ -2529,6 +2529,8 @@ PRIVATE
      tele/tele_read_log.h
      tele/tele_recent_emoji.cpp
      tele/tele_recent_emoji.h

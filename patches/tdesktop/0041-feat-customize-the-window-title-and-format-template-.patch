@@ -18,10 +18,10 @@ Subject: [PATCH] feat: customize the window title and format template values
  create mode 100644 Telegram/SourceFiles/tele/tele_title_template.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2cd1fb2eb56da3051a828777017dcfe31ebad9cb..cb9bcd6ffd4ed3116f205fe8cd10bf940f8f23ba 100644
+index 04097f1575223b9016ee36075fa19e01708d397e..c73c59a2d54d03cb6ac6efbb8201507176b3c00c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2419,6 +2419,8 @@ PRIVATE
+@@ -2423,6 +2423,8 @@ PRIVATE
      tele/tele_time.h
      tele/tele_title.cpp
      tele/tele_title.h

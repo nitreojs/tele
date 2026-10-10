@@ -2782,7 +2782,7 @@ index d7430e322fe895ced1cae6e2f7dcf6b2a65f57ff..e36d435a3021fd263c56892de0639e6e
  	mutable uint32 _fromNameVersion : 16 = 0;
  	uint32 _nonTextMaxWidth : 16 = 0;
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 7d4b787250a8373c0bb106550d52bfa1f4dc22b4..c62a05304a2921d623d9727ca66c248b632ebe6c 100644
+index ca557ebdc7fdb7437e133987a3708def1f8f6dbd..ca68ffcb026d19e5887190fdeb86f56fc8cf46cb 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -2793,9 +2793,9 @@ index 7d4b787250a8373c0bb106550d52bfa1f4dc22b4..c62a05304a2921d623d9727ca66c248b
  #include "tele/tele_shot_sharp.h"
  #include "tele/tele_spoilers.h"
  #include "styles/style_chat.h"
-@@ -620,7 +621,8 @@ bool Reply::isNameUpdated(
- 		not_null<const Element*> view,
- 		not_null<HistoryMessageReply*> data) const {
+@@ -624,7 +625,8 @@ bool Reply::isNameUpdated(
+ 		return true;
+ 	}
  	if (const auto from = sender(view, data)) {
 -		if (_nameVersion < from->nameVersion()) {
 +		if (_nameVersion < from->nameVersion()
@@ -2803,7 +2803,7 @@ index 7d4b787250a8373c0bb106550d52bfa1f4dc22b4..c62a05304a2921d623d9727ca66c248b
  			updateName(view, data, from);
  			return true;
  		}
-@@ -676,7 +678,9 @@ void Reply::updateName(
+@@ -680,7 +682,9 @@ void Reply::updateName(
  	if (displayAsExternal && !groupNameAdded && !fields.storyId) {
  		nameFull.append(PeerEmoji(sender));
  	}
@@ -2814,7 +2814,7 @@ index 7d4b787250a8373c0bb106550d52bfa1f4dc22b4..c62a05304a2921d623d9727ca66c248b
  	if (groupNameAdded) {
  		nameFull.append(' ').append(PeerEmoji(externalPeer));
  		nameFull.append(externalPeer->name());
-@@ -698,9 +702,10 @@ void Reply::updateName(
+@@ -702,9 +706,10 @@ void Reply::updateName(
  		st::fwdTextStyle,
  		nameFull,
  		Ui::NameTextOptions(),
@@ -2827,17 +2827,17 @@ index 7d4b787250a8373c0bb106550d52bfa1f4dc22b4..c62a05304a2921d623d9727ca66c248b
  	const auto nameMaxWidth = previewSkip
  		+ _name.maxWidth()
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.h b/Telegram/SourceFiles/history/view/history_view_reply.h
-index e21d2676f0d933bb98c293004ef3f533a0e2d7d0..0d1c5ae95bd3bf39ffcaa4c4b243ab632c7556f7 100644
+index b0396f3e0bc4d5838db776e10dd83eaa7563d40e..1cd807c0e1f66ae2548975ba68929b04618319c8 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.h
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.h
-@@ -159,6 +159,7 @@ private:
+@@ -161,6 +161,7 @@ private:
  	mutable int _minHeight = 0;
  	mutable int _height = 0;
  	mutable int _nameVersion = 0;
 +	mutable uint64 _badges = 0;
  	uint8 _hiddenSenderColorIndexPlusOne : 7 = 0;
  	uint8 _hasQuoteIcon : 1 = 0;
- 	uint8 _expanded : 1 = 0;
+ 	uint8 _hasBackgroundEmoji : 1 = 0;
 diff --git a/Telegram/SourceFiles/tele/tele_bubble_badges.cpp b/Telegram/SourceFiles/tele/tele_bubble_badges.cpp
 index ef3acc77d5d1fdfc5620b62371f2cc7c4cbc5b65..230eaefac605f94239f3735c2ea03ee4a53746da 100644
 --- a/Telegram/SourceFiles/tele/tele_bubble_badges.cpp

@@ -50,10 +50,10 @@ Subject: [PATCH] feat: rearrange menus with groups and submenus in a menu
  create mode 100644 Telegram/SourceFiles/tele/tele_menu_registry.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3322770a59715d151550974320486bb8c494ebdd..d3d3aae05d4cdacc2bc17c07c597cb37b26561ea 100644
+index e7825a211b9df1acd76e84038c2f394d5e33a164..fa19939d503e5c23e652e80a4146351d12815809 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2491,8 +2491,14 @@ PRIVATE
+@@ -2495,8 +2495,14 @@ PRIVATE
      tele/tele_lowercase.h
      tele/tele_maps.cpp
      tele/tele_maps.h

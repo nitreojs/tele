@@ -24,10 +24,10 @@ Subject: [PATCH] feat: rename the app to tele
  17 files changed, 29 insertions(+), 56 deletions(-)
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 841f734000dc19bf415815b3ed9254a0ab030311..5ea5efc7aa6f046152a21e7adb35e3db91076aad 100644
+index cbc869e4d46dccabd6ef361bfa4bde49af7472d8..7a37468819f0757e839eaa4505d01fbeaa5a48a0 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2566,12 +2566,12 @@ if (build_macstore)
+@@ -2570,12 +2570,12 @@ if (build_macstore)
      )
  else()
      if (CMAKE_GENERATOR STREQUAL Xcode)
@@ -44,7 +44,7 @@ index 841f734000dc19bf415815b3ed9254a0ab030311..5ea5efc7aa6f046152a21e7adb35e3db
  
  if (CMAKE_GENERATOR STREQUAL Xcode)
 diff --git a/Telegram/Resources/winrc/Telegram.rc b/Telegram/Resources/winrc/Telegram.rc
-index d3ab29c8f583ed0645f4a0de344530180eaa3265..c5a2c3f37e1341201beebee7fde3b5402c7dab0b 100644
+index 62080c78d82a7bc8e921f2e83f5827816f058a39..24b18393ddd684521d2fe2072f74445c80233eb6 100644
 --- a/Telegram/Resources/winrc/Telegram.rc
 +++ b/Telegram/Resources/winrc/Telegram.rc
 @@ -61,10 +61,10 @@ BEGIN
@@ -53,11 +53,11 @@ index d3ab29c8f583ed0645f4a0de344530180eaa3265..c5a2c3f37e1341201beebee7fde3b540
              VALUE "CompanyName", "Telegram FZ-LLC"
 -            VALUE "FileDescription", "Telegram Desktop"
 +            VALUE "FileDescription", "tele"
-             VALUE "FileVersion", "7.3.0.0"
+             VALUE "FileVersion", "7.3.1.0"
              VALUE "LegalCopyright", "Copyright (C) 2014-2026"
 -            VALUE "ProductName", "Telegram Desktop"
 +            VALUE "ProductName", "tele"
-             VALUE "ProductVersion", "7.3.0.0"
+             VALUE "ProductVersion", "7.3.1.0"
          END
      END
 diff --git a/Telegram/SourceFiles/api/api_authorizations.cpp b/Telegram/SourceFiles/api/api_authorizations.cpp
@@ -100,7 +100,7 @@ index b3b76e088fb5ded83299fe1ae47c5ee5dd7e1a62..7677c37c482a6678b9a995983bbbec0c
  #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
  	// fallback session management is useless for tdesktop since it doesn't have
 diff --git a/Telegram/SourceFiles/core/version.h b/Telegram/SourceFiles/core/version.h
-index 84ea0f90963b3a8a8dc3f9595b4e3d37dbf8dedf..6dc89698bd417466cd58d8c3641ddcec0f44c9ba 100644
+index 2de28811834786f129ce0afaf509025ff6c7499f..bd59d1b69c1023e336390281424e9498d9665bf3 100644
 --- a/Telegram/SourceFiles/core/version.h
 +++ b/Telegram/SourceFiles/core/version.h
 @@ -20,8 +20,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -111,8 +111,8 @@ index 84ea0f90963b3a8a8dc3f9595b4e3d37dbf8dedf..6dc89698bd417466cd58d8c3641ddcec
 -constexpr auto AppFile = "Telegram"_cs;
 +constexpr auto AppName = "tele"_cs;
 +constexpr auto AppFile = "tele"_cs;
- constexpr auto AppVersion = 7003000;
- constexpr auto AppVersionStr = "7.3";
+ constexpr auto AppVersion = 7003001;
+ constexpr auto AppVersionStr = "7.3.1";
  constexpr auto AppBetaVersion = false;
 diff --git a/Telegram/SourceFiles/export/output/export_output_abstract.cpp b/Telegram/SourceFiles/export/output/export_output_abstract.cpp
 index cadd6dbb3ca7a6cc42c10830cda35ab7bd68016f..4dfda9620bc249f374ce904849b2ba592d67c4b1 100644

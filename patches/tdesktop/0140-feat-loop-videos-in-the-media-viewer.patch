@@ -18,10 +18,10 @@ Subject: [PATCH] feat: loop videos in the media viewer
  create mode 100644 Telegram/SourceFiles/tele/tele_viewer_loop.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7014b3b50e7f079fbc2e1c11d527dcc419735acb..a7fdd19b9c70e4d1e939b5a950fd7751fc8d9fc9 100644
+index 50b2537fad95f0a0bd547745de0d9bbc223c7c10..704c9bd0521ccae83c5e31d71a9f43f995cf1d4f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2562,6 +2562,8 @@ PRIVATE
+@@ -2566,6 +2566,8 @@ PRIVATE
      tele/tele_username_aliases.h
      tele/tele_verify_details.cpp
      tele/tele_verify_details.h
@@ -31,10 +31,10 @@ index 7014b3b50e7f079fbc2e1c11d527dcc419735acb..a7fdd19b9c70e4d1e939b5a950fd7751
      tele/tele_view_tl.h
      tele/tele_voice_fade.cpp
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index cb5da221cc74109a06ef54654374134b3ae40482..a99dab5f518087aab9b03484c77d46f2a034d99b 100644
+index e8893e3e6569f93aaead1dcca1e278f492f1abb4..17339cab6e87b5bfc314eb9061bc2975656c3a2e 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -5325,6 +5325,19 @@ void OverlayWidget::handleStreamingUpdate(Streaming::Update &&update) {
+@@ -5315,6 +5315,19 @@ void OverlayWidget::handleStreamingUpdate(Streaming::Update &&update) {
  		updatePlaybackState();
  		if (base::take(_ttlDeferredClose)) {
  			close();
@@ -54,7 +54,7 @@ index cb5da221cc74109a06ef54654374134b3ae40482..a99dab5f518087aab9b03484c77d46f2
  		}
  	});
  }
-@@ -7364,6 +7377,10 @@ void OverlayWidget::handleKeyPress(not_null<QKeyEvent*> e) {
+@@ -7354,6 +7367,10 @@ void OverlayWidget::handleKeyPress(not_null<QKeyEvent*> e) {
  			activateControls();
  			seekRelativeTime(kSeekTimeMsLong);
  			return;

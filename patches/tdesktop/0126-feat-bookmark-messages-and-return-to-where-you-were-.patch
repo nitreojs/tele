@@ -30,10 +30,10 @@ Subject: [PATCH] feat: bookmark messages and return to where you were reading
  create mode 100644 Telegram/SourceFiles/tele/tele_bookmarks_box.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 91a8f527e3735e0ed4e81b9ea7bc58f61ec8278c..e977d2885d7ddb700d6dcec088a5399d91a17149 100644
+index 9a379513b48a93adeffc055ae0b685b73f306dd2..0e57546ec81bb9ff257d173d5eb1daca22aaec24 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2383,6 +2383,10 @@ PRIVATE
+@@ -2387,6 +2387,10 @@ PRIVATE
      tele/tele_app_name.h
      tele/tele_badges.cpp
      tele/tele_badges.h

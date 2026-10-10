@@ -19,10 +19,10 @@ Subject: [PATCH] feat: copy messages as markdown or html
  create mode 100644 Telegram/SourceFiles/tele/tele_copy_markdown.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2c7a243cb281f936583fce826e10c128478e458b..7014b3b50e7f079fbc2e1c11d527dcc419735acb 100644
+index d7816559f6417d0078e9b03e72bae6944b7c0c25..50b2537fad95f0a0bd547745de0d9bbc223c7c10 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2413,6 +2413,8 @@ PRIVATE
+@@ -2417,6 +2417,8 @@ PRIVATE
      tele/tele_confirm_send.h
      tele/tele_communities.cpp
      tele/tele_communities.h

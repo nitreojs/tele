@@ -88,10 +88,10 @@ index 72187a56e26697f24e1da8617c657dfbd674a9b9..3c0a99b28d4ff82f2c93a4036859500f
  
  struct PhotoChosen {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 6617cc8ba0f8dc9ab1d60aee9a8d8aa9ea727978..3091af8123381d83f1bdc5b56c2b3e800b8b27ec 100644
+index a9b07766efe9e45e24dfa7616608e161fe9d1dee..91dea729252ee3d2abcc6f30ff5930cbd794e64f 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -619,6 +619,15 @@ HistoryWidget::HistoryWidget(
+@@ -608,6 +608,15 @@ HistoryWidget::HistoryWidget(
  					Api::SendOptions options) {
  				sendingFilesConfirmed(std::move(bundle), options);
  			},
@@ -107,7 +107,7 @@ index 6617cc8ba0f8dc9ab1d60aee9a8d8aa9ea727978..3091af8123381d83f1bdc5b56c2b3e80
  			.sendMenuDetails = [=] { return sendMenuDetails(); },
  		});
  	_teleFieldResize = std::make_unique<Tele::FieldResize>(
-@@ -2655,7 +2664,13 @@ void HistoryWidget::fileChosen(ChatHelpers::FileChosen &&data) {
+@@ -2653,7 +2662,13 @@ void HistoryWidget::fileChosen(ChatHelpers::FileChosen &&data) {
  			Data::InsertCustomEmoji(_field.data(), data.document);
  		}
  	} else if (_history) {
@@ -123,7 +123,7 @@ index 6617cc8ba0f8dc9ab1d60aee9a8d8aa9ea727978..3091af8123381d83f1bdc5b56c2b3e80
  			const auto from = data.messageSendingFrom;
  			Ui::SendGifWithCaption(
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 40dd5df0f028efddca7c98f21051988013b15e70..f41007363e8c21b43834d8309bab3c9c8cf1408a 100644
+index 3793f7890fc3174db96c2af024f3d433019b3582..06c5b57cdd03045d90233cbfbcf73f44ed0b9e6e 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -1643,6 +1643,16 @@ void ComposeControls::setupTeleDocked() {

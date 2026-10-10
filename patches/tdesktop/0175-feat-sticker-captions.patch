@@ -26,10 +26,10 @@ Subject: [PATCH] feat: sticker captions
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_captions.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d3d3aae05d4cdacc2bc17c07c597cb37b26561ea..6c32e1ba6643db862006371f7e97b2a7400787dd 100644
+index fa19939d503e5c23e652e80a4146351d12815809..6c0a8847e8e9fcff5bc11e8bf451ba2048aaebda 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2581,6 +2581,8 @@ PRIVATE
+@@ -2585,6 +2585,8 @@ PRIVATE
      tele/tele_silent.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h
@@ -130,10 +130,10 @@ index 3af93aabf1f07188bfdfaf9ba5509ef594037918..abecf28a17bb81347b01f5414729cc81
  
  bool MediaFile::allowsEditMedia() const {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 176cef79dd514f762bd00a63b6238dc27fa790f5..99a70738a1a3ea67f5f88a2a12c6de3f032291fd 100644
+index 82f451b47cdc16c1d2cb478419a5e824023ac04e..e2fdbbd24c46739679d8b3838843c0beceb8593a 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -186,6 +186,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -187,6 +187,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_inline_text.h"
  #include "tele/tele_send_order.h"
  #include "tele/tele_silent.h"
@@ -141,7 +141,7 @@ index 176cef79dd514f762bd00a63b6238dc27fa790f5..99a70738a1a3ea67f5f88a2a12c6de3f
  #include "tele/tele_username_aliases.h"
  #include "tele/tele_options.h"
  #include "media/audio/media_audio.h"
-@@ -10368,12 +10369,22 @@ bool HistoryWidget::sendExistingDocument(
+@@ -10339,12 +10340,22 @@ bool HistoryWidget::sendExistingDocument(
  		}
  	}
  

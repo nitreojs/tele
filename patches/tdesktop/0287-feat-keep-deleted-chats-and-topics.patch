@@ -32,10 +32,10 @@ Subject: [PATCH] feat: keep deleted chats and topics
  create mode 100644 Telegram/SourceFiles/tele/tele_kept_chats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f521dd9492b27b2e1f19545c8b052a13353730d2..780dfae5ebdcd964e3fcace838b6053cddef2881 100644
+index 52f136fadf1a140e7b21905e604703b710032451..70464363648729965323e6ee0baee3407e4cde20 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2566,6 +2566,8 @@ PRIVATE
+@@ -2570,6 +2570,8 @@ PRIVATE
      tele/tele_invisible.h
      tele/tele_invisible_stories.cpp
      tele/tele_invisible_stories.h
@@ -306,10 +306,10 @@ index d1b71542d60a79e683c8dd99c0490e1a175166c0..66d26d3f3e838323c946b4e64d6de54d
  		not_null<HistoryItem*> item,
  		int blockIndex,
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index f1b8733e79ce351d9ca41daa0657117fd76d009a..a58d3e86d294eddbd5c4495686fedc3390f5c34b 100644
+index 74a86fa56f95797bf095ce5efbbfe1cf237a2dd9..46173074cb12d9a1bd4ac392d1a929879f3b26e4 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -189,6 +189,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -190,6 +190,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_rich_quote.h"
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_inline_text.h"
@@ -317,7 +317,7 @@ index f1b8733e79ce351d9ca41daa0657117fd76d009a..a58d3e86d294eddbd5c4495686fedc33
  #include "tele/tele_send_order.h"
  #include "tele/tele_silent.h"
  #include "tele/tele_sticker_captions.h"
-@@ -4942,6 +4943,15 @@ void HistoryWidget::closeCurrent() {
+@@ -4940,6 +4941,15 @@ void HistoryWidget::closeCurrent() {
  }
  
  void HistoryWidget::messagesFailed(const MTP::Error &error, int requestId) {
@@ -333,7 +333,7 @@ index f1b8733e79ce351d9ca41daa0657117fd76d009a..a58d3e86d294eddbd5c4495686fedc33
  	if (error.type() == u"CHANNEL_PRIVATE"_q
  		&& _peer->isChannel()
  		&& _peer->asChannel()->invitePeekExpires()) {
-@@ -7035,12 +7045,17 @@ bool HistoryWidget::isReportMessages() const {
+@@ -7033,12 +7043,17 @@ bool HistoryWidget::isReportMessages() const {
  }
  
  bool HistoryWidget::isBlocked() const {
@@ -353,7 +353,7 @@ index f1b8733e79ce351d9ca41daa0657117fd76d009a..a58d3e86d294eddbd5c4495686fedc33
  	}
  	return false;
  }
-@@ -7051,6 +7066,7 @@ bool HistoryWidget::isChoosingTheme() const {
+@@ -7049,6 +7064,7 @@ bool HistoryWidget::isChoosingTheme() const {
  
  bool HistoryWidget::isMuteUnmute() const {
  	return _peer

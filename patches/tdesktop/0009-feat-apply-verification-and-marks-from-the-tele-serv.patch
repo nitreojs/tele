@@ -23,10 +23,10 @@ Subject: [PATCH] feat: apply verification and marks from the tele server
  create mode 100644 Telegram/SourceFiles/tele/tele_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 41c4a524dd7c745c4cc996fd4ea282d0cf41857a..138f30c41776293a46615d9499d96d3e8545388d 100644
+index 2748b58180f3f9ed162a0cab47caf82b8edf88fe..6a638b01d5c0142f757320186e0ba6898306591d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2371,6 +2371,8 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2375,6 +2375,8 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h

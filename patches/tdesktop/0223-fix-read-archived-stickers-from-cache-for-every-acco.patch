@@ -9,10 +9,10 @@ Subject: [PATCH] fix: read archived stickers from cache for every account
  2 files changed, 6 insertions(+), 8 deletions(-)
 
 diff --git a/Telegram/SourceFiles/storage/storage_account.cpp b/Telegram/SourceFiles/storage/storage_account.cpp
-index 44b40f000d570243bd634e7964117398e6cdcffc..92fce4e42c8479bfa486989cbf94ff8cfd7271fa 100644
+index 1a4b83020f20e1479fd0dc6b9817ebe117e4c629..643874218b3332a1453e710184f6a5ef4b95eda4 100644
 --- a/Telegram/SourceFiles/storage/storage_account.cpp
 +++ b/Telegram/SourceFiles/storage/storage_account.cpp
-@@ -2710,26 +2710,22 @@ void Account::readFavedStickers() {
+@@ -2711,26 +2711,22 @@ void Account::readFavedStickers() {
  void Account::readArchivedStickers() {
  	DEBUG_LOG(("Init: Read archived stickers."));
  

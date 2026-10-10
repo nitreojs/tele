@@ -18,10 +18,10 @@ Subject: [PATCH] feat: keep the edit history of messages
  create mode 100644 Telegram/SourceFiles/tele/tele_edit_history.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7ac06bf74ac10159b9857de91c69918b5cb3fb05..91bd953c318102a783d564ec079773fd9555ffa5 100644
+index 3f4e5390ed24324861b38efcb914240a28aa25bf..058b1a0edcc6097f82f195f75542ac887a87e3c5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2381,6 +2381,8 @@ PRIVATE
+@@ -2385,6 +2385,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h

@@ -11,10 +11,10 @@ Subject: [PATCH] fix: land the send animation where the message really is
  4 files changed, 19 insertions(+), 32 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 06bfb1d942eac9d45f01087dc845e05a9d7a0254..176cef79dd514f762bd00a63b6238dc27fa790f5 100644
+index 70d33405ad0c94368fe23e948a2193129e1b844a..82f451b47cdc16c1d2cb478419a5e824023ac04e 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -9010,23 +9010,14 @@ void HistoryWidget::startMessageSendingAnimation(
+@@ -8981,23 +8981,14 @@ void HistoryWidget::startMessageSendingAnimation(
  	}
  	Assert(item->mainView() != nullptr);
  

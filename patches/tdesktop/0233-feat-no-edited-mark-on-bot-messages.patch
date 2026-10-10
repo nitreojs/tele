@@ -17,10 +17,10 @@ Subject: [PATCH] feat: no edited mark on bot messages
  create mode 100644 Telegram/SourceFiles/tele/tele_bot_edited.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ae2c67c167d6e7c88702fab5b11c3b189860730b..30eaaa05d6f758cefba37060c4e1c05e7040087c 100644
+index 1ca508115ff1424b196ce830534741a215baf77b..2a95b1d1a346211906379ba9047417a0eea8dfdd 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2389,6 +2389,8 @@ PRIVATE
+@@ -2393,6 +2393,8 @@ PRIVATE
      tele/tele_bookmarks.h
      tele/tele_bookmarks_box.cpp
      tele/tele_bookmarks_box.h

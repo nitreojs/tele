@@ -18,10 +18,10 @@ Subject: [PATCH] feat: open the message menu next to the bubble
  create mode 100644 Telegram/SourceFiles/tele/tele_rmb_beside_bubble.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d10d5324560d6e7fdf655ff79536180e95365d5e..80b3ca0cd6cd99050ab04ee3b2dd1a84f6a3ed23 100644
+index 5d0284f3682d5798af98a24a3625ea11adf609d8..858ac51c6eadb6d9462911c17c38b460a59f5a77 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2525,6 +2525,8 @@ PRIVATE
+@@ -2529,6 +2529,8 @@ PRIVATE
      tele/tele_recent_emoji.h
      tele/tele_rich_timestamps.cpp
      tele/tele_rich_timestamps.h

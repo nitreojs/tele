@@ -21,10 +21,10 @@ Subject: [PATCH] feat: set or remove chat backgrounds only for you
  create mode 100644 Telegram/SourceFiles/tele/tele_chat_backgrounds.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1665058513530a2df784d63e2de8eaae0ab73c2c..35a351b3e4cd60d9a8b66e810fad3affdb06e8fc 100644
+index 251d61d8fcacbe9905bfd3f85e7de781f107d745..277210603aebccbb7d6c9a20c0434d0d13490b81 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2391,6 +2391,8 @@ PRIVATE
+@@ -2395,6 +2395,8 @@ PRIVATE
      tele/tele_calls.h
      tele/tele_changelog.cpp
      tele/tele_changelog.h

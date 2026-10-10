@@ -1,0 +1,922 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 19:11:14 +0300
+Subject: [PATCH] feat: compact icon-only folders
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ .../SourceFiles/tele/tele_compact_folders.cpp | 504 ++++++++++++++++++
+ .../SourceFiles/tele/tele_compact_folders.h   |  48 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  21 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ .../ui/widgets/chat_filters_tabs_slider.cpp   |  20 +-
+ .../ui/widgets/chat_filters_tabs_strip.cpp    |   5 +-
+ .../window/window_filters_favorite.cpp        |   4 +-
+ .../window/window_filters_menu.cpp            |  27 +-
+ .../window/window_session_controller.cpp      |  10 +-
+ 12 files changed, 636 insertions(+), 13 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_compact_folders.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_compact_folders.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 6c77900bede966332a0f5017eb782631c9a17911..2da2bca3a0a6e3ca90af55e0e63b28aaa1d1172c 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2450,6 +2450,8 @@ PRIVATE
+     tele/tele_confirm_send.h
+     tele/tele_communities.cpp
+     tele/tele_communities.h
++    tele/tele_compact_folders.cpp
++    tele/tele_compact_folders.h
+     tele/tele_copy_markdown.cpp
+     tele/tele_copy_markdown.h
+     tele/tele_corner_buttons.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index a63df902d34fee7ab2aba305b1d6f17f4f18b760..c203d4e3d058cf7425b3696af5588d72176807a3 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2808,6 +2808,10 @@ void FillInterface(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionChatListNoReorderAnimation);
+ 	AddOptionToggle(builder, ::Tele::kOptionLocalFolders);
+ 	AddOptionToggle(builder, ::Tele::kOptionUnsortedFolder, { u"tab"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionCompactFolders,
++		{ u"filters"_q, u"icons"_q, u"sidebar"_q, u"tabs"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionSelectChats,
+diff --git a/Telegram/SourceFiles/tele/tele_compact_folders.cpp b/Telegram/SourceFiles/tele/tele_compact_folders.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..7aa7fe9d0fac9b0e99fccfb92c4accb195e2c88e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_compact_folders.cpp
+@@ -0,0 +1,504 @@
++#include "tele/tele_compact_folders.h"
++
++#include "base/event_filter.h"
++#include "core/application.h"
++#include "core/core_settings.h"
++#include "tele/tele_options.h"
++#include "ui/painter.h"
++#include "ui/widgets/chat_filters_tabs_mode.h"
++#include "ui/widgets/side_bar_button.h"
++#include "styles/style_widgets.h"
++#include "styles/style_window.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kBarIconScale = 0.6;
++constexpr auto kBarHeightScale = 30. / 54.;
++constexpr auto kBadgeFontScale = 0.75;
++constexpr auto kTabIconScale = 0.75;
++constexpr auto kTabSkipScale = 0.25;
++constexpr auto kLockedOpacity = 0.6;
++constexpr auto kMaxTabIcons = 256;
++
++struct BarStyle {
++	not_null<const style::SideBarButton*> original;
++	std::unique_ptr<style::SideBarButton> compact;
++};
++
++struct BarCache {
++	QImage image;
++	const style::icon *icon = nullptr;
++	QSize size;
++	int badgeWidth = 0;
++	bool locked = false;
++};
++
++struct BarButton {
++	not_null<const style::SideBarButton*> st;
++	Fn<bool()> active;
++	const style::icon *icon = nullptr;
++	const style::icon *iconActive = nullptr;
++	Ui::Text::String badge;
++	bool badgeMuted = false;
++	int badgeWidth = 0;
++	BarCache cache[2];
++	QImage lock[2];
++};
++
++struct TabsStyle {
++	not_null<const style::SettingsSlider*> original;
++	std::unique_ptr<style::SettingsSlider> copy;
++};
++
++[[nodiscard]] int Scaled(int value, float64 scale) {
++	return int(base::SafeRound(value * scale));
++}
++
++[[nodiscard]] QSize Scaled(QSize size, float64 scale) {
++	return QSize(Scaled(size.width(), scale), Scaled(size.height(), scale));
++}
++
++[[nodiscard]] bool IconsOnly(Ui::ChatsFiltersTabsMode mode) {
++	return (mode == Ui::ChatsFiltersTabsMode::IconsOnly);
++}
++
++[[nodiscard]] std::vector<BarStyle> &BarStyles() {
++	static auto result = std::vector<BarStyle>();
++	return result;
++}
++
++[[nodiscard]] auto BarButtons()
++-> base::flat_map<not_null<Ui::SideBarButton*>, std::shared_ptr<BarButton>>& {
++	static auto result = base::flat_map<
++		not_null<Ui::SideBarButton*>,
++		std::shared_ptr<BarButton>>();
++	return result;
++}
++
++[[nodiscard]] std::vector<TabsStyle> &TabsStyles() {
++	static auto result = std::vector<TabsStyle>();
++	return result;
++}
++
++[[nodiscard]] auto TabIcons()
++-> base::flat_map<std::pair<const style::icon*, QRgb>, QImage>& {
++	static auto result = base::flat_map<
++		std::pair<const style::icon*, QRgb>,
++		QImage>();
++	return result;
++}
++
++[[nodiscard]] base::flat_map<const style::icon*, QSize> &TabIconSizes() {
++	static auto result = base::flat_map<const style::icon*, QSize>();
++	return result;
++}
++
++[[nodiscard]] std::unique_ptr<style::SideBarButton> MakeCompact(
++		const style::SideBarButton &st) {
++	auto result = std::make_unique<style::SideBarButton>(st);
++	const auto &font = st.badgeStyle.font;
++	result->badgeStyle.font = style::font(
++		std::max(Scaled(font->size(), kBadgeFontScale), 1),
++		font->flags(),
++		font->family());
++	result->minHeight = Scaled(st.minHeight, kBarHeightScale);
++	result->badgeHeight = result->badgeStyle.font->height;
++	result->badgeSkip = Scaled(st.badgeSkip, 0.5);
++	result->badgeStroke = std::max(Scaled(st.badgeStroke, 0.5), 1);
++	result->badgePosition = QPoint(
++		Scaled(st.badgePosition.x(), kBarIconScale),
++		(result->minHeight / 2)
++			- Scaled((st.minHeight / 2) - st.badgePosition.y(), kBarIconScale));
++	return result;
++}
++
++[[nodiscard]] bool IsCompactStyle(const style::SideBarButton &st) {
++	return ranges::any_of(BarStyles(), [&](const BarStyle &entry) {
++		return (entry.compact.get() == &st);
++	});
++}
++
++[[nodiscard]] QImage ScaledIcon(const style::icon &icon, float64 scale) {
++	const auto ratio = style::DevicePixelRatio();
++	auto full = QImage(
++		icon.size() * ratio,
++		QImage::Format_ARGB32_Premultiplied);
++	full.setDevicePixelRatio(ratio);
++	full.fill(Qt::transparent);
++	{
++		auto p = QPainter(&full);
++		icon.paint(p, 0, 0, icon.width());
++	}
++	auto result = full.scaled(
++		Scaled(icon.size(), scale) * ratio,
++		Qt::IgnoreAspectRatio,
++		Qt::SmoothTransformation);
++	result.setDevicePixelRatio(ratio);
++	return result;
++}
++
++[[nodiscard]] const style::icon &ComputeIcon(
++		const BarButton &state,
++		bool active) {
++	const auto &st = *state.st;
++	return active
++		? (state.iconActive
++			? *state.iconActive
++			: !st.iconActive.empty()
++			? st.iconActive
++			: state.icon
++			? *state.icon
++			: st.icon)
++		: (state.icon ? *state.icon : st.icon);
++}
++
++[[nodiscard]] int LockShift() {
++	return Scaled(st::sideBarButtonLockCornerShift, kBarIconScale);
++}
++
++[[nodiscard]] int BadgeLeft(const BarButton &state, int width) {
++	const auto desired = (width / 2) + state.st->badgePosition.x();
++	return std::clamp(desired, 0, std::max(width - state.badgeWidth, 0));
++}
++
++void ValidateBarCache(
++		not_null<Ui::SideBarButton*> button,
++		BarButton &state,
++		const style::icon &icon,
++		bool active,
++		bool locked) {
++	auto &cache = state.cache[active ? 1 : 0];
++	const auto size = button->size();
++	if (!cache.image.isNull()
++		&& cache.icon == &icon
++		&& cache.size == size
++		&& cache.badgeWidth == state.badgeWidth
++		&& cache.locked == locked) {
++		return;
++	}
++	cache.icon = &icon;
++	cache.size = size;
++	cache.badgeWidth = state.badgeWidth;
++	cache.locked = locked;
++	cache.image = ScaledIcon(icon, kBarIconScale);
++	if (!state.badgeWidth && !locked) {
++		return;
++	}
++	const auto &st = *state.st;
++	const auto ratio = cache.image.devicePixelRatio();
++	const auto iconSize = cache.image.size() / ratio;
++	const auto iconLeft = (size.width() - iconSize.width()) / 2;
++	const auto iconTop = (size.height() - iconSize.height()) / 2;
++	auto p = QPainter(&cache.image);
++	p.setCompositionMode(QPainter::CompositionMode_Source);
++	auto hq = PainterHighQualityEnabler(p);
++	if (state.badgeWidth) {
++		p.setBrush(Qt::transparent);
++		auto pen = QPen(Qt::transparent);
++		pen.setWidth(2 * st.badgeStroke);
++		p.setPen(pen);
++		const auto radius = st.badgeHeight / 2.;
++		p.drawRoundedRect(
++			BadgeLeft(state, size.width()) - iconLeft,
++			st.badgePosition.y() - iconTop,
++			state.badgeWidth,
++			st.badgeHeight,
++			radius,
++			radius);
++	}
++	if (locked) {
++		p.setPen(Qt::NoPen);
++		p.setBrush(Qt::transparent);
++		const auto shift = LockShift();
++		const auto radius = (st::sideBarButtonLockSize.height() / 2)
++			+ st.badgeStroke;
++		p.drawEllipse(
++			QPoint(iconSize.width() - shift, iconSize.height() - shift),
++			radius,
++			radius);
++	}
++}
++
++void PaintBarButton(
++		not_null<Ui::SideBarButton*> button,
++		BarButton &state,
++		QRect clip) {
++	auto p = Painter(button.get());
++	const auto &st = *state.st;
++	const auto active = state.active && state.active();
++	const auto &bg = active ? st.textBgActive : st.textBg;
++	p.fillRect(clip, bg);
++
++	button->paintRipple(p, 0, 0);
++
++	const auto locked = button->locked();
++	if (locked) {
++		p.setOpacity(kLockedOpacity);
++	}
++	const auto width = button->width();
++	const auto height = button->height();
++	const auto &icon = ComputeIcon(state, active);
++	auto iconRect = QRect();
++	if (!icon.empty()) {
++		ValidateBarCache(button, state, icon, active, locked);
++		const auto &image = state.cache[active ? 1 : 0].image;
++		const auto size = image.size() / image.devicePixelRatio();
++		iconRect = QRect(
++			QPoint((width - size.width()) / 2, (height - size.height()) / 2),
++			size);
++		p.drawImage(iconRect.topLeft(), image);
++	}
++	if (state.badgeWidth) {
++		const auto x = BadgeLeft(state, width);
++		const auto y = st.badgePosition.y();
++		{
++			auto hq = PainterHighQualityEnabler(p);
++			p.setPen(Qt::NoPen);
++			p.setBrush(active
++				? (state.badgeMuted
++					? st.badgeBgMutedActive
++					: st.badgeBgActive)
++				: (state.badgeMuted ? st.badgeBgMuted : st.badgeBg));
++			const auto radius = st.badgeHeight / 2;
++			p.drawRoundedRect(
++				x,
++				y,
++				state.badgeWidth,
++				st.badgeHeight,
++				radius,
++				radius);
++		}
++		p.setPen(st.badgeFg);
++		state.badge.draw(
++			p,
++			x + (state.badgeWidth - state.badge.maxWidth()) / 2,
++			y + (st.badgeHeight - st.badgeStyle.font->height) / 2,
++			width);
++	}
++	if (locked && !iconRect.isEmpty()) {
++		auto &lock = state.lock[active ? 1 : 0];
++		if (lock.isNull()) {
++			lock = Ui::SideBarLockIcon(st.textFg);
++		}
++		const auto size = lock.size() / style::DevicePixelRatio();
++		const auto shift = LockShift();
++		p.drawImage(
++			iconRect.x() + iconRect.width() - shift - size.width() / 2,
++			iconRect.y() + iconRect.height() - shift - size.height() / 2,
++			lock);
++	}
++}
++
++void ApplyTabs(const TabsStyle &entry, bool compact) {
++	const auto &st = *entry.original;
++	entry.copy->padding = compact ? Scaled(st.padding, 0.5) : st.padding;
++	entry.copy->strictSkip = compact
++		? std::max(Scaled(st.strictSkip, kTabSkipScale), 2)
++		: st.strictSkip;
++}
++
++[[nodiscard]] const QImage &TabIcon(const style::icon &icon, QColor color) {
++	auto &cache = TabIcons();
++	const auto key = std::make_pair(&icon, color.rgba());
++	const auto i = cache.find(key);
++	if (i != end(cache)) {
++		return i->second;
++	}
++	if (int(cache.size()) >= kMaxTabIcons) {
++		cache.clear();
++	}
++	auto image = icon.instance(
++		color,
++		Scaled(style::Scale(), kTabIconScale));
++	TabIconSizes()[&icon] = image.size() / image.devicePixelRatio();
++	return cache.emplace(key, std::move(image)).first->second;
++}
++
++} // namespace
++
++bool CompactFolderBar() {
++	return CompactFolders()
++		&& IconsOnly(Ui::VerticalChatsFiltersTabsMode(
++			Core::App().settings().chatFiltersTabsMode()));
++}
++
++rpl::producer<bool> CompactFolderBarValue() {
++	return rpl::combine(
++		CompactFoldersValue(),
++		Core::App().settings().chatFiltersTabsModeValue()
++	) | rpl::map([](bool compact, Ui::ChatsFiltersTabsMode mode) {
++		return compact && IconsOnly(Ui::VerticalChatsFiltersTabsMode(mode));
++	}) | rpl::distinct_until_changed();
++}
++
++bool CompactFolderTabs() {
++	return CompactFolders()
++		&& IconsOnly(Ui::HorizontalChatsFiltersTabsMode(
++			Core::App().settings().chatFiltersTabsMode()));
++}
++
++rpl::producer<bool> CompactFolderTabsValue() {
++	return rpl::combine(
++		CompactFoldersValue(),
++		Core::App().settings().chatFiltersTabsModeValue()
++	) | rpl::map([](bool compact, Ui::ChatsFiltersTabsMode mode) {
++		return compact
++			&& IconsOnly(Ui::HorizontalChatsFiltersTabsMode(mode));
++	}) | rpl::distinct_until_changed();
++}
++
++int FiltersWidth() {
++	return CompactFolderBar()
++		? (st::windowFiltersWidth / 2)
++		: st::windowFiltersWidth;
++}
++
++const style::SideBarButton &FolderBarStyle(const style::SideBarButton &st) {
++	if (!CompactFolderBar()) {
++		return st;
++	}
++	auto &list = BarStyles();
++	const auto i = ranges::find(list, &st, [](const BarStyle &entry) {
++		return entry.original.get();
++	});
++	if (i != end(list)) {
++		return *i->compact;
++	}
++	list.push_back({ &st, MakeCompact(st) });
++	return *list.back().compact;
++}
++
++int FolderBarIconSize(int size) {
++	return CompactFolderBar() ? Scaled(size, kBarIconScale) : size;
++}
++
++void SetupFolderBarButton(
++		not_null<Ui::SideBarButton*> button,
++		const style::SideBarButton &st,
++		Fn<bool()> active) {
++	if (!IsCompactStyle(st)) {
++		return;
++	}
++	const auto state = std::make_shared<BarButton>(BarButton{
++		.st = &st,
++		.active = std::move(active),
++	});
++	BarButtons()[button] = state;
++	button->lifetime().add([=] {
++		BarButtons().remove(button);
++	});
++	style::PaletteChanged(
++	) | rpl::on_next([=] {
++		for (auto &cache : state->cache) {
++			cache.image = QImage();
++		}
++		for (auto &lock : state->lock) {
++			lock = QImage();
++		}
++	}, button->lifetime());
++	base::install_event_filter(button, [=](not_null<QEvent*> e) {
++		if (e->type() != QEvent::Paint) {
++			return base::EventFilterResult::Continue;
++		}
++		PaintBarButton(
++			button,
++			*state,
++			static_cast<QPaintEvent*>(e.get())->rect());
++		return base::EventFilterResult::Cancel;
++	});
++}
++
++void SetFolderBarIcon(
++		not_null<Ui::SideBarButton*> button,
++		const style::icon *icon,
++		const style::icon *iconActive) {
++	button->setIconOverride(icon, iconActive);
++	const auto i = BarButtons().find(button);
++	if (i == end(BarButtons())) {
++		return;
++	}
++	i->second->icon = icon;
++	i->second->iconActive = iconActive;
++	button->update();
++}
++
++void SetFolderBarBadge(
++		not_null<Ui::SideBarButton*> button,
++		const QString &badge,
++		bool muted) {
++	button->setBadge(badge, muted);
++	const auto i = BarButtons().find(button);
++	if (i == end(BarButtons())) {
++		return;
++	}
++	const auto state = i->second.get();
++	const auto &st = *state->st;
++	if (state->badge.toString() != badge) {
++		state->badge.setText(st.badgeStyle, badge);
++	}
++	state->badgeMuted = muted;
++	state->badgeWidth = badge.isEmpty()
++		? 0
++		: std::max(st.badgeHeight, state->badge.maxWidth() + 2 * st.badgeSkip);
++	button->update();
++}
++
++const style::SettingsSlider &FolderTabsStyle(
++		const style::SettingsSlider &st) {
++	auto &list = TabsStyles();
++	auto i = ranges::find(list, &st, [](const TabsStyle &entry) {
++		return entry.original.get();
++	});
++	if (i == end(list)) {
++		list.push_back({
++			&st,
++			std::make_unique<style::SettingsSlider>(st),
++		});
++		i = end(list) - 1;
++	}
++	ApplyTabs(*i, CompactFolderTabs());
++	return *i->copy;
++}
++
++void SyncFolderTabsStyles() {
++	const auto compact = CompactFolderTabs();
++	for (const auto &entry : TabsStyles()) {
++		ApplyTabs(entry, compact);
++	}
++}
++
++int FolderTabIconWidth(const style::icon &icon) {
++	if (!CompactFolderTabs()) {
++		return icon.width();
++	}
++	const auto i = TabIconSizes().find(&icon);
++	if (i != end(TabIconSizes())) {
++		return i->second.width();
++	}
++	return TabIcon(icon, QColor(255, 255, 255)).width()
++		/ style::DevicePixelRatio();
++}
++
++bool PaintFolderTabIcon(
++		QPainter &p,
++		const style::icon &icon,
++		QPoint position,
++		int lineHeight,
++		int outerWidth,
++		QColor color) {
++	if (!CompactFolderTabs()) {
++		return false;
++	}
++	const auto &image = TabIcon(icon, color);
++	const auto size = image.size() / image.devicePixelRatio();
++	p.drawImage(
++		(style::RightToLeft()
++			? (outerWidth - position.x() - size.width())
++			: position.x()),
++		position.y() + (lineHeight - size.height()) / 2,
++		image);
++	return true;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_compact_folders.h b/Telegram/SourceFiles/tele/tele_compact_folders.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..9b913c8532f7451d757a5a502aa04ebd72da14f8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_compact_folders.h
+@@ -0,0 +1,48 @@
++#pragma once
++
++namespace style {
++struct SideBarButton;
++struct SettingsSlider;
++} // namespace style
++
++namespace Ui {
++class SideBarButton;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] bool CompactFolderBar();
++[[nodiscard]] rpl::producer<bool> CompactFolderBarValue();
++[[nodiscard]] bool CompactFolderTabs();
++[[nodiscard]] rpl::producer<bool> CompactFolderTabsValue();
++
++[[nodiscard]] int FiltersWidth();
++[[nodiscard]] const style::SideBarButton &FolderBarStyle(
++	const style::SideBarButton &st);
++[[nodiscard]] int FolderBarIconSize(int size);
++void SetupFolderBarButton(
++	not_null<Ui::SideBarButton*> button,
++	const style::SideBarButton &st,
++	Fn<bool()> active);
++void SetFolderBarIcon(
++	not_null<Ui::SideBarButton*> button,
++	const style::icon *icon,
++	const style::icon *iconActive);
++void SetFolderBarBadge(
++	not_null<Ui::SideBarButton*> button,
++	const QString &badge,
++	bool muted);
++
++[[nodiscard]] const style::SettingsSlider &FolderTabsStyle(
++	const style::SettingsSlider &st);
++void SyncFolderTabsStyles();
++[[nodiscard]] int FolderTabIconWidth(const style::icon &icon);
++[[nodiscard]] bool PaintFolderTabIcon(
++	QPainter &p,
++	const style::icon &icon,
++	QPoint position,
++	int lineHeight,
++	int outerWidth,
++	QColor color);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 87da799b359686d3471102736dffa07f5f8a34d2..050adb7d283c07b65e1be5eeac50833c22a3e36d 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -209,6 +209,7 @@ const char kOptionResizableField[] = "tele-resizable-field";
+ const char kOptionFieldHeight[] = "tele-field-height";
+ const char kOptionLocalFolders[] = "tele-local-folders";
+ const char kOptionUnsortedFolder[] = "tele-unsorted-folder";
++const char kOptionCompactFolders[] = "tele-compact-folders";
+ const char kOptionSelectChats[] = "tele-select-chats";
+ const char kOptionFullChatPreview[] = "tele-full-chat-preview";
+ const char kOptionListDates[] = "tele-list-dates";
+@@ -1509,6 +1510,12 @@ base::options::toggle UnsortedFolderOption({
+ 		"archived ones.",
+ });
+ 
++base::options::toggle CompactFoldersOption({
++	.id = kOptionCompactFolders,
++	.name = "Compact icon folders",
++	.description = "Applies when folders show icons only.",
++});
++
+ base::options::toggle SelectChatsOption({
+ 	.id = kOptionSelectChats,
+ 	.name = "Select several chats",
+@@ -3333,6 +3340,20 @@ rpl::producer<bool> UnsortedFolderValue() {
+ 	});
+ }
+ 
++bool CompactFolders() {
++	return CompactFoldersOption.value();
++}
++
++rpl::producer<bool> CompactFoldersValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		CompactFoldersOption.changes()
++	) | rpl::map([] {
++		return CompactFoldersOption.value();
++	});
++}
++
+ bool SelectChats() {
+ 	return SelectChatsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 23fc4aa8c0d87d58f125536b9e51fed982908b7b..305827554531f1b422cd515462a2a06335060fb3 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -204,6 +204,7 @@ extern const char kOptionResizableField[];
+ extern const char kOptionFieldHeight[];
+ extern const char kOptionLocalFolders[];
+ extern const char kOptionUnsortedFolder[];
++extern const char kOptionCompactFolders[];
+ extern const char kOptionSelectChats[];
+ extern const char kOptionFullChatPreview[];
+ extern const char kOptionListDates[];
+@@ -555,6 +556,8 @@ void SetFieldHeight(int height);
+ [[nodiscard]] rpl::producer<bool> LocalFoldersValue();
+ [[nodiscard]] bool UnsortedFolder();
+ [[nodiscard]] rpl::producer<bool> UnsortedFolderValue();
++[[nodiscard]] bool CompactFolders();
++[[nodiscard]] rpl::producer<bool> CompactFoldersValue();
+ [[nodiscard]] bool SelectChats();
+ [[nodiscard]] rpl::producer<bool> SelectChatsValue();
+ [[nodiscard]] bool FullChatPreview();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index daf7971f08fe80c0280a92ea9e1e78385e4299c6..421e7f8e6d237549c23e6ccd2a470b50a95f3aa0 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -149,6 +149,7 @@ struct Spec {
+ 		Toggle(kOptionSmoothScroll),
+ 		Toggle(kOptionLocalFolders),
+ 		Toggle(kOptionUnsortedFolder),
++		Toggle(kOptionCompactFolders),
+ 		Toggle(kOptionSelectChats),
+ 		Toggle(kOptionFullChatPreview),
+ 		Toggle(kOptionListDates),
+diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_slider.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_slider.cpp
+index b0d70d77f762da21f0b3e01cc3fe546705984d9e..4955064d055b131cfd9c87842fd10de272a5ffb7 100644
+--- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_slider.cpp
++++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_slider.cpp
+@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ */
+ #include "ui/widgets/chat_filters_tabs_slider.h"
+ 
++#include "tele/tele_compact_folders.h"
+ #include "ui/effects/ripple_animation.h"
+ #include "ui/widgets/side_bar_button.h"
+ #include "styles/style_dialogs.h"
+@@ -50,6 +51,13 @@ ChatsFiltersTabs::ChatsFiltersTabs(
+ 		}
+ 		update();
+ 	}, lifetime());
++	Tele::CompactFolderTabsValue(
++	) | rpl::skip(1) | rpl::on_next([=] {
++		Tele::SyncFolderTabsStyles();
++		updateSectionsContentWidths();
++		fitWidthToSections();
++		update();
++	}, lifetime());
+ 	Ui::DiscreteSlider::setSelectOnPress(false);
+ }
+ 
+@@ -115,7 +123,7 @@ int ChatsFiltersTabs::iconExtraWidth(
+ 		? 0
+ 		: (_tabsMode == ChatsFiltersTabsMode::TextAndIcons)
+ 		? (icon->width() + _iconSkip)
+-		: icon->width();
++		: Tele::FolderTabIconWidth(*icon);
+ }
+ 
+ int ChatsFiltersTabs::badgeExtraWidth(int index) const {
+@@ -300,7 +308,15 @@ void ChatsFiltersTabs::paintEvent(QPaintEvent *e) {
+ 				? 0
+ 				: section.label.maxWidth();
+ 			p.setPen(anim::pen(_st.labelFg, _st.labelFgActive, active));
+-			if (icon) {
++			if (icon
++				&& ((_tabsMode != ChatsFiltersTabsMode::IconsOnly)
++					|| !Tele::PaintFolderTabIcon(
++						p,
++						*icon,
++						QPoint(labelLeft, _st.labelTop),
++						_st.labelStyle.font->height,
++						width(),
++						anim::color(_st.labelFg, _st.labelFgActive, active)))) {
+ 				icon->paint(
+ 					p,
+ 					labelLeft,
+diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+index 95e4ff22d3103e293f6d20f754bfa496098628ec..ff4a64f4b3692b42d8783b168b5035bbdb0f8a36 100644
+--- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
++++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_mark_as_read.h"
+ #include "main/main_session.h"
+ #include "settings/sections/settings_folders.h"
++#include "tele/tele_compact_folders.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
+ #include "tele/tele_menu_apply.h"
+@@ -238,9 +239,9 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 	const auto slider = scroll->setOwnedWidget(
+ 		object_ptr<Ui::ChatsFiltersTabs>(
+ 			parent,
+-			trackActiveFilterAndUnreadAndReorder
++			Tele::FolderTabsStyle(trackActiveFilterAndUnreadAndReorder
+ 				? st::dialogsSearchTabs
+-				: st::chatsFiltersTabs));
++				: st::chatsFiltersTabs)));
+ 	const auto state = wrap->lifetime().make_state<State>();
+ 	const auto reassignUnreadValue = [=] {
+ 		state->reorderLifetime.destroy();
+diff --git a/Telegram/SourceFiles/window/window_filters_favorite.cpp b/Telegram/SourceFiles/window/window_filters_favorite.cpp
+index c51e19763a7939fe908fb8b9fc3eb5f73735674f..cd411d382a880d0e99e6e1df689f53d03f3b9575 100644
+--- a/Telegram/SourceFiles/window/window_filters_favorite.cpp
++++ b/Telegram/SourceFiles/window/window_filters_favorite.cpp
+@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/stickers/data_stickers_set.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_compact_folders.h"
+ #include "ui/basic_click_handlers.h"
+ #include "ui/dynamic_image.h"
+ #include "ui/dynamic_thumbnails.h"
+@@ -283,7 +284,8 @@ void FolderFavoriteButton::paintEvent(QPaintEvent *e) {
+ 	using Mode = Ui::ChatsFiltersTabsMode;
+ 	const auto mode = tabsMode();
+ 	if (_thumbnail && mode != Mode::TextOnly) {
+-		const auto size = st::foldersFavorite.width();
++		const auto size = Tele::FolderBarIconSize(
++			st::foldersFavorite.width());
+ 		const auto x = (width() - size) / 2;
+ 		const auto y = (_st.iconPosition.y() < 0)
+ 			? (height() - size) / 2
+diff --git a/Telegram/SourceFiles/window/window_filters_menu.cpp b/Telegram/SourceFiles/window/window_filters_menu.cpp
+index 50b37fb2b8754e1113c13b54693a501fc7e31d1f..6b2f5dbc755a4569d4c54818f6981e645f908ca9 100644
+--- a/Telegram/SourceFiles/window/window_filters_menu.cpp
++++ b/Telegram/SourceFiles/window/window_filters_menu.cpp
+@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/premium_limits_box.h"
+ #include "settings/sections/settings_folders.h"
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_compact_folders.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
+ #include "tele/tele_menu_apply.h"
+@@ -107,7 +108,10 @@ FiltersMenu::FiltersMenu(
+ : _session(session)
+ , _parent(parent)
+ , _outer(_parent)
+-, _menu(&_outer, TextWithEntities(), st::windowFiltersMainMenu)
++, _menu(
++	&_outer,
++	TextWithEntities(),
++	Tele::FolderBarStyle(st::windowFiltersMainMenu))
+ , _scroll(&_outer)
+ , _container(
+ 	_scroll.setOwnedWidget(
+@@ -124,6 +128,10 @@ FiltersMenu::FiltersMenu(
+ FiltersMenu::~FiltersMenu() = default;
+ 
+ void FiltersMenu::setup() {
++	Tele::SetupFolderBarButton(
++		&_menu,
++		Tele::FolderBarStyle(st::windowFiltersMainMenu),
++		nullptr);
+ 	setupDragAndDrop();
+ 	setupMainMenuIcon();
+ 	_menu.setIsMenuButton(true);
+@@ -148,7 +156,7 @@ void FiltersMenu::setup() {
+ 
+ 	_parent->heightValue(
+ 	) | rpl::on_next([=](int height) {
+-		const auto width = st::windowFiltersWidth;
++		const auto width = Tele::FiltersWidth();
+ 		_outer.setGeometry({ 0, 0, width, height });
+ 		_menu.resizeToWidth(width);
+ 		_menu.move(0, 0);
+@@ -245,7 +253,7 @@ void FiltersMenu::setupMainMenuIcon() {
+ 			: !state.allMuted
+ 			? &st::windowFiltersMainMenuUnread
+ 			: &st::windowFiltersMainMenuUnreadMuted;
+-		_menu.setIconOverride(icon, icon);
++		Tele::SetFolderBarIcon(&_menu, icon, icon);
+ 	}, _outer.lifetime());
+ }
+ 
+@@ -544,7 +552,8 @@ const style::SideBarButton &FiltersMenu::buttonStyle() const {
+ 	switch (tabsMode()) {
+ 	case Mode::TextOnly: return st::windowFiltersButtonTextOnly;
+ 	case Mode::TextAndIcons: return st::windowFiltersButton;
+-	case Mode::IconsOnly: return st::windowFiltersButtonIconsOnly;
++	case Mode::IconsOnly:
++		return Tele::FolderBarStyle(st::windowFiltersButtonIconsOnly);
+ 	}
+ 	return st::windowFiltersButton;
+ }
+@@ -596,13 +605,16 @@ base::unique_qptr<Ui::SideBarButton> FiltersMenu::prepareButton(
+ 		: container->add(std::move(prepared));
+ 	auto button = base::unique_qptr<Ui::SideBarButton>(std::move(added));
+ 	const auto raw = button.get();
++	Tele::SetupFolderBarButton(raw, buttonStyle(), [=] {
++		return (_session->activeChatsFilterCurrent() == id);
++	});
+ 	const auto nameText = id
+ 		? title.text.text
+ 		: tr::lng_filters_all(tr::now);
+ 	const auto &icons = Ui::LookupFilterIcon(id
+ 		? icon
+ 		: Ui::FilterIcon::All);
+-	raw->setIconOverride(icons.normal, icons.active);
++	Tele::SetFolderBarIcon(raw, icons.normal, icons.active);
+ 	if (id >= 0) {
+ 		if (locked) {
+ 			// Surface a locked folder's premium-gated status and what pressing
+@@ -629,7 +641,10 @@ base::unique_qptr<Ui::SideBarButton> FiltersMenu::prepareButton(
+ 				: (count > 999)
+ 				? "99+"
+ 				: QString::number(count);
+-			raw->setBadge(string, includeMuted && (count == muted));
++			Tele::SetFolderBarBadge(
++				raw,
++				string,
++				includeMuted && (count == muted));
+ 			if (!locked) {
+ 				raw->setAccessibleName(count
+ 					? tr::lng_filter_unread_chats(
+diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
+index 7cdc1134c6e962fa6479769cb7114001c517d8a1..dd651476382bf762c87c6d66f0ee1775bd2def49 100644
+--- a/Telegram/SourceFiles/window/window_session_controller.cpp
++++ b/Telegram/SourceFiles/window/window_session_controller.cpp
+@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/secret/secret_chats.h"
+ #include "tele/tele_changelog_chat.h"
+ #include "tele/tele_communities.h"
++#include "tele/tele_compact_folders.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
+ #include "tele/tele_options.h"
+@@ -1698,6 +1699,11 @@ SessionController::SessionController(
+ 		checkOpenedFilter();
+ 		crl::on_main(this, processFiltersMenu);
+ 	}, lifetime());
++	Tele::CompactFolderBarValue(
++	) | rpl::skip(1) | rpl::on_next([=] {
++		toggleFiltersMenu(false);
++		processFiltersMenu();
++	}, lifetime());
+ 	Tele::SetupFolderTabs(this);
+ 
+ 	session->data().itemIdChanged(
+@@ -3312,11 +3318,11 @@ not_null<MainWidget*> SessionController::content() const {
+ }
+ 
+ int SessionController::filtersWidth() const {
+-	return _filters ? st::windowFiltersWidth : 0;
++	return _filters ? Tele::FiltersWidth() : 0;
+ }
+ 
+ bool SessionController::enoughSpaceForFilters() const {
+-	return widget()->width() >= widget()->minimumWidth() + st::windowFiltersWidth;
++	return widget()->width() >= widget()->minimumWidth() + Tele::FiltersWidth();
+ }
+ 
+ rpl::producer<bool> SessionController::enoughSpaceForFiltersValue() const {

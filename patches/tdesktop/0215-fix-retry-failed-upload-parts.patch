@@ -13,10 +13,10 @@ Subject: [PATCH] fix: retry failed upload parts
  create mode 100644 Telegram/SourceFiles/tele/tele_upload_retry.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1018efaf5095dc6eb18df722baec4afa93952416..9326664f0add1619c400eb1300c18a68817f63a5 100644
+index 879eff122d48fc1bf0b5c470899ef9ff8283eaa4..765efe78515592eb021b872ee2749adf76d8ad1e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2688,6 +2688,8 @@ PRIVATE
+@@ -2692,6 +2692,8 @@ PRIVATE
      tele/tele_unsorted_folder.h
      tele/tele_updater.cpp
      tele/tele_updater.h

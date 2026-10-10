@@ -18,10 +18,10 @@ Subject: [PATCH] feat: keep drafts on this device
  create mode 100644 Telegram/SourceFiles/tele/tele_local_drafts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3e3f059a6b3f19b073ae3a50d2d50ed58f3b472f..0ef518b9a1723e62d081bbd9476d13bfbf4aeea9 100644
+index c5789f355deb34de98d0d4112be20afef6d16fdf..caddbeb426f38231837ee5c5d5cf4308283a5499 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2437,6 +2437,8 @@ PRIVATE
+@@ -2441,6 +2441,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -155,7 +155,7 @@ index beec743960b7c2c4ce3a421c8f71aa7106446bd0..a1ddd01eb447bd457394aee2ec2636fd
  	AddIgnoredUsers(builder);
  	AddOptionToggle(builder, ::Tele::kOptionHideIgnored);
 diff --git a/Telegram/SourceFiles/storage/storage_account.cpp b/Telegram/SourceFiles/storage/storage_account.cpp
-index 5888ffa1164327b7170a2a3d8df7793a3fa467da..44b40f000d570243bd634e7964117398e6cdcffc 100644
+index 52036077e07521b6fd7c7a7766add1245b09dedc..1a4b83020f20e1479fd0dc6b9817ebe117e4c629 100644
 --- a/Telegram/SourceFiles/storage/storage_account.cpp
 +++ b/Telegram/SourceFiles/storage/storage_account.cpp
 @@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

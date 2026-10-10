@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 12:07:12 +0300
+Subject: [PATCH] feat: say that the money passcode is tele's passcode
+
+---
+ Telegram/SourceFiles/wallet/wallet_key_protection.cpp | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/wallet/wallet_key_protection.cpp b/Telegram/SourceFiles/wallet/wallet_key_protection.cpp
+index c6e672faff32f46082de85cd24dfa8e7149846a4..d19b805a1b309c2865ef98c6aad16b5797c56120 100644
+--- a/Telegram/SourceFiles/wallet/wallet_key_protection.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_key_protection.cpp
+@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_domain.h"
+ #include "main/main_session.h"
+ #include "storage/storage_domain.h"
++#include "tele/tele_lowercase.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/controls/button_busy.h"
+ #include "ui/layers/generic_box.h"
+@@ -944,7 +945,9 @@ void KeyProtectionBox(
+ 		(removal
+ 			? tr::lng_wallet_protection_passcode_keep
+ 			: tr::lng_wallet_protection_passcode)(),
+-		tr::lng_wallet_protection_passcode_about(),
++		rpl::single(::Tele::Lower(u"The same passcode as tele's local "
++			"passcode. It locks tele at startup only if Lock app is on in "
++			"Settings."_q)),
+ 		st::defaultBoxCheckbox);
+ 	makeClickable(passcodeRow, VaultKind::Passcode);
+ 	// The passcode exists independently of whether this box already holds

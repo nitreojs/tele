@@ -19,10 +19,10 @@ Subject: [PATCH] feat: keep deleted messages and edit history after a restart
  create mode 100644 Telegram/SourceFiles/tele/tele_kept_store.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f55d5de194c93920516d36485b414915d37eedd9..4777fc20c096832199d9c39e0bcc212e9c78d48b 100644
+index 62877357d006af80805a493bab15b31d5f0888ff..0803daeea60586061d0a322d0af2a58b45473826 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2483,6 +2483,8 @@ PRIVATE
+@@ -2487,6 +2487,8 @@ PRIVATE
      tele/tele_inline_text.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h

@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 14:52:46 +0300
+Subject: [PATCH] fix: closing the rich editor keeps drafts on this device
+
+---
+ Telegram/SourceFiles/apiwrap.cpp                     | 5 ++---
+ Telegram/SourceFiles/iv/editor/iv_editor_session.cpp | 7 +++++++
+ Telegram/SourceFiles/tele/tele_local_drafts.cpp      | 5 +++++
+ Telegram/SourceFiles/tele/tele_local_drafts.h        | 5 +++++
+ 4 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index b5d1cc783a30e18536ac9cb9408bc3329043dc15..9c620111c57a2eb1fffecd42bcec768a08864446 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula.h"
+ #include "tele/tele_changelog_chat.h"
+ #include "tele/tele_links.h"
++#include "tele/tele_local_drafts.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_username_aliases.h"
+ #include "tele/tele_options.h"
+@@ -2410,9 +2411,7 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
+ 		bool clearOnFail,
+ 		Fn<void()> done,
+ 		Fn<void(const MTP::Error &)> fail) {
+-	if (Tele::LocalDrafts()) {
+-		return 0;
+-	} else if (Tele::Secret::IsSecretPeer(thread->peer())) {
++	if (Tele::KeepsDraftsLocally(thread)) {
+ 		return 0;
+ 	}
+ 	const auto weak = base::make_weak(thread);
+diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+index 9d973dd5f1c31a098f9a6f5c4eddf907135c4c74..b1a427899222b09995efede028786df0c1264419 100644
+--- a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
++++ b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_account.h"
+ #include "storage/storage_media_prepare.h"
+ #include "tele/tele_drafts_compose.h"
++#include "tele/tele_local_drafts.h"
+ #include "tele/tele_options.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/attach/attach_prepare.h"
+@@ -4515,6 +4516,9 @@ void ArticleSession::saveRichDraftNow() {
+ 		&*prepared);
+ 	if (!cloudDraft) {
+ 		return;
++	} else if (::Tele::KeepsDraftsLocally(thread)) {
++		_richDraftAutosaveRetryPending = false;
++		return;
+ 	}
+ 	_richDraftAutosaveRetryPending = (_session->api().saveDraftToCloud(
+ 		not_null{ thread },
+@@ -4571,6 +4575,9 @@ void ArticleSession::saveRichDraftForClose(uint64 generation) {
+ 	if (!cloudDraft) {
+ 		closeWithDraftSaveFailed(generation);
+ 		return;
++	} else if (::Tele::KeepsDraftsLocally(thread)) {
++		closeWithDraftSaveDone(generation);
++		return;
+ 	}
+ 	_closeDraftSaveWaiting = false;
+ 	_richDraftAutosaveRetryPending = false;
+diff --git a/Telegram/SourceFiles/tele/tele_local_drafts.cpp b/Telegram/SourceFiles/tele/tele_local_drafts.cpp
+index 5fadaccfde83b4c1b8f7fe3a83f263b47c5aa639..addbf5502b111a2eae7a831f008f41d38fce5a6c 100644
+--- a/Telegram/SourceFiles/tele/tele_local_drafts.cpp
++++ b/Telegram/SourceFiles/tele/tele_local_drafts.cpp
+@@ -12,6 +12,7 @@
+ #include "main/main_domain.h"
+ #include "main/main_session.h"
+ #include "storage/storage_account.h"
++#include "tele/secret/secret_chats.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ 
+@@ -42,6 +43,10 @@ void PersistSession(not_null<Main::Session*> session) {
+ 
+ } // namespace
+ 
++bool KeepsDraftsLocally(not_null<Data::Thread*> thread) {
++	return LocalDrafts() || Secret::IsSecretPeer(thread->peer());
++}
++
+ void PersistLocalDrafts() {
+ 	if (!Core::IsAppLaunched() || !LocalDrafts()) {
+ 		return;
+diff --git a/Telegram/SourceFiles/tele/tele_local_drafts.h b/Telegram/SourceFiles/tele/tele_local_drafts.h
+index 7399c5f3ad64577ffb36b43a90bffb33ef61c3f4..19f7c4e235b55afaeb00df99f98dc42b7e7b1da3 100644
+--- a/Telegram/SourceFiles/tele/tele_local_drafts.h
++++ b/Telegram/SourceFiles/tele/tele_local_drafts.h
+@@ -2,12 +2,17 @@
+ 
+ class History;
+ 
++namespace Data {
++class Thread;
++} // namespace Data
++
+ namespace Main {
+ class Session;
+ } // namespace Main
+ 
+ namespace Tele {
+ 
++[[nodiscard]] bool KeepsDraftsLocally(not_null<Data::Thread*> thread);
+ void PersistLocalDrafts();
+ void RestoreLocalDrafts(not_null<History*> history);
+ void ClearCloudDrafts(

@@ -23,10 +23,10 @@ Subject: [PATCH] feat: pin chats past the limit
  create mode 100644 Telegram/SourceFiles/tele/tele_local_pins.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9923df602d9c3cb5dc572b1cbb708a0f75720206..11e381203e66da23f5f55b018d6bdcdb896884d1 100644
+index 5278a9d9ce0ccc80063adaa6fd943ef611072baf..da3308f40d5d53c73ca96419b4c6ff7521acc628 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2459,6 +2459,8 @@ PRIVATE
+@@ -2463,6 +2463,8 @@ PRIVATE
      tele/tele_local_drafts.h
      tele/tele_local_names.cpp
      tele/tele_local_names.h

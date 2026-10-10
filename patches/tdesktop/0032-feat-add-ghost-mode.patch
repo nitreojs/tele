@@ -30,10 +30,10 @@ Subject: [PATCH] feat: add ghost mode
  create mode 100644 Telegram/SourceFiles/tele/tele_ghost.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ffb84d4ad844a9ab19447b6c3becb9d9df95edf5..b7f5fc2f14cd49d50d0020f63606374237f669c3 100644
+index 69f9ab72790072912c83df3df2c509722a3fc8a9..aa6e8de59d0cad4af8d49c83f48edfbf22ad762c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2391,6 +2391,8 @@ PRIVATE
+@@ -2395,6 +2395,8 @@ PRIVATE
      tele/tele_folders.h
      tele/tele_gifts.cpp
      tele/tele_gifts.h
@@ -333,10 +333,10 @@ index 599a03a2d3203e5c113f9163108f8898f8bf7d53..8edee3d69ccb48eca52dee99d1749240
  			const auto text = item->factcheckText();
  			const auto phrase = text.empty()
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index c4cde0ea4a899f95a92407d465abc438590bd543..b68e692488704974b42092f22ad14a8a2af4a8ee 100644
+index 93fbf1c6be85bd77cfdd7abffb023575f666e4f7..fa2a4b04a394f5a84484d8c6895017ca51b5215f 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -170,6 +170,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/file_upload.h"
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
@@ -344,7 +344,7 @@ index c4cde0ea4a899f95a92407d465abc438590bd543..b68e692488704974b42092f22ad14a8a
  #include "tele/tele_shortcuts.h"
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
-@@ -1172,7 +1173,8 @@ HistoryWidget::HistoryWidget(
+@@ -1161,7 +1162,8 @@ HistoryWidget::HistoryWidget(
  		const auto lastKeyboardUsed = lastForceReplyReplied(
  			action.replyTo.messageId);
  		if (action.replaceMediaOf) {
