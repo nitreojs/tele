@@ -15,13 +15,13 @@ Subject: [PATCH] feat: navigation, compose field, shortcuts and link and
  .../tele/scripting/tele_script_compose.h      |  23 +
  .../tele/scripting/tele_script_hooks.cpp      | 157 +++++
  .../tele/scripting/tele_script_hooks.h        |   9 +
- .../tele/scripting/tele_script_instance.cpp   | 653 ++++++++++++++++++
+ .../tele/scripting/tele_script_instance.cpp   | 660 ++++++++++++++++++
  .../tele/scripting/tele_script_instance.h     |  54 ++
  .../scripting/tele_script_permissions.cpp     |  12 +
  .../tele/scripting/tele_script_permissions.h  |   2 +
  .../tele/scripting/tele_script_typings.cpp    |  47 ++
  .../window/notifications_manager.cpp          |   4 +
- 16 files changed, 1157 insertions(+)
+ 16 files changed, 1164 insertions(+)
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_compose.cpp
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_compose.h
 
@@ -587,7 +587,7 @@ index 7627cad64b0d1d2cbff2e18df428a6fbf8f0a539..9a168037559167e3018561498fd7a7d2
  	not_null<Main::Session*> session,
  	PeerId channel,
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index 6263d79ae52867ac48358102fdbc47833c607a59..67613e4cc7454a310c3377d52b06106ccfe41a4b 100644
+index 6263d79ae52867ac48358102fdbc47833c607a59..ab1ee091295a0d0df2b4b2469eef8f183e075175 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -29,6 +29,21 @@
@@ -691,7 +691,7 @@ index 6263d79ae52867ac48358102fdbc47833c607a59..67613e4cc7454a310c3377d52b06106c
  		}
  		instance->release(registration);
  	}
-@@ -3617,6 +3676,600 @@ JSValue Instance::NativeDownload(
+@@ -3617,6 +3676,607 @@ JSValue Instance::NativeDownload(
  	return created.second;
  }
  
@@ -931,7 +931,14 @@ index 6263d79ae52867ac48358102fdbc47833c607a59..67613e4cc7454a310c3377d52b06106c
 +		const auto sequence = QKeySequence::fromString(
 +			keys,
 +			QKeySequence::PortableText);
-+		if (sequence.isEmpty() || sequence[0] == Qt::Key_unknown) {
++#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
++		const auto first = sequence.isEmpty()
++			? 0
++			: sequence[0].toCombined();
++#else // Qt >= 6.0.0
++		const auto first = sequence.isEmpty() ? 0 : sequence[0];
++#endif // Qt < 6.0.0
++		if (sequence.isEmpty() || first == Qt::Key_unknown) {
 +			return JS_ThrowTypeError(
 +				ctx,
 +				"tg.registerShortcut: '%s' isn't a key sequence like "

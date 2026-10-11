@@ -747,7 +747,7 @@ index 9a168037559167e3018561498fd7a7d2c8eee120..48e1702196e3d34e547f6788d34fe774
  void DispatchMessage(
  	not_null<Main::Session*> session,
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index 7e629f9992946dcc662003fc20a9f5bdede4e625..752e2e6003c16e3d47e45599f70e912f8f9671f9 100644
+index 29c7a7f97af0a8dee3a112f2f5435dd9462b777a..0271fdb619d9e04e262c5b633b273f4b84a1f8e2 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -29,6 +29,7 @@
@@ -914,7 +914,7 @@ index 7e629f9992946dcc662003fc20a9f5bdede4e625..752e2e6003c16e3d47e45599f70e912f
  		: (type == u"select"_q)
  		? JS_NewInt32(ctx, value.toInt())
  		: JS_NewFloat64(ctx, value.toDouble());
-@@ -3960,10 +4062,328 @@ JSValue Instance::NativeApp(
+@@ -3967,10 +4069,328 @@ JSValue Instance::NativeApp(
  			argv[0]);
  		return instance->disposer(id);
  	}
@@ -1243,7 +1243,7 @@ index 7e629f9992946dcc662003fc20a9f5bdede4e625..752e2e6003c16e3d47e45599f70e912f
  void Instance::callRegistered(
  		Kind kind,
  		JSValue payload,
-@@ -4183,12 +4603,13 @@ void Instance::runGate(
+@@ -4190,12 +4610,13 @@ void Instance::runGate(
  		JSValue payload,
  		QString where,
  		QString fallback,

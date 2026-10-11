@@ -2063,7 +2063,7 @@ index 9e0f169e8070dc745aa891af0a0be3a9f3ffa5dc..44053952fdcb084b3013c4756d56f40f
  void EvaluateInScript(
  	not_null<Main::Session*> session,
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index bbc9f8fa94b4355ec53687dfc5ee569d64ef9201..640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b 100644
+index 32a7032363bab91e0cd80f130300a250c68b715e..5cb5c8c10df396516649545dc7898eb6cfbb1e26 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -8,6 +8,23 @@
@@ -2612,7 +2612,7 @@ index bbc9f8fa94b4355ec53687dfc5ee569d64ef9201..640e6b1bc586bc45ef0c5a82f50ad2e3
  			auto result = JS_NewObject(ctx);
  			JS_SetPropertyStr(
  				ctx,
-@@ -4538,6 +4814,555 @@ void Instance::watchChats() {
+@@ -4545,6 +4821,555 @@ void Instance::watchChats() {
  	}, _chatsLifetime);
  }
  
@@ -3168,7 +3168,7 @@ index bbc9f8fa94b4355ec53687dfc5ee569d64ef9201..640e6b1bc586bc45ef0c5a82f50ad2e3
  void Instance::watchCompose() {
  	if (_watchingCompose) {
  		return;
-@@ -5302,24 +6127,23 @@ JSValue Instance::NativeUpload(
+@@ -5309,24 +6134,23 @@ JSValue Instance::NativeUpload(
  		return JS_ThrowTypeError(ctx, "tg.uploadFile needs a Uint8Array");
  	} else if (!size) {
  		return JS_ThrowTypeError(ctx, "tg.uploadFile: the file is empty");
@@ -3201,7 +3201,7 @@ index bbc9f8fa94b4355ec53687dfc5ee569d64ef9201..640e6b1bc586bc45ef0c5a82f50ad2e3
  	const auto session = instance->_session;
  	const auto id = FullMsgId(
  		session->userPeerId(),
-@@ -5333,7 +6157,9 @@ JSValue Instance::NativeUpload(
+@@ -5340,7 +6164,9 @@ JSValue Instance::NativeUpload(
  	transfer.upload = id;
  	const auto weak = base::make_weak(instance);
  	auto &uploader = session->uploader();
@@ -3212,7 +3212,7 @@ index bbc9f8fa94b4355ec53687dfc5ee569d64ef9201..640e6b1bc586bc45ef0c5a82f50ad2e3
  	) | rpl::filter([=](const Storage::UploadedMedia &media) {
  		return media.fullId == id;
  	}) | rpl::take(1) | rpl::on_next([=](const Storage::UploadedMedia &media) {
-@@ -5343,7 +6169,9 @@ JSValue Instance::NativeUpload(
+@@ -5350,7 +6176,9 @@ JSValue Instance::NativeUpload(
  			}
  		});
  	}, transfer.lifetime);
@@ -3223,7 +3223,7 @@ index bbc9f8fa94b4355ec53687dfc5ee569d64ef9201..640e6b1bc586bc45ef0c5a82f50ad2e3
  	) | rpl::filter([=](const FullMsgId &failed) {
  		return failed == id;
  	}) | rpl::take(1) | rpl::on_next([=] {
-@@ -5354,7 +6182,10 @@ JSValue Instance::NativeUpload(
+@@ -5361,7 +6189,10 @@ JSValue Instance::NativeUpload(
  		});
  	}, transfer.lifetime);
  	uploader.upload(id, prepared);

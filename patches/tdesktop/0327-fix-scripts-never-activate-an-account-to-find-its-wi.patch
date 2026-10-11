@@ -42,7 +42,7 @@ index 37f8aebbd2c45cfa8d9854b2a8d39c85d0637b81..8c6b46c4caa7d01c0627cb09d062672a
  		}
  	});
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index 67613e4cc7454a310c3377d52b06106ccfe41a4b..7e629f9992946dcc662003fc20a9f5bdede4e625 100644
+index ab1ee091295a0d0df2b4b2469eef8f183e075175..29c7a7f97af0a8dee3a112f2f5435dd9462b777a 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -264,6 +264,19 @@ constexpr auto kUnwrap = R"js((() => {
@@ -110,7 +110,7 @@ index 67613e4cc7454a310c3377d52b06106ccfe41a4b..7e629f9992946dcc662003fc20a9f5bd
  	const auto given = [&](int index) {
  		return argc > index
  			&& !JS_IsNull(argv[index])
-@@ -3983,7 +3996,7 @@ void Instance::watchChats() {
+@@ -3990,7 +4003,7 @@ void Instance::watchChats() {
  	if (_watchingChats || !_engine) {
  		return;
  	}
@@ -119,7 +119,7 @@ index 67613e4cc7454a310c3377d52b06106ccfe41a4b..7e629f9992946dcc662003fc20a9f5bd
  	if (!window) {
  		base::call_delayed(1000, this, [=] {
  			watchChats();
-@@ -4052,7 +4065,7 @@ void Instance::attachShortcut(int id) {
+@@ -4059,7 +4072,7 @@ void Instance::attachShortcut(int id) {
  	if (i == end(_registrations) || !_engine) {
  		return;
  	}

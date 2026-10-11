@@ -626,7 +626,7 @@ index 3a3feda7473fe6246a79ddc11b25cc1bcf078db7..999c95fe2b62333e9a38c12bbaeeb206
  	not_null<PeerData*> peer,
  	not_null<const QMimeData*> data,
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0bd02bf79 100644
+index 90e26615cb1ba82fff22a6c303b96298274054f5..d1fca1aed8e9bbdcce30b7e244143976eeb12a22 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -26,6 +26,8 @@
@@ -753,7 +753,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  	if (!data.forwards.empty()) {
  		auto messages = JS_NewArray(ctx);
  		for (auto i = 0; i != int(data.forwards.size()); ++i) {
-@@ -5256,6 +5308,35 @@ JSValue Instance::NativeData(
+@@ -5263,6 +5315,35 @@ JSValue Instance::NativeData(
  		return instance->connectionValue(ctx);
  	case 14:
  		return JS_NewBool(ctx, owner->chatsListLoaded());
@@ -789,7 +789,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  	case 12:
  	case 13: {
  		if (argc < 1 || !JS_IsFunction(ctx, argv[0])) {
-@@ -5717,7 +5798,7 @@ JSValue Instance::NativeSystem(
+@@ -5725,7 +5806,7 @@ JSValue Instance::NativeSystem(
  	if (!instance) {
  		return JS_ThrowInternalError(ctx, "the script was stopped");
  	}
@@ -798,7 +798,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  		"tg.app.theme.get",
  		"tg.app.theme.setDark",
  		"tg.app.theme.color",
-@@ -5748,6 +5829,18 @@ JSValue Instance::NativeSystem(
+@@ -5756,6 +5837,18 @@ JSValue Instance::NativeSystem(
  		"tg.ui.registerSettingsEntry",
  		"tg.ui.openSection",
  		"tg.registerQuickAction",
@@ -817,7 +817,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  	};
  	const auto capability = [&]() -> std::optional<Capability> {
  		switch (magic) {
-@@ -5763,6 +5856,12 @@ JSValue Instance::NativeSystem(
+@@ -5771,6 +5864,12 @@ JSValue Instance::NativeSystem(
  			return Capability::InterceptDrop;
  		case 20: case 22: case 25:
  			return Capability::Options;
@@ -830,7 +830,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  		}
  		return std::nullopt;
  	}();
-@@ -5991,11 +6090,25 @@ JSValue Instance::NativeSystem(
+@@ -5999,11 +6098,25 @@ JSValue Instance::NativeSystem(
  		auto index = uint32_t();
  		auto &domain = Core::App().domain();
  		const auto active = domain.started() ? &domain.active() : nullptr;
@@ -859,7 +859,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  			auto item = JS_NewObject(ctx);
  			JS_SetPropertyStr(
  				ctx,
-@@ -6013,18 +6126,12 @@ JSValue Instance::NativeSystem(
+@@ -6021,18 +6134,12 @@ JSValue Instance::NativeSystem(
  				item,
  				"active",
  				JS_NewBool(ctx, account.get() == active));
@@ -880,7 +880,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  			JS_SetPropertyUint32(ctx, result, index++, item);
  		}
  		return result;
-@@ -6036,10 +6143,11 @@ JSValue Instance::NativeSystem(
+@@ -6044,10 +6151,11 @@ JSValue Instance::NativeSystem(
  				ctx,
  				"tg.accounts.switchTo needs an account id from list()");
  		}
@@ -894,7 +894,7 @@ index f0001a8e42e92174ea18bb443a8aaef302c97a38..65660c84e544157857492d30d52481f0
  				crl::on_main([=] { Core::App().domain().activate(raw); });
  				return JS_TRUE;
  			}
-@@ -6111,6 +6219,244 @@ JSValue Instance::NativeSystem(
+@@ -6119,6 +6227,244 @@ JSValue Instance::NativeSystem(
  		instance->syncSurfaces();
  		return instance->disposer(id);
  	}

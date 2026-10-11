@@ -112,7 +112,7 @@ index 48e1702196e3d34e547f6788d34fe7746347db00..9e0f169e8070dc745aa891af0a0be3a9
  	not_null<PeerData*> peer,
  	Fn<void(
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index 752e2e6003c16e3d47e45599f70e912f8f9671f9..224ac3ce73a7cff9dc0289fd2908336d1fa045c0 100644
+index 0271fdb619d9e04e262c5b633b273f4b84a1f8e2..881dd3bbad0742eea6fe153f24255a7c7ce3f231 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -46,6 +46,7 @@

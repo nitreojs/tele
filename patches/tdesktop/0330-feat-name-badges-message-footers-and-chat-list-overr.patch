@@ -123,10 +123,10 @@ index 87987209edbb1ac95491e1719eccdd182ce234d9..136806c9bbb978d2d1ddbdb0153923eb
  		return true;
  	} else if (const auto community = peer->asChannel()
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index 224ac3ce73a7cff9dc0289fd2908336d1fa045c0..bbc9f8fa94b4355ec53687dfc5ee569d64ef9201 100644
+index 881dd3bbad0742eea6fe153f24255a7c7ce3f231..32a7032363bab91e0cd80f130300a250c68b715e 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-@@ -4855,36 +4855,46 @@ std::optional<MessageDecoration> Instance::decorationFromValue(
+@@ -4862,36 +4862,46 @@ std::optional<MessageDecoration> Instance::decorationFromValue(
  		return std::nullopt;
  	}
  	auto result = MessageDecoration();
@@ -201,7 +201,7 @@ index 224ac3ce73a7cff9dc0289fd2908336d1fa045c0..bbc9f8fa94b4355ec53687dfc5ee569d
  	auto opacity = JS_GetPropertyStr(ctx, value, "opacity");
  	auto number = double();
  	if (JS_IsNumber(opacity)
-@@ -5102,13 +5112,20 @@ JSValue Instance::NativePeerOverride(
+@@ -5109,13 +5119,20 @@ JSValue Instance::NativePeerOverride(
  			return true;
  		});
  	};

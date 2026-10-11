@@ -18,7 +18,7 @@ Subject: [PATCH] feat: app and system APIs, menu items, settings sections,
  .../tele/scripting/tele_script_box.cpp        |   39 +-
  .../tele/scripting/tele_script_hooks.cpp      |   93 ++
  .../tele/scripting/tele_script_hooks.h        |    5 +
- .../tele/scripting/tele_script_instance.cpp   | 1171 ++++++++++++++++-
+ .../tele/scripting/tele_script_instance.cpp   | 1172 ++++++++++++++++-
  .../tele/scripting/tele_script_instance.h     |   56 +
  .../tele/scripting/tele_script_menus.cpp      |  137 ++
  .../tele/scripting/tele_script_menus.h        |   15 +
@@ -38,7 +38,7 @@ Subject: [PATCH] feat: app and system APIs, menu items, settings sections,
  Telegram/SourceFiles/tele/tele_title.cpp      |    8 +-
  Telegram/SourceFiles/tray.cpp                 |    8 +
  .../SourceFiles/window/window_main_menu.cpp   |    2 +
- 33 files changed, 2806 insertions(+), 12 deletions(-)
+ 33 files changed, 2807 insertions(+), 12 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_app.cpp
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_app.h
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_menus.cpp
@@ -1126,7 +1126,7 @@ index 44053952fdcb084b3013c4756d56f40f2cf4c161..3a3feda7473fe6246a79ddc11b25cc1b
  	not_null<Main::Session*> session,
  	Data::ResolvedForwardDraft &draft,
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
-index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef302c97a38 100644
+index 5cb5c8c10df396516649545dc7898eb6cfbb1e26..90e26615cb1ba82fff22a6c303b96298274054f5 100644
 --- a/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_instance.cpp
 @@ -12,8 +12,20 @@
@@ -1283,7 +1283,7 @@ index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef3
  	auto handler = JS_GetPropertyStr(ctx, item, click ? "onClick" : "onChange");
  	JS_FreeValue(ctx, item);
  	if (!JS_IsFunction(ctx, handler)) {
-@@ -5288,6 +5373,1005 @@ void Instance::checkWake() {
+@@ -5295,6 +5380,1006 @@ void Instance::checkWake() {
  	callRegistered(Kind::Wake, payload, u"onWake"_q);
  }
  
@@ -1598,11 +1598,12 @@ index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef3
 +	_lastCall = key();
 +	Core::App().calls().currentCallValue(
 +	) | rpl::map([](Calls::Call *call) -> rpl::producer<> {
-+		return call
-+			? rpl::merge(
-+				call->stateValue() | rpl::to_empty,
-+				call->mutedValue() | rpl::to_empty)
-+			: rpl::single(rpl::empty);
++		if (!call) {
++			return rpl::single(rpl::empty);
++		}
++		return rpl::merge(
++			call->stateValue() | rpl::to_empty,
++			call->mutedValue() | rpl::to_empty);
 +	}) | rpl::flatten_latest(
 +	) | rpl::on_next([=] {
 +		const auto now = key();
@@ -2289,7 +2290,7 @@ index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef3
  bool Instance::listens(const QString &event) const {
  	return ranges::any_of(_registrations, [&](const auto &pair) {
  		return (pair.second.kind == Kind::ScriptEvent)
-@@ -5451,6 +6535,55 @@ void Instance::interceptLink(
+@@ -5458,6 +6543,55 @@ void Instance::interceptLink(
  		std::move(done));
  }
  
@@ -2345,7 +2346,7 @@ index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef3
  bool Instance::interceptsNotifications() const {
  	return _started
  		&& ranges::any_of(_registrations, [](const auto &pair) {
-@@ -6540,12 +7673,39 @@ JSValue Instance::TgCall(
+@@ -6547,12 +7681,39 @@ JSValue Instance::TgCall(
  			u"tg.call(%1)"_q.arg(FromStd(encoded.method)),
  			GrantText(needed.capability, needed.scope));
  	}
@@ -2386,7 +2387,7 @@ index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef3
  	const auto ctx = _engine->ctx();
  	JSValue functions[2];
  	auto promise = JS_NewPromiseCapability(ctx, functions);
-@@ -6557,6 +7717,7 @@ JSValue Instance::send(std::string bytes, std::string resultType) {
+@@ -6564,6 +7725,7 @@ JSValue Instance::send(std::string bytes, std::string resultType) {
  		.resolve = functions[0],
  		.reject = functions[1],
  		.type = std::move(resultType),
@@ -2394,7 +2395,7 @@ index 640e6b1bc586bc45ef0c5a82f50ad2e394c7e61b..f0001a8e42e92174ea18bb443a8aaef3
  	});
  	transmit(key, QByteArray(bytes.data(), int(bytes.size())));
  	return promise;
-@@ -6564,7 +7725,9 @@ JSValue Instance::send(std::string bytes, std::string resultType) {
+@@ -6571,7 +7733,9 @@ JSValue Instance::send(std::string bytes, std::string resultType) {
  
  void Instance::transmit(int key, QByteArray bytes) {
  	const auto scope = SendingFromScript();
