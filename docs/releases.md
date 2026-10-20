@@ -2,7 +2,13 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 329 patches, newest release first.
+all 341 patches, newest release first.
+
+### [tele 23](https://github.com/nitreojs/tele/releases/tag/v7.3.1-tele.23)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [333](../patches/tdesktop/0333-feat-select-text-in-images-in-the-media-viewer.patch) | drag across text in photos and image files to select and copy it. choose english or russian using system ocr; linux requires locally installed tesseract and language packs | tele → interface → media viewer, off |
 
 ### [tele 22](https://github.com/nitreojs/tele/releases/tag/v7.3.1-tele.22)
 

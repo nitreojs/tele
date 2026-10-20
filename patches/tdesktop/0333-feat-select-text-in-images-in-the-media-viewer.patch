@@ -1,0 +1,937 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xd <126738676+funnybl@users.noreply.github.com>
+Date: Wed, 21 Oct 2026 00:15:20 +0200
+Subject: [PATCH] feat: select text in images in the media viewer
+
+---
+ Telegram/CMakeLists.txt                       |   5 +
+ .../media/view/media_view_overlay_widget.cpp  |  19 +-
+ .../platform/mac/text_recognition_mac.mm      |   6 +
+ .../SourceFiles/settings/settings_tele.cpp    |  17 ++
+ Telegram/SourceFiles/tele/tele_image_ocr.cpp  |  47 +++
+ Telegram/SourceFiles/tele/tele_image_ocr.h    |  45 +++
+ .../SourceFiles/tele/tele_image_ocr_linux.cpp | 283 ++++++++++++++++++
+ .../SourceFiles/tele/tele_image_ocr_mac.mm    |  94 ++++++
+ .../SourceFiles/tele/tele_image_ocr_win.cpp   | 163 ++++++++++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  39 +++
+ Telegram/SourceFiles/tele/tele_options.h      |   6 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   2 +
+ 12 files changed, 720 insertions(+), 6 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_image_ocr.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_image_ocr.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_image_ocr_linux.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_image_ocr_mac.mm
+ create mode 100644 Telegram/SourceFiles/tele/tele_image_ocr_win.cpp
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 97aa2d25f57f2dd33b24f4c637bc6f6ab4fd7c4f..f185af4ef74cc95a04f815439bf40e7fac2c474b 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2670,6 +2670,11 @@ PRIVATE
+     tele/tele_ghost_pending.h
+     tele/tele_hidden_words.cpp
+     tele/tele_hidden_words.h
++    tele/tele_image_ocr.cpp
++    tele/tele_image_ocr.h
++    tele/tele_image_ocr_linux.cpp
++    tele/tele_image_ocr_mac.mm
++    tele/tele_image_ocr_win.cpp
+     tele/tele_html.cpp
+     tele/tele_html.h
+     tele/tele_html_card.cpp
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index b3b9c40c8d98f33856e6cce2e9b8b1cf76655d2e..eccedaf2f3d4ca5a6507fed6a54c2056a58c1dcc 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/scripting/tele_script_mediaviewer.h"
+ #include "tele/scripting/tele_script_stories.h"
+ #include "tele/tele_download_folders.h"
++#include "tele/tele_image_ocr.h"
+ #include "tele/tele_invisible_stories.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+@@ -162,10 +163,10 @@ using RecognitionResult = Platform::TextRecognition::Result;
+ using RecognitionCacheMap = base::flat_map<RecognitionId, RecognitionResult>;
+ 
+ [[nodiscard]] RecognitionCacheMap *RecognitionCache() {
+-	static auto cache = Platform::TextRecognition::IsAvailable()
++	static auto cache = Tele::ImageOcrSupported()
+ 		? std::make_unique<base::flat_map<RecognitionId, RecognitionResult>>()
+ 		: nullptr;
+-	return cache.get();
++	return Tele::ImageOcrCacheForSettings(cache.get());
+ }
+ 
+ [[nodiscard]] int LayoutIndependentKey(not_null<QKeyEvent*> e) {
+@@ -4681,7 +4682,7 @@ void OverlayWidget::displayPhoto(
+ 	_rotation = _photo->owner().mediaRotation().get(_photo);
+ 	_radial.stop();
+ 	if (photoChanged) {
+-		_showRecognitionResults = false;
++		_showRecognitionResults = Tele::ImageTextSelection();
+ 		_recognitionResult = {};
+ 		_recognitionPendingSessionUniqueId = 0;
+ 		_recognitionPendingPhotoId = 0;
+@@ -4777,7 +4778,7 @@ void OverlayWidget::displayDocument(
+ 	_themeCloudData = cloud;
+ 	_radial.stop();
+ 	if (documentChanged) {
+-		_showRecognitionResults = false;
++		_showRecognitionResults = Tele::ImageTextSelection();
+ 		_recognitionResult = {};
+ 		_recognitionPendingSessionUniqueId = 0;
+ 		_recognitionPendingPhotoId = 0;
+@@ -6336,7 +6337,7 @@ void OverlayWidget::validatePhotoCurrentImage() {
+ void OverlayWidget::tryStartTextRecognition() {
+ 	if (_stories
+ 		|| !_session
+-		|| !Platform::TextRecognition::IsAvailable()) {
++		|| !Tele::ImageOcrAvailable()) {
+ 		return;
+ 	}
+ 	const auto forPhoto = (_photo != nullptr) && (_photoMedia != nullptr);
+@@ -6399,6 +6400,7 @@ void OverlayWidget::tryStartTextRecognition() {
+ 	_recognitionPendingPhotoId = id.photoId;
+ 	_recognitionPendingDocumentId = id.documentId;
+ 	const auto weak = base::make_weak(_widget);
++	const auto language = Tele::ImageOcrLanguageForRecognition();
+ 	crl::async([=] {
+ 		const auto input = recognizeSize.isEmpty()
+ 			? original
+@@ -6406,7 +6408,7 @@ void OverlayWidget::tryStartTextRecognition() {
+ 				recognizeSize,
+ 				Qt::IgnoreAspectRatio,
+ 				Qt::SmoothTransformation);
+-		auto result = Platform::TextRecognition::RecognizeText(input);
++		auto result = Tele::RecognizeImageText(input, language);
+ 		crl::on_main(weak, [=, result = std::move(result)]() mutable {
+ 			const auto cache = RecognitionCache();
+ 			if (!cache) {
+@@ -6421,6 +6423,11 @@ void OverlayWidget::tryStartTextRecognition() {
+ 				_recognitionPendingPhotoId = 0;
+ 				_recognitionPendingDocumentId = 0;
+ 			}
++			if (Tele::RetryChangedImageOcr(language, [=] {
++				tryStartTextRecognition();
++			})) {
++				return;
++			}
+ 			(*cache)[id] = result;
+ 			const auto stillSame = _session
+ 				&& (_session->uniqueId() == id.sessionUniqueId)
+diff --git a/Telegram/SourceFiles/platform/mac/text_recognition_mac.mm b/Telegram/SourceFiles/platform/mac/text_recognition_mac.mm
+index 863fc5422b3c0619a55eccc9aee717206c1fe6bb..182dd9a2edaf390ba8d4360459484eb5be50e3d7 100644
+--- a/Telegram/SourceFiles/platform/mac/text_recognition_mac.mm
++++ b/Telegram/SourceFiles/platform/mac/text_recognition_mac.mm
+@@ -7,6 +7,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ */
+ #include "platform/platform_text_recognition.h"
+ 
++#include "tele/tele_image_ocr.h"
++
+ #include "base/platform/mac/base_utilities_mac.h"
+ 
+ #import <Foundation/Foundation.h>
+@@ -46,6 +48,10 @@ Result RecognizeText(const QImage &image) {
+ 			VNRecognizeTextRequest *request
+ 				= [[VNRecognizeTextRequest alloc] init];
+ 			request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
++			if (!Tele::details::ConfigureImageOcrRequest(request)) {
++				[request release];
++				return result;
++			}
+ 
+ 			VNImageRequestHandler *handler = [[VNImageRequestHandler alloc]
+ 				initWithCIImage:image options:@{}];
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 5402d7b278c10a809cd2580cf3a1688d2e50274f..a0c7f1b215f27bde08a1965807400655ed653758 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -2803,6 +2803,23 @@ void FillInterface(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionViewerMouseBack,
+ 		{ u"mouse 4"_q, u"side button"_q, u"photo"_q, u"video"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionImageTextSelection,
++		{ u"ocr"_q, u"photo"_q, u"copy"_q, u"scan"_q, u"live text"_q });
++	AddButtonChoice(
++		builder,
++		::Tele::kOptionImageOcrLanguage,
++		::Tele::ImageOcrLanguage,
++		::Tele::SetImageOcrLanguage,
++		::Tele::ImageOcrLanguageValue,
++		{
++			{ u"auto"_q, u"System languages"_q },
++			{ u"en"_q, u"English"_q },
++			{ u"ru"_q, u"Russian"_q },
++		},
++		{ u"ocr"_q, u"cyrillic"_q, u"photo"_q, u"recognition"_q },
++		{ ::Tele::kOptionImageTextSelection });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chat list"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideAllChats);
+diff --git a/Telegram/SourceFiles/tele/tele_image_ocr.cpp b/Telegram/SourceFiles/tele/tele_image_ocr.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..174a152544252f165c957346044a85b16efc120a
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_image_ocr.cpp
+@@ -0,0 +1,47 @@
++#include "tele/tele_image_ocr.h"
++
++#include "tele/tele_options.h"
++
++namespace Tele {
++
++bool ImageOcrSupported() {
++	return true;
++}
++
++bool ImageOcrAvailable() {
++	return ImageTextSelection()
++		? details::ImageOcrBackendAvailable(ImageOcrLanguage())
++		: Platform::TextRecognition::IsAvailable();
++}
++
++QString ImageOcrLanguageForRecognition() {
++	return ImageTextSelection() ? ImageOcrLanguage() : QString();
++}
++
++bool ImageOcrResultCurrent(const QString &language) {
++	return language == ImageOcrLanguageForRecognition();
++}
++
++Platform::TextRecognition::Result RecognizeImageText(
++		const QImage &image,
++		const QString &language) {
++	return language.isEmpty()
++		? Platform::TextRecognition::RecognizeText(image)
++		: details::RecognizeImageTextBackend(image, language);
++}
++
++namespace details {
++
++bool ImageOcrCacheNeedsReset() {
++	static auto previous = QString();
++	const auto current = ImageOcrLanguageForRecognition();
++	if (previous == current) {
++		return false;
++	}
++	previous = current;
++	return true;
++}
++
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_image_ocr.h b/Telegram/SourceFiles/tele/tele_image_ocr.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..16340e74ba5c9aa442b4ccc349718b1afc8ea29e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_image_ocr.h
+@@ -0,0 +1,45 @@
++#pragma once
++
++#include "platform/platform_text_recognition.h"
++
++namespace Tele {
++
++[[nodiscard]] bool ImageOcrSupported();
++[[nodiscard]] bool ImageOcrAvailable();
++[[nodiscard]] QString ImageOcrLanguageForRecognition();
++[[nodiscard]] bool ImageOcrResultCurrent(const QString &language);
++[[nodiscard]] Platform::TextRecognition::Result RecognizeImageText(
++	const QImage &image,
++	const QString &language);
++
++template <typename Retry>
++[[nodiscard]] bool RetryChangedImageOcr(
++		const QString &language,
++		Retry &&retry) {
++	if (ImageOcrResultCurrent(language)) {
++		return false;
++	}
++	retry();
++	return true;
++}
++
++namespace details {
++
++[[nodiscard]] bool ImageOcrCacheNeedsReset();
++[[nodiscard]] bool ImageOcrBackendAvailable(const QString &language);
++[[nodiscard]] bool ConfigureImageOcrRequest(void *request);
++[[nodiscard]] Platform::TextRecognition::Result RecognizeImageTextBackend(
++	const QImage &image,
++	const QString &language);
++
++}
++
++template <typename Cache>
++[[nodiscard]] Cache *ImageOcrCacheForSettings(Cache *cache) {
++	if (cache && details::ImageOcrCacheNeedsReset()) {
++		cache->clear();
++	}
++	return cache;
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_image_ocr_linux.cpp b/Telegram/SourceFiles/tele/tele_image_ocr_linux.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..af346e5febe226ef2fca6bec0ba82c2c5b2b222e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_image_ocr_linux.cpp
+@@ -0,0 +1,283 @@
++#include "tele/tele_image_ocr.h"
++
++#include "ui/style/style_core.h"
++#include <QLibrary>
++#include <QPainter>
++#include <array>
++#include <mutex>
++
++namespace Tele::details {
++namespace {
++
++constexpr auto kMaxImageDimension = 4096;
++constexpr auto kRecognitionDeadline = 10000;
++constexpr auto kMaxWords = 10000;
++constexpr auto kSparseText = 11;
++constexpr auto kWord = 3;
++constexpr auto kSymbol = 4;
++
++struct TessBaseAPI;
++struct TessResultIterator;
++struct TessPageIterator;
++struct ETEXT_DESC;
++
++struct TesseractApi {
++	TessBaseAPI *(*create)() = nullptr;
++	void (*destroy)(TessBaseAPI*) = nullptr;
++	int (*init)(TessBaseAPI*, const char*, const char*) = nullptr;
++	void (*setPageSegMode)(TessBaseAPI*, int) = nullptr;
++	void (*setImage)(TessBaseAPI*, const unsigned char*, int, int, int, int) = nullptr;
++	void (*setResolution)(TessBaseAPI*, int) = nullptr;
++	void (*clear)(TessBaseAPI*) = nullptr;
++	int (*recognize)(TessBaseAPI*, ETEXT_DESC*) = nullptr;
++	TessResultIterator *(*iterator)(TessBaseAPI*) = nullptr;
++	void (*destroyIterator)(TessResultIterator*) = nullptr;
++	TessResultIterator *(*copyIterator)(const TessResultIterator*) = nullptr;
++	const TessPageIterator *(*pageIterator)(const TessResultIterator*) = nullptr;
++	char *(*text)(const TessResultIterator*, int) = nullptr;
++	int (*next)(TessResultIterator*, int) = nullptr;
++	int (*isFinalElement)(const TessPageIterator*, int, int) = nullptr;
++	int (*boundingBox)(const TessPageIterator*, int, int*, int*, int*, int*) = nullptr;
++	void (*destroyText)(const char*) = nullptr;
++	ETEXT_DESC *(*createMonitor)() = nullptr;
++	void (*destroyMonitor)(ETEXT_DESC*) = nullptr;
++	void (*setDeadline)(ETEXT_DESC*, int) = nullptr;
++
++	TesseractApi() {
++		library.setLoadHints(QLibrary::PreventUnloadHint);
++		for (const auto version : { 5, 4 }) {
++			library.setFileNameAndVersion(u"tesseract"_q, version);
++			if (library.load() && resolve()) {
++				available = true;
++				break;
++			}
++			library.unload();
++		}
++	}
++
++	[[nodiscard]] bool ready() const {
++		return available;
++	}
++
++private:
++	template <typename Function>
++	[[nodiscard]] bool resolve(Function &target, const char *name) {
++		target = reinterpret_cast<Function>(library.resolve(name));
++		return target != nullptr;
++	}
++
++	[[nodiscard]] bool resolve() {
++		return resolve(create, "TessBaseAPICreate")
++			&& resolve(destroy, "TessBaseAPIDelete")
++			&& resolve(init, "TessBaseAPIInit3")
++			&& resolve(setPageSegMode, "TessBaseAPISetPageSegMode")
++			&& resolve(setImage, "TessBaseAPISetImage")
++			&& resolve(setResolution, "TessBaseAPISetSourceResolution")
++			&& resolve(clear, "TessBaseAPIClear")
++			&& resolve(recognize, "TessBaseAPIRecognize")
++			&& resolve(iterator, "TessBaseAPIGetIterator")
++			&& resolve(destroyIterator, "TessResultIteratorDelete")
++			&& resolve(copyIterator, "TessResultIteratorCopy")
++			&& resolve(pageIterator, "TessResultIteratorGetPageIteratorConst")
++			&& resolve(text, "TessResultIteratorGetUTF8Text")
++			&& resolve(next, "TessResultIteratorNext")
++			&& resolve(isFinalElement, "TessPageIteratorIsAtFinalElement")
++			&& resolve(boundingBox, "TessPageIteratorBoundingBox")
++			&& resolve(destroyText, "TessDeleteText")
++			&& resolve(createMonitor, "TessMonitorCreate")
++			&& resolve(destroyMonitor, "TessMonitorDelete")
++			&& resolve(setDeadline, "TessMonitorSetDeadlineMSecs");
++	}
++
++	QLibrary library;
++	bool available = false;
++};
++
++using EnginePointer = std::unique_ptr<TessBaseAPI, decltype(TesseractApi::destroy)>;
++using IteratorPointer = std::unique_ptr<TessResultIterator, decltype(TesseractApi::destroyIterator)>;
++using MonitorPointer = std::unique_ptr<ETEXT_DESC, decltype(TesseractApi::destroyMonitor)>;
++
++[[nodiscard]] const TesseractApi &Api() {
++	static const auto result = TesseractApi();
++	return result;
++}
++
++[[nodiscard]] TessBaseAPI *ImageOcrEngine(
++		const TesseractApi &api,
++		const QString &language) {
++	static auto engines = std::array<EnginePointer, 3>{
++		EnginePointer(nullptr, api.destroy),
++		EnginePointer(nullptr, api.destroy),
++		EnginePointer(nullptr, api.destroy),
++	};
++	const auto index = (language == u"en"_q) ? 1 : (language == u"ru"_q) ? 2 : 0;
++	auto &engine = engines[index];
++	if (!engine) {
++		auto result = EnginePointer(api.create(), api.destroy);
++		const auto languages = (index == 1) ? "eng" : (index == 2) ? "rus" : "eng+rus";
++		if (!result || api.init(result.get(), nullptr, languages)) {
++			return nullptr;
++		}
++		api.setPageSegMode(result.get(), kSparseText);
++		engine = std::move(result);
++	}
++	return engine.get();
++}
++
++[[nodiscard]] QString RecognizedText(
++		const TesseractApi &api,
++		const TessResultIterator *iterator,
++		int level) {
++	const auto text = std::unique_ptr<const char, decltype(api.destroyText)>(
++		api.text(iterator, level),
++		api.destroyText);
++	return text ? QString::fromUtf8(text.get()) : QString();
++}
++
++[[nodiscard]] QRect RecognizedBox(
++		const TesseractApi &api,
++		const TessPageIterator *iterator,
++		int level,
++		double scaleX,
++		double scaleY) {
++	auto left = 0;
++	auto top = 0;
++	auto right = 0;
++	auto bottom = 0;
++	if (!api.boundingBox(iterator, level, &left, &top, &right, &bottom)
++		|| right <= left
++		|| bottom <= top) {
++		return {};
++	}
++	return QRect(
++		int(style::ConvertScale(left * scaleX)),
++		int(style::ConvertScale(top * scaleY)),
++		std::max(1, int(style::ConvertScale((right - left) * scaleX))),
++		std::max(1, int(style::ConvertScale((bottom - top) * scaleY))));
++}
++
++[[nodiscard]] std::vector<QRect> RecognizedGlyphs(
++		const TesseractApi &api,
++		const TessResultIterator *word,
++		const QString &text,
++		double scaleX,
++		double scaleY) {
++	auto symbols = IteratorPointer(api.copyIterator(word), api.destroyIterator);
++	if (!symbols) {
++		return {};
++	}
++	const auto page = api.pageIterator(symbols.get());
++	auto result = std::vector<QRect>();
++	result.reserve(text.size());
++	auto recognized = QString();
++	do {
++		const auto symbol = RecognizedText(api, symbols.get(), kSymbol);
++		const auto box = RecognizedBox(api, page, kSymbol, scaleX, scaleY);
++		if (symbol.isEmpty() || box.isEmpty()) {
++			return {};
++		}
++		recognized += symbol;
++		if (recognized.size() > text.size()) {
++			return {};
++		}
++		result.insert(result.end(), symbol.size(), box);
++		if (api.isFinalElement(page, kWord, kSymbol)) {
++			break;
++		}
++	} while (api.next(symbols.get(), kSymbol));
++	return (recognized == text) ? result : std::vector<QRect>();
++}
++
++}
++
++bool ImageOcrBackendAvailable(const QString &) {
++	return Api().ready();
++}
++
++Platform::TextRecognition::Result RecognizeImageTextBackend(
++		const QImage &image,
++		const QString &language) {
++	if (image.isNull()) {
++		return {};
++	}
++	const auto &api = Api();
++	if (!api.ready()) {
++		return {};
++	}
++	static auto mutex = std::mutex();
++	const auto lock = std::lock_guard(mutex);
++	const auto engine = ImageOcrEngine(api, language);
++	if (!engine) {
++		return {};
++	}
++	const auto clear = gsl::finally([&] {
++		api.clear(engine);
++	});
++	auto input = (std::max(image.width(), image.height()) > kMaxImageDimension)
++		? image.scaled(
++			kMaxImageDimension,
++			kMaxImageDimension,
++			Qt::KeepAspectRatio,
++			Qt::SmoothTransformation)
++		: image;
++	if (input.isNull()) {
++		return {};
++	}
++	input.setDevicePixelRatio(1.);
++	if (input.hasAlphaChannel()) {
++		auto flattened = QImage(input.size(), QImage::Format_RGB32);
++		if (flattened.isNull()) {
++			return {};
++		}
++		flattened.fill(Qt::white);
++		{
++			auto painter = QPainter(&flattened);
++			painter.drawImage(QPoint(), input);
++		}
++		input = std::move(flattened);
++	}
++	input = input.convertToFormat(QImage::Format_Grayscale8);
++	if (input.isNull()) {
++		return {};
++	}
++	api.setImage(
++		engine,
++		input.constBits(),
++		input.width(),
++		input.height(),
++		1,
++		int(input.bytesPerLine()));
++	api.setResolution(engine, 300);
++	auto monitor = MonitorPointer(api.createMonitor(), api.destroyMonitor);
++	if (!monitor) {
++		return {};
++	}
++	api.setDeadline(monitor.get(), kRecognitionDeadline);
++	if (api.recognize(engine, monitor.get())) {
++		return {};
++	}
++	auto result = Platform::TextRecognition::Result{ .success = true };
++	auto words = IteratorPointer(api.iterator(engine), api.destroyIterator);
++	if (!words) {
++		return result;
++	}
++	const auto page = api.pageIterator(words.get());
++	const auto scaleX = double(image.width()) / input.width();
++	const auto scaleY = double(image.height()) / input.height();
++	do {
++		auto text = RecognizedText(api, words.get(), kWord);
++		const auto box = RecognizedBox(api, page, kWord, scaleX, scaleY);
++		if (text.isEmpty() || box.isEmpty()) {
++			continue;
++		}
++		auto glyphs = RecognizedGlyphs(api, words.get(), text, scaleX, scaleY);
++		result.items.push_back({
++			std::move(text),
++			box,
++			std::move(glyphs),
++		});
++	} while (result.items.size() < kMaxWords && api.next(words.get(), kWord));
++	return result;
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_image_ocr_mac.mm b/Telegram/SourceFiles/tele/tele_image_ocr_mac.mm
+new file mode 100644
+index 0000000000000000000000000000000000000000..53d0965cb2a4309ada3d930e981cb7bb531095d1
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_image_ocr_mac.mm
+@@ -0,0 +1,94 @@
++#include "tele/tele_image_ocr.h"
++
++#import <Foundation/Foundation.h>
++#import <Vision/Vision.h>
++
++namespace Tele::details {
++namespace {
++
++[[nodiscard]] QString &CurrentLanguage() {
++	thread_local auto language = QString();
++	return language;
++}
++
++[[nodiscard]] bool ConfigureRequest(
++		VNRecognizeTextRequest *request,
++		const QString &language) API_AVAILABLE(macos(10.15)) {
++	if (language != u"auto"_q
++		&& language != u"en"_q
++		&& language != u"ru"_q) {
++		return false;
++	}
++	request.recognitionLevel = VNRequestTextRecognitionLevelAccurate;
++	if (@available(macOS 13.0, *)) {
++		request.revision = VNRecognizeTextRequestRevision3;
++		request.automaticallyDetectsLanguage = (language == u"auto"_q);
++	} else if (@available(macOS 11.0, *)) {
++		request.revision = VNRecognizeTextRequestRevision2;
++	} else {
++		request.revision = VNRecognizeTextRequestRevision1;
++	}
++	NSError *error = nil;
++	NSArray<NSString*> *supported = nil;
++	if (@available(macOS 12.0, *)) {
++		supported = [request supportedRecognitionLanguagesAndReturnError:&error];
++	} else {
++		supported = [VNRecognizeTextRequest
++			supportedRecognitionLanguagesForTextRecognitionLevel:
++				request.recognitionLevel
++			revision:request.revision
++			error:&error];
++	}
++	if (!supported || error) {
++		return false;
++	}
++	NSMutableArray<NSString*> *languages = [NSMutableArray array];
++	if (language != u"ru"_q && [supported containsObject:@"en-US"]) {
++		[languages addObject:@"en-US"];
++	}
++	if (language != u"en"_q && [supported containsObject:@"ru-RU"]) {
++		[languages addObject:@"ru-RU"];
++	}
++	if (!languages.count) {
++		return false;
++	}
++	request.recognitionLanguages = languages;
++	return true;
++}
++
++}
++
++bool ImageOcrBackendAvailable(const QString &language) {
++	if (@available(macOS 10.15, *)) {
++		@autoreleasepool {
++			VNRecognizeTextRequest *request
++				= [[[VNRecognizeTextRequest alloc] init] autorelease];
++			return ConfigureRequest(request, language);
++		}
++	}
++	return false;
++}
++
++Platform::TextRecognition::Result RecognizeImageTextBackend(
++		const QImage &image,
++		const QString &language) {
++	const auto previous = std::exchange(CurrentLanguage(), language);
++	const auto restore = gsl::finally([&] {
++		CurrentLanguage() = previous;
++	});
++	return Platform::TextRecognition::RecognizeText(image);
++}
++
++bool ConfigureImageOcrRequest(void *request) {
++	if (CurrentLanguage().isEmpty()) {
++		return true;
++	}
++	if (@available(macOS 10.15, *)) {
++		return ConfigureRequest(
++			static_cast<VNRecognizeTextRequest*>(request),
++			CurrentLanguage());
++	}
++	return false;
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_image_ocr_win.cpp b/Telegram/SourceFiles/tele/tele_image_ocr_win.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..4c893d5aa901b6e0fc97ebaaa43ff560ff312842
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_image_ocr_win.cpp
+@@ -0,0 +1,163 @@
++#include "tele/tele_image_ocr.h"
++
++#include "base/platform/win/base_windows_winrt.h"
++#include "ui/style/style_core.h"
++
++#include <QPainter>
++#include <cstring>
++#include <winrt/Windows.Foundation.Collections.h>
++#include <winrt/Windows.Globalization.h>
++#include <winrt/Windows.Graphics.Imaging.h>
++#include <winrt/Windows.Media.Ocr.h>
++#include <winrt/Windows.Storage.Streams.h>
++
++namespace Tele::details {
++namespace {
++
++using namespace winrt::Windows::Graphics::Imaging;
++using namespace winrt::Windows::Media::Ocr;
++using namespace winrt::Windows::Storage::Streams;
++
++constexpr auto kMaxImageDimension = 4096;
++constexpr auto kMaxWords = 10000;
++
++class Apartment final {
++public:
++	Apartment() {
++		try {
++			winrt::init_apartment(winrt::apartment_type::multi_threaded);
++			_initialized = true;
++		} catch (const winrt::hresult_error &error) {
++			if (error.code() != RPC_E_CHANGED_MODE) {
++				throw;
++			}
++		}
++	}
++
++	~Apartment() {
++		if (_initialized) {
++			winrt::uninit_apartment();
++		}
++	}
++
++private:
++	bool _initialized = false;
++};
++
++[[nodiscard]] OcrEngine CreateEngine(const QString &language) {
++	if (language == u"auto"_q) {
++		return OcrEngine::TryCreateFromUserProfileLanguages();
++	} else if (language != u"en"_q && language != u"ru"_q) {
++		return nullptr;
++	}
++	for (const auto &candidate : OcrEngine::AvailableRecognizerLanguages()) {
++		const auto tag = candidate.LanguageTag();
++		const auto text = QString::fromWCharArray(tag.data(), int(tag.size()));
++		if (text == language
++			|| text.startsWith(language + u"-"_q, Qt::CaseInsensitive)) {
++			return OcrEngine::TryCreateFromLanguage(candidate);
++		}
++	}
++	return nullptr;
++}
++
++[[nodiscard]] Platform::TextRecognition::Result Recognize(
++		const QImage &image,
++		const QString &language) {
++	const auto apartment = Apartment();
++	const auto engine = CreateEngine(language);
++	if (!engine) {
++		return {};
++	}
++	const auto maxDimension = std::min(
++		kMaxImageDimension,
++		int(OcrEngine::MaxImageDimension()));
++	if (maxDimension <= 0) {
++		return {};
++	}
++	auto source = (std::max(image.width(), image.height()) > maxDimension)
++		? image.scaled(
++			maxDimension,
++			maxDimension,
++			Qt::KeepAspectRatio,
++			Qt::SmoothTransformation)
++		: image;
++	if (source.isNull()) {
++		return {};
++	}
++	source.setDevicePixelRatio(1.);
++	auto input = QImage(source.size(), QImage::Format_RGB32);
++	if (input.isNull()) {
++		return {};
++	}
++	input.fill(Qt::white);
++	{
++		auto painter = QPainter(&input);
++		painter.drawImage(QPoint(), source);
++	}
++	const auto size = uint32_t(input.sizeInBytes());
++	auto buffer = Buffer(size);
++	buffer.Length(size);
++	std::memcpy(buffer.data(), input.constBits(), size);
++	const auto bitmap = SoftwareBitmap::CreateCopyFromBuffer(
++		buffer,
++		BitmapPixelFormat::Bgra8,
++		input.width(),
++		input.height(),
++		BitmapAlphaMode::Ignore);
++	const auto recognized = engine.RecognizeAsync(bitmap).get();
++	const auto scaleX = double(image.width()) / input.width();
++	const auto scaleY = double(image.height()) / input.height();
++	const auto bounds = QRectF(QPointF(), QSizeF(input.size()));
++	auto result = Platform::TextRecognition::Result{ .success = true };
++	for (const auto &line : recognized.Lines()) {
++		for (const auto &word : line.Words()) {
++			const auto value = word.Text();
++			auto text = QString::fromWCharArray(value.data(), int(value.size()));
++			const auto box = word.BoundingRect();
++			const auto clipped = QRectF(
++				box.X,
++				box.Y,
++				box.Width,
++				box.Height).intersected(bounds);
++			if (text.isEmpty() || clipped.isEmpty()) {
++				continue;
++			}
++			result.items.push_back({
++				std::move(text),
++				QRect(
++					int(style::ConvertScale(clipped.x() * scaleX)),
++					int(style::ConvertScale(clipped.y() * scaleY)),
++					std::max(1, int(style::ConvertScale(clipped.width() * scaleX))),
++					std::max(1, int(style::ConvertScale(clipped.height() * scaleY)))),
++				{},
++			});
++			if (result.items.size() >= kMaxWords) {
++				return result;
++			}
++		}
++	}
++	return result;
++}
++
++}
++
++bool ImageOcrBackendAvailable(const QString &language) {
++	return base::WinRT::Try([&] {
++		const auto apartment = Apartment();
++		return bool(CreateEngine(language));
++	}).value_or(false);
++}
++
++Platform::TextRecognition::Result RecognizeImageTextBackend(
++		const QImage &image,
++		const QString &language) {
++	if (image.isNull()) {
++		return {};
++	}
++	return base::WinRT::Try([&] {
++		return Recognize(image, language);
++	}).value_or(Platform::TextRecognition::Result());
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index b4b8b4fc6d89c6f0a85fd7e318b5ad6dfee7c6e0..504cfc720741c8b06bea6a9a43f77b32f42359f5 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -69,6 +69,8 @@ const char kOptionSmoothScroll[] = "tele-smooth-scroll";
+ const char kOptionScrollStats[] = "tele-scroll-stats";
+ const char kOptionScrollZoom[] = "tele-scroll-zoom";
+ const char kOptionViewerMouseBack[] = "tele-viewer-mouse-back";
++const char kOptionImageTextSelection[] = "tele-image-text-selection";
++const char kOptionImageOcrLanguage[] = "tele-image-ocr-language";
+ const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
+ const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
+ const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
+@@ -667,6 +669,19 @@ base::options::toggle ViewerMouseBackOption({
+ 	.name = "Close the media viewer with mouse back",
+ });
+ 
++base::options::toggle ImageTextSelectionOption({
++	.id = kOptionImageTextSelection,
++	.name = "Select text in images",
++	.description = "Uses system OCR; Linux requires Tesseract and its language packs.",
++});
++
++base::options::option<QString> ImageOcrLanguageOption({
++	.id = kOptionImageOcrLanguage,
++	.name = "Text recognition language",
++	.description = "The selected language must be available in your system OCR.",
++	.defaultValue = u"auto"_q,
++});
++
+ base::options::toggle StaticUserpicsChatsOption({
+ 	.id = kOptionStaticUserpicsChats,
+ 	.name = "Static userpics in chats and profiles",
+@@ -3670,6 +3685,30 @@ bool ViewerMouseBack() {
+ 	return ViewerMouseBackOption.value();
+ }
+ 
++bool ImageTextSelection() {
++	return ImageTextSelectionOption.value();
++}
++
++QString ImageOcrLanguage() {
++	const auto value = ImageOcrLanguageOption.value();
++	return (value == u"en"_q || value == u"ru"_q) ? value : u"auto"_q;
++}
++
++void SetImageOcrLanguage(const QString &value) {
++	ImageOcrLanguageOption.set(
++		(value == u"en"_q || value == u"ru"_q) ? value : u"auto"_q);
++}
++
++rpl::producer<QString> ImageOcrLanguageValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ImageOcrLanguageOption.changes()
++	) | rpl::map([] {
++		return ImageOcrLanguage();
++	});
++}
++
+ void SetViewerLoop(bool enabled) {
+ 	ViewerLoopOption.set(enabled);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 606f99fe8fa9b42b203e5bfabc76be1602601c8d..8174cc4f74ab15f0ab702503a604b1a3782d294f 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -63,6 +63,8 @@ extern const char kOptionSmoothScroll[];
+ extern const char kOptionScrollStats[];
+ extern const char kOptionScrollZoom[];
+ extern const char kOptionViewerMouseBack[];
++extern const char kOptionImageTextSelection[];
++extern const char kOptionImageOcrLanguage[];
+ extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionHideMentionsButton[];
+@@ -355,6 +357,10 @@ void SetReduceMotionSaved(const QString &value);
+ [[nodiscard]] bool ScrollStats();
+ [[nodiscard]] bool ScrollZoom();
+ [[nodiscard]] bool ViewerMouseBack();
++[[nodiscard]] bool ImageTextSelection();
++[[nodiscard]] QString ImageOcrLanguage();
++void SetImageOcrLanguage(const QString &value);
++[[nodiscard]] rpl::producer<QString> ImageOcrLanguageValue();
+ [[nodiscard]] bool StaticUserpicsChats();
+ [[nodiscard]] rpl::producer<> StaticUserpicsChatsChanges();
+ [[nodiscard]] bool HideMentionsButton();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 72b3093bbf12f75daef6fdf5d6ce2f307734cf0b..6cc5e54f467fb64b47e548b67d7d2266268132eb 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -153,6 +153,8 @@ struct Spec {
+ 		Toggle(kOptionScrollStats),
+ 		Toggle(kOptionScrollZoom),
+ 		Toggle(kOptionViewerMouseBack),
++		Toggle(kOptionImageTextSelection),
++		Choice(kOptionImageOcrLanguage, { u"auto"_q, u"en"_q, u"ru"_q }),
+ 		Toggle(kOptionLocalFolders),
+ 		Toggle(kOptionUnsortedFolder),
+ 		Toggle(kOptionCompactFolders),
