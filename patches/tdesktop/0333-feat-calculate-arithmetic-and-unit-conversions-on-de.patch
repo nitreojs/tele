@@ -1,0 +1,2035 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: xd <126738676+funnybl@users.noreply.github.com>
+Date: Thu, 22 Oct 2026 01:43:09 +0200
+Subject: [PATCH] feat: calculate arithmetic and unit conversions on device
+
+---
+ Telegram/CMakeLists.txt                       |   8 +
+ .../SourceFiles/settings/settings_tele.cpp    |   5 +
+ Telegram/SourceFiles/tele/tele_calcmula.cpp   |   7 +
+ .../SourceFiles/tele/tele_calcmula_inline.cpp |   2 +-
+ .../SourceFiles/tele/tele_calcmula_local.cpp  |  18 +
+ .../SourceFiles/tele/tele_calcmula_local.h    |   9 +
+ .../tele/tele_calcmula_local_number.cpp       | 407 +++++++++
+ .../tele/tele_calcmula_local_number.h         |  50 ++
+ .../tele/tele_calcmula_local_parser.cpp       | 464 ++++++++++
+ .../tele/tele_calcmula_local_parser.h         |  10 +
+ .../tele/tele_calcmula_local_units.cpp        | 848 ++++++++++++++++++
+ .../tele/tele_calcmula_local_units.h          |   9 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  11 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ 15 files changed, 1850 insertions(+), 1 deletion(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local_number.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local_number.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local_parser.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local_parser.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local_units.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_local_units.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 97aa2d25f57f2dd33b24f4c637bc6f6ab4fd7c4f..cb5b629fc02c201b8c36aa55d3bba74d70fd29c8 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2513,6 +2513,14 @@ PRIVATE
+     tele/tele_button_payload.h
+     tele/tele_calcmula.cpp
+     tele/tele_calcmula.h
++    tele/tele_calcmula_local.cpp
++    tele/tele_calcmula_local.h
++    tele/tele_calcmula_local_number.cpp
++    tele/tele_calcmula_local_number.h
++    tele/tele_calcmula_local_parser.cpp
++    tele/tele_calcmula_local_parser.h
++    tele/tele_calcmula_local_units.cpp
++    tele/tele_calcmula_local_units.h
+     tele/tele_calcmula_inline.cpp
+     tele/tele_calcmula_inline.h
+     tele/tele_calcmula_preview.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 5402d7b278c10a809cd2580cf3a1688d2e50274f..a92332568542d3ae7b44549db8b7d38b2104697f 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3318,6 +3318,11 @@ void FillSending(SectionBuilder &builder) {
+ 		{},
+ 		{},
+ 		[&] {
++			AddOptionToggle(
++				builder,
++				::Tele::kOptionCalcmulaLocal,
++				{ u"local"_q, u"offline"_q, u"arithmetic"_q, u"units"_q },
++				::Tele::kOptionCalcmula);
+ 			AddOptionToggle(
+ 				builder,
+ 				::Tele::kOptionCalcmulaPreview,
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula.cpp b/Telegram/SourceFiles/tele/tele_calcmula.cpp
+index 20ade0c80072f304c2443f82339ea421ede02fd4..57c98118e84adac5b5312da093d1fb49183f9834 100644
+--- a/Telegram/SourceFiles/tele/tele_calcmula.cpp
++++ b/Telegram/SourceFiles/tele/tele_calcmula.cpp
+@@ -6,6 +6,7 @@
+ #include "history/history.h"
+ #include "main/main_session.h"
+ #include "storage/localimageloader.h"
++#include "tele/tele_calcmula_local.h"
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
+@@ -197,6 +198,12 @@ void Resend(FnMut<void()> callback) {
+ }
+ 
+ [[nodiscard]] Result CachedResult(const QString &query) {
++	if (CalcmulaLocal()) {
++		const auto value = LocalCalcmulaResult(query);
++		if (!value.isEmpty()) {
++			return { .value = value };
++		}
++	}
+ 	auto &cache = Cache();
+ 	const auto now = crl::now();
+ 	cache.erase(ranges::remove_if(cache, [&](const Cached &entry) {
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_inline.cpp b/Telegram/SourceFiles/tele/tele_calcmula_inline.cpp
+index 58bbedaa8149ba93fb70eb8c5d84bfeef2a70e46..3da27d5f029537145ed46f8f5e9675df32c32a13 100644
+--- a/Telegram/SourceFiles/tele/tele_calcmula_inline.cpp
++++ b/Telegram/SourceFiles/tele/tele_calcmula_inline.cpp
+@@ -217,7 +217,7 @@ base::EventFilterResult Inline::handleKey(not_null<QKeyEvent*> e) {
+ bool Inline::allowed() const {
+ 	return Calcmula()
+ 		&& CalcmulaInline()
+-		&& !OfflineForLaunch()
++		&& (CalcmulaLocal() || !OfflineForLaunch())
+ 		&& _raw->hasFocus()
+ 		&& !_blocked();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local.cpp b/Telegram/SourceFiles/tele/tele_calcmula_local.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..7ae6ecb55f1fc0d2e805b1a4953c3158bc7c6ca9
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local.cpp
+@@ -0,0 +1,18 @@
++#include "tele/tele_calcmula_local.h"
++
++#include "tele/tele_calcmula_local_parser.h"
++#include "tele/tele_calcmula_local_units.h"
++
++namespace Tele {
++
++QString LocalCalcmulaResult(const QString &query) {
++	if (query.size() > 1024) {
++		return {};
++	}
++	if (const auto number = ParseLocalCalcmulaNumber(query)) {
++		return number->Format();
++	}
++	return LocalCalcmulaUnits(query);
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local.h b/Telegram/SourceFiles/tele/tele_calcmula_local.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..3facdf041b652c03467bbfe23ab478356d28237d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++#include <QString>
++
++namespace Tele {
++
++[[nodiscard]] QString LocalCalcmulaResult(const QString &query);
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local_number.cpp b/Telegram/SourceFiles/tele/tele_calcmula_local_number.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..e4a1c7479dffaf9d9f7096cacacfaef7ee99ea93
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local_number.cpp
+@@ -0,0 +1,407 @@
++#include "tele/tele_calcmula_local_number.h"
++
++#include <openssl/bn.h>
++#include <cstdlib>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxBits = 4096;
++constexpr auto kMaxExponent = 1024;
++using Big = std::unique_ptr<BIGNUM, decltype(&BN_free)>;
++using Context = std::unique_ptr<BN_CTX, decltype(&BN_CTX_free)>;
++
++[[nodiscard]] Big NewBig() {
++	return Big(BN_new(), BN_free);
++}
++
++[[nodiscard]] Big Copy(const BIGNUM *value) {
++	return Big(BN_dup(value), BN_free);
++}
++
++[[nodiscard]] Context NewContext() {
++	return Context(BN_CTX_new(), BN_CTX_free);
++}
++
++[[nodiscard]] Big TenPower(int power) {
++	auto result = NewBig();
++	BN_one(result.get());
++	for (auto i = 0; i != power; ++i) {
++		BN_mul_word(result.get(), 10);
++	}
++	return result;
++}
++
++[[nodiscard]] QString Decimal(const BIGNUM *value) {
++	const auto free = [](char *value) { OPENSSL_free(value); };
++	const auto raw = std::unique_ptr<char, decltype(free)>(
++		BN_bn2dec(value),
++		free);
++	return QString::fromLatin1(raw.get());
++}
++
++[[nodiscard]] QString Group(QString text) {
++	for (auto i = text.size() - 3; i > 0; i -= 3) {
++		text.insert(i, QChar(','));
++	}
++	return text;
++}
++
++[[nodiscard]] Big RoundedQuotient(const BIGNUM *numerator, const BIGNUM *denominator) {
++	auto result = NewBig();
++	auto remainder = NewBig();
++	auto context = NewContext();
++	BN_div(result.get(), remainder.get(), numerator, denominator, context.get());
++	BN_lshift1(remainder.get(), remainder.get());
++	if (BN_cmp(remainder.get(), denominator) >= 0) {
++		BN_add_word(result.get(), 1);
++	}
++	return result;
++}
++
++}
++
++struct LocalCalcNumber::Value {
++	Big numerator = NewBig();
++	Big denominator = NewBig();
++
++	Value() {
++		BN_one(denominator.get());
++	}
++};
++
++LocalCalcNumber::LocalCalcNumber(std::shared_ptr<const Value> value)
++: _value(std::move(value)) {
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Make(
++		std::shared_ptr<Value> value) {
++	auto n = value->numerator.get();
++	auto d = value->denominator.get();
++	if (BN_is_zero(d)
++		|| BN_num_bits(n) > kMaxBits
++		|| BN_num_bits(d) > kMaxBits) {
++		return std::nullopt;
++	}
++	if (BN_is_negative(d)) {
++		BN_set_negative(d, 0);
++		BN_set_negative(n, !BN_is_negative(n));
++	}
++	auto context = NewContext();
++	auto divisor = NewBig();
++	BN_gcd(divisor.get(), n, d, context.get());
++	BN_div(n, nullptr, n, divisor.get(), context.get());
++	BN_div(d, nullptr, d, divisor.get(), context.get());
++	return LocalCalcNumber(std::move(value));
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Parse(
++		const QString &text,
++		int base) {
++	if (text.isEmpty() || text.size() > 1024
++		|| (base != 2 && base != 8 && base != 10 && base != 16)) {
++		return std::nullopt;
++	}
++	auto value = std::make_shared<Value>();
++	auto n = value->numerator.get();
++	auto digits = text;
++	const auto negative = digits.startsWith(QChar('-'));
++	if (negative || digits.startsWith(QChar('+'))) {
++		digits.remove(0, 1);
++	}
++	auto scale = 0;
++	if (base == 10) {
++		const auto e = digits.indexOf(QChar('e'), 0, Qt::CaseInsensitive);
++		if (e >= 0) {
++			auto ok = false;
++			const auto exponent = digits.mid(e + 1).toInt(&ok);
++			if (!ok || exponent < -kMaxExponent || exponent > kMaxExponent) {
++				return std::nullopt;
++			}
++			scale = -exponent;
++			digits.truncate(e);
++		}
++		const auto point = digits.indexOf(QChar('.'));
++		if (point >= 0) {
++			scale += digits.size() - point - 1;
++			digits.remove(point, 1);
++		}
++	}
++	if (digits.isEmpty() || std::abs(scale) > kMaxExponent) {
++		return std::nullopt;
++	}
++	for (const auto ch : digits) {
++		const auto c = ch.toLower().unicode();
++		const auto digit = (c >= '0' && c <= '9')
++			? c - '0'
++			: (c >= 'a' && c <= 'f') ? c - 'a' + 10 : 16;
++		if (digit >= base) {
++			return std::nullopt;
++		}
++		BN_mul_word(n, base);
++		BN_add_word(n, digit);
++		if (BN_num_bits(n) > kMaxBits) {
++			return std::nullopt;
++		}
++	}
++	if (scale > 0) {
++		value->denominator = TenPower(scale);
++	} else if (scale < 0) {
++		auto multiplier = TenPower(-scale);
++		auto context = NewContext();
++		BN_mul(n, n, multiplier.get(), context.get());
++	}
++	BN_set_negative(n, negative);
++	return Make(std::move(value));
++}
++
++LocalCalcNumber LocalCalcNumber::Integer(qint64 value) {
++	return *Parse(QString::number(value));
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Add(
++		const LocalCalcNumber &other) const {
++	auto value = std::make_shared<Value>();
++	auto context = NewContext();
++	auto right = NewBig();
++	BN_mul(
++		value->numerator.get(),
++		_value->numerator.get(),
++		other._value->denominator.get(),
++		context.get());
++	BN_mul(
++		right.get(),
++		other._value->numerator.get(),
++		_value->denominator.get(),
++		context.get());
++	BN_add(value->numerator.get(), value->numerator.get(), right.get());
++	BN_mul(
++		value->denominator.get(),
++		_value->denominator.get(),
++		other._value->denominator.get(),
++		context.get());
++	return Make(std::move(value));
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Subtract(
++		const LocalCalcNumber &other) const {
++	return Add(other.Negated());
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Multiply(
++		const LocalCalcNumber &other) const {
++	auto value = std::make_shared<Value>();
++	auto context = NewContext();
++	BN_mul(
++		value->numerator.get(),
++		_value->numerator.get(),
++		other._value->numerator.get(),
++		context.get());
++	BN_mul(
++		value->denominator.get(),
++		_value->denominator.get(),
++		other._value->denominator.get(),
++		context.get());
++	return Make(std::move(value));
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Divide(
++		const LocalCalcNumber &other) const {
++	if (other.IsZero()) {
++		return std::nullopt;
++	}
++	auto value = std::make_shared<Value>();
++	auto context = NewContext();
++	BN_mul(
++		value->numerator.get(),
++		_value->numerator.get(),
++		other._value->denominator.get(),
++		context.get());
++	BN_mul(
++		value->denominator.get(),
++		_value->denominator.get(),
++		other._value->numerator.get(),
++		context.get());
++	return Make(std::move(value));
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Power(
++		const LocalCalcNumber &other) const {
++	const auto exponent = other.ToInteger();
++	if (!exponent || *exponent < -kMaxExponent || *exponent > kMaxExponent
++		|| (IsZero() && *exponent < 0)) {
++		return std::nullopt;
++	}
++	const auto count = std::abs(*exponent);
++	if (count * BN_num_bits(_value->numerator.get()) > kMaxBits
++		|| count * BN_num_bits(_value->denominator.get()) > kMaxBits) {
++		return std::nullopt;
++	}
++	auto value = std::make_shared<Value>();
++	auto context = NewContext();
++	auto power = NewBig();
++	BN_set_word(power.get(), count);
++	BN_exp(
++		value->numerator.get(),
++		_value->numerator.get(),
++		power.get(),
++		context.get());
++	BN_exp(
++		value->denominator.get(),
++		_value->denominator.get(),
++		power.get(),
++		context.get());
++	if (*exponent < 0) {
++		value->numerator.swap(value->denominator);
++	}
++	return Make(std::move(value));
++}
++
++std::optional<LocalCalcNumber> LocalCalcNumber::Modulo(
++		const LocalCalcNumber &other) const {
++	const auto ratio = Divide(other);
++	if (!ratio) {
++		return std::nullopt;
++	}
++	const auto product = ratio->Floor().Multiply(other);
++	return product ? Subtract(*product) : std::nullopt;
++}
++
++LocalCalcNumber LocalCalcNumber::Negated() const {
++	auto value = std::make_shared<Value>();
++	value->numerator = Copy(_value->numerator.get());
++	value->denominator = Copy(_value->denominator.get());
++	BN_set_negative(
++		value->numerator.get(),
++		!BN_is_negative(value->numerator.get()));
++	return LocalCalcNumber(std::move(value));
++}
++
++LocalCalcNumber LocalCalcNumber::Absolute() const {
++	return BN_is_negative(_value->numerator.get()) ? Negated() : *this;
++}
++
++LocalCalcNumber LocalCalcNumber::Rounded(int direction) const {
++	auto value = std::make_shared<Value>();
++	auto context = NewContext();
++	auto remainder = NewBig();
++	const auto negative = BN_is_negative(_value->numerator.get());
++	BN_div(
++		value->numerator.get(),
++		remainder.get(),
++		_value->numerator.get(),
++		_value->denominator.get(),
++		context.get());
++	if (!BN_is_zero(remainder.get())) {
++		BN_set_negative(remainder.get(), 0);
++		BN_lshift1(remainder.get(), remainder.get());
++		if ((direction < 0 && negative)
++			|| (direction > 0 && !negative)
++			|| (!direction && BN_cmp(
++				remainder.get(),
++				_value->denominator.get()) >= (negative ? 1 : 0))) {
++			BN_set_negative(value->numerator.get(), 0);
++			BN_add_word(value->numerator.get(), 1);
++			BN_set_negative(value->numerator.get(), negative);
++		}
++	}
++	return LocalCalcNumber(std::move(value));
++}
++
++LocalCalcNumber LocalCalcNumber::Floor() const {
++	return Rounded(-1);
++}
++
++LocalCalcNumber LocalCalcNumber::Ceil() const {
++	return Rounded(1);
++}
++
++LocalCalcNumber LocalCalcNumber::Round() const {
++	return Rounded(0);
++}
++
++std::optional<qint64> LocalCalcNumber::ToInteger() const {
++	if (!IsInteger()) {
++		return std::nullopt;
++	}
++	auto ok = false;
++	const auto result = Decimal(_value->numerator.get()).toLongLong(&ok);
++	return ok ? std::make_optional(result) : std::nullopt;
++}
++
++int LocalCalcNumber::Compare(const LocalCalcNumber &other) const {
++	auto left = NewBig();
++	auto right = NewBig();
++	auto context = NewContext();
++	BN_mul(
++		left.get(),
++		_value->numerator.get(),
++		other._value->denominator.get(),
++		context.get());
++	BN_mul(
++		right.get(),
++		other._value->numerator.get(),
++		_value->denominator.get(),
++		context.get());
++	return BN_cmp(left.get(), right.get());
++}
++
++bool LocalCalcNumber::IsZero() const {
++	return BN_is_zero(_value->numerator.get());
++}
++
++bool LocalCalcNumber::IsInteger() const {
++	return BN_is_one(_value->denominator.get());
++}
++
++QString LocalCalcNumber::Format() const {
++	if (IsZero()) {
++		return u"0"_q;
++	}
++	auto numerator = Copy(_value->numerator.get());
++	BN_set_negative(numerator.get(), 0);
++	const auto denominator = _value->denominator.get();
++	const auto negative = BN_is_negative(_value->numerator.get());
++	const auto prefix = negative ? u"-"_q : QString();
++	auto scaled = NewBig();
++	auto context = NewContext();
++	const auto million = TenPower(6);
++	BN_mul(scaled.get(), numerator.get(), million.get(), context.get());
++	auto rounded = RoundedQuotient(scaled.get(), denominator);
++	if (!BN_is_zero(rounded.get())) {
++		auto digits = Decimal(rounded.get()).rightJustified(7, QChar('0'));
++		auto fraction = digits.right(6);
++		while (fraction.endsWith(QChar('0'))) {
++			fraction.chop(1);
++		}
++		return prefix + Group(digits.left(digits.size() - 6))
++			+ (fraction.isEmpty() ? QString() : QChar('.') + fraction);
++	}
++	auto exponent = Decimal(numerator.get()).size()
++		- Decimal(denominator).size();
++	auto multiplier = TenPower(-exponent);
++	BN_mul(scaled.get(), numerator.get(), multiplier.get(), context.get());
++	if (BN_cmp(scaled.get(), denominator) < 0) {
++		--exponent;
++	}
++	if (exponent < -300) {
++		return QString();
++	}
++	multiplier = TenPower(6 - exponent);
++	BN_mul(scaled.get(), numerator.get(), multiplier.get(), context.get());
++	rounded = RoundedQuotient(scaled.get(), denominator);
++	auto digits = Decimal(rounded.get());
++	if (digits.size() > 7) {
++		++exponent;
++		digits.chop(1);
++	}
++	auto fraction = digits.mid(1);
++	while (fraction.endsWith(QChar('0'))) {
++		fraction.chop(1);
++	}
++	return prefix + digits.left(1)
++		+ (fraction.isEmpty() ? QString() : QChar('.') + fraction)
++		+ QChar('e') + QString::number(exponent);
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local_number.h b/Telegram/SourceFiles/tele/tele_calcmula_local_number.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..15485794148a974277bb40d2d6266a1d6e48ce34
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local_number.h
+@@ -0,0 +1,50 @@
++#pragma once
++
++#include <QString>
++#include <memory>
++#include <optional>
++
++namespace Tele {
++
++class LocalCalcNumber {
++public:
++	[[nodiscard]] static std::optional<LocalCalcNumber> Parse(
++		const QString &text,
++		int base = 10);
++	[[nodiscard]] static LocalCalcNumber Integer(qint64 value);
++
++	[[nodiscard]] std::optional<LocalCalcNumber> Add(
++		const LocalCalcNumber &other) const;
++	[[nodiscard]] std::optional<LocalCalcNumber> Subtract(
++		const LocalCalcNumber &other) const;
++	[[nodiscard]] std::optional<LocalCalcNumber> Multiply(
++		const LocalCalcNumber &other) const;
++	[[nodiscard]] std::optional<LocalCalcNumber> Divide(
++		const LocalCalcNumber &other) const;
++	[[nodiscard]] std::optional<LocalCalcNumber> Power(
++		const LocalCalcNumber &other) const;
++	[[nodiscard]] std::optional<LocalCalcNumber> Modulo(
++		const LocalCalcNumber &other) const;
++	[[nodiscard]] LocalCalcNumber Negated() const;
++	[[nodiscard]] LocalCalcNumber Absolute() const;
++	[[nodiscard]] LocalCalcNumber Floor() const;
++	[[nodiscard]] LocalCalcNumber Ceil() const;
++	[[nodiscard]] LocalCalcNumber Round() const;
++	[[nodiscard]] std::optional<qint64> ToInteger() const;
++	[[nodiscard]] int Compare(const LocalCalcNumber &other) const;
++	[[nodiscard]] bool IsZero() const;
++	[[nodiscard]] bool IsInteger() const;
++	[[nodiscard]] QString Format() const;
++
++private:
++	struct Value;
++	explicit LocalCalcNumber(std::shared_ptr<const Value> value);
++	[[nodiscard]] static std::optional<LocalCalcNumber> Make(
++		std::shared_ptr<Value> value);
++	[[nodiscard]] LocalCalcNumber Rounded(int direction) const;
++
++	std::shared_ptr<const Value> _value;
++
++};
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local_parser.cpp b/Telegram/SourceFiles/tele/tele_calcmula_local_parser.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bf658c338757bb6a3f1d8188462dad444fb52fc
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local_parser.cpp
+@@ -0,0 +1,464 @@
++#include "tele/tele_calcmula_local_parser.h"
++
++#include <algorithm>
++#include <utility>
++#include <vector>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxLength = 1024;
++constexpr auto kMaxDepth = 64;
++constexpr auto kMaxOperations = 256;
++constexpr auto kMaxArguments = 32;
++
++using Number = LocalCalcNumber;
++
++struct Value {
++	Number number;
++	bool percent = false;
++};
++
++struct Depth {
++	explicit Depth(int &value);
++	~Depth();
++	int &value;
++};
++
++[[nodiscard]] bool Digit(QChar ch) {
++	return ch >= '0' && ch <= '9';
++}
++
++[[nodiscard]] bool Letter(QChar ch) {
++	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z');
++}
++
++[[nodiscard]] int DigitValue(QChar ch) {
++	return Digit(ch)
++		? ch.unicode() - '0'
++		: (ch >= 'a' && ch <= 'f')
++		? ch.unicode() - 'a' + 10
++		: (ch >= 'A' && ch <= 'F')
++		? ch.unicode() - 'A' + 10
++		: -1;
++}
++
++class Parser {
++public:
++	explicit Parser(const QString &text);
++
++	[[nodiscard]] std::optional<Number> parse();
++
++private:
++	void space();
++
++	[[nodiscard]] bool operation();
++
++	[[nodiscard]] QChar current() const;
++
++	[[nodiscard]] bool take(QChar ch);
++
++	[[nodiscard]] std::optional<Value> addition();
++
++	[[nodiscard]] std::optional<Value> multiplication();
++
++	[[nodiscard]] std::optional<Value> unary();
++
++	[[nodiscard]] std::optional<Value> power();
++
++	[[nodiscard]] std::optional<Value> postfix();
++
++	[[nodiscard]] std::optional<Value> primary();
++
++	[[nodiscard]] std::optional<Number> literal();
++
++	[[nodiscard]] std::optional<Value> call();
++
++	const QString &_text;
++	int _position = 0;
++	int _depth = 0;
++	int _operations = 0;
++	int _callDepth = 0;
++
++};
++
++Depth::Depth(int &value) : value(value) {
++	++value;
++}
++
++Depth::~Depth() {
++	--value;
++}
++
++Parser::Parser(const QString &text)
++: _text(text) {
++}
++
++std::optional<Number> Parser::parse() {
++	if (_text.isEmpty()
++		|| _text.size() > kMaxLength
++		|| _text.contains('\n')
++		|| _text.contains('\r')) {
++		return std::nullopt;
++	}
++	auto result = addition();
++	space();
++	return (result && _position == _text.size())
++		? std::make_optional(std::move(result->number))
++		: std::nullopt;
++}
++
++void Parser::space() {
++	while (_position < _text.size() && _text[_position].isSpace()) {
++		++_position;
++	}
++}
++
++bool Parser::operation() {
++	return ++_operations <= kMaxOperations;
++}
++
++QChar Parser::current() const {
++	return (_position < _text.size()) ? _text[_position] : QChar();
++}
++
++bool Parser::take(QChar ch) {
++	space();
++	if (current() != ch) {
++		return false;
++	}
++	++_position;
++	return true;
++}
++
++std::optional<Value> Parser::addition() {
++	auto result = multiplication();
++	while (result) {
++		space();
++		const auto ch = current();
++		const auto subtract = ch == '-' || ch.unicode() == 0x2212;
++		if (ch != '+' && !subtract) {
++			break;
++		}
++		++_position;
++		auto right = multiplication();
++		if (!right || result->percent || right->percent || !operation()) {
++			return std::nullopt;
++		}
++		auto number = subtract
++			? result->number.Subtract(right->number)
++			: result->number.Add(right->number);
++		if (!number) {
++			return std::nullopt;
++		}
++		result = Value{ std::move(*number) };
++	}
++	return result;
++}
++
++std::optional<Value> Parser::multiplication() {
++	auto result = unary();
++	while (result) {
++		space();
++		const auto ch = current();
++		const auto divide = ch == '/' || ch.unicode() == 0x00F7;
++		const auto modulo = _text.mid(_position, 3) == u"mod"_q
++			&& _position > 0
++			&& _text[_position - 1].isSpace()
++			&& _position + 3 < _text.size()
++			&& _text[_position + 3].isSpace();
++		if ((ch != '*' && ch.unicode() != 0x00D7 && !divide && !modulo)
++			|| (ch == '*' && _position + 1 < _text.size()
++				&& _text[_position + 1] == '*')) {
++			break;
++		}
++		_position += modulo ? 3 : 1;
++		auto right = unary();
++		if (!right || !operation()) {
++			return std::nullopt;
++		}
++		auto number = divide
++			? result->number.Divide(right->number)
++			: modulo
++			? result->number.Modulo(right->number)
++			: result->number.Multiply(right->number);
++		if (!number) {
++			return std::nullopt;
++		}
++		result = Value{
++			std::move(*number),
++			result->percent || right->percent,
++		};
++	}
++	return result;
++}
++
++std::optional<Value> Parser::unary() {
++	const auto depth = Depth(_depth);
++	if (_depth > kMaxDepth) {
++		return std::nullopt;
++	}
++	space();
++	const auto ch = current();
++	if (ch == '+' || ch == '-' || ch.unicode() == 0x2212) {
++		++_position;
++		auto result = unary();
++		if (!result || !operation()) {
++			return std::nullopt;
++		}
++		if (ch != '+') {
++			result->number = result->number.Negated();
++		}
++		return result;
++	}
++	return power();
++}
++
++std::optional<Value> Parser::power() {
++	auto result = postfix();
++	if (!result) {
++		return std::nullopt;
++	}
++	space();
++	if (current() == '^') {
++		++_position;
++	} else if (current() == '*'
++		&& _position + 1 < _text.size()
++		&& _text[_position + 1] == '*') {
++		_position += 2;
++	} else {
++		return result;
++	}
++	auto exponent = unary();
++	if (!exponent || !operation()) {
++		return std::nullopt;
++	}
++	auto number = result->number.Power(exponent->number);
++	return number
++		? std::make_optional(Value{
++			std::move(*number),
++			result->percent || exponent->percent,
++		})
++		: std::nullopt;
++}
++
++std::optional<Value> Parser::postfix() {
++	auto result = primary();
++	if (!result) {
++		return std::nullopt;
++	}
++	space();
++	const auto ch = current();
++	if (ch != '%' && ch.unicode() != 0x2030) {
++		return result;
++	}
++	++_position;
++	if (!operation()) {
++		return std::nullopt;
++	}
++	auto number = result->number.Divide(Number::Integer(
++		(ch == '%') ? 100 : 1000));
++	return number
++		? std::make_optional(Value{ std::move(*number), true })
++		: std::nullopt;
++}
++
++std::optional<Value> Parser::primary() {
++	space();
++	if (take('(')) {
++		auto result = addition();
++		return (result && take(')')) ? std::move(result) : std::nullopt;
++	} else if (Letter(current())) {
++		return call();
++	}
++	auto number = literal();
++	return number
++		? std::make_optional(Value{ std::move(*number) })
++		: std::nullopt;
++}
++
++std::optional<Number> Parser::literal() {
++	const auto start = _position;
++	if (current() == '0' && _position + 1 < _text.size()) {
++		const auto next = _text[_position + 1].toLower();
++		const auto base = (next == 'x') ? 16
++			: (next == 'b') ? 2
++			: (next == 'o') ? 8
++			: 0;
++		if (base) {
++			_position += 2;
++			const auto from = _position;
++			while (DigitValue(current()) >= 0 && DigitValue(current()) < base) {
++				++_position;
++			}
++			return (_position > from)
++				? Number::Parse(_text.mid(from, _position - from), base)
++				: std::nullopt;
++		}
++	}
++	auto text = QString();
++	while (Digit(current())) {
++		text += current();
++		++_position;
++	}
++	const auto first = text.size();
++	auto separator = QChar();
++	if (first > 0 && first <= 3) {
++		while (_position < _text.size()) {
++			const auto ch = current();
++			if (ch != '_' && ch != ',' && !ch.isSpace()) {
++				break;
++			}
++			auto next = _position + 1;
++			if (ch.isSpace()) {
++				while (next < _text.size() && _text[next].isSpace()) {
++					++next;
++				}
++			}
++			const auto from = next;
++			while (next < _text.size() && Digit(_text[next])) {
++				++next;
++			}
++			if (next - from != 3) {
++				break;
++			} else if (ch == ',' && _callDepth) {
++				return std::nullopt;
++			} else if (!separator.isNull()
++				&& (separator.isSpace() ? !ch.isSpace() : ch != separator)) {
++				return std::nullopt;
++			}
++			separator = ch;
++			text += _text.mid(from, 3);
++			_position = next;
++		}
++	}
++	if (current() == '.') {
++		if (!first) {
++			return std::nullopt;
++		}
++		text += current();
++		++_position;
++		const auto from = _position;
++		while (Digit(current())) {
++			text += current();
++			++_position;
++		}
++		if (from == _position) {
++			return std::nullopt;
++		}
++	}
++	if (text.isEmpty() || text == QLatin1String(".")) {
++		return std::nullopt;
++	}
++	if (current() == 'e' || current() == 'E') {
++		text += current();
++		++_position;
++		if (current() == '+' || current() == '-') {
++			text += current();
++			++_position;
++		}
++		const auto from = _position;
++		while (Digit(current())) {
++			text += current();
++			++_position;
++		}
++		if (from == _position) {
++			return std::nullopt;
++		}
++	}
++	return (_position > start) ? Number::Parse(text) : std::nullopt;
++}
++
++std::optional<Value> Parser::call() {
++	const auto from = _position;
++	while (Letter(current()) || Digit(current()) || current() == '.') {
++		++_position;
++	}
++	const auto name = _text.mid(from, _position - from);
++	if (!take('(')) {
++		return std::nullopt;
++	}
++	const auto callDepth = Depth(_callDepth);
++	auto arguments = std::vector<Value>();
++	if (!take(')')) {
++		do {
++			if (arguments.size() >= kMaxArguments) {
++				return std::nullopt;
++			}
++			auto value = addition();
++			if (!value) {
++				return std::nullopt;
++			}
++			arguments.push_back(std::move(*value));
++		} while (take(','));
++		if (!take(')')) {
++			return std::nullopt;
++		}
++	}
++	if (arguments.empty() || !operation()) {
++		return std::nullopt;
++	}
++	const auto percent = std::any_of(
++		begin(arguments),
++		end(arguments),
++		[](const Value &value) { return value.percent; });
++	const auto count = arguments.size();
++	const auto &first = arguments.front().number;
++	auto number = std::optional<Number>();
++	if (name == QLatin1String("math.abs") && count == 1) {
++		number = first.Absolute();
++	} else if (name == QLatin1String("math.floor") && count == 1) {
++		number = first.Floor();
++	} else if (name == QLatin1String("math.ceil") && count == 1) {
++		number = first.Ceil();
++	} else if (name == QLatin1String("math.round") && count == 1) {
++		number = first.Round();
++	} else if (name == QLatin1String("math.min")
++		|| name == QLatin1String("math.max")) {
++		if (count < 2) {
++			return std::nullopt;
++		}
++		number = first;
++		const auto maximum = name == QLatin1String("math.max");
++		for (auto i = size_t(1); i < count; ++i) {
++			const auto &value = arguments[i].number;
++			if ((number->Compare(value) < 0) == maximum) {
++				number = value;
++			}
++		}
++	} else if (name == QLatin1String("math.sum")
++		|| name == QLatin1String("math.avg")) {
++		number = first;
++		for (auto i = size_t(1); number && i < count; ++i) {
++			if (!operation()) {
++				return std::nullopt;
++			}
++			number = number->Add(arguments[i].number);
++		}
++		if (number && name == QLatin1String("math.avg")) {
++			number = number->Divide(Number::Integer(qint64(count)));
++		}
++	} else if (name == QLatin1String("math.clamp") && count == 3) {
++		const auto &low = arguments[1].number;
++		const auto &high = arguments[2].number;
++		if (low.Compare(high) > 0) {
++			return std::nullopt;
++		}
++		number = (first.Compare(low) < 0)
++			? low
++			: (first.Compare(high) > 0)
++			? high
++			: first;
++	}
++	return number
++		? std::make_optional(Value{ std::move(*number), percent })
++		: std::nullopt;
++}
++
++}
++
++std::optional<LocalCalcNumber> ParseLocalCalcmulaNumber(const QString &query) {
++	return Parser(query).parse();
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local_parser.h b/Telegram/SourceFiles/tele/tele_calcmula_local_parser.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e4142d7b54920265ea6a6de2905265c4c2c193d8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local_parser.h
+@@ -0,0 +1,10 @@
++#pragma once
++
++#include "tele/tele_calcmula_local_number.h"
++
++namespace Tele {
++
++[[nodiscard]] std::optional<LocalCalcNumber> ParseLocalCalcmulaNumber(
++	const QString &query);
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local_units.cpp b/Telegram/SourceFiles/tele/tele_calcmula_local_units.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..38b92c59e4df25284c0a88df23b622fcd9234dd4
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local_units.cpp
+@@ -0,0 +1,848 @@
++#include "tele/tele_calcmula_local_units.h"
++
++#include "tele/tele_calcmula_local_number.h"
++#include "tele/tele_calcmula_local_parser.h"
++
++#include <QRegularExpression>
++#include <QStringList>
++
++#include <vector>
++
++namespace Tele {
++namespace {
++
++enum class Kind {
++	Length,
++	Mass,
++	Volume,
++	Area,
++	Time,
++	Data,
++	Temperature,
++	Angle,
++	Speed,
++	Energy,
++	Power,
++	Pressure,
++	Frequency,
++};
++
++struct Unit {
++	Kind kind;
++	QString symbol;
++	QString factor;
++	QString divisor;
++	QStringList aliases;
++};
++
++[[nodiscard]] const std::vector<Unit> &Units() {
++	static const auto result = [] {
++		auto result = std::vector<Unit>();
++		const auto add = [&] (
++				Kind kind,
++				const char *symbol,
++				const char *factor,
++				const char *aliases,
++				const char *divisor = "1") {
++			result.push_back({
++				kind,
++				QString::fromUtf8(symbol),
++				QString::fromLatin1(factor),
++				QString::fromLatin1(divisor),
++				QString::fromUtf8(aliases).split('|'),
++			});
++		};
++		add(
++			Kind::Length,
++			"mm",
++			"0.001",
++			"mm|millimeter|millimeters|millimetre|millimetres|мм|миллиметр|"
++			"миллиметра|миллиметров|миллиметры");
++		add(
++			Kind::Length,
++			"cm",
++			"0.01",
++			"cm|centimeter|centimeters|centimetre|centimetres|см|сантиметр|"
++			"сантиметра|сантиметров|сантиметры");
++		add(
++			Kind::Length,
++			"dm",
++			"0.1",
++			"dm|decimeter|decimeters|дм|дециметр|дециметра|дециметров");
++		add(
++			Kind::Length,
++			"m",
++			"1",
++			"m|meter|meters|metre|metres|м|метр|метра|метров|метры|метрах");
++		add(
++			Kind::Length,
++			"km",
++			"1000",
++			"km|kilometer|kilometers|kilometre|kilometres|км|километр|"
++			"километра|километров|километры");
++		add(
++			Kind::Length,
++			"µm",
++			"0.000001",
++			"um|μm|µm|micrometer|micrometers|micron|microns|мкм|микрометр|"
++			"микрометра|микрометров");
++		add(
++			Kind::Length,
++			"nm",
++			"0.000000001",
++			"nm|nanometer|nanometers|нм|нанометр|нанометра|нанометров");
++		add(
++			Kind::Length,
++			"in",
++			"0.0254",
++			"inch|inches|in|дюйм|дюйма|дюймов|дюймы|дюймах");
++		add(
++			Kind::Length,
++			"ft",
++			"0.3048",
++			"ft|foot|feet|фут|фута|футов|футы|футах");
++		add(
++			Kind::Length,
++			"yd",
++			"0.9144",
++			"yd|yard|yards|ярд|ярда|ярдов");
++		add(
++			Kind::Length,
++			"mi",
++			"1609.344",
++			"mi|mile|miles|миля|мили|миль");
++		add(
++			Kind::Length,
++			"nmi",
++			"1852",
++			"nmi|nautical_mile|nautical_miles");
++		add(
++			Kind::Length,
++			"au",
++			"149597870700",
++			"au|astronomical_unit|астрономическая_единица|ае|ао");
++		add(
++			Kind::Length,
++			"ly",
++			"9460730472580800",
++			"ly|lightyear|lightyears|light_year|световой_год");
++		add(
++			Kind::Mass,
++			"mg",
++			"0.001",
++			"mg|milligram|milligrams|мг|миллиграмм|миллиграмма|миллиграммов");
++		add(
++			Kind::Mass,
++			"g",
++			"1",
++			"g|gram|grams|г|гр|грамм|грамма|граммов|граммы");
++		add(
++			Kind::Mass,
++			"kg",
++			"1000",
++			"kg|kilogram|kilograms|кг|килограмм|килограмма|килограммов|"
++			"килограммы");
++		add(
++			Kind::Mass,
++			"t",
++			"1000000",
++			"t|tonne|tonnes|тонна|тонны|тонн");
++		add(
++			Kind::Mass,
++			"µg",
++			"0.000001",
++			"ug|μg|µg|microgram|micrograms|мкг|микрограмм|микрограмма|"
++			"микрограммов");
++		add(
++			Kind::Mass,
++			"ц",
++			"100000",
++			"centner|centners|центнер|центнера|центнеров|центнери");
++		add(
++			Kind::Mass,
++			"ct",
++			"0.2",
++			"ct|carat|carats|карат|карата|каратов");
++		add(
++			Kind::Mass,
++			"lb",
++			"453.59237",
++			"lb|lbs|pound|pounds|фунт|фунта|фунтов");
++		add(
++			Kind::Mass,
++			"oz",
++			"28.349523125",
++			"oz|ounce|ounces|унция|унции|унций");
++		add(
++			Kind::Volume,
++			"ml",
++			"0.001",
++			"ml|milliliter|milliliters|millilitre|millilitres|мл|миллилитр|"
++			"миллилитра|миллилитров");
++		add(
++			Kind::Volume,
++			"cl",
++			"0.01",
++			"cl|centiliter|centiliters|сл");
++		add(
++			Kind::Volume,
++			"dl",
++			"0.1",
++			"dl|deciliter|deciliters|дл");
++		add(
++			Kind::Volume,
++			"l",
++			"1",
++			"l|liter|liters|litre|litres|л|литр|литра|литров|литры|литрах");
++		add(
++			Kind::Volume,
++			"hl",
++			"100",
++			"hl|hectoliter|hectoliters|гл");
++		add(
++			Kind::Volume,
++			"m³",
++			"1000",
++			"m3|m^3|m**3|m³|кубометр|кубометра|кубометров|куб|куба|кубов");
++		add(
++			Kind::Volume,
++			"gal",
++			"3.785411784",
++			"gal|gallon|gallons|галлон|галлона|галлонов");
++		add(
++			Kind::Volume,
++			"qt",
++			"0.946352946",
++			"qt|quart|quarts");
++		add(
++			Kind::Volume,
++			"pt",
++			"0.473176473",
++			"pt|pint|pints|пинта|пинты|пинт");
++		add(
++			Kind::Volume,
++			"cup",
++			"0.2365882365",
++			"cup|cups|чашка|чашки|чашек");
++		add(
++			Kind::Volume,
++			"fl oz",
++			"0.0295735295625",
++			"floz|fluid_ounce|fluid_ounces");
++		add(
++			Kind::Volume,
++			"tbsp",
++			"0.01478676478125",
++			"tbsp|tablespoon|tablespoons|ст.л.|ст.л|стл|столовая ложка|"
++			"столовых ложках");
++		add(
++			Kind::Volume,
++			"tsp",
++			"0.00492892159375",
++			"tsp|teaspoon|teaspoons|ч.л.|ч.л|чл|чайная ложка|чайных ложках");
++		add(
++			Kind::Area,
++			"mm²",
++			"0.000001",
++			"sqmm|mm2|mm^2|mm**2|mm²|мм2|мм²");
++		add(
++			Kind::Area,
++			"cm²",
++			"0.0001",
++			"sqcm|cm2|cm^2|cm**2|cm²|см2|см²");
++		add(
++			Kind::Area,
++			"m²",
++			"1",
++			"sqm|m2|m^2|m**2|m²|м2|м²");
++		add(
++			Kind::Area,
++			"km²",
++			"1000000",
++			"sqkm|km2|km^2|km**2|km²|км2|км²");
++		add(
++			Kind::Area,
++			"are",
++			"100",
++			"are|ares|ар|ара|аров|сотка|сотки|соток");
++		add(
++			Kind::Area,
++			"ha",
++			"10000",
++			"hectare|hectares|ha|га|гектар|гектара|гектаров");
++		add(
++			Kind::Area,
++			"ft²",
++			"0.09290304",
++			"sqft|ft2|ft^2|ft²");
++		add(
++			Kind::Area,
++			"yd²",
++			"0.83612736",
++			"sqyd|yd2|yd^2|yd²");
++		add(
++			Kind::Area,
++			"mi²",
++			"2589988.110336",
++			"sqmi|mi2|mi^2|mi²");
++		add(
++			Kind::Area,
++			"in²",
++			"0.00064516",
++			"sqin|inch2|inch^2|in²");
++		add(
++			Kind::Area,
++			"acre",
++			"4046.8564224",
++			"acre|acres|акр|акра|акров");
++		add(
++			Kind::Time,
++			"ms",
++			"0.001",
++			"ms|millisecond|milliseconds|мс|миллисекунда|миллисекунды|"
++			"миллисекунд");
++		add(
++			Kind::Time,
++			"s",
++			"1",
++			"s|sec|second|seconds|сек|секунда|секунды|секунд|секунду");
++		add(
++			Kind::Time,
++			"min",
++			"60",
++			"min|minute|minutes|мин|минута|минуты|минут|минуту|хв|хвилина|"
++			"хвилини|хвилин");
++		add(
++			Kind::Time,
++			"h",
++			"3600",
++			"h|hr|hour|hours|ч|час|часа|часов|година|години|годин");
++		add(
++			Kind::Time,
++			"d",
++			"86400",
++			"d|day|days|д|день|дня|дней|сутки|суток|суток|доба|доби|діб");
++		add(
++			Kind::Time,
++			"w",
++			"604800",
++			"w|week|weeks|нед|неделя|недели|недель|неделю|тиж|тиждень|тижні|"
++			"тижнів");
++		add(
++			Kind::Time,
++			"mo",
++			"2592000",
++			"mo|month|months|мес|месяц|месяца|месяцев|місяць|місяці|місяців");
++		add(
++			Kind::Time,
++			"y",
++			"31536000",
++			"y|yr|year|years|год|года|лет|рік|роки|років");
++		add(
++			Kind::Data,
++			"bit",
++			"0.125",
++			"bit|bits|бит|бита|битов");
++		add(
++			Kind::Data,
++			"B",
++			"1",
++			"b|byte|bytes|байт|байта|байтов");
++		add(
++			Kind::Data,
++			"KB",
++			"1000",
++			"kb|kilobyte|kilobytes|кб|килобайт|килобайта|килобайтов");
++		add(
++			Kind::Data,
++			"MB",
++			"1000000",
++			"mb|megabyte|megabytes|мб|мегабайт|мегабайта|мегабайтов");
++		add(
++			Kind::Data,
++			"GB",
++			"1000000000",
++			"gb|gigabyte|gigabytes|гб|гигабайт|гигабайта|гигабайтов");
++		add(
++			Kind::Data,
++			"TB",
++			"1000000000000",
++			"tb|terabyte|terabytes|тб|терабайт|терабайта|терабайтов");
++		add(
++			Kind::Data,
++			"PB",
++			"1000000000000000",
++			"pb|petabyte|petabytes|пб|петабайт|петабайта|петабайтов");
++		add(
++			Kind::Data,
++			"KiB",
++			"1024",
++			"kib|kibibyte|kibibytes|киб|кибибайт|кибибайта|кибибайтов");
++		add(
++			Kind::Data,
++			"MiB",
++			"1048576",
++			"mib|mebibyte|mebibytes|миб|мебибайт|мебибайта|мебибайтов");
++		add(
++			Kind::Data,
++			"GiB",
++			"1073741824",
++			"gib|gibibyte|gibibytes|гиб|гибибайт|гибибайта|гибибайтов");
++		add(
++			Kind::Data,
++			"TiB",
++			"1099511627776",
++			"tib|tebibyte|tebibytes|тиб|тебибайт|тебибайта|тебибайтов");
++		add(
++			Kind::Data,
++			"PiB",
++			"1125899906842624",
++			"pib|pebibyte|pebibytes|пиб|пебибайт|пебибайта|пебибайтов");
++		add(
++			Kind::Data,
++			"kbit",
++			"125",
++			"kbit|kbits|килобит|килобита|килобитов|кбит");
++		add(
++			Kind::Data,
++			"Mbit",
++			"125000",
++			"mbit|mbits|мегабит|мегабита|мегабитов|мбит");
++		add(
++			Kind::Data,
++			"Gbit",
++			"125000000",
++			"gbit|gbits|гигабит|гигабита|гигабитов|гбит");
++		add(
++			Kind::Data,
++			"Tbit",
++			"125000000000",
++			"tbit|tbits|терабит|терабита|терабитов|тбит");
++		add(
++			Kind::Temperature,
++			"°C",
++			"1",
++			"celsius|°c|цельсий|цельсия|цельсию|градусов цельсия|"
++			"градуса цельсия|градусы цельсия");
++		add(
++			Kind::Temperature,
++			"°F",
++			"5",
++			"fahrenheit|°f|фаренгейт|фаренгейта|фаренгейту|градусов фаренгейта",
++			"9");
++		add(
++			Kind::Temperature,
++			"K",
++			"1",
++			"kelvin|k|кельвин|кельвина|кельвинов|кельвине");
++		add(
++			Kind::Angle,
++			"°",
++			"1",
++			"deg|degree|degrees|°|градус|градуса|градусов|градусы");
++		add(
++			Kind::Angle,
++			"gon",
++			"0.9",
++			"grad|gradian|gradians|gon");
++		add(
++			Kind::Angle,
++			"turn",
++			"360",
++			"turn|turns|rev|revolution|revolutions|оборот|оборота|оборотов");
++		add(
++			Kind::Angle,
++			"′",
++			"1",
++			"arcmin|arcminute|arcminutes|′",
++			"60");
++		add(
++			Kind::Angle,
++			"″",
++			"1",
++			"arcsec|arcsecond|arcseconds|″",
++			"3600");
++		add(
++			Kind::Speed,
++			"m/s",
++			"1",
++			"mps|m/s|м/с");
++		add(
++			Kind::Speed,
++			"km/h",
++			"5",
++			"kmh|km/h|км/ч",
++			"18");
++		add(
++			Kind::Speed,
++			"mph",
++			"0.44704",
++			"mph");
++		add(
++			Kind::Speed,
++			"kn",
++			"1852",
++			"knot|knots",
++			"3600");
++		add(
++			Kind::Energy,
++			"J",
++			"1",
++			"j|joule|joules|дж|джоуль|джоуля|джоулей");
++		add(
++			Kind::Energy,
++			"kJ",
++			"1000",
++			"kj|килоджоуль|килоджоулей|кдж");
++		add(
++			Kind::Energy,
++			"MJ",
++			"1000000",
++			"mj|мегаджоуль|мегаджоулей|мдж");
++		add(
++			Kind::Energy,
++			"GJ",
++			"1000000000",
++			"gj|гигаджоуль|гдж");
++		add(
++			Kind::Energy,
++			"cal",
++			"4.184",
++			"cal|calorie|calories|кал|калория|калории|калорий");
++		add(
++			Kind::Energy,
++			"kcal",
++			"4184",
++			"kcal|kilocalorie|kilocalories|ккал|килокалория|килокалории|"
++			"килокалорий");
++		add(
++			Kind::Energy,
++			"Wh",
++			"3600",
++			"wh|втч|втгод");
++		add(
++			Kind::Energy,
++			"kWh",
++			"3600000",
++			"kwh|квтч|квтгод");
++		add(
++			Kind::Energy,
++			"MWh",
++			"3600000000",
++			"mwh|мвтч|мвтгод");
++		add(
++			Kind::Energy,
++			"eV",
++			"0.0000000000000000001602176634",
++			"ev|electronvolt|electronvolts|эв");
++		add(
++			Kind::Power,
++			"W",
++			"1",
++			"watt|watts|ватт|ватта|ваттов|вт");
++		add(
++			Kind::Power,
++			"kW",
++			"1000",
++			"kw|kilowatt|kilowatts|квт|киловатт|киловатта|киловаттов");
++		add(
++			Kind::Power,
++			"MW",
++			"1000000",
++			"mw|megawatt|megawatts|мвт|мегаватт|мегаватта|мегаваттов");
++		add(
++			Kind::Power,
++			"hp",
++			"745.7",
++			"hp|horsepower");
++		add(
++			Kind::Power,
++			"PS",
++			"735.49875",
++			"ps|лс|кінська_сила");
++		add(
++			Kind::Pressure,
++			"Pa",
++			"1",
++			"pa|pascal|pascals|па|паскаль|паскаля|паскалей");
++		add(
++			Kind::Pressure,
++			"kPa",
++			"1000",
++			"kpa|кпа|килопаскаль|килопаскалей");
++		add(
++			Kind::Pressure,
++			"hPa",
++			"100",
++			"hpa|гпа|гектопаскаль|гектопаскалей");
++		add(
++			Kind::Pressure,
++			"mbar",
++			"100",
++			"mbar|миллибар|миллибаров");
++		add(
++			Kind::Pressure,
++			"MPa",
++			"1000000",
++			"mpa|мпа|мегапаскаль|мегапаскалей");
++		add(
++			Kind::Pressure,
++			"bar",
++			"100000",
++			"bar|бар|бара|баров");
++		add(
++			Kind::Pressure,
++			"atm",
++			"101325",
++			"atm|атм|атмосфера|атмосферы|атмосфер");
++		add(
++			Kind::Pressure,
++			"Torr",
++			"101325",
++			"torr|торр",
++			"760");
++		add(
++			Kind::Frequency,
++			"Hz",
++			"1",
++			"hz|hertz|гц|герц|герца|герцев");
++		add(
++			Kind::Frequency,
++			"kHz",
++			"1000",
++			"khz|кгц|килогерц|килогерца|килогерцев");
++		add(
++			Kind::Frequency,
++			"MHz",
++			"1000000",
++			"mhz|мгц|мегагерц|мегагерца|мегагерцев");
++		add(
++			Kind::Frequency,
++			"GHz",
++			"1000000000",
++			"ghz|ггц|гигагерц|гигагерца|гигагерцев");
++		add(
++			Kind::Frequency,
++			"rpm",
++			"1",
++			"rpm",
++			"60");
++		return result;
++	}();
++	return result;
++}
++
++[[nodiscard]] const Unit *FindUnit(const QString &text) {
++	const auto folded = text.toLower();
++	for (const auto &unit : Units()) {
++		if (unit.aliases.contains(folded)) {
++			return &unit;
++		}
++	}
++	return nullptr;
++}
++
++[[nodiscard]] std::optional<LocalCalcNumber> Factor(const Unit &unit) {
++	const auto numerator = LocalCalcNumber::Parse(unit.factor);
++	const auto denominator = LocalCalcNumber::Parse(unit.divisor);
++	return (numerator && denominator)
++		? numerator->Divide(*denominator)
++		: std::nullopt;
++}
++
++[[nodiscard]] QString WithUnit(const LocalCalcNumber &number, const Unit &unit) {
++	const auto compact = (unit.symbol == QString::fromUtf8("°"))
++		|| (unit.symbol == QString::fromUtf8("′"))
++		|| (unit.symbol == QString::fromUtf8("″"));
++	const auto value = number.Format();
++	return value.isEmpty()
++		? QString()
++		: value + (compact ? QString() : u" "_q) + unit.symbol;
++}
++
++[[nodiscard]] bool IsCoefficient(const QString &text) {
++	static const auto literal = QRegularExpression(
++		u"^[+-]?\\s*(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|"_q
++		+ u"(?:[0-9][0-9,_ ]*(?:\\.[0-9]*)?|\\.[0-9]+)"_q
++		+ u"(?:[eE][+-]?[0-9]+)?)$"_q);
++	if (literal.match(text).hasMatch()) {
++		return true;
++	}
++	if (!text.startsWith('(') || !text.endsWith(')')) {
++		return false;
++	}
++	auto depth = 0;
++	for (auto i = 0; i != text.size(); ++i) {
++		if (text[i] == '(') {
++			++depth;
++		} else if (text[i] == ')') {
++			if (--depth == 0 && i + 1 != text.size()) {
++				return false;
++			}
++		}
++	}
++	return depth == 0;
++}
++
++struct Quantity {
++	LocalCalcNumber amount;
++	const Unit *unit;
++};
++
++[[nodiscard]] std::optional<Quantity> ParseQuantity(const QString &query) {
++	const Unit *found = nullptr;
++	auto size = qsizetype(0);
++	for (const auto &unit : Units()) {
++		for (const auto &alias : unit.aliases) {
++			if (alias.size() > size && query.endsWith(alias, Qt::CaseInsensitive)) {
++				found = &unit;
++				size = alias.size();
++			}
++		}
++	}
++	if (!found) {
++		return std::nullopt;
++	}
++	const auto prefix = query.left(query.size() - size);
++	const auto coefficient = prefix.trimmed();
++	if (!IsCoefficient(coefficient)
++		|| (coefficient.contains(u"0x"_q, Qt::CaseInsensitive)
++			&& (prefix.isEmpty() || !prefix.back().isSpace()))) {
++		return std::nullopt;
++	}
++	const auto amount = ParseLocalCalcmulaNumber(coefficient);
++	return amount
++		? std::make_optional(Quantity{ *amount, found })
++		: std::nullopt;
++}
++
++[[nodiscard]] std::optional<LocalCalcNumber> BaseAmount(const Quantity &quantity) {
++	const auto factor = Factor(*quantity.unit);
++	if (!factor) {
++		return std::nullopt;
++	}
++	auto amount = std::make_optional(quantity.amount);
++	if (quantity.unit->kind == Kind::Temperature) {
++		if (quantity.unit->symbol == QString::fromUtf8("°F")) {
++			amount = amount->Subtract(LocalCalcNumber::Integer(32));
++		}
++		amount = amount ? amount->Multiply(*factor) : std::nullopt;
++		return (amount && quantity.unit->symbol != "K")
++			? amount->Add(*LocalCalcNumber::Parse("273.15"))
++			: amount;
++	}
++	return amount->Multiply(*factor);
++}
++
++[[nodiscard]] QString Convert(const Quantity &quantity, const Unit &target) {
++	if (quantity.unit->kind != target.kind) {
++		return QString();
++	}
++	auto amount = BaseAmount(quantity);
++	const auto factor = Factor(target);
++	if (!amount || !factor) {
++		return QString();
++	}
++	if (target.kind == Kind::Temperature && target.symbol != "K") {
++		amount = amount->Subtract(*LocalCalcNumber::Parse("273.15"));
++	}
++	amount = amount ? amount->Divide(*factor) : std::nullopt;
++	if (amount
++		&& target.kind == Kind::Temperature
++		&& target.symbol == QString::fromUtf8("°F")) {
++		amount = amount->Add(LocalCalcNumber::Integer(32));
++	}
++	return amount ? WithUnit(*amount, target) : QString();
++}
++
++[[nodiscard]] QString Breakdown(const Quantity &quantity, const QStringList &symbols) {
++	const auto base = BaseAmount(quantity);
++	if (!base || base->IsZero()) {
++		return base ? WithUnit(quantity.amount, *quantity.unit) : QString();
++	}
++	auto rest = base->Absolute();
++	const auto smallest = FindUnit(symbols.back());
++	const auto smallestFactor = smallest ? Factor(*smallest) : std::nullopt;
++	if (!smallestFactor || rest.Compare(*smallestFactor) < 0) {
++		return WithUnit(quantity.amount, *quantity.unit);
++	}
++	auto parts = QStringList();
++	for (auto i = 0; i != symbols.size(); ++i) {
++		const auto unit = FindUnit(symbols[i]);
++		const auto factor = unit ? Factor(*unit) : std::nullopt;
++		const auto divided = factor ? rest.Divide(*factor) : std::nullopt;
++		if (!divided) {
++			return QString();
++		}
++		const auto amount = (i + 1 == symbols.size()) ? *divided : divided->Floor();
++		if (!amount.IsZero()) {
++			const auto part = WithUnit(amount, *unit);
++			if (part.isEmpty()) {
++				return QString();
++			}
++			parts.push_back(part);
++			const auto used = amount.Multiply(*factor);
++			const auto remaining = used ? rest.Subtract(*used) : std::nullopt;
++			if (!remaining) {
++				return QString();
++			}
++			rest = *remaining;
++		}
++	}
++	return (base->Compare(LocalCalcNumber::Integer(0)) < 0 ? u"-"_q : QString())
++		+ parts.join(' ');
++}
++
++[[nodiscard]] QString Format(const Quantity &quantity) {
++	switch (quantity.unit->kind) {
++	case Kind::Length:
++		if (quantity.unit->symbol == u"ly"_q
++			|| quantity.unit->symbol == u"au"_q) {
++			return WithUnit(quantity.amount, *quantity.unit);
++		}
++		return Breakdown(quantity, { "km", "m", "cm", "mm" });
++	case Kind::Mass:
++		return Breakdown(quantity, { "t", "kg", "g", "mg" });
++	case Kind::Volume:
++		return quantity.unit->symbol == QString::fromUtf8("m³")
++			? WithUnit(quantity.amount, *quantity.unit)
++			: Breakdown(quantity, { "l", "ml" });
++	case Kind::Time:
++		return Breakdown(quantity, { "y", "d", "h", "min", "s", "ms" });
++	case Kind::Data:
++		if (quantity.unit->symbol.contains("bit")) {
++			return QString();
++		}
++		return quantity.unit->symbol.contains("iB")
++			? Breakdown(quantity, { "PiB", "TiB", "GiB", "MiB", "KiB", "b" })
++			: Breakdown(quantity, { "PB", "TB", "GB", "MB", "KB", "b" });
++	case Kind::Temperature:
++		return WithUnit(quantity.amount, *quantity.unit);
++	default:
++		return QString();
++	}
++}
++
++}
++
++QString LocalCalcmulaUnits(const QString &query) {
++	if (query.size() > 1024 || query.contains('\n') || query.contains('\r')) {
++		return QString();
++	}
++	static const auto conversion = QRegularExpression(
++		QString::fromUtf8("^(.+?)\\s+(?:in|to|в|во|на|по|у|до)\\s+(.+)$"));
++	const auto trimmed = query.trimmed();
++	const auto match = conversion.match(trimmed);
++	const auto quantity = ParseQuantity(
++		match.hasMatch() ? match.captured(1) : trimmed);
++	if (!quantity) {
++		return QString();
++	}
++	if (match.hasMatch()) {
++		const auto target = FindUnit(match.captured(2).trimmed());
++		return target ? Convert(*quantity, *target) : QString();
++	}
++	return Format(*quantity);
++}
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_local_units.h b/Telegram/SourceFiles/tele/tele_calcmula_local_units.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..c586680f3c5bc0496950e9051c5ca17f01661d8d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_calcmula_local_units.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++#include <QString>
++
++namespace Tele {
++
++[[nodiscard]] QString LocalCalcmulaUnits(const QString &query);
++
++}
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index b4b8b4fc6d89c6f0a85fd7e318b5ad6dfee7c6e0..1790b1338e50c77a277a154c2afc2271a9125aee 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -139,6 +139,7 @@ const char kOptionStreamerModeInMenu[] = "tele-streamer-mode-in-menu";
+ const char kOptionViewAsTl[] = "tele-view-as-tl";
+ const char kOptionParallelUploads[] = "tele-parallel-uploads";
+ const char kOptionCalcmula[] = "tele-calcmula";
++const char kOptionCalcmulaLocal[] = "tele-calcmula-local";
+ const char kOptionCalcmulaPreview[] = "tele-calcmula-preview";
+ const char kOptionCalcmulaInline[] = "tele-calcmula-inline";
+ const char kOptionTranslateOut[] = "tele-translate-out";
+@@ -1089,6 +1090,12 @@ base::options::toggle CalcmulaOption({
+ 		"the result.",
+ });
+ 
++base::options::toggle CalcmulaLocalOption({
++	.id = kOptionCalcmulaLocal,
++	.name = "Calculate on this device first",
++	.description = "Unsupported expressions still go to calcmula.app.",
++});
++
+ base::options::toggle CalcmulaPreviewOption({
+ 	.id = kOptionCalcmulaPreview,
+ 	.name = "Preview calcmula results while typing",
+@@ -2941,6 +2948,10 @@ bool Calcmula() {
+ 	return CalcmulaOption.value();
+ }
+ 
++bool CalcmulaLocal() {
++	return CalcmulaLocalOption.value();
++}
++
+ bool CalcmulaPreview() {
+ 	return CalcmulaPreviewOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 606f99fe8fa9b42b203e5bfabc76be1602601c8d..a335030fd3db8b5ea0f44566ca2af1ebbf871679 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -134,6 +134,7 @@ extern const char kOptionStreamerModeInMenu[];
+ extern const char kOptionViewAsTl[];
+ extern const char kOptionParallelUploads[];
+ extern const char kOptionCalcmula[];
++extern const char kOptionCalcmulaLocal[];
+ extern const char kOptionCalcmulaPreview[];
+ extern const char kOptionCalcmulaInline[];
+ extern const char kOptionTranslateOut[];
+@@ -464,6 +465,7 @@ void SetStreamerMode(bool enabled);
+ [[nodiscard]] bool ViewAsTl();
+ [[nodiscard]] bool ParallelUploads();
+ [[nodiscard]] bool Calcmula();
++[[nodiscard]] bool CalcmulaLocal();
+ [[nodiscard]] bool CalcmulaPreview();
+ [[nodiscard]] bool CalcmulaInline();
+ [[nodiscard]] bool TranslateOut();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 72b3093bbf12f75daef6fdf5d6ce2f307734cf0b..4d66679376f563fb9722bc9bb2a24fbc87a5507c 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -228,6 +228,7 @@ struct Spec {
+ 		Toggle(kOptionViewAsTl),
+ 		Toggle(kOptionParallelUploads),
+ 		Toggle(kOptionCalcmula),
++		Toggle(kOptionCalcmulaLocal),
+ 		Toggle(kOptionCalcmulaPreview),
+ 		Toggle(kOptionCalcmulaInline),
+ 		Toggle(kOptionTranslateOut),

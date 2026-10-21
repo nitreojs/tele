@@ -2,7 +2,13 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 329 patches, newest release first.
+all 341 patches, newest release first.
+
+### [tele 23](https://github.com/nitreojs/tele/releases/tag/v7.3.1-tele.23)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [333](../patches/tdesktop/0333-feat-calculate-arithmetic-and-unit-conversions-on-de.patch) | calcmula previews, inline results and sent calculations can work on this device first, including exact arithmetic and common unit conversions. supported expressions work with `-teleoffline`; other expressions still use calcmula.app | tele → sending, off |
 
 ### [tele 22](https://github.com/nitreojs/tele/releases/tag/v7.3.1-tele.22)
 
