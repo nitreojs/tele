@@ -23,10 +23,10 @@ Subject: [PATCH] feat: apply verification and marks from the tele server
  create mode 100644 Telegram/SourceFiles/tele/tele_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2748b58180f3f9ed162a0cab47caf82b8edf88fe..6a638b01d5c0142f757320186e0ba6898306591d 100644
+index 4cfdd5f86cbeeb9b12480f09f29f605d35fdea8c..fcd47f838e5583431a3097b00765129f479090a1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2375,6 +2375,8 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2483,6 +2483,8 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -61,10 +61,10 @@ index d3c1df50d87802d96d5b2a78abc1f3ddd8b04777..c040923da3bd7c98b9649cab76312a7e
  	}, lifetime());
  
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 2a62f837399db86a06c1d62960e8d7b7b81a3911..c12cdf4b7a8718b843e4b7e33ed0ecd5b2816d56 100644
+index ff05cac63e53e34b33492c07c77e8e6520e17784..d0e16887481935f716942c409d2271e48fc96b0c 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/cached_webview_availability.h"
  #include "test/test_agent.h"
  #include "tele/tele_updater.h"
@@ -72,19 +72,19 @@ index 2a62f837399db86a06c1d62960e8d7b7b81a3911..c12cdf4b7a8718b843e4b7e33ed0ecd5
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -353,6 +354,7 @@ void Application::run() {
- 	Media::Encode::ClearStaleTempFiles();
+@@ -357,6 +358,7 @@ void Application::run() {
  	Storage::ClearStaleArchiveFiles();
+ 	Webview::ClearStaleTemporaryStorage();
  	Tele::StartUpdater();
 +	Tele::StartBadges();
  
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/data/data_channel.cpp b/Telegram/SourceFiles/data/data_channel.cpp
-index caf4932cc588b2bfa0af5e49cebdd7b7179be455..7354482435b0c7009dc61a8e03a5d6b038027c1f 100644
+index a08cf0546d91af1eaa7b8f6b65bf9c1524417fd2..5b3ffaa74cec805726488cf239d1ea4667d38828 100644
 --- a/Telegram/SourceFiles/data/data_channel.cpp
 +++ b/Telegram/SourceFiles/data/data_channel.cpp
-@@ -37,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "api/api_invite_links.h"
  #include "apiwrap.h"
  #include "storage/storage_account.h"
@@ -92,7 +92,7 @@ index caf4932cc588b2bfa0af5e49cebdd7b7179be455..7354482435b0c7009dc61a8e03a5d6b0
  #include "ui/unread_badge.h"
  #include "window/notifications_manager.h"
  
-@@ -872,6 +873,7 @@ bool ChannelData::canRestrictParticipant(
+@@ -873,6 +874,7 @@ bool ChannelData::canRestrictParticipant(
  }
  
  void ChannelData::setBotVerifyDetails(Ui::BotVerifyDetails details) {
@@ -101,7 +101,7 @@ index caf4932cc588b2bfa0af5e49cebdd7b7179be455..7354482435b0c7009dc61a8e03a5d6b0
  		if (_botVerifyDetails) {
  			_botVerifyDetails = nullptr;
 diff --git a/Telegram/SourceFiles/data/data_peer_values.cpp b/Telegram/SourceFiles/data/data_peer_values.cpp
-index edd65ef9868108b1fa6b8ed87199bee2da3bed0c..a318262805ac7618701a0c7f3e01249b46ce2a33 100644
+index d43652efdee6c597ca9bb81e6df9280018ec280b..ede3e14049321fb5bd9a40342fed8b74b6c82942 100644
 --- a/Telegram/SourceFiles/data/data_peer_values.cpp
 +++ b/Telegram/SourceFiles/data/data_peer_values.cpp
 @@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -122,7 +122,7 @@ index edd65ef9868108b1fa6b8ed87199bee2da3bed0c..a318262805ac7618701a0c7f3e01249b
  	if (user->isNotificationsUser()) {
  		return tr::lng_status_service_notifications(tr::now);
  	} else if (user->isSupport()) {
-@@ -553,6 +557,7 @@ QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
+@@ -547,6 +551,7 @@ QString OnlineTextFull(not_null<UserData*> user, TimeId now) {
  bool OnlineTextActive(not_null<UserData*> user, TimeId now) {
  	return !user->isServiceUser()
  		&& !user->isBot()
@@ -131,7 +131,7 @@ index edd65ef9868108b1fa6b8ed87199bee2da3bed0c..a318262805ac7618701a0c7f3e01249b
  }
  
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index d93703bd1ef76acc05cd0742abd3e042e235e27c..12ad0162a8a6a1cbb13f82034a6ce3388086784c 100644
+index cc392262819c86c9fb010ee6466a940ff2ea822c..d23fd09fc5981ee6a6df05479da3b7167ab46232 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
 @@ -94,6 +94,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -169,18 +169,18 @@ index d93703bd1ef76acc05cd0742abd3e042e235e27c..12ad0162a8a6a1cbb13f82034a6ce338
  			| (data.is_gigagroup() ? Flag::Gigagroup : Flag())
  			| (hasUsername ? Flag::Username : Flag())
 diff --git a/Telegram/SourceFiles/data/data_user.cpp b/Telegram/SourceFiles/data/data_user.cpp
-index 4f1f626f1aa9ed4f2df81128403d2307e80f1303..02f2acf603bc2f0fbdd702d819111eb70c997d6f 100644
+index 68278a261bec78301b9db38570eaf333444683a5..00f224d6e000d5a3897172bf0689e75b70920515 100644
 --- a/Telegram/SourceFiles/data/data_user.cpp
 +++ b/Telegram/SourceFiles/data/data_user.cpp
-@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "api/api_peer_photo.h"
  #include "apiwrap.h"
  #include "lang/lang_keys.h"
 +#include "tele/tele_badges.h"
+ #include "wallet/wallet_own_card.h"
+ #include "wallet/wallet_session.h"
  #include "window/notifications_manager.h"
- 
- namespace {
-@@ -774,6 +775,7 @@ bool UserData::isOldWalletBot() const {
+@@ -781,6 +782,7 @@ bool UserData::isOldWalletBot() const {
  }
  
  void UserData::setBotVerifyDetails(Ui::BotVerifyDetails details) {
@@ -319,7 +319,7 @@ index aeb35a708bc86dc25614026e7d8b9758842a7716..c8ed5d1d7f5784edf07963c96531dec8
  	AddUpdates(content);
 diff --git a/Telegram/SourceFiles/tele/tele_badges.cpp b/Telegram/SourceFiles/tele/tele_badges.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..f1995c405d074b6e774c851ef9d97136a4ef1ba7
+index 0000000000000000000000000000000000000000..786019023ebd52825a9d4b257ce88c70aa7e575c
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_badges.cpp
 @@ -0,0 +1,882 @@
@@ -838,7 +838,7 @@ index 0000000000000000000000000000000000000000..f1995c405d074b6e774c851ef9d97136
 +	request.setAttribute(
 +		QNetworkRequest::RedirectPolicyAttribute,
 +		QNetworkRequest::SameOriginRedirectPolicy);
-+	request.setTransferTimeout(kTransferTimeout);
++	request.setTransferTimeout(std::chrono::milliseconds(kTransferTimeout));
 +	request.setRawHeader("User-Agent", UserAgent());
 +	if (!_etag.isEmpty()) {
 +		request.setRawHeader("If-None-Match", _etag.toLatin1());

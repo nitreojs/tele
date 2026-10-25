@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send quick replies in groups and channels
  create mode 100644 Telegram/SourceFiles/tele/tele_shortcuts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7a37468819f0757e839eaa4505d01fbeaa5a48a0..2748b58180f3f9ed162a0cab47caf82b8edf88fe 100644
+index adf84fd9a5d369dd54ac8950a96e0e17e979fca8..4cfdd5f86cbeeb9b12480f09f29f605d35fdea8c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2381,6 +2381,8 @@ PRIVATE
+@@ -2489,6 +2489,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -105,7 +105,7 @@ index d2f8a9f99ebd5ef8186c92f142ccca763b974c65..6fd3698f727ff9d27a8bb99b07873322
  	) | rpl::on_next([=](FieldAutocomplete::BotCommandChosen data) {
  		if (!features().autocompleteCommands) {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 43b200334aa85c3febe47953c1ac5e277f9c48b6..93fbf1c6be85bd77cfdd7abffb023575f666e4f7 100644
+index c92bd433bbd4544d234b4a3c72a88342f5d2b467..8e4ef2593005a66f9facd4970fcea10296115971 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -171,6 +171,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -116,7 +116,7 @@ index 43b200334aa85c3febe47953c1ac5e277f9c48b6..93fbf1c6be85bd77cfdd7abffb023575
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -1984,7 +1985,12 @@ void HistoryWidget::initFieldAutocomplete() {
+@@ -1988,7 +1989,12 @@ void HistoryWidget::initFieldAutocomplete() {
  				controller(),
  				PremiumFeature::QuickReplies);
  		} else if (shortcutId) {
@@ -131,7 +131,7 @@ index 43b200334aa85c3febe47953c1ac5e277f9c48b6..93fbf1c6be85bd77cfdd7abffb023575
  			setFieldText(_field->getTextWithTagsPart(
  				_field->textCursor().position()));
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 28e423bcc6d7b84c7153659518bfd1f6ad21efaa..3ef48fdcb160994370bee00d76d7e4afcbaba777 100644
+index d45b35fc34d663a900d3b3e441c2c17709f7c4dd..3395510ec070b1f64364edf92ff0eff7d590180d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -142,7 +142,7 @@ index 28e423bcc6d7b84c7153659518bfd1f6ad21efaa..3ef48fdcb160994370bee00d76d7e4af
  #include "inline_bots/inline_bot_result.h"
  #include "info/profile/info_profile_values.h"
  #include "iv/editor/iv_editor_session.h"
-@@ -447,7 +448,12 @@ ChatWidget::ChatWidget(
+@@ -410,7 +411,12 @@ ChatWidget::ChatWidget(
  					controller,
  					PremiumFeature::QuickReplies);
  			} else if (shortcutId) {

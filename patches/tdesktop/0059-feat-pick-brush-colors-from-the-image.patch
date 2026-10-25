@@ -1,0 +1,555 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 21:36:25 +0300
+Subject: [PATCH] feat: pick brush colors from the image
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/editor/color_picker.cpp  |  26 +-
+ Telegram/SourceFiles/editor/color_picker.h    |   4 +
+ Telegram/SourceFiles/editor/photo_editor.cpp  |   6 +
+ .../tele/tele_editor_eyedropper.cpp           | 354 ++++++++++++++++++
+ .../SourceFiles/tele/tele_editor_eyedropper.h |  28 ++
+ 6 files changed, 418 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_editor_eyedropper.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_editor_eyedropper.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index f6f3f88402224245a488585a289cccf4ee7ffab2..215f4f0d33d635bc537a04d85a7342b26df126df 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2509,6 +2509,8 @@ PRIVATE
+     tele/tele_deleted_section.h
+     tele/tele_edit_history.cpp
+     tele/tele_edit_history.h
++    tele/tele_editor_eyedropper.cpp
++    tele/tele_editor_eyedropper.h
+     tele/tele_folders.cpp
+     tele/tele_folders.h
+     tele/tele_gifts.cpp
+diff --git a/Telegram/SourceFiles/editor/color_picker.cpp b/Telegram/SourceFiles/editor/color_picker.cpp
+index 255583a2f674856659766f97562641db853ee3c2..0554fc5d808fa4d837441167074baa83d02603a8 100644
+--- a/Telegram/SourceFiles/editor/color_picker.cpp
++++ b/Telegram/SourceFiles/editor/color_picker.cpp
+@@ -10,6 +10,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "base/basic_types.h"
+ #include "lang/lang_keys.h"
+ #include "lottie/lottie_icon.h"
++#include "tele/tele_editor_eyedropper.h"
+ #include "ui/abstract_button.h"
+ #include "ui/layers/generic_box.h"
+ #include "ui/painter.h"
+@@ -593,6 +594,16 @@ void ColorPicker::setColor(const QColor &color) {
+ 	}
+ }
+ 
++void ColorPicker::applyColor(const QColor &color) {
++	_brush.color = color;
++	storeCurrentBrush();
++	updateColorButtonColor(_brush.color, true);
++	rebuildPalette();
++	_colorButton->update();
++	_saveBrushRequests.fire_copy(_brush);
++	setPaletteVisible(false);
++}
++
+ void ColorPicker::setToolSelectionVisible(bool visible) {
+ 	_toolSelectionSuppressed = !visible;
+ 	_toolSelection->setVisible(visible);
+@@ -750,6 +761,10 @@ rpl::producer<> ColorPicker::toolClicks() const {
+ 	return _toolClicks.events();
+ }
+ 
++rpl::producer<> ColorPicker::eyedropperRequests() const {
++	return _eyedropperRequests.events();
++}
++
+ bool ColorPicker::preventHandleKeyPress() const {
+ 	return _sizeControl->isVisible()
+ 		&& (_sizeControlAnimation.animating() || _sizeDown.pressed);
+@@ -782,7 +797,7 @@ void ColorPicker::rebuildPalette() {
+ 		const auto count = int(colors.size());
+ 		const auto paletteWidth = count * size
+ 			+ (count - 1) * gap
+-			+ (gap + size);
++			+ (gap + size) * 2;
+ 		if (paletteWidth > barWidth && colors.size() > 2) {
+ 			colors.erase(colors.end() - 2);
+ 		}
+@@ -849,6 +864,9 @@ void ColorPicker::rebuildPalette() {
+ 		}));
+ 	});
+ 	_palettePlus->show();
++	_paletteEyedropper = Tele::MakeEditorEyedropperButton(
++		_paletteWrap,
++		[=] { _eyedropperRequests.fire({}); });
+ 	updatePaletteGeometry();
+ }
+ 
+@@ -862,7 +880,7 @@ void ColorPicker::updatePaletteGeometry() {
+ 	const auto plusSize = size;
+ 	const auto width = (count * size)
+ 		+ ((count > 0) ? (count - 1) * gap : 0)
+-		+ gap + plusSize;
++		+ (gap + plusSize) * 2;
+ 	const auto height = std::max(size, plusSize);
+ 
+ 	_paletteWrap->resize(width, height);
+@@ -876,6 +894,10 @@ void ColorPicker::updatePaletteGeometry() {
+ 		_palettePlus->resize(plusSize, plusSize);
+ 		_palettePlus->move(x, (height - plusSize) / 2);
+ 	}
++	if (_paletteEyedropper) {
++		_paletteEyedropper->resize(plusSize, plusSize);
++		_paletteEyedropper->move(x + plusSize + gap, (height - plusSize) / 2);
++	}
+ 
+ 	if (_colorButtonCenter.isNull()) {
+ 		return;
+diff --git a/Telegram/SourceFiles/editor/color_picker.h b/Telegram/SourceFiles/editor/color_picker.h
+index c8c1caa910c343a1d5200e6e10c67eed41d23a8d..f49a4948349a072f4f230fa9c9ef35ebf4b3cb02 100644
+--- a/Telegram/SourceFiles/editor/color_picker.h
++++ b/Telegram/SourceFiles/editor/color_picker.h
+@@ -34,10 +34,12 @@ public:
+ 		anim::type animated = anim::type::instant);
+ 	void setColor(const QColor &color);
+ 	void setToolSelectionVisible(bool visible);
++	void applyColor(const QColor &color);
+ 	bool preventHandleKeyPress() const;
+ 
+ 	rpl::producer<Brush> saveBrushRequests() const;
+ 	rpl::producer<> toolClicks() const;
++	rpl::producer<> eyedropperRequests() const;
+ 
+ private:
+ 	void paintSizeControl(QPainter &p);
+@@ -109,9 +111,11 @@ private:
+ 
+ 	rpl::event_stream<Brush> _saveBrushRequests;
+ 	rpl::event_stream<> _toolClicks;
++	rpl::event_stream<> _eyedropperRequests;
+ 
+ 	std::vector<base::unique_qptr<Ui::ColorSample>> _paletteButtons;
+ 	base::unique_qptr<Ui::AbstractButton> _palettePlus;
++	base::unique_qptr<Ui::AbstractButton> _paletteEyedropper;
+ 	QPoint _toolSelectionFrom;
+ 	QPoint _toolSelectionTo;
+ 
+diff --git a/Telegram/SourceFiles/editor/photo_editor.cpp b/Telegram/SourceFiles/editor/photo_editor.cpp
+index 88a070e39e2fdbad1efeb5d04edaba6a649f0481..2f36a6f77d553757f7d202e88bea40bfdd4cbabf 100644
+--- a/Telegram/SourceFiles/editor/photo_editor.cpp
++++ b/Telegram/SourceFiles/editor/photo_editor.cpp
+@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "editor/controllers/controllers.h"
+ #include "editor/photo_editor_content.h"
+ #include "editor/photo_editor_controls.h"
++#include "tele/tele_editor_eyedropper.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+ #include "ui/layers/layer_manager.h"
+@@ -321,6 +322,11 @@ PhotoEditor::PhotoEditor(
+ 	_brushTool)) {
+ 	_modifications.cropType = data.cropType;
+ 	_modifications.cropMode = data.cropMode;
++	Tele::SetupEditorEyedropper(
++		this,
++		_content.get(),
++		photo,
++		_colorPicker.get());
+ 
+ 	events(
+ 	) | rpl::on_next([=](not_null<QEvent*> e) {
+diff --git a/Telegram/SourceFiles/tele/tele_editor_eyedropper.cpp b/Telegram/SourceFiles/tele/tele_editor_eyedropper.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..5e84ebc86c09a024546aff1387d6200ade6f6bfe
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_editor_eyedropper.cpp
+@@ -0,0 +1,354 @@
++#include "tele/tele_editor_eyedropper.h"
++
++#include "editor/color_picker.h"
++#include "ui/abstract_button.h"
++#include "ui/image/image.h"
++#include "ui/painter.h"
++#include "ui/rp_widget.h"
++#include "ui/ui_utility.h"
++#include "styles/style_editor.h"
++
++#include <QGraphicsItem>
++#include <QGraphicsScene>
++#include <QGraphicsView>
++#include <QtGui/QCursor>
++#include <QtGui/QKeyEvent>
++#include <QtGui/QMouseEvent>
++#include <QtGui/QWheelEvent>
++#include <QtWidgets/QApplication>
++
++namespace Tele {
++namespace {
++
++class EyedropperButton final : public Ui::AbstractButton {
++public:
++	using Ui::AbstractButton::AbstractButton;
++
++private:
++	void paintEvent(QPaintEvent *e) override {
++		auto p = QPainter(this);
++		auto hq = PainterHighQualityEnabler(p);
++
++		const auto u = float64(st::photoEditorColorPalettePlusLine);
++		const auto fg = st::photoEditorColorPalettePlusFg->c;
++		p.translate(QRectF(rect()).center());
++		p.rotate(-45.);
++		p.translate(-0.125 * u, 0.);
++
++		auto pen = QPen(fg, u * 0.75);
++		pen.setCapStyle(Qt::RoundCap);
++		p.setPen(pen);
++		p.drawLine(QPointF(-3.75 * u, 0.), QPointF(-1.75 * u, 0.));
++
++		p.setPen(Qt::NoPen);
++		p.setBrush(fg);
++		p.drawRoundedRect(
++			QRectF(-1.75 * u, -0.75 * u, 3.5 * u, 1.5 * u),
++			0.3 * u,
++			0.3 * u);
++
++		pen.setWidthF(u);
++		p.setPen(pen);
++		p.drawLine(QPointF(2. * u, -1.5 * u), QPointF(2. * u, 1.5 * u));
++
++		p.setPen(Qt::NoPen);
++		p.drawRoundedRect(
++			QRectF(2.5 * u, -u, 1.5 * u, 2. * u),
++			0.75 * u,
++			0.75 * u);
++	}
++
++};
++
++class Eyedropper final : public Ui::RpWidget {
++public:
++	Eyedropper(
++		not_null<Ui::RpWidget*> parent,
++		Fn<std::optional<QColor>(QPoint)> sample,
++		QPointer<QWidget> wheelTarget,
++		Fn<void(QColor)> done);
++
++private:
++	void paintEvent(QPaintEvent *e) override;
++	void mouseMoveEvent(QMouseEvent *e) override;
++	void mousePressEvent(QMouseEvent *e) override;
++	void mouseReleaseEvent(QMouseEvent *e) override;
++	void wheelEvent(QWheelEvent *e) override;
++	void keyPressEvent(QKeyEvent *e) override;
++	void leaveEventHook(QEvent *e) override;
++
++	void updateSample(QPoint point);
++	void updatePreview();
++	void finish(std::optional<QColor> color);
++	[[nodiscard]] QRect previewRect() const;
++
++	const Fn<std::optional<QColor>(QPoint)> _sample;
++	const QPointer<QWidget> _wheelTarget;
++	const Fn<void(QColor)> _done;
++	const QPointer<QWidget> _focused;
++	std::optional<QColor> _color;
++	QPoint _point;
++	Qt::MouseButton _pressed = Qt::NoButton;
++	bool _finished = false;
++
++};
++
++Eyedropper::Eyedropper(
++	not_null<Ui::RpWidget*> parent,
++	Fn<std::optional<QColor>(QPoint)> sample,
++	QPointer<QWidget> wheelTarget,
++	Fn<void(QColor)> done)
++: RpWidget(parent)
++, _sample(std::move(sample))
++, _wheelTarget(std::move(wheelTarget))
++, _done(std::move(done))
++, _focused(QApplication::focusWidget()) {
++	setMouseTracking(true);
++	setFocusPolicy(Qt::StrongFocus);
++	setContextMenuPolicy(Qt::PreventContextMenu);
++	parent->sizeValue(
++	) | rpl::on_next([=](QSize size) {
++		setGeometry(QRect(QPoint(), size));
++	}, lifetime());
++	show();
++	raise();
++	setFocus();
++	updateSample(mapFromGlobal(QCursor::pos()));
++}
++
++QRect Eyedropper::previewRect() const {
++	const auto size = st::photoEditorColorPaletteItemSize * 2;
++	const auto skip = st::photoEditorColorPaletteItemSize / 2;
++	auto left = _point.x() + skip;
++	auto top = _point.y() - skip - size;
++	if (left + size > width()) {
++		left = _point.x() - skip - size;
++	}
++	if (top < 0) {
++		top = _point.y() + skip;
++	}
++	return QRect(left, top, size, size);
++}
++
++void Eyedropper::updatePreview() {
++	if (_color) {
++		update(previewRect());
++	}
++}
++
++void Eyedropper::updateSample(QPoint point) {
++	updatePreview();
++	_point = point;
++	_color = _sample(mapToGlobal(point));
++	setCursor(_color ? style::cur_cross : style::cur_default);
++	updatePreview();
++}
++
++void Eyedropper::finish(std::optional<QColor> color) {
++	if (_finished) {
++		return;
++	}
++	_finished = true;
++	hide();
++	if (_focused) {
++		_focused->setFocus();
++	}
++	if (color) {
++		_done(*color);
++	}
++	deleteLater();
++}
++
++void Eyedropper::paintEvent(QPaintEvent *e) {
++	if (!_color) {
++		return;
++	}
++	auto p = QPainter(this);
++	auto hq = PainterHighQualityEnabler(p);
++	const auto border = float64(st::photoEditorColorPaletteSelectionWidth);
++	const auto outer = QRectF(previewRect());
++	const auto ring = outer.marginsRemoved(QMarginsF(1., 1., 1., 1.));
++	p.setPen(Qt::NoPen);
++	p.setBrush(QColor(0, 0, 0, 64));
++	p.drawEllipse(outer);
++	p.setBrush(QColor(255, 255, 255));
++	p.drawEllipse(ring);
++	p.setBrush(*_color);
++	p.drawEllipse(ring.marginsRemoved(
++		QMarginsF(border, border, border, border)));
++}
++
++void Eyedropper::mouseMoveEvent(QMouseEvent *e) {
++	updateSample(e->pos());
++}
++
++void Eyedropper::mousePressEvent(QMouseEvent *e) {
++	if (_pressed == Qt::NoButton) {
++		_pressed = e->button();
++	}
++	updateSample(e->pos());
++}
++
++void Eyedropper::mouseReleaseEvent(QMouseEvent *e) {
++	if (e->button() != _pressed) {
++		return;
++	}
++	_pressed = Qt::NoButton;
++	if (e->button() == Qt::LeftButton) {
++		updateSample(e->pos());
++		finish(_color);
++	} else if (e->button() == Qt::RightButton) {
++		finish(std::nullopt);
++	}
++}
++
++void Eyedropper::wheelEvent(QWheelEvent *e) {
++	e->accept();
++	const auto target = _wheelTarget.data();
++	if (!target) {
++		return;
++	}
++	const auto global = e->globalPosition();
++	const auto local = target->mapFromGlobal(global.toPoint());
++	if (!target->rect().contains(local)) {
++		return;
++	}
++	auto forwarded = QWheelEvent(
++		QPointF(local),
++		global,
++		e->pixelDelta(),
++		e->angleDelta(),
++		e->buttons(),
++		e->modifiers(),
++		e->phase(),
++		e->inverted());
++	QCoreApplication::sendEvent(target, &forwarded);
++	updateSample(_point);
++}
++
++void Eyedropper::keyPressEvent(QKeyEvent *e) {
++	e->accept();
++	if (e->key() == Qt::Key_Escape) {
++		finish(std::nullopt);
++	}
++}
++
++void Eyedropper::leaveEventHook(QEvent *e) {
++	updatePreview();
++	_color = std::nullopt;
++}
++
++[[nodiscard]] std::optional<QColor> SampleScene(
++		not_null<QGraphicsView*> view,
++		const QImage &image,
++		QPoint point) {
++	const auto scene = view->scene();
++	if (!scene
++		|| image.isNull()
++		|| !view->viewport()->rect().contains(point)) {
++		return std::nullopt;
++	}
++	const auto bounds = scene->sceneRect();
++	const auto mapped = view->viewportTransform().inverted().map(
++		QPointF(point) + QPointF(0.5, 0.5));
++	if (bounds.isEmpty() || !bounds.contains(mapped)) {
++		return std::nullopt;
++	}
++	const auto scaleX = image.width() / bounds.width();
++	const auto scaleY = image.height() / bounds.height();
++	const auto x = std::clamp(
++		int(std::floor((mapped.x() - bounds.x()) * scaleX)),
++		0,
++		image.width() - 1);
++	const auto y = std::clamp(
++		int(std::floor((mapped.y() - bounds.y()) * scaleY)),
++		0,
++		image.height() - 1);
++	const auto source = QRectF(
++		bounds.x() + x / scaleX,
++		bounds.y() + y / scaleY,
++		1. / scaleX,
++		1. / scaleY);
++
++	auto result = QImage(1, 1, QImage::Format_ARGB32_Premultiplied);
++	result.fill(image.pixelColor(x, y));
++	const auto selected = scene->selectedItems();
++	{
++		const auto blocker = QSignalBlocker(scene);
++		for (const auto item : selected) {
++			item->setSelected(false);
++		}
++		{
++			auto p = QPainter(&result);
++			auto hq = PainterHighQualityEnabler(p);
++			scene->render(
++				&p,
++				QRectF(0., 0., 1., 1.),
++				source,
++				Qt::IgnoreAspectRatio);
++		}
++		for (const auto item : selected) {
++			item->setSelected(true);
++		}
++	}
++	auto color = result.pixelColor(0, 0);
++	if (!color.alpha()) {
++		return std::nullopt;
++	}
++	color.setAlpha(255);
++	return color;
++}
++
++} // namespace
++
++base::unique_qptr<Ui::AbstractButton> MakeEditorEyedropperButton(
++		not_null<QWidget*> parent,
++		Fn<void()> clicked) {
++	auto result = base::make_unique_q<EyedropperButton>(parent);
++	result->setClickedCallback(std::move(clicked));
++	result->show();
++	return result;
++}
++
++void SetupEditorEyedropper(
++		not_null<Ui::RpWidget*> editor,
++		not_null<QWidget*> content,
++		std::shared_ptr<Image> photo,
++		not_null<Editor::ColorPicker*> picker) {
++	const auto active = editor->lifetime().make_state<
++		QPointer<Eyedropper>
++	>();
++	const auto weakContent = QPointer<QWidget>(content.get());
++	picker->eyedropperRequests(
++	) | rpl::on_next([=] {
++		if (*active || !weakContent) {
++			return;
++		}
++		const auto view = weakContent->findChild<QGraphicsView*>();
++		if (!view || !view->scene()) {
++			return;
++		}
++		const auto weakView = QPointer<QGraphicsView>(view);
++		const auto image = photo->original();
++		auto sample = [=](QPoint global) -> std::optional<QColor> {
++			if (!weakContent || !weakView) {
++				return std::nullopt;
++			}
++			const auto local = weakContent->mapFromGlobal(global);
++			if (!weakContent->rect().contains(local)) {
++				return std::nullopt;
++			}
++			return SampleScene(
++				weakView.data(),
++				image,
++				weakView->viewport()->mapFromGlobal(global));
++		};
++		*active = Ui::CreateChild<Eyedropper>(
++			editor.get(),
++			std::move(sample),
++			QPointer<QWidget>(view->viewport()),
++			[=](QColor color) { picker->applyColor(color); });
++	}, editor->lifetime());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_editor_eyedropper.h b/Telegram/SourceFiles/tele/tele_editor_eyedropper.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..004c342a6c6ae205304843a209b6ce8dca7e2369
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_editor_eyedropper.h
+@@ -0,0 +1,28 @@
++#pragma once
++
++#include "base/unique_qptr.h"
++
++class Image;
++
++namespace Ui {
++class AbstractButton;
++class RpWidget;
++} // namespace Ui
++
++namespace Editor {
++class ColorPicker;
++} // namespace Editor
++
++namespace Tele {
++
++[[nodiscard]] base::unique_qptr<Ui::AbstractButton> MakeEditorEyedropperButton(
++	not_null<QWidget*> parent,
++	Fn<void()> clicked);
++
++void SetupEditorEyedropper(
++	not_null<Ui::RpWidget*> editor,
++	not_null<QWidget*> content,
++	std::shared_ptr<Image> photo,
++	not_null<Editor::ColorPicker*> picker);
++
++} // namespace Tele

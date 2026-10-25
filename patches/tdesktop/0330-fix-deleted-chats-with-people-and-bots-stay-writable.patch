@@ -1,0 +1,122 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 21 Oct 2026 03:29:29 +0300
+Subject: [PATCH] fix: deleted chats with people and bots stay writable
+
+---
+ .../data/data_chat_participant_status.cpp     |  6 ++---
+ .../SourceFiles/history/history_widget.cpp    |  5 +---
+ Telegram/SourceFiles/tele/tele_kept_chats.cpp | 25 ++++++++++++++++---
+ Telegram/SourceFiles/tele/tele_kept_chats.h   |  2 ++
+ 4 files changed, 27 insertions(+), 11 deletions(-)
+
+diff --git a/Telegram/SourceFiles/data/data_chat_participant_status.cpp b/Telegram/SourceFiles/data/data_chat_participant_status.cpp
+index e48a7cd056dbd49f441af0111c725e68feca6897..d3b05cef86e84ed455b534610b998795fbeea3a9 100644
+--- a/Telegram/SourceFiles/data/data_chat_participant_status.cpp
++++ b/Telegram/SourceFiles/data/data_chat_participant_status.cpp
+@@ -231,7 +231,7 @@ bool CanSendAnyOf(
+ 	const auto topic = thread->asTopic();
+ 	return CanSendAnyOf(peer, rights, forbidInForums && !topic)
+ 		&& (!topic || !topic->closed() || topic->canToggleClosed())
+-		&& !Tele::IsKeptThread(thread);
++		&& !Tele::KeptThreadReadOnly(thread);
+ }
+ 
+ // Duplicated in CanSendAnyOfValue().
+@@ -242,7 +242,7 @@ bool CanSendAnyOf(
+ 	if (peer->session().frozen()
+ 		&& !peer->isFreezeAppealChat()) {
+ 		return false;
+-	} else if (Tele::IsKeptChat(peer)) {
++	} else if (Tele::KeptChatReadOnly(peer)) {
+ 		return false;
+ 	} else if (const auto user = peer->asUser()) {
+ 		if (user->isInaccessible()
+@@ -311,7 +311,7 @@ SendError RestrictionError(
+ 			.text = tr::lng_frozen_restrict_title(tr::now),
+ 			.frozen = true,
+ 		});
+-	} else if (Tele::IsKeptChat(peer)) {
++	} else if (Tele::KeptChatReadOnly(peer)) {
+ 		return SendError(Tele::KeptChatError(peer));
+ 	} else if (const auto restricted = peer->amRestricted(restriction)) {
+ 		if (const auto user = peer->asUser()) {
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 71e357108df471498864cefdc4b17c70b53ef3df..8e553b9acc42c0564c43a85e93ad608000427db1 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -7106,10 +7106,7 @@ bool HistoryWidget::isReportMessages() const {
+ }
+ 
+ bool HistoryWidget::isBlocked() const {
+-	return _peer
+-		&& _peer->isUser()
+-		&& _peer->asUser()->isBlocked()
+-		&& !Tele::IsKeptChat(_peer);
++	return _peer && _peer->isUser() && _peer->asUser()->isBlocked();
+ }
+ 
+ bool HistoryWidget::isJoinChannel() const {
+diff --git a/Telegram/SourceFiles/tele/tele_kept_chats.cpp b/Telegram/SourceFiles/tele/tele_kept_chats.cpp
+index 0ad31f6a062f176f0155d2923b89a249826c7fad..26157f1f41686162cc5be2eb3239d39be4477207 100644
+--- a/Telegram/SourceFiles/tele/tele_kept_chats.cpp
++++ b/Telegram/SourceFiles/tele/tele_kept_chats.cpp
+@@ -803,7 +803,7 @@ void SetupKeptChats(not_null<Main::Session*> session) {
+ 	) | rpl::on_next([=](not_null<HistoryItem*> item) {
+ 		const auto history = item->history();
+ 		if (IsKeptHistory(history)
+-			&& item->isRegular()
++			&& (item->isRegular() || item->isSending())
+ 			&& !IsKeptDeleted(item)
+ 			&& Accessible(history->peer)) {
+ 			UnmarkChat(history);
+@@ -845,16 +845,33 @@ bool IsKeptThread(const Data::Thread *thread) {
+ 	return false;
+ }
+ 
++bool KeptChatReadOnly(const PeerData *peer) {
++	return IsKeptChat(peer) && !peer->isUser();
++}
++
++bool KeptThreadReadOnly(const Data::Thread *thread) {
++	if (!thread || Sessions().empty()) {
++		return false;
++	} else if (KeptChatReadOnly(thread->owningHistory()->peer)) {
++		return true;
++	} else if (const auto topic = thread->asTopic()) {
++		return IsKeptTopicKey(
++			&topic->session(),
++			FullMsgId(topic->peer()->id, topic->rootId()));
++	}
++	return false;
++}
++
+ QString KeptChatError(const PeerData *peer) {
+-	return IsKeptChat(peer)
++	return KeptChatReadOnly(peer)
+ 		? Lower(u"This chat was deleted."_q)
+ 		: QString();
+ }
+ 
+ QString KeptThreadError(const Data::Thread *thread) {
+-	if (!IsKeptThread(thread)) {
++	if (!KeptThreadReadOnly(thread)) {
+ 		return QString();
+-	} else if (IsKeptHistory(thread->owningHistory())) {
++	} else if (KeptChatReadOnly(thread->owningHistory()->peer)) {
+ 		return Lower(u"This chat was deleted."_q);
+ 	}
+ 	return Lower(u"This topic was deleted."_q);
+diff --git a/Telegram/SourceFiles/tele/tele_kept_chats.h b/Telegram/SourceFiles/tele/tele_kept_chats.h
+index ca98bc9981b75152ee585819c3e583ebdbaecf5a..0ff6326288a1292650888f98f0e66fdbd3e7a49f 100644
+--- a/Telegram/SourceFiles/tele/tele_kept_chats.h
++++ b/Telegram/SourceFiles/tele/tele_kept_chats.h
+@@ -39,6 +39,8 @@ void SetupKeptChats(not_null<Main::Session*> session);
+ [[nodiscard]] bool IsKeptChat(const PeerData *peer);
+ [[nodiscard]] bool IsKeptHistory(not_null<const History*> history);
+ [[nodiscard]] bool IsKeptThread(const Data::Thread *thread);
++[[nodiscard]] bool KeptChatReadOnly(const PeerData *peer);
++[[nodiscard]] bool KeptThreadReadOnly(const Data::Thread *thread);
+ [[nodiscard]] QString KeptChatError(const PeerData *peer);
+ [[nodiscard]] QString KeptThreadError(const Data::Thread *thread);
+ 

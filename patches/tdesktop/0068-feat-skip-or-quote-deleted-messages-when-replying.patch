@@ -1,0 +1,967 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 23:14:02 +0300
+Subject: [PATCH] feat: skip or quote deleted messages when replying
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/api/api_polls.cpp        |   2 +
+ Telegram/SourceFiles/api/api_sending.cpp      |   4 +
+ Telegram/SourceFiles/api/api_todo_lists.cpp   |   2 +
+ Telegram/SourceFiles/apiwrap.cpp              |  11 +-
+ .../history/history_inner_widget.cpp          |   4 +-
+ Telegram/SourceFiles/history/history_item.cpp |   2 +
+ .../SourceFiles/history/history_widget.cpp    |  17 +-
+ .../history_view_compose_controls.cpp         |   4 +
+ .../view/history_view_chat_section.cpp        |   4 +
+ .../view/history_view_context_menu.cpp        |   4 +-
+ .../history/view/history_view_list_widget.cpp |   6 +-
+ .../history/view/history_view_message.cpp     |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  60 ++--
+ .../SourceFiles/tele/tele_deleted_reply.cpp   | 294 ++++++++++++++++++
+ .../SourceFiles/tele/tele_deleted_reply.h     |  43 +++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  26 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +
+ Telegram/SourceFiles/tele/tele_shortcuts.cpp  |   2 +
+ .../window/session/window_session_media.cpp   |   5 +-
+ 20 files changed, 463 insertions(+), 35 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_deleted_reply.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_deleted_reply.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 3d71d11ee40eb5b828f605b0f661dd34cf948a93..6db32d8b6c4f6a874536ba41bfa98033077e0844 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2509,6 +2509,8 @@ PRIVATE
+     tele/tele_crash.h
+     tele/tele_deleted.cpp
+     tele/tele_deleted.h
++    tele/tele_deleted_reply.cpp
++    tele/tele_deleted_reply.h
+     tele/tele_deleted_section.cpp
+     tele/tele_deleted_section.h
+     tele/tele_edit_history.cpp
+diff --git a/Telegram/SourceFiles/api/api_polls.cpp b/Telegram/SourceFiles/api/api_polls.cpp
+index bdcf29d0b1329a2860770ca16422386ea81d1989..61e846c39312d493d19299e65fba7213115e68da 100644
+--- a/Telegram/SourceFiles/api/api_polls.cpp
++++ b/Telegram/SourceFiles/api/api_polls.cpp
+@@ -27,6 +27,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
+ #include "styles/style_polls.h"
++#include "tele/tele_deleted_reply.h"
+ #include "ui/toast/toast.h"
+ #include "window/window_session_controller.h"
+ 
+@@ -224,6 +225,7 @@ void Polls::create(
+ 		Fn<void()> done,
+ 		Fn<void(bool fileReferenceExpired)> fail) {
+ 	StripEphemeralReply(_session, action.replyTo);
++	Tele::StripDeletedReply(action.history, action.replyTo);
+ 	_session->api().sendAction(action);
+ 
+ 	const auto history = action.history;
+diff --git a/Telegram/SourceFiles/api/api_sending.cpp b/Telegram/SourceFiles/api/api_sending.cpp
+index de2267135ca96df78a7da2fe66c7cf4a324547a9..ddc96e46187241035802c829da0c71289654fe44 100644
+--- a/Telegram/SourceFiles/api/api_sending.cpp
++++ b/Telegram/SourceFiles/api/api_sending.cpp
+@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_calcmula.h"
+ #include "tele/tele_links.h"
++#include "tele/tele_deleted_reply.h"
+ 
+ namespace Api {
+ namespace {
+@@ -91,6 +92,7 @@ void SendSimpleMedia(SendAction action, MTPInputMedia inputMedia) {
+ 		return;
+ 	}
+ 
++	Tele::StripDeletedReply(history, action.replyTo);
+ 	if (action.replyTo.messageId
+ 		&& !IsServerMsgId(action.replyTo.messageId.msg)
+ 		&& !session->data().message(action.replyTo.messageId)) {
+@@ -198,6 +200,7 @@ void SendExistingMedia(
+ 	})) {
+ 		return;
+ 	}
++	Tele::QuoteDeletedCaption(message, media);
+ 	const auto history = message.action.history;
+ 	const auto peer = history->peer;
+ 	const auto session = &history->session();
+@@ -746,6 +749,7 @@ void SendMusicSelection(
+ 	if (items.empty()) {
+ 		return;
+ 	}
++	Tele::QuoteDeletedCaption(message);
+ 
+ 	auto caption = TextWithEntities{
+ 		std::move(message.textWithTags.text),
+diff --git a/Telegram/SourceFiles/api/api_todo_lists.cpp b/Telegram/SourceFiles/api/api_todo_lists.cpp
+index dc577a2c9b5f6598a15c08bd0de399f75d3a2a3e..b266bf3d1052cafa76836feba9860e063953ccd5 100644
+--- a/Telegram/SourceFiles/api/api_todo_lists.cpp
++++ b/Telegram/SourceFiles/api/api_todo_lists.cpp
+@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history_item.h"
+ #include "history/history_item_helpers.h" // ShouldSendSilent
+ #include "main/main_session.h"
++#include "tele/tele_deleted_reply.h"
+ 
+ namespace Api {
+ namespace {
+@@ -39,6 +40,7 @@ void TodoLists::create(
+ 		Fn<void()> done,
+ 		Fn<void(QString)> fail) {
+ 	StripEphemeralReply(_session, action.replyTo);
++	Tele::StripDeletedReply(action.history, action.replyTo);
+ 	_session->api().sendAction(action);
+ 
+ 	const auto history = action.history;
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index c14dc25975ba9f5f0be966e00088e8b67a8069c2..edfa6f2303ca75b4d4b5d237d0df5f450b0a1358 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_inline_via.h"
+ #include "tele/tele_calcmula.h"
+ #include "tele/tele_links.h"
++#include "tele/tele_deleted_reply.h"
+ 
+ namespace {
+ 
+@@ -4275,8 +4276,9 @@ void ApiWrap::sendVoiceMessage(
+ 		crl::time duration,
+ 		bool video,
+ 		const SendAction &action) {
+-	const auto caption = TextWithTags();
+-	const auto to = FileLoadTaskOptions(Tele::WithGhostSchedule(action));
++	auto caption = TextWithTags();
++	const auto to = FileLoadTaskOptions(Tele::WithGhostSchedule(
++		Tele::QuoteDeletedVoice(action, caption, video)));
+ 	_fileLoader->addTask(
+ 		std::make_unique<FileLoadTask>(FileLoadTask::VoiceArgs{
+ 			.session = &session(),
+@@ -4355,6 +4357,7 @@ void ApiWrap::sendFiles(
+ 	if (Tele::CalcmulaFiles(list, type, album, action)) {
+ 		return;
+ 	}
++	Tele::QuoteDeletedFiles(list, action);
+ 	const auto &ephemeral = _session->ephemeralMessages();
+ 	if (album && !ephemeral.isEphemeralBotReply(action.replyTo.messageId)) {
+ 		const auto peer = action.history->peer;
+@@ -4537,6 +4540,7 @@ void ApiWrap::sendRichMessage(
+ 	if (!ephemeral) {
+ 		StripEphemeralReply(_session, action.replyTo);
+ 	}
++	Tele::StripDeletedReply(history, action.replyTo);
+ 	const auto newId = FullMsgId(
+ 		peer->id,
+ 		_session->data().nextLocalMessageId());
+@@ -4604,6 +4608,7 @@ void ApiWrap::sendRichMessage(
+ 	const auto submittedSummary = item->originalText();
+ 
+ 	StripEphemeralReply(_session, action.replyTo);
++	Tele::StripDeletedReply(action.history, action.replyTo);
+ 
+ 	const auto history = item->history();
+ 	const auto peer = history->peer;
+@@ -4782,6 +4787,7 @@ void ApiWrap::sendMessage(
+ 	if (Tele::CalcmulaMessage(message)) {
+ 		return;
+ 	}
++	Tele::QuoteDeletedReply(message);
+ 	const auto history = message.action.history;
+ 	const auto peer = history->peer;
+ 	const auto &textWithTags = message.textWithTags;
+@@ -5147,6 +5153,7 @@ void ApiWrap::sendInlineResult(
+ 	if (Tele::SendInlineWithoutVia(data, action, localMessageId, done)) {
+ 		return;
+ 	}
++	Tele::StripDeletedReply(action.history, action.replyTo);
+ 	sendAction(action);
+ 
+ 	const auto history = action.history;
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index ae2e76e3b57531eb7810705558dd4f93d258bdbc..ad2a4881513a28760ec2641296bb6a9839bc2260 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -130,7 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_changes.h"
+ #include "dialogs/ui/dialogs_video_userpic.h"
+ #include "tele/tele_button_payload.h"
+-#include "tele/tele_deleted.h"
++#include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+@@ -6573,7 +6573,7 @@ auto HistoryInner::DelegateMixin()
+ }
+ 
+ bool CanSendReply(not_null<const HistoryItem*> item) {
+-	if (Tele::IsKeptDeleted(item)) {
++	if (Tele::SkipReplyTo(item)) {
+ 		return false;
+ 	}
+ 	if (item->isEphemeral() && !CanReplyToEphemeral(item)) {
+diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
+index 4627fa7a9459c23856ef82041acccc31df406726..1c615988e75c442f2c55f436bbcd77927f9e7369 100644
+--- a/Telegram/SourceFiles/history/history_item.cpp
++++ b/Telegram/SourceFiles/history/history_item.cpp
+@@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "platform/platform_notifications_manager.h"
+ #include "spellcheck/spellcheck_highlight_syntax.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ 
+ #include "styles/style_chat.h"
+@@ -5414,6 +5415,7 @@ TextWithEntities HistoryItem::withLocalEntities(
+ }
+ 
+ void HistoryItem::createComponentsHelper(HistoryItemCommonFields &&fields) {
++	Tele::StripDeletedReply(_history, fields);
+ 	const auto &replyTo = fields.replyTo;
+ 	auto config = CreateConfig();
+ 	config.viaBotId = fields.viaBotId;
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 7d950c4f8becde249796904db255c9086f7623e5..4de52b8e66e018d9126933ab55f0a94adbed683c 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calls.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
++#include "tele/tele_deleted_reply.h"
+ #include "media/audio/media_audio.h"
+ #include "media/audio/media_audio_capture.h"
+ #include "media/player/media_player_instance.h"
+@@ -9355,8 +9356,9 @@ bool HistoryWidget::replyToPreviousMessage() {
+ 	const auto skipLocal = [](HistoryView::Element *from) {
+ 		auto view = from;
+ 		while (view
+-			&& view->data()->isLocal()
+-			&& !CanReplyToEphemeral(view->data())) {
++			&& ((view->data()->isLocal()
++				&& !CanReplyToEphemeral(view->data()))
++				|| Tele::SkipReplyTo(view->data()))) {
+ 			view = view->previousDisplayedInBlocks();
+ 		}
+ 		return view;
+@@ -9401,8 +9403,9 @@ bool HistoryWidget::replyToNextMessage() {
+ 		if (const auto view = item->mainView()) {
+ 			auto next = view->nextDisplayedInBlocks();
+ 			while (next
+-				&& next->data()->isLocal()
+-				&& !CanReplyToEphemeral(next->data())) {
++				&& ((next->data()->isLocal()
++					&& !CanReplyToEphemeral(next->data()))
++					|| Tele::SkipReplyTo(next->data()))) {
+ 				next = next->nextDisplayedInBlocks();
+ 			}
+ 			if (next) {
+@@ -10385,7 +10388,9 @@ void HistoryWidget::clearFieldText(
+ 
+ void HistoryWidget::replyToMessage(FullReplyTo id) {
+ 	if (const auto item = session().data().message(id.messageId)) {
+-		if (CanSendReply(item) && !base::IsCtrlPressed()) {
++		if (Tele::SkipReplyTo(item)) {
++			return;
++		} else if (CanSendReply(item) && !base::IsCtrlPressed()) {
+ 			replyToMessage(item, id);
+ 		} else if (item->allowsForward()) {
+ 			const auto show = controller()->uiShow();
+@@ -10462,6 +10467,8 @@ void HistoryWidget::processReply() {
+ 	} else if (!_processingReplyItem->isRegular()
+ 		&& !CanReplyToEphemeral(_processingReplyItem)) {
+ 		return processCancel();
++	} else if (Tele::SkipReplyTo(_processingReplyItem)) {
++		return processCancel();
+ 	} else if (const auto forum = _peer->forum()
+ 		; forum && _processingReplyItem->history() == _history) {
+ 		const auto topicRootId = _processingReplyItem->topicRootId();
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index af3445dd2696c09a635415521f293f0c48b637d6..607c6550a4d34692dabc1404f772bf1544a35bc8 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_send.h"
+ #include "settings/sections/settings_premium.h"
+ #include "support/support_common.h"
++#include "tele/tele_deleted_reply.h"
+ #include "support/support_helper.h"
+ #include "ui/item_text_options.h"
+ #include "ui/text/text_options.h"
+@@ -5998,6 +5999,9 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
+ 
+ 	if (draftKey(DraftType::Normal) == Data::DraftKey::None()) {
+ 		return;
++	} else if (const auto item = _history->owner().message(id.messageId)
++		; item && Tele::SkipReplyTo(item)) {
++		return;
+ 	}
+ 	id.topicRootId = _topicRootId;
+ 	id.monoforumPeerId = _monoforumPeerId;
+diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+index a99655d415089858882d356b99423160da20abb1..cdb011129b89bc5e893b9672a05556dddbc0e383 100644
+--- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+@@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "support/support_preload.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
++#include "tele/tele_deleted_reply.h"
+ #include "inline_bots/inline_bot_result.h"
+ #include "info/profile/info_profile_values.h"
+ #include "iv/editor/iv_editor_session.h"
+@@ -1820,6 +1821,9 @@ void ChatWidget::setupComposeControls() {
+ 
+ void ChatWidget::setupSwipeReplyAndBack() {
+ 	const auto can = [=](not_null<HistoryItem*> still) {
++		if (Tele::SkipReplyTo(still)) {
++			return false;
++		}
+ 		const auto canSendReply = CanSendResolved(
+ 			_peer,
+ 			resolvedTopic(),
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 414b8516308e228d9abb234b665afea6176cd5d9..f2c0fe51345e352f164dbe7ab838bb0e2809b580 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -114,7 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "spellcheck/spellcheck_types.h"
+ #include "apiwrap.h"
+ #include "tele/tele_button_payload.h"
+-#include "tele/tele_deleted.h"
++#include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_message_menu.h"
+@@ -842,7 +842,7 @@ bool AddReplyToMessageAction(
+ 	if (!item
+ 		|| (!item->isRegular() && !CanReplyToEphemeral(item))
+ 		|| IsAnchoredEphemeral(item)
+-		|| Tele::IsKeptDeleted(item)
++		|| Tele::SkipReplyTo(item)
+ 		|| (context != Context::History
+ 			&& context != Context::Replies
+ 			&& context != Context::Monoforum)) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index 8a1b9bd8ae36e8a4ec021186380aa34a824c10e0..539698407e24451b3ddf3d70c298725c8acb0104 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_peer_values.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_deleted_reply.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_window.h" // columnMaximalWidthLeft
+ 
+@@ -5950,8 +5951,9 @@ void ListWidget::replyNextMessage(FullMsgId fullId, bool next) {
+ 	const auto reply = [&](Element *view) {
+ 		if (view) {
+ 			const auto newFullId = view->data()->fullId();
+-			if (!view->data()->isRegular()
+-				&& !CanReplyToEphemeral(view->data())) {
++			if ((!view->data()->isRegular()
++				&& !CanReplyToEphemeral(view->data()))
++				|| Tele::SkipReplyTo(view->data())) {
+ 				return replyNextMessage(newFullId, next);
+ 			}
+ 			replyToMessageRequestNotify({ newFullId });
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index c54773901a8b4bed6be13099b218834eddb13d20..05f81082df5add15eb0e713279be5f3840b29b75 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "api/api_rich_tasks.h"
+ #include "tele/tele_bubble_badges.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_deleted_reply.h"
+ #include "tele/tele_ignored.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+@@ -6011,6 +6012,7 @@ bool Message::displayFastReply() const {
+ 
+ 	return hasFastReply()
+ 		&& data()->isRegular()
++		&& !Tele::SkipReplyTo(data())
+ 		&& canSendAnything()
+ 		&& !delegate()->elementInSelectionMode(this).inSelectionMode;
+ }
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 206087a571e57b0a32f0bcfea0691ee678fa30c9..bf9ea10dcdd92f890285c12ccc8a7181a41c7357 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -614,12 +614,18 @@ void AddMessageMenu(SectionBuilder &builder) {
+ 	AddAbout(builder, description);
+ }
+ 
+-[[nodiscard]] QString ButtonChoiceLabel(const QString &value) {
+-	return ::Tele::Lower((value == u"hide"_q)
+-		? u"Hide"_q
+-		: (value == u"confirm"_q)
+-		? u"Ask first"_q
+-		: u"Show"_q);
++struct ButtonChoice {
++	QString value;
++	QString label;
++	QString option;
++};
++
++[[nodiscard]] std::vector<ButtonChoice> ShowHideChoices(const QString &ask) {
++	return {
++		{ QString(), u"Show"_q },
++		{ u"hide"_q, u"Hide"_q },
++		{ u"confirm"_q, u"Ask first"_q, ask },
++	};
+ }
+ 
+ void AddButtonChoice(
+@@ -628,30 +634,33 @@ void AddButtonChoice(
+ 		QString (*get)(),
+ 		void (*set)(const QString&),
+ 		rpl::producer<QString> (*value)(),
+-		const QString &ask,
++		std::vector<ButtonChoice> choices,
+ 		QStringList keywords) {
+ 	const auto &option = base::options::lookup<QString>(id);
+ 	const auto controller = builder.controller();
+ 	const auto name = ::Tele::Lower(option.name());
+ 	const auto description = ::Tele::Lower(option.description());
+ 	keywords.push_front(description);
++	auto values = std::vector<QString>();
++	auto labels = std::vector<QString>();
++	auto options = std::vector<QString>();
++	for (const auto &choice : choices) {
++		values.push_back(choice.value);
++		labels.push_back(::Tele::Lower(choice.label));
++		options.push_back(::Tele::Lower(choice.option.isEmpty()
++			? choice.label
++			: choice.option));
++	}
+ 	const auto button = builder.addButton({
+ 		.id = option.id(),
+ 		.title = rpl::single(name),
+ 		.st = &st::settingsButtonNoIcon,
+-		.label = value() | rpl::map(ButtonChoiceLabel),
++		.label = value() | rpl::map([=](const QString &now) {
++			const auto i = ranges::find(values, now);
++			return labels[(i != end(values)) ? int(i - begin(values)) : 0];
++		}),
+ 		.onClick = [=] {
+ 			controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+-				const auto values = std::vector<QString>{
+-					QString(),
+-					u"hide"_q,
+-					u"confirm"_q,
+-				};
+-				const auto options = std::vector<QString>{
+-					::Tele::Lower(u"Show"_q),
+-					::Tele::Lower(u"Hide"_q),
+-					::Tele::Lower(ask),
+-				};
+ 				const auto current = ranges::find(values, get());
+ 				SingleChoiceBox(box, {
+ 					.title = rpl::single(name),
+@@ -680,7 +689,7 @@ void AddCallButtons(SectionBuilder &builder) {
+ 		::Tele::CallButton,
+ 		::Tele::SetCallButton,
+ 		::Tele::CallButtonValue,
+-		u"Ask before calling"_q,
++		ShowHideChoices(u"Ask before calling"_q),
+ 		{ u"hide"_q, u"confirm"_q, u"video"_q });
+ 	AddButtonChoice(
+ 		builder,
+@@ -688,7 +697,7 @@ void AddCallButtons(SectionBuilder &builder) {
+ 		::Tele::GroupCallButton,
+ 		::Tele::SetGroupCallButton,
+ 		::Tele::GroupCallButtonValue,
+-		u"Ask before joining"_q,
++		ShowHideChoices(u"Ask before joining"_q),
+ 		{ u"hide"_q, u"confirm"_q, u"group call"_q, u"live stream"_q });
+ }
+ 
+@@ -1194,6 +1203,17 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionEditHistory);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(builder, ::Tele::kOptionDeletedIcon);
++	AddButtonChoice(
++		builder,
++		::Tele::kOptionDeletedReply,
++		::Tele::DeletedReply,
++		::Tele::SetDeletedReply,
++		::Tele::DeletedReplyValue,
++		{
++			{ QString(), u"Skip them"_q },
++			{ u"quote"_q, u"Quote them"_q },
++		},
++		{ u"reply"_q, u"quote"_q, u"deleted"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Sending"_q);
+diff --git a/Telegram/SourceFiles/tele/tele_deleted_reply.cpp b/Telegram/SourceFiles/tele/tele_deleted_reply.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..8ca7ddbd4075dea631d0f0a6e22a103cb5c254b8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_deleted_reply.cpp
+@@ -0,0 +1,294 @@
++#include "tele/tele_deleted_reply.h"
++
++#include "api/api_common.h"
++#include "data/data_document.h"
++#include "data/data_peer.h"
++#include "data/data_premium_limits.h"
++#include "data/data_session.h"
++#include "data/stickers/data_custom_emoji.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/view/history_view_item_preview.h"
++#include "main/main_session.h"
++#include "tele/tele_deleted.h"
++#include "tele/tele_options.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/text/text_entity.h"
++
++namespace Tele {
++namespace {
++
++enum class Kind {
++	None,
++	Message,
++	Caption,
++};
++
++using QuotedKey = std::pair<FullMsgId, PeerId>;
++
++[[nodiscard]] base::flat_set<QuotedKey> &Quoted() {
++	static auto result = base::flat_set<QuotedKey>();
++	return result;
++}
++
++void MarkQuoted(QuotedKey key) {
++	auto &quoted = Quoted();
++	if (quoted.empty()) {
++		crl::on_main([] {
++			Quoted().clear();
++		});
++	}
++	quoted.emplace(key);
++}
++
++[[nodiscard]] bool QuoteMode() {
++	return (DeletedReply() == u"quote"_q);
++}
++
++[[nodiscard]] HistoryItem *DeletedTarget(
++		not_null<History*> history,
++		const FullReplyTo &replyTo) {
++	if (!replyTo.messageId) {
++		return nullptr;
++	}
++	const auto item = history->owner().message(replyTo.messageId);
++	return (item && IsKeptDeleted(item)) ? item : nullptr;
++}
++
++void Strip(
++		not_null<History*> history,
++		FullReplyTo &replyTo,
++		not_null<HistoryItem*> item) {
++	const auto same = (item->history() == history);
++	auto topicRootId = replyTo.topicRootId;
++	if (!topicRootId && same && history->isForum()) {
++		topicRootId = item->topicRootId();
++	}
++	auto monoforumPeerId = replyTo.monoforumPeerId;
++	if (!monoforumPeerId && same && history->peer->amMonoforumAdmin()) {
++		monoforumPeerId = item->sublistPeerId();
++	}
++	const auto root = (topicRootId && !(same && topicRootId == item->id))
++		? FullMsgId(history->peer->id, topicRootId)
++		: FullMsgId();
++	replyTo = FullReplyTo{
++		.messageId = root,
++		.topicRootId = topicRootId,
++		.monoforumPeerId = monoforumPeerId,
++	};
++}
++
++[[nodiscard]] TextWithEntities QuotedText(
++		not_null<HistoryItem*> item,
++		const TextWithEntities &quote,
++		bool customEmoji) {
++	auto result = quote.empty() ? item->originalText() : quote;
++	if (result.text.isEmpty()) {
++		result = TextWithEntities{ item->toPreview({
++			.hideSender = true,
++			.generateImages = false,
++			.ignoreGroup = true,
++		}).text.text };
++	}
++	result.entities.erase(ranges::remove_if(result.entities, [&](
++			const EntityInText &entity) {
++		const auto type = entity.type();
++		return (type == EntityType::Blockquote)
++			|| (!customEmoji && type == EntityType::CustomEmoji);
++	}), result.entities.end());
++	TextUtilities::Trim(result);
++	return result;
++}
++
++void Truncate(TextWithEntities &text, int limit) {
++	if (text.text.size() <= limit) {
++		return;
++	} else if (limit < 2) {
++		text = TextWithEntities();
++		return;
++	}
++	auto length = limit - 1;
++	if (text.text.at(length - 1).isHighSurrogate()) {
++		--length;
++	}
++	text.text = text.text.left(length) + QChar(0x2026);
++	auto &entities = text.entities;
++	for (auto i = entities.begin(); i != entities.end();) {
++		const auto from = i->offset();
++		const auto till = from + i->length();
++		const auto atomic = (i->type() == EntityType::CustomEmoji)
++			|| (i->type() == EntityType::MentionName)
++			|| (i->type() == EntityType::CustomUrl);
++		if (from >= length || (till > length && atomic)) {
++			i = entities.erase(i);
++			continue;
++		} else if (till > length) {
++			i->shrinkFromRight(till - length);
++		}
++		++i;
++	}
++}
++
++[[nodiscard]] std::optional<TextWithTags> Compose(
++		not_null<History*> history,
++		not_null<HistoryItem*> item,
++		const TextWithEntities &quote,
++		const TextWithTags &own,
++		Kind kind) {
++	const auto session = &history->session();
++	const auto limits = Data::PremiumLimits(session);
++	const auto limit = (kind == Kind::Message)
++		? limits.messageLengthCurrent()
++		: limits.captionLengthCurrent();
++	const auto name = item->author()->name();
++	const auto customEmoji = session->premium()
++		|| Data::AllowEmojiWithoutPremium(history->peer);
++	auto quoted = QuotedText(item, quote, customEmoji);
++	const auto separator = own.text.isEmpty() ? 0 : 1;
++	const auto ownLength = int(own.text.size()) + separator;
++	const auto nameLength = name.isEmpty() ? 0 : int(name.size()) + 1;
++	auto available = limit - nameLength - ownLength;
++	if (available < 0 && kind == Kind::Message) {
++		available = limit - nameLength - separator;
++	}
++	if (available < 0 || (name.isEmpty() && available < 2)) {
++		return std::nullopt;
++	}
++	Truncate(quoted, available);
++	if (name.isEmpty() && quoted.empty()) {
++		return std::nullopt;
++	}
++
++	auto prefix = TextWithEntities();
++	prefix.entities.push_back(EntityInText(EntityType::Blockquote, 0, 0));
++	if (!name.isEmpty()) {
++		prefix.text = name;
++		prefix.entities.push_back(
++			EntityInText(EntityType::Bold, 0, int(name.size())));
++	}
++	if (!quoted.empty()) {
++		if (!prefix.text.isEmpty()) {
++			prefix.text.append(QChar('\n'));
++		}
++		const auto shift = int(prefix.text.size());
++		for (auto entity : quoted.entities) {
++			entity.shiftRight(shift);
++			prefix.entities.push_back(std::move(entity));
++		}
++		prefix.text.append(quoted.text);
++	}
++	prefix.entities.front() = EntityInText(
++		EntityType::Blockquote,
++		0,
++		int(prefix.text.size()));
++	std::stable_sort(
++		prefix.entities.begin(),
++		prefix.entities.end(),
++		[](const EntityInText &a, const EntityInText &b) {
++			return a.offset() < b.offset();
++		});
++
++	auto result = TextWithTags{
++		prefix.text,
++		TextUtilities::ConvertEntitiesToTextTags(prefix.entities),
++	};
++	if (!own.text.isEmpty()) {
++		result.text.append(QChar('\n'));
++		const auto shift = int(result.text.size());
++		for (auto tag : own.tags) {
++			tag.offset += shift;
++			result.tags.push_back(std::move(tag));
++		}
++		result.text.append(own.text);
++	}
++	return result;
++}
++
++void Apply(Api::SendAction &action, TextWithTags *text, Kind kind) {
++	const auto history = action.history;
++	const auto item = DeletedTarget(history, action.replyTo);
++	if (!item) {
++		return;
++	}
++	const auto quote = action.replyTo.quote;
++	Strip(history, action.replyTo, item);
++	if (!text || kind == Kind::None || !QuoteMode()) {
++		return;
++	}
++	const auto key = QuotedKey(item->fullId(), history->peer->id);
++	if (Quoted().contains(key)) {
++		return;
++	}
++	if (auto result = Compose(history, item, quote, *text, kind)) {
++		*text = std::move(*result);
++		MarkQuoted(key);
++	}
++}
++
++} // namespace
++
++bool SkipReplyTo(not_null<const HistoryItem*> item) {
++	return IsKeptDeleted(item) && !QuoteMode();
++}
++
++void StripDeletedReply(not_null<History*> history, FullReplyTo &replyTo) {
++	if (const auto item = DeletedTarget(history, replyTo)) {
++		Strip(history, replyTo, item);
++	}
++}
++
++void StripDeletedReply(
++		not_null<History*> history,
++		HistoryItemCommonFields &fields) {
++	if (!(fields.flags & MessageFlag::FakeHistoryItem)) {
++		StripDeletedReply(history, fields.replyTo);
++	}
++}
++
++void QuoteDeletedReply(Api::MessageToSend &message) {
++	Apply(message.action, &message.textWithTags, Kind::Message);
++}
++
++void QuoteDeletedCaption(Api::MessageToSend &message) {
++	Apply(message.action, &message.textWithTags, Kind::Caption);
++}
++
++void QuoteDeletedCaption(
++		Api::MessageToSend &message,
++		not_null<DocumentData*> document) {
++	const auto captioned = !document->sticker()
++		&& !document->isVideoMessage();
++	Apply(
++		message.action,
++		&message.textWithTags,
++		captioned ? Kind::Caption : Kind::None);
++}
++
++void QuoteDeletedCaption(
++		Api::MessageToSend &message,
++		not_null<PhotoData*>) {
++	QuoteDeletedCaption(message);
++}
++
++void QuoteDeletedFiles(Ui::PreparedList &list, Api::SendAction &action) {
++	if (list.files.empty()) {
++		Apply(action, nullptr, Kind::None);
++		return;
++	}
++	const auto i = ranges::find_if(list.files, [](
++			const Ui::PreparedFile &file) {
++		return !file.caption.text.isEmpty();
++	});
++	auto &file = (i != end(list.files)) ? *i : list.files.front();
++	Apply(action, &file.caption, Kind::Caption);
++}
++
++Api::SendAction QuoteDeletedVoice(
++		Api::SendAction action,
++		TextWithTags &caption,
++		bool video) {
++	Apply(action, &caption, video ? Kind::None : Kind::Caption);
++	return action;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_deleted_reply.h b/Telegram/SourceFiles/tele/tele_deleted_reply.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..c399d1f235e14b6089eaddb4cdbaf0c4265bf7ae
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_deleted_reply.h
+@@ -0,0 +1,43 @@
++#pragma once
++
++class DocumentData;
++class History;
++class HistoryItem;
++class PhotoData;
++struct FullReplyTo;
++struct HistoryItemCommonFields;
++struct TextWithTags;
++
++namespace Api {
++struct MessageToSend;
++struct SendAction;
++} // namespace Api
++
++namespace Ui {
++struct PreparedList;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] bool SkipReplyTo(not_null<const HistoryItem*> item);
++
++void StripDeletedReply(not_null<History*> history, FullReplyTo &replyTo);
++void StripDeletedReply(
++	not_null<History*> history,
++	HistoryItemCommonFields &fields);
++
++void QuoteDeletedReply(Api::MessageToSend &message);
++void QuoteDeletedCaption(Api::MessageToSend &message);
++void QuoteDeletedCaption(
++	Api::MessageToSend &message,
++	not_null<DocumentData*> document);
++void QuoteDeletedCaption(
++	Api::MessageToSend &message,
++	not_null<PhotoData*> photo);
++void QuoteDeletedFiles(Ui::PreparedList &list, Api::SendAction &action);
++[[nodiscard]] Api::SendAction QuoteDeletedVoice(
++	Api::SendAction action,
++	TextWithTags &caption,
++	bool video);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 85ffa49be0ee4b1f69aff978096f56a9f0d57338..86e082e925191aa1fd5ef5c7c85ed8f45cb85783 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -48,6 +48,7 @@ const char kOptionMessageSeconds[] = "tele-message-seconds";
+ const char kOptionEditHistory[] = "tele-edit-history";
+ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+ const char kOptionDeletedIcon[] = "tele-deleted-icon";
++const char kOptionDeletedReply[] = "tele-deleted-reply";
+ const char kOptionRevealSpoilers[] = "tele-reveal-spoilers";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+@@ -344,6 +345,13 @@ base::options::toggle DeletedIconOption({
+ 	.name = "Mark with a trash icon instead of fading",
+ });
+ 
++base::options::option<QString> DeletedReplyOption({
++	.id = kOptionDeletedReply,
++	.name = "Replies to deleted messages",
++	.description = "Deleted messages can't be replied to, so they can be "
++		"quoted instead.",
++});
++
+ base::options::toggle RevealSpoilersOption({
+ 	.id = kOptionRevealSpoilers,
+ 	.name = "Reveal spoilers automatically",
+@@ -784,6 +792,24 @@ rpl::producer<bool> DeletedTrashIconValue() {
+ 	});
+ }
+ 
++QString DeletedReply() {
++	return DeletedReplyOption.value();
++}
++
++void SetDeletedReply(const QString &value) {
++	DeletedReplyOption.set(value);
++}
++
++rpl::producer<QString> DeletedReplyValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		DeletedReplyOption.changes()
++	) | rpl::map([] {
++		return DeletedReplyOption.value();
++	});
++}
++
+ bool RevealSpoilers() {
+ 	return RevealSpoilersOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 33f64472daac36649ac304d2bb8011a72cac77c9..bde5d13593daedafd84bf7774990c840c7ffee13 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -45,6 +45,7 @@ extern const char kOptionMessageSeconds[];
+ extern const char kOptionEditHistory[];
+ extern const char kOptionKeepDeleted[];
+ extern const char kOptionDeletedIcon[];
++extern const char kOptionDeletedReply[];
+ extern const char kOptionRevealSpoilers[];
+ extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionScreenshotSecretMedia[];
+@@ -125,6 +126,9 @@ void SetIgnoredList(const QString &value);
+ [[nodiscard]] bool KeepDeletedMessages();
+ [[nodiscard]] bool DeletedTrashIcon();
+ [[nodiscard]] rpl::producer<bool> DeletedTrashIconValue();
++[[nodiscard]] QString DeletedReply();
++void SetDeletedReply(const QString &value);
++[[nodiscard]] rpl::producer<QString> DeletedReplyValue();
+ [[nodiscard]] bool RevealSpoilers();
+ [[nodiscard]] rpl::producer<> RevealSpoilersChanges();
+ [[nodiscard]] bool KeepSecretMedia();
+diff --git a/Telegram/SourceFiles/tele/tele_shortcuts.cpp b/Telegram/SourceFiles/tele/tele_shortcuts.cpp
+index 1b9dd9d51ce19dc50ad66d0d9fcf9bffc61757a2..4590f1e72be193739e215b3250a77335c6edede1 100644
+--- a/Telegram/SourceFiles/tele/tele_shortcuts.cpp
++++ b/Telegram/SourceFiles/tele/tele_shortcuts.cpp
+@@ -30,6 +30,7 @@
+ #include "iv/iv_rich_page.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_deleted_reply.h"
+ #include "tele/tele_options.h"
+ #include "ui/image/image_location.h"
+ 
+@@ -590,6 +591,7 @@ bool SendShortcut(
+ 		session->api().sendShortcutMessages(peer, id);
+ 		return false;
+ 	}
++	StripDeletedReply(action.history, action.replyTo);
+ 	action.clearDraft = false;
+ 	action.options.effectId = 0;
+ 	if (const auto items = LoadedItems(session, id)) {
+diff --git a/Telegram/SourceFiles/window/session/window_session_media.cpp b/Telegram/SourceFiles/window/session/window_session_media.cpp
+index 24b4d6b07dbd99c2fd7893d55337ffdd7d4b36c7..647850af4b30f3a3aced54b78fde8baacd208d59 100644
+--- a/Telegram/SourceFiles/window/session/window_session_media.cpp
++++ b/Telegram/SourceFiles/window/session/window_session_media.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/localimageloader.h"
+ #include "storage/storage_media_prepare.h"
+ #include "styles/style_boxes.h"
++#include "tele/tele_deleted_reply.h"
+ #include "window/window_separate_id.h"
+ 
+ namespace Window {
+@@ -91,8 +92,8 @@ void SessionController::showDrawToReplyFilesBox(
+ 		Ui::PreparedList &&list) {
+ 	const auto replyItem = session().data().message(replyTo);
+ 	if (replyItem
+-		&& replyItem->isEphemeral()
+-		&& !CanReplyToEphemeral(replyItem)) {
++		&& ((replyItem->isEphemeral() && !CanReplyToEphemeral(replyItem))
++			|| Tele::SkipReplyTo(replyItem))) {
+ 		replyTo = FullMsgId();
+ 	}
+ 	const auto weak = base::make_weak(thread);

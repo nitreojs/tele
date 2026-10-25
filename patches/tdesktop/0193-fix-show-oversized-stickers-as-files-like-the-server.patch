@@ -1,0 +1,167 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 3 Oct 2026 08:09:28 +0300
+Subject: [PATCH] fix: show oversized stickers as files like the server does
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ Telegram/SourceFiles/data/data_document.cpp   |  5 ++
+ .../SourceFiles/data/data_media_types.cpp     |  3 +-
+ .../SourceFiles/storage/localimageloader.cpp  |  7 ++-
+ .../SourceFiles/tele/tele_sticker_truth.cpp   | 48 +++++++++++++++++++
+ .../SourceFiles/tele/tele_sticker_truth.h     | 12 +++++
+ 6 files changed, 74 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_sticker_truth.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_sticker_truth.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 3dd4f7cbc23c6d4ae675322d544a40154fd02f3d..dd6795f381a36dd7521e13b48f5bd59589c28903 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2715,6 +2715,8 @@ PRIVATE
+     tele/tele_stars_tools.h
+     tele/tele_sticker_captions.cpp
+     tele/tele_sticker_captions.h
++    tele/tele_sticker_truth.cpp
++    tele/tele_sticker_truth.h
+     tele/tele_streamer_mode.cpp
+     tele/tele_streamer_mode.h
+     tele/tele_streaming_audio.cpp
+diff --git a/Telegram/SourceFiles/data/data_document.cpp b/Telegram/SourceFiles/data/data_document.cpp
+index 4fb3a8d7e9a6888b5ffe934cf509a1d4ffcd6005..18aa8aeb8d8aa905565737314f6ebbac5688952d 100644
+--- a/Telegram/SourceFiles/data/data_document.cpp
++++ b/Telegram/SourceFiles/data/data_document.cpp
+@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/abstract_box.h" // Ui::hideLayer().
+ #include "tele/tele_download_folders.h"
+ #include "tele/tele_download_paths.h"
++#include "tele/tele_sticker_truth.h"
+ 
+ #include <QtCore/QBuffer>
+ #include <QtCore/QMimeType>
+@@ -354,6 +355,10 @@ void DocumentData::setattributes(
+ 		| kStreamingSupportedMask);
+ 	_flags |= kStreamingSupportedUnknown;
+ 
++	if (type == StickerDocument && Tele::LacksStickerAttribute(attributes)) {
++		type = FileDocument;
++		_additional = nullptr;
++	}
+ 	validateLottieSticker();
+ 
+ 	auto wasVideoData = isVideoFile() ? std::move(_additional) : nullptr;
+diff --git a/Telegram/SourceFiles/data/data_media_types.cpp b/Telegram/SourceFiles/data/data_media_types.cpp
+index abecf28a17bb81347b01f5414729cc81029a2eb2..2f50a6a161638a2f8c23b6321830820930df148b 100644
+--- a/Telegram/SourceFiles/data/data_media_types.cpp
++++ b/Telegram/SourceFiles/data/data_media_types.cpp
+@@ -1475,11 +1475,12 @@ bool MediaFile::updateSentMedia(const MTPMessageMedia &media) {
+ 		return false;
+ 	}
+ 	const auto owner = &parent()->history()->owner();
++	const auto sticker = (_document->sticker() != nullptr);
+ 	owner->documentConvert(_document, *content);
+ 	if (const auto cover = _videoCover ? data.vvideo_cover() : nullptr) {
+ 		owner->photoConvert(_videoCover, *cover);
+ 	}
+-	return true;
++	return (_document->sticker() != nullptr) == sticker;
+ }
+ 
+ std::unique_ptr<HistoryView::Media> MediaFile::createView(
+diff --git a/Telegram/SourceFiles/storage/localimageloader.cpp b/Telegram/SourceFiles/storage/localimageloader.cpp
+index 12402a937f362df3f89c8f822e52bb3492c7cf80..2f581d6f7b4bceac01590b0b82d2c2dd3f381069 100644
+--- a/Telegram/SourceFiles/storage/localimageloader.cpp
++++ b/Telegram/SourceFiles/storage/localimageloader.cpp
+@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "mainwindow.h"
+ #include "main/main_session.h"
+ #include "tele/tele_gif_video.h"
++#include "tele/tele_sticker_truth.h"
+ 
+ #include <QtCore/QBuffer>
+ #include <QtGui/QImageWriter>
+@@ -673,8 +674,10 @@ bool FileLoadTask::CheckForImage(
+ 		std::unique_ptr<Ui::PreparedFileInformation> &result) {
+ 	auto read = [&] {
+ 		if (filepath.endsWith(u".tgs"_q, Qt::CaseInsensitive)) {
+-			auto image = Lottie::ReadThumbnail(
+-				Lottie::ReadContent(content, filepath));
++			auto image = Tele::ReadStickerThumbnail(
++				content,
++				filepath,
++				result->filemime);
+ 			const auto success = !image.isNull();
+ 			if (success) {
+ 				result->filemime = u"application/x-tgsticker"_q;
+diff --git a/Telegram/SourceFiles/tele/tele_sticker_truth.cpp b/Telegram/SourceFiles/tele/tele_sticker_truth.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..58be572a74c4d1faa2ea46ac781ef0ab7db2805f
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_sticker_truth.cpp
+@@ -0,0 +1,48 @@
++#include "tele/tele_sticker_truth.h"
++
++#include "lottie/lottie_animation.h"
++#include "lottie/lottie_common.h"
++
++#include <QtCore/QMimeDatabase>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxTgsBytes = 64 * 1024;
++
++[[nodiscard]] QString FileMime(
++		const QByteArray &bytes,
++		const QString &filepath) {
++	const auto database = QMimeDatabase();
++	return (bytes.isEmpty() && !filepath.isEmpty())
++		? database.mimeTypeForFile(
++			filepath,
++			QMimeDatabase::MatchContent).name()
++		: database.mimeTypeForData(bytes).name();
++}
++
++} // namespace
++
++QImage ReadStickerThumbnail(
++		const QByteArray &content,
++		const QString &filepath,
++		QString &filemime) {
++	const auto bytes = Lottie::ReadContent(content, filepath);
++	auto result = (!bytes.isEmpty() && bytes.size() <= kMaxTgsBytes)
++		? Lottie::ReadThumbnail(bytes)
++		: QImage();
++	if (result.isNull()) {
++		filemime = FileMime(bytes, filepath);
++	}
++	return result;
++}
++
++bool LacksStickerAttribute(
++		const QVector<MTPDocumentAttribute> &attributes) {
++	return ranges::none_of(attributes, [](const MTPDocumentAttribute &a) {
++		return (a.type() == mtpc_documentAttributeSticker)
++			|| (a.type() == mtpc_documentAttributeCustomEmoji);
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_sticker_truth.h b/Telegram/SourceFiles/tele/tele_sticker_truth.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..c39a05a6c01e12fb319750166711f62365145f0b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_sticker_truth.h
+@@ -0,0 +1,12 @@
++#pragma once
++
++namespace Tele {
++
++[[nodiscard]] QImage ReadStickerThumbnail(
++	const QByteArray &content,
++	const QString &filepath,
++	QString &filemime);
++[[nodiscard]] bool LacksStickerAttribute(
++	const QVector<MTPDocumentAttribute> &attributes);
++
++} // namespace Tele

@@ -1,0 +1,250 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 3 Oct 2026 11:36:27 +0300
+Subject: [PATCH] feat: select service messages
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../history/history_inner_widget.cpp          |  4 +-
+ Telegram/SourceFiles/history/history_item.cpp |  2 +-
+ .../view/history_view_context_menu.cpp        |  3 +-
+ .../history/view/history_view_list_widget.cpp |  2 +
+ .../view/history_view_service_message.cpp     |  2 +
+ .../menu/menu_item_download_files.cpp         |  2 +-
+ .../SourceFiles/tele/tele_select_service.cpp  | 57 +++++++++++++++++++
+ .../SourceFiles/tele/tele_select_service.h    | 40 +++++++++++++
+ 9 files changed, 110 insertions(+), 4 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_select_service.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_select_service.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 4d0d4f60fae4efeb1118491cdc2f1dbe89847b68..8fc793fb650d5f4cbe765e092fc8fcd42e5def70 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2721,6 +2721,8 @@ PRIVATE
+     tele/tele_screen_capture.h
+     tele/tele_secret_media.cpp
+     tele/tele_secret_media.h
++    tele/tele_select_service.cpp
++    tele/tele_select_service.h
+     tele/tele_send_files.cpp
+     tele/tele_send_files.h
+     tele/tele_send_order.cpp
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 5ab3f258ef60b28f5a149c1867c9fc2d58b9b17c..1582f0545bc064ee8c72024a10ccf47c87622c43 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -144,6 +144,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_protected.h"
+ #include "tele/tele_rich_quote.h"
+ #include "tele/tele_rmb_beside_bubble.h"
++#include "tele/tele_select_service.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -4191,6 +4192,7 @@ HistorySelectedTextParts HistoryInner::getSelectedTextParts() const {
+ 	if (_mouseAction == MouseAction::Selecting && _dragSelFrom && _dragSelTo) {
+ 		applyDragSelection(&selected);
+ 	}
++	Tele::DropSelectedService(selected);
+ 
+ 	if (selected.empty()) {
+ 		if (const auto view = viewByItem(_selectedTextItem)) {
+@@ -5384,7 +5386,7 @@ MessageIdsList HistoryInner::getSelectedItems() const {
+ 		_selected.begin(),
+ 		_selected.end()
+ 	) | views::filter([](const auto &item) {
+-		return !item->isService() && item->isRegular();
++		return item->isRegular();
+ 	}) | views::transform([](const auto &item) {
+ 		return item->fullId();
+ 	}) | to_vector;
+diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
+index 79635e1c3628f7c470052cdb0b5cb8655348178b..12d78fa6fe5403e56db2c5855b08d4a986ffe902 100644
+--- a/Telegram/SourceFiles/history/history_item.cpp
++++ b/Telegram/SourceFiles/history/history_item.cpp
+@@ -3546,7 +3546,7 @@ bool HistoryItem::canDeleteForEveryone(TimeId now) const {
+ 
+ bool HistoryItem::canBeSelected() const {
+ 	return (isRegular() || isEphemeral())
+-		&& !isService()
++		&& (!isService() || canDelete())
+ 		&& !IsAnchoredEphemeral(this);
+ }
+ 
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 8c32f8ccb6c8fe2dd41f9aca0822f7d8f0c94210..1a7d215c7bea57a258ef0269455977cd61883cdc 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -1339,7 +1339,8 @@ bool AddSelectMessageAction(
+ 		return false;
+ 	} else if (!item
+ 		|| (item->isLocal() && !item->isEphemeral())
+-		|| item->isService()
++		|| (item->isService()
++			&& !list->delegate()->listIsItemGoodForSelection(item))
+ 		|| IsAnchoredEphemeral(item)
+ 		|| list->hasSelectRestriction()) {
+ 		return false;
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index 9d3da61261efe2e83dd12d152f037cdf6da4cf17..3a253e2d8e065cf5af7b3031d53f7274cb8cf957 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -107,6 +107,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_full_preview.h"
+ #include "tele/tele_protected.h"
+ #include "tele/tele_rmb_beside_bubble.h"
++#include "tele/tele_select_service.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_window.h" // columnMaximalWidthLeft
+ 
+@@ -3492,6 +3493,7 @@ HistorySelectedTextParts ListWidget::getSelectedTextParts() const {
+ 	if (_mouseAction == MouseAction::Selecting && !_dragSelected.empty()) {
+ 		applyDragSelection(selected);
+ 	}
++	Tele::DropSelectedService(&session(), selected);
+ 
+ 	if (selected.empty()) {
+ 		if (const auto view = viewForItem(_selectedTextItem)) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_service_message.cpp b/Telegram/SourceFiles/history/view/history_view_service_message.cpp
+index 69f5cb1b864ec7a66b3a55106747b65649d703a3..00f468f53c101fdb1dbac31fee87988b36c8db4d 100644
+--- a/Telegram/SourceFiles/history/view/history_view_service_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_service_message.cpp
+@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_select_service.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_info.h"
+ 
+@@ -653,6 +654,7 @@ void Service::draw(Painter &p, const PaintContext &context) const {
+ 	Tele::PaintBookmarkServiceIcon(p, context, this, g);
+ 
+ 	paintHighlight(p, context, g.height());
++	Tele::PaintServiceSelection(p, context, this, g.height());
+ 
+ 	const auto gestureShift = context.gestureHorizontal.visualTranslationFor(
+ 		data()->id.bare);
+diff --git a/Telegram/SourceFiles/menu/menu_item_download_files.cpp b/Telegram/SourceFiles/menu/menu_item_download_files.cpp
+index c5c3c26c11e4a1736b89ae8d7dbd5f132e975c41..5b75f0193d8577e1135175d841f8eaf8f7cd6fc4 100644
+--- a/Telegram/SourceFiles/menu/menu_item_download_files.cpp
++++ b/Telegram/SourceFiles/menu/menu_item_download_files.cpp
+@@ -48,7 +48,7 @@ using Photos = std::vector<std::pair<not_null<PhotoData*>, FullMsgId>>;
+ 		Photos &photos) {
+ 	if (!item) {
+ 		return false;
+-	} else if (Tele::ForbidsSaving(item)) {
++	} else if (Tele::ForbidsSaving(item) || item->isService()) {
+ 		return true;
+ 	} else if (const auto media = item->media()) {
+ 		if (const auto photo = media->photo()) {
+diff --git a/Telegram/SourceFiles/tele/tele_select_service.cpp b/Telegram/SourceFiles/tele/tele_select_service.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..5994f151f253b60d03a43fb2466771f3cfa04220
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_select_service.cpp
+@@ -0,0 +1,57 @@
++#include "tele/tele_select_service.h"
++
++#include "data/data_session.h"
++#include "history/history_item.h"
++#include "history/view/history_view_element.h"
++#include "history/view/history_view_list_widget.h"
++#include "main/main_session.h"
++#include "ui/chat/chat_style.h"
++
++namespace Tele {
++
++void DropSelectedService(
++		base::flat_set<not_null<HistoryItem*>, std::less<>> &selected) {
++	for (auto i = selected.begin(); i != selected.end();) {
++		if ((*i)->isService()) {
++			i = selected.erase(i);
++		} else {
++			++i;
++		}
++	}
++}
++
++void DropSelectedService(
++		not_null<Main::Session*> session,
++		base::flat_map<
++			FullMsgId,
++			HistoryView::SelectionData,
++			std::less<>> &selected) {
++	for (auto i = selected.begin(); i != selected.end();) {
++		const auto item = session->data().message(i->first);
++		if (item && item->isService()) {
++			i = selected.erase(i);
++		} else {
++			++i;
++		}
++	}
++}
++
++void PaintServiceSelection(
++		QPainter &p,
++		const Ui::ChatPaintContext &context,
++		not_null<const HistoryView::Element*> view,
++		int geometryHeight) {
++	if (!context.selected()) {
++		return;
++	}
++	const auto top = view->marginTop();
++	const auto fill = std::min(top, view->marginBottom());
++	p.fillRect(
++		0,
++		top - fill,
++		view->width(),
++		fill + geometryHeight + fill,
++		context.st->msgSelectOverlay());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_select_service.h b/Telegram/SourceFiles/tele/tele_select_service.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..22d2ce26961eb711b0317acd761c6ddfd7737142
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_select_service.h
+@@ -0,0 +1,40 @@
++#pragma once
++
++#include "base/flat_map.h"
++#include "base/flat_set.h"
++#include "data/data_msg_id.h"
++
++class HistoryItem;
++class QPainter;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++struct ChatPaintContext;
++} // namespace Ui
++
++namespace HistoryView {
++class Element;
++struct SelectionData;
++} // namespace HistoryView
++
++namespace Tele {
++
++void DropSelectedService(
++	base::flat_set<not_null<HistoryItem*>, std::less<>> &selected);
++void DropSelectedService(
++	not_null<Main::Session*> session,
++	base::flat_map<
++		FullMsgId,
++		HistoryView::SelectionData,
++		std::less<>> &selected);
++
++void PaintServiceSelection(
++	QPainter &p,
++	const Ui::ChatPaintContext &context,
++	not_null<const HistoryView::Element*> view,
++	int geometryHeight);
++
++} // namespace Tele

@@ -1,0 +1,343 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 19:20:54 +0300
+Subject: [PATCH] feat: copy custom emoji ids from the message menu
+
+---
+ .../chat_helpers/emoji_list_widget.cpp        |   5 +
+ .../history/history_inner_widget.cpp          |   4 +-
+ .../view/history_view_context_menu.cpp        |   4 +-
+ .../history/view/history_view_context_menu.h  |   1 +
+ .../history/view/history_view_list_widget.cpp |   1 +
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ .../SourceFiles/tele/tele_message_menu.cpp    | 103 +++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_message_menu.h |  13 ++-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  11 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ 10 files changed, 138 insertions(+), 7 deletions(-)
+
+diff --git a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
+index b186d04787b984931427b4f78b1089514de52c93..3cd8387c08c5041997c215e2e5aa4194f24692cb 100644
+--- a/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/emoji_list_widget.cpp
+@@ -58,6 +58,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/application.h"
+ #include "settings/sections/settings_premium.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_message_menu.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_menu_icons.h"
+@@ -2036,6 +2037,10 @@ base::unique_qptr<Ui::PopupMenu> EmojiListWidget::fillContextMenu(
+ 		fillEmojiStatusMenu(menu, section, index);
+ 	}
+ 	Tele::AddViewTlAction(menu.get(), _show, lookupCustomEmoji(over).document);
++	Tele::AddCopyEmojiIdAction(
++		menu.get(),
++		_show,
++		lookupCustomEmoji(over).document);
+ 	if (menu->empty()) {
+ 		return nullptr;
+ 	}
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 7e0552408e9e77a20cbb2e529c7661db09e3f574..ae2e76e3b57531eb7810705558dd4f93d258bdbc 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -3886,7 +3886,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 	Tele::InsertMessageTools(
+ 		_menu.get(),
+ 		controller->uiShow(),
+-		_dragStateItem);
++		_dragStateItem,
++		Element::Moused(),
++		mapPointToItem(mapFromGlobal(_mousePosition), Element::Moused()));
+ 
+ 	if (!pollOptionLink.isEmpty() && leaderOrSelf && !_menu->empty()) {
+ 		const auto pollItemId = leaderOrSelf->fullId();
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 5087a5c3ab6524b770b75befa5273ec78f7b0047..414b8516308e228d9abb234b665afea6176cd5d9 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -1995,7 +1995,9 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+ 	Tele::InsertMessageTools(
+ 		result.get(),
+ 		list->controller()->uiShow(),
+-		item);
++		item,
++		request.view,
++		request.point);
+ 
+ 	if (hasPollOption) {
+ 		const auto raw = result.get();
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.h b/Telegram/SourceFiles/history/view/history_view_context_menu.h
+index 6ac7d915d6b7757de3a613ab85054ff8b6da4ca1..10733f3a27939c6960858e67d656d91832c787cc 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.h
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.h
+@@ -53,6 +53,7 @@ struct ContextMenuRequest {
+ 	SelectedQuote quote;
+ 	bool overSelection = false;
+ 	PointState pointState = PointState();
++	QPoint point;
+ };
+ 
+ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index ec7922895b2b417ba930877367d94f7c747ed869..8a1b9bd8ae36e8a4ec021186380aa34a824c10e0 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -4145,6 +4145,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 	request.view = _overElement;
+ 	request.item = overItem;
+ 	request.pointState = _overState.pointState;
++	request.point = _overState.point;
+ 	request.quote = (_overElement
+ 		&& _selectedTextItem == _overElement->data())
+ 		? _overElement->selectedReplyQuote(_selectedTextSelection)
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 1da08b725841e34f7a6ab87f4a4a0de0e5ee4848..d7d80f4d6d03131f6d7631639443f4bbf23f7bb4 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -972,6 +972,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionJumpToFirst);
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
++	AddOptionToggle(builder, ::Tele::kOptionCopyEmojiId);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.cpp b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+index 15c441d02972581c6450ce1ffffd3ec2483be61b..fbf57cddaa2671dc770d5ce40d55b6f84dfa9453 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.cpp
++++ b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+@@ -1,12 +1,17 @@
+ #include "tele/tele_message_menu.h"
+ 
++#include "data/data_document.h"
+ #include "data/data_peer.h"
++#include "data/stickers/data_custom_emoji.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
++#include "history/view/history_view_cursor_state.h"
++#include "history/view/history_view_element.h"
+ #include "main/session/session_show.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_view_tl.h"
++#include "ui/text/text_isolated_emoji.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/menu/menu_action.h"
+ #include "ui/widgets/menu/menu_common.h"
+@@ -45,6 +50,74 @@ namespace {
+ 		nullptr);
+ }
+ 
++void CopyEmojiIdToClipboard(
++		std::shared_ptr<Main::SessionShow> show,
++		DocumentId id) {
++	QGuiApplication::clipboard()->setText(QString::number(id));
++	show->showToast({
++		.text = { Lower(u"Emoji ID copied to clipboard."_q) },
++		.iconLottie = u"toast/copy"_q,
++		.iconLottieSize = st::toastLottieIconSize,
++	});
++}
++
++[[nodiscard]] QString CopyEmojiIdText() {
++	return Lower(u"Copy emoji ID"_q);
++}
++
++[[nodiscard]] DocumentId CustomEmojiAt(
++		HistoryView::Element *view,
++		QPoint point) {
++	if (!view) {
++		return 0;
++	}
++	auto request = HistoryView::StateRequest();
++	request.flags |= Ui::Text::StateRequest::Flag::LookupSymbol;
++	const auto state = view->textState(point, request);
++	if (state.cursor == HistoryView::CursorState::Text
++		&& state.symbol < 0xFFFF) {
++		const auto text = view->selectedText(
++			TextSelection{ state.symbol, uint16(state.symbol + 1) });
++		for (const auto &entity : text.rich.entities) {
++			if (entity.type() == EntityType::CustomEmoji) {
++				return Data::ParseCustomEmojiData(entity.data());
++			}
++		}
++	}
++	if (!view->isOnlyCustomEmoji()
++		|| view->pointState(point) == HistoryView::PointState::Outside) {
++		return 0;
++	}
++	auto result = DocumentId();
++	for (const auto &line : view->onlyCustomEmoji().lines) {
++		for (const auto &emoji : line) {
++			const auto id = Data::ParseCustomEmojiData(emoji.entityData);
++			if (!id || (result && result != id)) {
++				return 0;
++			}
++			result = id;
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] base::unique_qptr<Ui::Menu::ItemBase> MakeEmojiIdAction(
++		not_null<Ui::PopupMenu*> menu,
++		std::shared_ptr<Main::SessionShow> show,
++		DocumentId id) {
++	const auto parent = menu->menu();
++	const auto action = Ui::Menu::CreateAction(
++		parent,
++		CopyEmojiIdText(),
++		[=] { CopyEmojiIdToClipboard(show, id); });
++	return base::make_unique_q<Ui::Menu::Action>(
++		parent,
++		menu->st().menu,
++		action,
++		&st::menuIconCopy,
++		&st::menuIconCopy);
++}
++
+ [[nodiscard]] base::unique_qptr<Ui::Menu::ItemBase> MakeTlAction(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		std::shared_ptr<Main::SessionShow> show,
+@@ -69,14 +142,22 @@ namespace {
+ void InsertMessageTools(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		std::shared_ptr<Main::SessionShow> show,
+-		HistoryItem *item) {
+-	if (!item || menu->empty() || !IsServerMsgId(item->id)) {
++		HistoryItem *item,
++		HistoryView::Element *view,
++		QPoint point) {
++	if (!item || menu->empty()) {
+ 		return;
+ 	}
++	const auto server = IsServerMsgId(item->id);
+ 	auto tools = std::vector<base::unique_qptr<Ui::Menu::ItemBase>>();
+-	if (ViewAsTl()) {
++	if (server && ViewAsTl()) {
+ 		tools.push_back(MakeTlAction(menu, show, item));
+ 	}
++	if (CopyEmojiId()) {
++		if (const auto id = CustomEmojiAt(view, point)) {
++			tools.push_back(MakeEmojiIdAction(menu, show, id));
++		}
++	}
+ 	const auto addSeparator = [&] {
+ 		if (!menu->actions().back()->isSeparator()) {
+ 			menu->addSeparator();
+@@ -88,10 +169,24 @@ void InsertMessageTools(
+ 			menu->addAction(std::move(tool));
+ 		}
+ 	}
+-	if (MessageIdMenu()) {
++	if (server && MessageIdMenu()) {
+ 		addSeparator();
+ 		menu->addAction(MakeIdAction(menu, show, item->id));
+ 	}
+ }
+ 
++void AddCopyEmojiIdAction(
++		not_null<Ui::PopupMenu*> menu,
++		std::shared_ptr<Main::SessionShow> show,
++		DocumentData *document) {
++	if (!CopyEmojiId() || !document) {
++		return;
++	}
++	const auto id = document->id;
++	menu->addAction(
++		CopyEmojiIdText(),
++		[=] { CopyEmojiIdToClipboard(show, id); },
++		&st::menuIconCopy);
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.h b/Telegram/SourceFiles/tele/tele_message_menu.h
+index 6b7fab34ca678d470c2fed8c0d93fd1f71adc4d5..7213c91aeabd2ccd58c666bd268f4ecc0fde03aa 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.h
++++ b/Telegram/SourceFiles/tele/tele_message_menu.h
+@@ -1,7 +1,12 @@
+ #pragma once
+ 
++class DocumentData;
+ class HistoryItem;
+ 
++namespace HistoryView {
++class Element;
++} // namespace HistoryView
++
+ namespace Main {
+ class SessionShow;
+ } // namespace Main
+@@ -15,6 +20,12 @@ namespace Tele {
+ void InsertMessageTools(
+ 	not_null<Ui::PopupMenu*> menu,
+ 	std::shared_ptr<Main::SessionShow> show,
+-	HistoryItem *item);
++	HistoryItem *item,
++	HistoryView::Element *view,
++	QPoint point);
++void AddCopyEmojiIdAction(
++	not_null<Ui::PopupMenu*> menu,
++	std::shared_ptr<Main::SessionShow> show,
++	DocumentData *document);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 150259e7bd9c754823dc1e305746dfd293cab2f5..0b5c07c1383edfa360c10cf202bdf8a1e670b2ac 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -50,6 +50,7 @@ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionViewAsTl[] = "tele-view-as-tl";
+ const char kOptionParallelUploads[] = "tele-parallel-uploads";
+ const char kOptionCalcmula[] = "tele-calcmula";
++const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
+@@ -350,6 +351,12 @@ base::options::toggle CalcmulaOption({
+ 		"the result.",
+ });
+ 
++base::options::toggle CopyEmojiIdOption({
++	.id = kOptionCopyEmojiId,
++	.name = "Copy custom emoji IDs",
++	.description = "Right-click a custom emoji in a message to copy its ID.",
++});
++
+ base::options::option<QString> ServerUrlOption({
+ 	.id = kOptionServerUrl,
+ 	.name = "tele server",
+@@ -701,6 +708,10 @@ bool Calcmula() {
+ 	return CalcmulaOption.value();
+ }
+ 
++bool CopyEmojiId() {
++	return CopyEmojiIdOption.value();
++}
++
+ QString ServerUrl() {
+ 	return ServerUrlOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 2cb40cca138d06d6065669fb7b0575f7a9006154..8c2b5849f132449b324967b547e9fc51e0971f1b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -48,6 +48,7 @@ extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionViewAsTl[];
+ extern const char kOptionParallelUploads[];
+ extern const char kOptionCalcmula[];
++extern const char kOptionCopyEmojiId[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
+@@ -118,6 +119,7 @@ void SetIgnoredList(const QString &value);
+ [[nodiscard]] bool ViewAsTl();
+ [[nodiscard]] bool ParallelUploads();
+ [[nodiscard]] bool Calcmula();
++[[nodiscard]] bool CopyEmojiId();
+ [[nodiscard]] QString ServerUrl();
+ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();

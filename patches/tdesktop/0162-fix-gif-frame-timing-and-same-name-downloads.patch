@@ -1,0 +1,177 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 07:53:12 +0300
+Subject: [PATCH] fix: gif frame timing and same-name downloads
+
+---
+ Telegram/CMakeLists.txt                       |  2 ++
+ Telegram/SourceFiles/core/file_utilities.cpp  |  3 +-
+ Telegram/SourceFiles/data/data_document.cpp   |  3 +-
+ .../streaming/media_streaming_video_track.cpp |  7 ++--
+ .../SourceFiles/storage/file_download.cpp     |  4 +++
+ .../SourceFiles/tele/tele_download_paths.cpp  | 34 +++++++++++++++++++
+ .../SourceFiles/tele/tele_download_paths.h    |  8 +++++
+ 7 files changed, 57 insertions(+), 4 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_download_paths.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_download_paths.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 7dfaaad8e8a296e0596138790f1834910783971d..a9b39f695368e043ccfe17e6d5fa86fab9f8943a 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2545,6 +2545,8 @@ PRIVATE
+     tele/tele_docked_media.h
+     tele/tele_download_folders.cpp
+     tele/tele_download_folders.h
++    tele/tele_download_paths.cpp
++    tele/tele_download_paths.h
+     tele/tele_drafts.cpp
+     tele/tele_drafts.h
+     tele/tele_drafts_box.cpp
+diff --git a/Telegram/SourceFiles/core/file_utilities.cpp b/Telegram/SourceFiles/core/file_utilities.cpp
+index 648dc30f0193d66c3af66be0c5f7f88529561707..697b8b5342e83f17395d46e8c5292d06ce03a632 100644
+--- a/Telegram/SourceFiles/core/file_utilities.cpp
++++ b/Telegram/SourceFiles/core/file_utilities.cpp
+@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/chat/attach/attach_extensions.h"
+ #include "main/main_session.h"
+ #include "mainwindow.h"
++#include "tele/tele_download_paths.h"
+ 
+ #include <QtWidgets/QFileDialog>
+ #include <QtCore/QCoreApplication>
+@@ -95,7 +96,7 @@ QString filedialogDefaultName(
+ 		const auto nameBase = (dir.endsWith('/') ? dir : (dir + '/'))
+ 			+ base;
+ 		name = nameBase + extension;
+-		for (int i = 0; QFileInfo::exists(name); ++i) {
++		for (int i = 0; Tele::DownloadPathTaken(name); ++i) {
+ 			name = nameBase + u" (%1)"_q.arg(i + 2) + extension;
+ 		}
+ 	}
+diff --git a/Telegram/SourceFiles/data/data_document.cpp b/Telegram/SourceFiles/data/data_document.cpp
+index 67dd11d8f8c680d37af347c213a139e02d2a8051..4fb3a8d7e9a6888b5ffe934cf509a1d4ffcd6005 100644
+--- a/Telegram/SourceFiles/data/data_document.cpp
++++ b/Telegram/SourceFiles/data/data_document.cpp
+@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lottie/lottie_animation.h"
+ #include "boxes/abstract_box.h" // Ui::hideLayer().
+ #include "tele/tele_download_folders.h"
++#include "tele/tele_download_paths.h"
+ 
+ #include <QtCore/QBuffer>
+ #include <QtCore/QMimeType>
+@@ -195,7 +196,7 @@ QString FileNameUnsafe(
+ 	}
+ 	QString nameBase = path + nameStart;
+ 	name = nameBase + extension;
+-	for (int i = 0; QFileInfo::exists(name); ++i) {
++	for (int i = 0; Tele::DownloadPathTaken(name); ++i) {
+ 		name = nameBase + u" (%1)"_q.arg(i + 2) + extension;
+ 	}
+ 
+diff --git a/Telegram/SourceFiles/media/streaming/media_streaming_video_track.cpp b/Telegram/SourceFiles/media/streaming/media_streaming_video_track.cpp
+index 587270eeb952d9de94f024909e9c314974001772..26aaadc965df6c5fe8fb09403b82693681d9854a 100644
+--- a/Telegram/SourceFiles/media/streaming/media_streaming_video_track.cpp
++++ b/Telegram/SourceFiles/media/streaming/media_streaming_video_track.cpp
+@@ -1130,8 +1130,11 @@ not_null<VideoTrack::Frame*> VideoTrack::Shared::frameForPaint() {
+ }
+ 
+ VideoTrack::FrameWithIndex VideoTrack::Shared::frameForPaintWithIndex() {
+-	const auto index = counter() / 2;
+-	const auto frame = getFrame(index);
++	const auto value = counter();
++	const auto next = getFrame(((value + 1) % (2 * kFramesCount)) / 2);
++	const auto frame = ((value % 2) && next->displayed != kTimeUnknown)
++		? next
++		: getFrame(value / 2);
+ 	Assert(frame->format != FrameFormat::None);
+ 	Assert(frame->position != kTimeUnknown);
+ 	Assert(frame->displayed != kTimeUnknown);
+diff --git a/Telegram/SourceFiles/storage/file_download.cpp b/Telegram/SourceFiles/storage/file_download.cpp
+index d468b15618212346fd7746d1849d52d6be7bf857..e02954924ca6cf1a54e19bc28af517437ae23c6f 100644
+--- a/Telegram/SourceFiles/storage/file_download.cpp
++++ b/Telegram/SourceFiles/storage/file_download.cpp
+@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "core/crash_reports.h"
+ #include "base/bytes.h"
++#include "tele/tele_download_paths.h"
+ 
+ namespace {
+ 
+@@ -124,10 +125,12 @@ FileLoader::FileLoader(
+ , _locationType(locationType) {
+ 	Expects(_loadSize <= _fullSize);
+ 	Expects(!_filename.isEmpty() || (_fullSize <= Storage::kMaxFileInMemory));
++	Tele::SetDownloadPath(this, _filename);
+ }
+ 
+ FileLoader::~FileLoader() {
+ 	Expects(_finished);
++	Tele::SetDownloadPath(this, QString());
+ }
+ 
+ Main::Session &FileLoader::session() const {
+@@ -198,6 +201,7 @@ bool FileLoader::setFileName(const QString &fileName) {
+ 	}
+ 	_filename = fileName;
+ 	_file.setFileName(_filename);
++	Tele::SetDownloadPath(this, _filename);
+ 	return true;
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_download_paths.cpp b/Telegram/SourceFiles/tele/tele_download_paths.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..689ee34b7545973f54ba46d28f7b4ddea208ed15
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_download_paths.cpp
+@@ -0,0 +1,34 @@
++#include "tele/tele_download_paths.h"
++
++namespace Tele {
++namespace {
++
++[[nodiscard]] base::flat_map<const void*, QString> &Paths() {
++	static auto result = base::flat_map<const void*, QString>();
++	return result;
++}
++
++} // namespace
++
++void SetDownloadPath(const void *loader, const QString &path) {
++	if (path.isEmpty()) {
++		Paths().remove(loader);
++	} else {
++		Paths()[loader] = QDir::cleanPath(path);
++	}
++}
++
++bool DownloadPathTaken(const QString &path) {
++	if (QFileInfo::exists(path)) {
++		return true;
++	}
++	const auto clean = QDir::cleanPath(path);
++	for (const auto &[loader, taken] : Paths()) {
++		if (!taken.compare(clean, Qt::CaseInsensitive)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_download_paths.h b/Telegram/SourceFiles/tele/tele_download_paths.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..2dab6b965daa5ff3adcdaa5b7c7ce7e7738b54df
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_download_paths.h
+@@ -0,0 +1,8 @@
++#pragma once
++
++namespace Tele {
++
++void SetDownloadPath(const void *loader, const QString &path);
++[[nodiscard]] bool DownloadPathTaken(const QString &path);
++
++} // namespace Tele

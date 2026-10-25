@@ -1,0 +1,822 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 18:49:16 +0300
+Subject: [PATCH] feat: clean tracking parameters from links
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/api/api_sending.cpp      |   6 +
+ Telegram/SourceFiles/apiwrap.cpp              |   2 +
+ .../SourceFiles/core/click_handler_types.cpp  |   2 +
+ Telegram/SourceFiles/core/ui_integration.cpp  |   3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   8 +-
+ .../SourceFiles/tele/tele_button_payload.cpp  |   2 +
+ Telegram/SourceFiles/tele/tele_links.cpp      | 543 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_links.h        |  19 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  26 +
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +
+ 11 files changed, 614 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_links.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_links.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 2e5fa14ce0a54fe6ae50da304096a9c0288c4553..674aecbc123568e6a3c631fd48e37c9e9869a8d0 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2523,6 +2523,8 @@ PRIVATE
+     tele/tele_message_menu.h
+     tele/tele_jump_to_first.cpp
+     tele/tele_jump_to_first.h
++    tele/tele_links.cpp
++    tele/tele_links.h
+     tele/tele_options.cpp
+     tele/tele_options.h
+     tele/tele_peer_id.cpp
+diff --git a/Telegram/SourceFiles/api/api_sending.cpp b/Telegram/SourceFiles/api/api_sending.cpp
+index 38ce94efec594427baf02b37c18fc27624a4e214..de2267135ca96df78a7da2fe66c7cf4a324547a9 100644
+--- a/Telegram/SourceFiles/api/api_sending.cpp
++++ b/Telegram/SourceFiles/api/api_sending.cpp
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_calcmula.h"
++#include "tele/tele_links.h"
+ 
+ namespace Api {
+ namespace {
+@@ -257,6 +258,7 @@ void SendExistingMedia(
+ 		TextUtilities::ConvertTextTagsToEntities(message.textWithTags.tags)
+ 	};
+ 	TextUtilities::Trim(caption);
++	Tele::PrepareSentLinks(caption);
+ 	auto sentEntities = EntitiesToMTP(
+ 		session,
+ 		caption.entities,
+@@ -750,6 +752,7 @@ void SendMusicSelection(
+ 		TextUtilities::ConvertTextTagsToEntities(message.textWithTags.tags)
+ 	};
+ 	TextUtilities::Trim(caption);
++	Tele::PrepareSentLinks(caption);
+ 
+ 	const auto api = &message.action.history->session().api();
+ 
+@@ -1191,6 +1194,9 @@ struct ConfirmedLocalFile {
+ 	action.replaceMediaOf = file->to.replaceMediaOf;
+ 
+ 	auto caption = PrepareConfirmedFileCaption(history, session, file);
++	if (!isEditing) {
++		Tele::PrepareSentLinks(caption);
++	}
+ 	const auto flags = PrepareConfirmedFileFlags(
+ 		session,
+ 		action,
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index bfe792e482c7228e638b23549bee5457e12db22c..07fe89ed6a7d3f7b0d0aaa025896fb775fe518ee 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_calcmula.h"
++#include "tele/tele_links.h"
+ 
+ namespace {
+ 
+@@ -4825,6 +4826,7 @@ void ApiWrap::sendMessage(
+ 		history,
+ 		_session->user()).flags;
+ 	TextUtilities::PrepareForSending(left, prepareFlags);
++	Tele::PrepareSentLinks(left);
+ 
+ 	HistoryItem *lastMessage = nullptr;
+ 
+diff --git a/Telegram/SourceFiles/core/click_handler_types.cpp b/Telegram/SourceFiles/core/click_handler_types.cpp
+index 50881b2f7ea4998e40386e07b7d242804f38fc41..ed8dda8920929406ac5debcec5dda59c9f156303 100644
+--- a/Telegram/SourceFiles/core/click_handler_types.cpp
++++ b/Telegram/SourceFiles/core/click_handler_types.cpp
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_session.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_links.h"
+ #include "tele/tele_options.h"
+ #include "window/window_session_controller_link_info.h"
+ #include "apiwrap.h"
+@@ -471,6 +472,7 @@ void HiddenUrlClickHandler::Open(QString url, QVariant context) {
+ 		url = external;
+ 	}
+ 	url = Core::TryConvertUrlToLocal(url);
++	url = Tele::PrepareOpenedLink(url);
+ 	if (Core::InternalPassportOrOAuthLink(url)) {
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/core/ui_integration.cpp b/Telegram/SourceFiles/core/ui_integration.cpp
+index 5e247cfbc4b2347c2073aed57010fda4d77bc289..c97f808fea9b05c8090cace43f83c414f3a360a8 100644
+--- a/Telegram/SourceFiles/core/ui_integration.cpp
++++ b/Telegram/SourceFiles/core/ui_integration.cpp
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "mainwindow.h"
+ #include "base/unixtime.h"
+ #include "tele/tele_app_links.h"
++#include "tele/tele_links.h"
+ #include "styles/style_chat_helpers.h"
+ 
+ #include <QtCore/QDateTime>
+@@ -420,7 +421,7 @@ bool UiIntegration::handleUrlClick(
+ 	// unless the url itself was given to us by the server for this login.
+ 	const auto url = context.value<ClickHandlerContext>().keepWebAuthTokens
+ 		? original
+-		: UrlWithoutWebAuthTokens(original);
++		: UrlWithoutWebAuthTokens(Tele::PrepareOpenedLink(original));
+ 	const auto local = Core::TryConvertUrlToLocal(url);
+ 	if (Core::InternalPassportOrOAuthLink(local)) {
+ 		return true;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index ae1acb075b7a82a5dc16bbff4c336067ca31ebba..25e3b9447da6ed1e0f40e3930920d463dfbf5863 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -973,11 +973,15 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Chats"_q);
+-	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
+-	AddOptionToggle(builder, ::Tele::kOptionOpenLinksInApps);
+ 	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideSponsored);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideProxySponsor);
++	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Links"_q);
++	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
++	AddOptionToggle(builder, ::Tele::kOptionCleanOpenedLinks);
++	AddOptionToggle(builder, ::Tele::kOptionCleanSentLinks);
++	AddOptionToggle(builder, ::Tele::kOptionOpenLinksInApps);
+ 	builder.addSkip();
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+index 6d1a90b8543261db3a76959e2caf2822505285fb..9ee9395ca1129edb0c8688782bcfd20431e0b536 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.cpp
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -10,6 +10,7 @@
+ #include "inline_bots/bot_attach_web_view.h"
+ #include "lang/lang_keys.h"
+ #include "main/session/session_show.h"
++#include "tele/tele_links.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/toast/toast.h"
+@@ -282,6 +283,7 @@ void AddCopyButtonPayloadAction(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		std::shared_ptr<Main::SessionShow> show,
+ 		const ClickHandlerPtr &link) {
++	AddOpenUncleanedAction(menu, link);
+ 	const auto handler = dynamic_cast<ReplyMarkupClickHandler*>(link.get());
+ 	const auto button = handler ? handler->getButton() : nullptr;
+ 	if (!button) {
+diff --git a/Telegram/SourceFiles/tele/tele_links.cpp b/Telegram/SourceFiles/tele/tele_links.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ca549c235a462c9b036481753fe9ec84827922b5
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_links.cpp
+@@ -0,0 +1,543 @@
++#include "tele/tele_links.h"
++
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/basic_click_handlers.h"
++#include "ui/text/text_entity.h"
++#include "ui/widgets/popup_menu.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QRegularExpression>
++#include <QtCore/QUrl>
++
++namespace Tele {
++namespace {
++
++constexpr auto kCaseInsensitive = QRegularExpression::CaseInsensitiveOption;
++
++auto SkipCleaning = false;
++
++struct ProviderData {
++	QString host;
++	QStringList params;
++	QStringList paths;
++};
++
++struct Provider {
++	QRegularExpression host;
++	QRegularExpression params;
++	std::vector<QRegularExpression> paths;
++};
++
++struct Filtered {
++	QString value;
++	bool removed = false;
++};
++
++using Rules = std::vector<const QRegularExpression*>;
++
++[[nodiscard]] QRegularExpression ParamsRule(const QStringList &params) {
++	return QRegularExpression(
++		u"^(?:"_q + params.join('|') + u")$"_q,
++		kCaseInsensitive);
++}
++
++[[nodiscard]] const QRegularExpression &GlobalRule() {
++	static const auto result = ParamsRule({
++		u"utm(?:_[a-z_]*)?"_q, u"mtm_[a-z_]*"_q,
++		u"pk_(?:campaign|kwd|keyword|source|medium|content|cid)"_q,
++		u"ga_[a-z_]+"_q, u"_ga"_q, u"_gl"_q, u"gclid"_q, u"gclsrc"_q,
++		u"gbraid"_q, u"wbraid"_q, u"dclid"_q, u"gad_source"_q,
++		u"gad_campaignid"_q, u"fbclid"_q, u"fb_action_(?:ids|types)"_q,
++		u"fb_(?:source|ref)"_q, u"action_(?:object|type|ref)_map"_q,
++		u"msclkid"_q, u"twclid"_q, u"ttclid"_q, u"li_fat_id"_q, u"epik"_q,
++		u"yclid"_q, u"ysclid"_q, u"_openstat"_q, u"mc_(?:cid|eid|tc)"_q,
++		u"ml_subscriber(?:_hash)?"_q, u"mkt_tok"_q, u"igshid"_q, u"igsh"_q,
++		u"_hsenc"_q, u"_hsmi"_q, u"__hsfp"_q, u"__hssc"_q, u"__hstc"_q,
++		u"hsctatracking"_q, u"srsltid"_q, u"s_kwcid"_q, u"s_cid"_q,
++		u"oly_(?:anon|enc)_id"_q, u"rb_clickid"_q, u"vero_(?:conv|id)"_q,
++		u"wickedid"_q, u"_kx"_q, u"wt_?z?mc"_q, u"wtrid"_q,
++		u"hmb_(?:campaign|medium|source)"_q,
++		u"itm_(?:campaign|medium|source)"_q, u"otm_[a-z_]*"_q, u"cmpid"_q,
++		u"os_ehash"_q, u"__twitter_impression"_q, u"tracking_source"_q,
++		u"echobox"_q, u"spm"_q, u"_branch_match_id"_q, u"_branch_referrer"_q,
++		u"si"_q
++	});
++	return result;
++}
++
++[[nodiscard]] const std::vector<Provider> &Providers() {
++	static const auto data = std::vector<ProviderData>{
++		{
++			u"(?:^|\\.)(?:youtube\\.com|youtu\\.be|youtube-nocookie\\.com)$"_q,
++			{
++				u"feature"_q, u"pp"_q, u"kw"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:spotify\\.com)$"_q,
++			{
++				u"context"_q, u"nd"_q, u"dl_branch"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:twitter\\.com|x\\.com|fxtwitter\\.com|vxtwitter\\.com|fixupx\\.com|fixvx\\.com)$"_q,
++			{
++				u"s"_q, u"t"_q, u"src"_q, u"ref_src"_q, u"ref_url"_q, u"cn"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:instagram\\.com)$"_q,
++			{
++				u"igshid"_q, u"igsh"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:threads\\.net|threads\\.com)$"_q,
++			{
++				u"xmt"_q, u"slof"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:tiktok\\.com)$"_q,
++			{
++				u"_r"_q, u"_t"_q, u"_d"_q, u"is_from_webapp"_q,
++				u"is_copy_url"_q, u"sender_device"_q, u"sender_web_id"_q,
++				u"web_id"_q, u"u_code"_q, u"preview_pb"_q, u"timestamp"_q,
++				u"user_id"_q, u"share_app_name"_q, u"share_app_id"_q,
++				u"share_iid"_q, u"share_link_id"_q, u"share_item_id"_q,
++				u"social_share_type"_q, u"source"_q, u"checksum"_q,
++				u"tt_from"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:facebook\\.com|fb\\.com|fb\\.watch)$"_q,
++			{
++				u"mibextid"_q, u"rdid"_q, u"__tn__"_q, u"__cft__\\[\\d+\\]"_q,
++				u"__xts__\\[\\d+\\]"_q, u"hc_[a-z_\\[\\]0-9]*"_q, u"eid"_q,
++				u"ref"_q, u"fref"_q, u"refid"_q, u"refsrc"_q, u"ref_[a-z_]*"_q,
++				u"comment_tracking"_q, u"notif_id"_q, u"notif_t"_q, u"sfnsn"_q,
++				u"paipv"_q, u"eav"_q, u"dti"_q, u"_rdr"_q, u"rdr"_q, u"rdc"_q,
++				u"wtsid"_q, u"acontext"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:reddit\\.com)$"_q,
++			{
++				u"share_id"_q, u"ref"_q, u"ref_source"_q, u"ref_campaign"_q,
++				u"correlation_id"_q, u"rdt"_q, u"\\$deep_link"_q, u"\\$3p"_q,
++				u"\\$original_url"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:amazon(?:\\.[a-z]{2,3}){1,2})$"_q,
++			{
++				u"p[fd]_rd_[a-z]*"_q, u"qid"_q, u"srs?"_q,
++				u"__mk_[a-z]{1,3}_[a-z]{1,3}"_q, u"spia"_q, u"ms3_c"_q,
++				u"ie"_q, u"refrid"_q, u"colii?d"_q, u"adid"_q, u"qualifier"_q,
++				u"_encoding"_q, u"ref_?"_q, u"sprefix"_q, u"crid"_q,
++				u"cv_ct_[a-z]+"_q, u"linkcode"_q, u"linkid"_q, u"tag"_q,
++				u"creativeasin"_q, u"ascsubtag"_q, u"aaxitk"_q, u"hsa_cr_id"_q,
++				u"sb-ci-[a-z]+"_q, u"dchild"_q, u"camp"_q, u"creative"_q,
++				u"content-id"_q, u"dib"_q, u"dib_tag"_q, u"social_share"_q,
++				u"starsleft"_q, u"skiptwisterog"_q
++			},
++			{ u"/ref=[^/]*"_q }
++		},
++		{
++			u"(?:^|\\.)(?:aliexpress(?:\\.[a-z]{2,3}){1,2})$"_q,
++			{
++				u"aff_[a-z_]*"_q, u"af"_q, u"afsmartredirect"_q,
++				u"algo_expid"_q, u"algo_pvid"_q, u"btsid"_q, u"businesstype"_q,
++				u"cv"_q, u"dp"_q, u"gps-id"_q, u"gatewayadapt"_q,
++				u"mall_affr"_q, u"pdp_ext_f"_q, u"pdp_npi"_q, u"pdp_pi"_q,
++				u"pvid"_q, u"scm[_a-z-]*"_q, u"sk"_q, u"social_params"_q,
++				u"sourcetype"_q, u"spreadtype"_q, u"srcsns"_q,
++				u"terminal_id"_q, u"tt"_q, u"ws_ab_test"_q, u"utparam-url"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:vk\\.com|vk\\.ru|vkvideo\\.ru)$"_q,
++			{
++				u"from"_q, u"ref"_q, u"ref_domain"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:yandex(?:\\.[a-z]{2,3}){1,2}|ya\\.ru)$"_q,
++			{
++				u"from"_q, u"clid"_q, u"redircnt"_q
++			}
++		},
++		{
++			u"^(?:www\\.)?google(?:\\.[a-z]{2,3}){1,2}$"_q,
++			{
++				u"ved"_q, u"ei"_q, u"sa"_q, u"usg"_q, u"oq"_q, u"aqs"_q,
++				u"gs_[a-z]*"_q, u"sclient"_q, u"sxsrf"_q, u"sourceid"_q,
++				u"uact"_q, u"bih"_q, u"biw"_q, u"dpr"_q, u"rlz"_q, u"iflsig"_q,
++				u"sca_esv"_q, u"sca_upv"_q, u"fbs"_q, u"ictx"_q, u"cshid"_q,
++				u"gws_rd"_q, u"source"_q, u"ie"_q
++			}
++		},
++		{
++			u"^(?:docs|drive)\\.google\\.com$"_q,
++			{
++				u"usp"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:linkedin\\.com)$"_q,
++			{
++				u"trk"_q, u"trkinfo"_q, u"trackingid"_q, u"refid"_q, u"lipi"_q,
++				u"licu"_q, u"midtoken"_q, u"midsig"_q, u"trkemail"_q, u"rcm"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:ebay(?:\\.[a-z]{2,3}){1,2})$"_q,
++			{
++				u"_trkparms"_q, u"_trksid"_q, u"_from"_q, u"hash"_q,
++				u"mkcid"_q, u"mkrid"_q, u"mkevt"_q, u"campid"_q, u"toolid"_q,
++				u"customid"_q, u"amdata"_q, u"ssspo"_q, u"sssrc"_q, u"ssuid"_q,
++				u"widget_ver"_q, u"itmmeta"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:medium\\.com)$"_q,
++			{
++				u"source"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:github\\.com)$"_q,
++			{
++				u"email_token"_q, u"email_source"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:steampowered\\.com|steamcommunity\\.com)$"_q,
++			{
++				u"snr"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:netflix\\.com)$"_q,
++			{
++				u"trackid"_q, u"tctx"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:twitch\\.tv)$"_q,
++			{
++				u"tt_medium"_q, u"tt_content"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:imdb\\.com)$"_q,
++			{
++				u"ref_"_q, u"pf_rd_[a-z]*"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:bing\\.com)$"_q,
++			{
++				u"cvid"_q, u"form"_q, u"sk"_q, u"sp"_q, u"sc"_q, u"qs"_q,
++				u"qp"_q, u"pq"_q, u"ghsh"_q, u"ghacc"_q, u"ghpl"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:msn\\.com)$"_q,
++			{
++				u"ocid"_q, u"cvid"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:apple\\.com)$"_q,
++			{
++				u"ign-itsc[a-z]+"_q, u"itscg"_q, u"itsct"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:pinterest(?:\\.[a-z]{2,3}){1,2})$"_q,
++			{
++				u"invite_code"_q, u"sender"_q, u"sfo"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:hh\\.ru)$"_q,
++			{
++				u"hhtmfrom"_q, u"hhtmfromlabel"_q, u"hhtmsource"_q, u"vss"_q,
++				u"swnt"_q, u"grpos"_q, u"ptl"_q, u"stl"_q, u"exp"_q, u"plim"_q
++			}
++		},
++		{
++			u"(?:^|\\.)(?:ozon\\.ru)$"_q,
++			{
++				u"partner"_q, u"from"_q
++			}
++		}
++	};
++	static const auto result = [&] {
++		auto list = std::vector<Provider>();
++		list.reserve(data.size());
++		for (const auto &entry : data) {
++			auto provider = Provider{
++				.host = QRegularExpression(entry.host, kCaseInsensitive),
++				.params = ParamsRule(entry.params),
++			};
++			for (const auto &path : entry.paths) {
++				provider.paths.emplace_back(path, kCaseInsensitive);
++			}
++			list.push_back(std::move(provider));
++		}
++		return list;
++	}();
++	return result;
++}
++
++[[nodiscard]] bool IsTelegramHost(const QString &host) {
++	static const auto result = QRegularExpression(
++		u"(?:^|\\.)(?:t\\.me|telegram\\.me|telegram\\.dog)$"_q,
++		kCaseInsensitive);
++	return result.match(host).hasMatch();
++}
++
++[[nodiscard]] Filtered FilterParams(const QString &list, const Rules &rules) {
++	auto result = Filtered();
++	auto kept = QStringList();
++	for (const auto &part : list.split('&', Qt::SkipEmptyParts)) {
++		const auto name = QUrl::fromPercentEncoding(
++			part.section('=', 0, 0).toUtf8());
++		const auto tracking = ranges::any_of(rules, [&](
++				const QRegularExpression *rule) {
++			return rule->match(name).hasMatch();
++		});
++		if (tracking) {
++			result.removed = true;
++		} else {
++			kept.push_back(part);
++		}
++	}
++	result.value = kept.join('&');
++	return result;
++}
++
++struct UrlRange {
++	int offset = 0;
++	int length = 0;
++};
++
++[[nodiscard]] QString StripTrackingLoose(const QString &url) {
++	static const auto Scheme = QRegularExpression(
++		u"^[a-z][a-z0-9+.\\-]*:(?!\\d)"_q,
++		kCaseInsensitive);
++	if (Scheme.match(url).hasMatch()) {
++		return StripTracking(url);
++	}
++	const auto scheme = u"http://"_q;
++	const auto prefixed = scheme + url;
++	const auto result = StripTracking(prefixed);
++	return (result == prefixed) ? url : result.mid(scheme.size());
++}
++
++[[nodiscard]] std::vector<UrlRange> CollectUrls(
++		const TextWithEntities &text) {
++	auto result = std::vector<UrlRange>();
++	const auto collect = [&](const EntitiesInText &entities) {
++		for (const auto &entity : entities) {
++			if (entity.type() == EntityType::Url) {
++				result.push_back({ entity.offset(), entity.length() });
++			}
++		}
++	};
++	collect(text.entities);
++	if (result.empty()) {
++		auto parsed = text;
++		TextUtilities::ParseEntities(parsed, TextParseLinks);
++		collect(parsed.entities);
++	}
++	ranges::sort(result, ranges::greater(), &UrlRange::offset);
++	return result;
++}
++
++[[nodiscard]] bool CanReplace(
++		const EntitiesInText &entities,
++		UrlRange range) {
++	const auto end = range.offset + range.length;
++	for (const auto &entity : entities) {
++		const auto from = entity.offset();
++		const auto till = from + entity.length();
++		if (till <= range.offset || from >= end) {
++			continue;
++		} else if (from > range.offset || till < end) {
++			return false;
++		} else if (entity.type() == EntityType::Code
++			|| entity.type() == EntityType::Pre) {
++			return false;
++		}
++	}
++	return true;
++}
++
++void ReplaceRange(
++		TextWithEntities &text,
++		UrlRange range,
++		const QString &value) {
++	const auto end = range.offset + range.length;
++	const auto delta = int(value.size()) - range.length;
++	text.text.replace(range.offset, range.length, value);
++	for (auto &entity : text.entities) {
++		const auto from = entity.offset();
++		const auto length = entity.length();
++		if (from >= end) {
++			entity = EntityInText(
++				entity.type(),
++				from + delta,
++				length,
++				entity.data());
++		} else if (from + length >= end) {
++			entity = EntityInText(
++				entity.type(),
++				from,
++				length + delta,
++				entity.data());
++		}
++	}
++}
++
++} // namespace
++
++QString StripTracking(const QString &url) {
++	static const auto Scheme = QRegularExpression(
++		u"^https?://"_q,
++		kCaseInsensitive);
++	const auto scheme = Scheme.match(url);
++	if (!scheme.hasMatch()) {
++		return url;
++	}
++	const auto start = scheme.capturedEnd();
++	auto end = int(url.size());
++	for (const auto ch : { '/', '?', '#' }) {
++		const auto index = url.indexOf(QChar(ch), start);
++		if (index >= 0) {
++			end = std::min(end, int(index));
++		}
++	}
++	auto host = url.mid(start, end - start);
++	host = host.mid(host.lastIndexOf('@') + 1);
++	if (host.startsWith('[')) {
++		return url;
++	}
++	host = host.section(':', 0, 0).toLower();
++	while (host.endsWith('.')) {
++		host.chop(1);
++	}
++	if (host.isEmpty() || IsTelegramHost(host)) {
++		return url;
++	}
++
++	auto rules = Rules{ &GlobalRule() };
++	auto paths = std::vector<const QRegularExpression*>();
++	for (const auto &provider : Providers()) {
++		if (provider.host.match(host).hasMatch()) {
++			rules.push_back(&provider.params);
++			for (const auto &path : provider.paths) {
++				paths.push_back(&path);
++			}
++		}
++	}
++
++	const auto hash = url.indexOf('#', end);
++	const auto beforeHash = (hash >= 0) ? int(hash) : int(url.size());
++	const auto question = url.indexOf('?', end);
++	const auto hasQuery = (question >= 0) && (question < beforeHash);
++	const auto pathEnd = hasQuery ? int(question) : beforeHash;
++	auto path = url.mid(end, pathEnd - end);
++	auto query = hasQuery
++		? url.mid(question + 1, beforeHash - question - 1)
++		: QString();
++	auto fragment = (hash >= 0) ? url.mid(hash + 1) : QString();
++	auto hasFragment = (hash >= 0);
++	auto changed = false;
++
++	for (const auto rule : paths) {
++		const auto was = path.size();
++		path.replace(*rule, QString());
++		changed = changed || (path.size() != was);
++	}
++	if (hasQuery) {
++		const auto filtered = FilterParams(query, rules);
++		if (filtered.removed) {
++			query = filtered.value;
++			changed = true;
++		}
++	}
++	if (hasFragment
++		&& fragment.contains('=')
++		&& !fragment.contains('/')) {
++		const auto filtered = FilterParams(fragment, rules);
++		if (filtered.removed) {
++			fragment = filtered.value;
++			hasFragment = !fragment.isEmpty();
++			changed = true;
++		}
++	}
++	if (!changed) {
++		return url;
++	}
++	auto result = url.left(end) + path;
++	if (!query.isEmpty()) {
++		result += '?' + query;
++	}
++	if (hasFragment) {
++		result += '#' + fragment;
++	}
++	return result;
++}
++
++QString PrepareOpenedLink(const QString &url) {
++	return (CleanOpenedLinks() && !SkipCleaning) ? StripTracking(url) : url;
++}
++
++void AddOpenUncleanedAction(
++		not_null<Ui::PopupMenu*> menu,
++		const std::shared_ptr<ClickHandler> &link) {
++	if (!link || !CleanOpenedLinks()) {
++		return;
++	}
++	const auto url = link->url();
++	if (url.isEmpty() || StripTracking(url) == url) {
++		return;
++	}
++	menu->addAction(Lower(u"Open without cleaning"_q), [=] {
++		SkipCleaning = true;
++		UrlClickHandler::Open(url);
++		SkipCleaning = false;
++	}, &st::menuIconLink);
++}
++
++void PrepareSentLinks(TextWithEntities &text) {
++	if (!CleanSentLinks()) {
++		return;
++	}
++	for (const auto &range : CollectUrls(text)) {
++		const auto url = text.text.mid(range.offset, range.length);
++		const auto cleaned = StripTrackingLoose(url);
++		if (cleaned != url && CanReplace(text.entities, range)) {
++			ReplaceRange(text, range, cleaned);
++		}
++	}
++	for (auto &entity : text.entities) {
++		if (entity.type() != EntityType::CustomUrl) {
++			continue;
++		}
++		const auto cleaned = StripTrackingLoose(entity.data());
++		if (cleaned != entity.data()) {
++			entity = EntityInText(
++				entity.type(),
++				entity.offset(),
++				entity.length(),
++				cleaned);
++		}
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_links.h b/Telegram/SourceFiles/tele/tele_links.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..e8701cda69df1040ea2f62bfc9a51e4d3d5fe6fb
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_links.h
+@@ -0,0 +1,19 @@
++#pragma once
++
++struct TextWithEntities;
++class ClickHandler;
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] QString StripTracking(const QString &url);
++[[nodiscard]] QString PrepareOpenedLink(const QString &url);
++void PrepareSentLinks(TextWithEntities &text);
++void AddOpenUncleanedAction(
++	not_null<Ui::PopupMenu*> menu,
++	const std::shared_ptr<ClickHandler> &link);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 89c5bc7d6e1c22153baad65cd1ba36b5f2a001de..7417340503f33ebf388d825283da89b6596a6828 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -26,6 +26,8 @@ const char kOptionHideSponsored[] = "tele-hide-sponsored";
+ const char kOptionHideProxySponsor[] = "tele-hide-proxy-sponsor";
+ const char kOptionNoLinkWarning[] = "tele-no-link-warning";
+ const char kOptionOpenLinksInApps[] = "tele-open-links-in-apps";
++const char kOptionCleanOpenedLinks[] = "tele-clean-opened-links";
++const char kOptionCleanSentLinks[] = "tele-clean-sent-links";
+ const char kOptionHideAllChats[] = "tele-hide-all-chats";
+ const char kOptionJumpToFirst[] = "tele-jump-to-first";
+ const char kOptionStaticUserpicsList[] = "tele-static-userpics-list";
+@@ -199,6 +201,22 @@ base::options::toggle OpenLinksInAppsOption({
+ 	.description = "Spotify, Steam, Discord, Zoom and more, when the app is installed.",
+ });
+ 
++base::options::toggle CleanOpenedLinksOption({
++	.id = kOptionCleanOpenedLinks,
++	.name = "SUPER MAGA PALANTIR ICE PETER THIEL AI DATA HARVESTER 9000 "
++		"remover (opened links)",
++	.description = "Strips tracking like utm, fbclid and si from links "
++		"you open.",
++});
++
++base::options::toggle CleanSentLinksOption({
++	.id = kOptionCleanSentLinks,
++	.name = "SUPER MAGA PALANTIR ICE PETER THIEL AI DATA HARVESTER 9000 "
++		"remover (sent links)",
++	.description = "Strips the same tracking from links in messages and "
++		"captions you send.",
++});
++
+ base::options::toggle HideAllChatsOption({
+ 	.id = kOptionHideAllChats,
+ 	.name = "Hide the All chats folder",
+@@ -508,6 +526,14 @@ bool OpenLinksInApps() {
+ 	return OpenLinksInAppsOption.value();
+ }
+ 
++bool CleanOpenedLinks() {
++	return CleanOpenedLinksOption.value();
++}
++
++bool CleanSentLinks() {
++	return CleanSentLinksOption.value();
++}
++
+ bool HideAllChats() {
+ 	return HideAllChatsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 7e507163b343eb0166674d4d85abbcd15c0cc7c7..d6d0b953cfba40e2ba7de844a919bc1d9dc093fa 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -24,6 +24,8 @@ extern const char kOptionHideSponsored[];
+ extern const char kOptionHideProxySponsor[];
+ extern const char kOptionNoLinkWarning[];
+ extern const char kOptionOpenLinksInApps[];
++extern const char kOptionCleanOpenedLinks[];
++extern const char kOptionCleanSentLinks[];
+ extern const char kOptionHideAllChats[];
+ extern const char kOptionJumpToFirst[];
+ extern const char kOptionStaticUserpicsList[];
+@@ -81,6 +83,8 @@ void SetChangelogShown(int build);
+ [[nodiscard]] rpl::producer<> HideProxySponsorChanges();
+ [[nodiscard]] bool NoLinkWarning();
+ [[nodiscard]] bool OpenLinksInApps();
++[[nodiscard]] bool CleanOpenedLinks();
++[[nodiscard]] bool CleanSentLinks();
+ [[nodiscard]] bool HideAllChats();
+ [[nodiscard]] rpl::producer<> HideAllChatsChanges();
+ [[nodiscard]] bool JumpToFirst();

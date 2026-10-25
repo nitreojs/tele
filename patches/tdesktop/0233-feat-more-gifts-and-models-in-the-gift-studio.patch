@@ -1,0 +1,2927 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 14:06:48 +0300
+Subject: [PATCH] feat: more gifts and models in the gift studio
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/tele/tele_gift_grid_cell.cpp  |  32 +-
+ .../SourceFiles/tele/tele_gift_grid_cell.h    |   1 +
+ .../tele/tele_gift_grid_editor.cpp            |  42 +-
+ .../SourceFiles/tele/tele_gift_studio.cpp     | 435 +++++++--
+ .../tele/tele_gift_studio_data.cpp            | 822 +++++++++++++++++-
+ .../SourceFiles/tele/tele_gift_studio_data.h  |  48 +-
+ .../tele/tele_gift_studio_emoji.cpp           | 121 +++
+ .../SourceFiles/tele/tele_gift_studio_emoji.h |  10 +
+ .../tele/tele_gift_studio_render.cpp          |  23 +-
+ .../tele/tele_gift_studio_render.h            |   3 +
+ .../tele/tele_gift_studio_roll.cpp            | 240 ++++-
+ .../tele/tele_gift_studio_store.cpp           |  65 +-
+ .../SourceFiles/tele/tele_gift_studio_store.h |   8 +
+ .../tele/tele_gift_studio_sweep.cpp           |  30 +-
+ .../tele/tele_gift_studio_widgets.cpp         |  62 +-
+ .../tele/tele_gift_studio_widgets.h           |   7 +
+ 17 files changed, 1819 insertions(+), 132 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_emoji.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_studio_emoji.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index bc0b5daff12122fe0a67fa59a7bf80313de07d61..4b594e1ab5c9b1749acef603cd38fd09cceddcc0 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2614,6 +2614,8 @@ PRIVATE
+     tele/tele_gift_studio.h
+     tele/tele_gift_studio_data.cpp
+     tele/tele_gift_studio_data.h
++    tele/tele_gift_studio_emoji.cpp
++    tele/tele_gift_studio_emoji.h
+     tele/tele_gift_studio_export.cpp
+     tele/tele_gift_studio_export.h
+     tele/tele_gift_studio_menu.cpp
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp b/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp
+index 35a076a8b902bd4a2dd8b1a78a52f75a584e0c59..189b021c9d5cd03635f3868812bda4825d8b81ef 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_cell.cpp
+@@ -402,6 +402,7 @@ void Library::parts(
+ 		Fn<void(const GiftStudio::Parts&)> done,
+ 		Fn<void()> fail) {
+ 	if (const auto i = _parts.find(collection); i != end(_parts)) {
++		GiftStudio::SyncCustomModels(i->second.models);
+ 		done(i->second);
+ 		return;
+ 	}
+@@ -451,11 +452,27 @@ void Library::resolve(const Cell &cell, Fn<void(Resolved)> done) {
+ }
+ 
+ void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
++	if (GiftStudio::IsRegularGift(cell.collection) && _collections.empty()) {
++		const auto retry = [=] {
++			resolveUniqueParts(cell, done);
++		};
++		collections([=](const std::vector<QString> &) {
++			retry();
++		}, retry);
++		return;
++	}
++	resolveUniqueParts(cell, std::move(done));
++}
++
++void Library::resolveUniqueParts(const Cell &cell, Fn<void(Resolved)> done) {
+ 	const auto fail = [=] {
+ 		done(Resolved{ .failed = true });
+ 	};
+ 	parts(cell.collection, [=](const GiftStudio::Parts &parts) {
+-		const auto model = FindByName(parts.models, cell.model);
++		const auto modelIndex = GiftStudio::FindModel(parts.models, cell.model);
++		const auto model = (modelIndex >= 0)
++			? &parts.models[modelIndex]
++			: nullptr;
+ 		const auto backdrop = FindByName(parts.backdrops, cell.backdrop);
+ 		const auto symbol = FindByName(parts.symbols, cell.symbol);
+ 		if (!model || !backdrop || !symbol) {
+@@ -469,6 +486,9 @@ void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
+ 			bool failed = false;
+ 		};
+ 		const auto pending = std::make_shared<Pending>();
++		const auto modelAttribute = *model;
++		const auto symbolAttribute = *symbol;
++		const auto title = GiftStudio::CollectionTitle(cell.collection);
+ 		const auto modelName = model->name;
+ 		const auto symbolName = symbol->name;
+ 		const auto backdropName = backdrop->name;
+@@ -485,7 +505,7 @@ void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
+ 			}
+ 			const auto key = cell.collection + '\n';
+ 			const auto document = localSticker(
+-				u"model\n"_q + key + modelName,
++				u"model\n"_q + key + modelAttribute.key(),
+ 				pending->model);
+ 			const auto pattern = localSticker(
+ 				u"symbol\n"_q + key + symbolName,
+@@ -493,7 +513,7 @@ void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
+ 			auto unique = std::make_shared<Data::UniqueGift>(
+ 				Data::UniqueGift{
+ 					.id = base::RandomValue<CollectibleId>(),
+-					.title = cell.collection,
++					.title = title,
+ 					.nanoTonForResale = 0,
+ 					.starsForResale = 0,
+ 					.number = cell.number,
+@@ -521,12 +541,12 @@ void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
+ 					.id = base::RandomValue<uint64>(),
+ 					.unique = std::move(unique),
+ 					.document = document,
+-					.resellTitle = cell.collection,
++					.resellTitle = title,
+ 					.limitedCount = 1,
+ 				},
+ 			});
+ 		});
+-		GiftStudio::RequestModel(cell.collection, modelName, [=](
++		GiftStudio::RequestModel(cell.collection, modelAttribute, [=](
+ 				QByteArray json) {
+ 			pending->model = std::move(json);
+ 			finish();
+@@ -534,7 +554,7 @@ void Library::resolveUnique(const Cell &cell, Fn<void(Resolved)> done) {
+ 			pending->failed = true;
+ 			finish();
+ 		});
+-		GiftStudio::RequestSymbol(cell.collection, symbolName, [=](
++		GiftStudio::RequestSymbol(cell.collection, symbolAttribute, [=](
+ 				QByteArray json) {
+ 			pending->symbol = std::move(json);
+ 			finish();
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_cell.h b/Telegram/SourceFiles/tele/tele_gift_grid_cell.h
+index e21f6473d5166bf2c4a47d4759aa014ebfbcd18c..06f5857a0b2b38a5d3507eefa20fa143cdf17643 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_grid_cell.h
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_cell.h
+@@ -117,6 +117,7 @@ private:
+ 		const QString &key,
+ 		const QByteArray &json);
+ 	void resolveUnique(const Cell &cell, Fn<void(Resolved)> done);
++	void resolveUniqueParts(const Cell &cell, Fn<void(Resolved)> done);
+ 	void resolveRegular(const Cell &cell, Fn<void(Resolved)> done);
+ 
+ 	const not_null<Main::Session*> _session;
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp b/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+index 0ead7b6724a433da68a86c1bc3ed4d921881eddc..0a1c25b0aabd78529b847c800024b98c29a4523c 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+@@ -56,6 +56,12 @@ template <typename List>
+ 	return -1;
+ }
+ 
++void FixModel(QString &key, const std::vector<Attribute> &models) {
++	const auto index = FindModel(models, key);
++	const auto fixed = (index >= 0) ? index : DefaultModel(models);
++	key = (fixed >= 0) ? models[fixed].key() : QString();
++}
++
+ template <typename List>
+ void FixName(QString &name, const List &list) {
+ 	if (list.empty()) {
+@@ -685,20 +691,27 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 		const auto ready = (state->partsFor == draft.collection);
+ 		auto selected = -1;
+ 		switch (state->tab) {
+-		case Tab::Collection:
+-			for (auto i = 0; i != int(state->collections.size()); ++i) {
+-				add(state->collections[i], std::nullopt, i);
+-				if (state->collections[i] == draft.collection) {
+-					selected = i;
+-				}
++		case Tab::Collection: {
++			rows = CollectionRows(state->collections, query);
++			const auto current = CollectionBase(draft.collection);
++			const auto &collections = state->collections;
++			const auto i = ranges::find(collections, current);
++			if (i != end(collections)) {
++				selected = int(i - begin(collections));
+ 			}
+-			break;
++		} break;
+ 		case Tab::Model:
+ 			if (ready) {
+ 				for (auto i = 0; i != int(parts.models.size()); ++i) {
+-					add(parts.models[i].name, parts.models[i].permille, i);
++					const auto &model = parts.models[i];
++					add(
++						model.name,
++						(model.custom
++							? std::nullopt
++							: std::make_optional(model.permille)),
++						i);
+ 				}
+-				selected = IndexOf(parts.models, draft.model);
++				selected = FindModel(parts.models, draft.model);
+ 			}
+ 			break;
+ 		case Tab::Backdrop:
+@@ -750,7 +763,7 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 					rect,
+ 					PreviewKind::Model,
+ 					collection,
+-					parts.models[index].name,
++					parts.models[index].key(),
+ 					list,
+ 					std::nullopt);
+ 			}
+@@ -766,7 +779,7 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 					p,
+ 					rect,
+ 					PreviewKind::Symbol,
+-					collection,
++					AssetCollection(collection, parts.symbols[index]),
+ 					parts.symbols[index].name,
+ 					list,
+ 					st::windowSubTextFg->c);
+@@ -787,7 +800,7 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 			state->parts = parts;
+ 			state->partsFor = collection;
+ 			auto &draft = state->draft;
+-			FixName(draft.model, parts.models);
++			FixModel(draft.model, parts.models);
+ 			FixName(draft.backdrop, parts.backdrops);
+ 			FixName(draft.symbol, parts.symbols);
+ 			state->refreshList(false);
+@@ -815,14 +828,15 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 		case Tab::Collection:
+ 			if (index >= 0
+ 				&& index < int(state->collections.size())
+-				&& state->collections[index] != draft.collection) {
++				&& (state->collections[index]
++					!= CollectionBase(draft.collection))) {
+ 				draft.collection = state->collections[index];
+ 				state->loadParts();
+ 			}
+ 			break;
+ 		case Tab::Model:
+ 			if (index >= 0 && index < int(parts.models.size())) {
+-				draft.model = parts.models[index].name;
++				draft.model = parts.models[index].key();
+ 			}
+ 			break;
+ 		case Tab::Backdrop:
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio.cpp b/Telegram/SourceFiles/tele/tele_gift_studio.cpp
+index 3a9ae5974c11d66104a790a1e5ec3afe8f70adfb..2b9d6d5502eb956432af898bd30df735ade5c174 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio.cpp
+@@ -97,6 +97,7 @@ constexpr auto kAngleStep = 15;
+ constexpr auto kPreferredHeight = 640;
+ constexpr auto kSectionHeight = 36;
+ constexpr auto kTooltipDelay = 600;
++constexpr auto kLoadModelIndex = -2;
+ 
+ [[nodiscard]] QString FilePrefix(const QString &gift, const QString &model) {
+ 	static const auto kBad = QRegularExpression(
+@@ -175,24 +176,69 @@ template <typename List, typename Name>
+ 		const std::vector<int> &permilles,
+ 		bool weighted) {
+ 	const auto count = int(permilles.size());
+-	if (!count) {
+-		return -1;
+-	} else if (!weighted) {
+-		return base::RandomIndex(count);
+-	}
+ 	auto total = uint64(0);
+-	for (const auto permille : permilles) {
+-		total += uint64(std::max(permille, 1));
++	auto allowed = std::vector<int>();
++	for (auto i = 0; i != count; ++i) {
++		if (permilles[i] > 0) {
++			total += uint64(permilles[i]);
++		}
++		if (permilles[i] >= 0) {
++			allowed.push_back(i);
++		}
++	}
++	if (allowed.empty()) {
++		return -1;
++	} else if (!weighted || !total) {
++		return allowed[base::RandomIndex(int(allowed.size()))];
+ 	}
+ 	auto value = base::RandomValue<uint64>() % total;
+ 	for (auto i = 0; i != count; ++i) {
+-		const auto weight = uint64(std::max(permilles[i], 1));
++		if (permilles[i] <= 0) {
++			continue;
++		}
++		const auto weight = uint64(permilles[i]);
+ 		if (value < weight) {
+ 			return i;
+ 		}
+ 		value -= weight;
+ 	}
+-	return count - 1;
++	return allowed.back();
++}
++
++[[nodiscard]] std::vector<int> ModelPermilles(
++		const std::vector<Attribute> &models) {
++	auto result = std::vector<int>();
++	result.reserve(models.size());
++	for (const auto &model : models) {
++		result.push_back(model.custom ? -1 : model.permille);
++	}
++	return result;
++}
++
++[[nodiscard]] int FindExactModel(
++		const std::vector<Attribute> &models,
++		const QString &key) {
++	const auto i = ranges::find(models, key, &Attribute::key);
++	return (i != end(models)) ? int(i - begin(models)) : -1;
++}
++
++void PaintLoadPreview(QPainter &p, QRect rect) {
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(Qt::NoPen);
++	p.setBrush(st::windowBgOver);
++	p.drawEllipse(rect);
++	auto pen = st::windowSubTextFg->p;
++	pen.setWidthF(style::ConvertScaleExact(2.));
++	pen.setCapStyle(Qt::RoundCap);
++	p.setPen(pen);
++	const auto center = QRectF(rect).center();
++	const auto half = rect.width() / 4.;
++	p.drawLine(
++		QPointF(center.x() - half, center.y()),
++		QPointF(center.x() + half, center.y()));
++	p.drawLine(
++		QPointF(center.x(), center.y() - half),
++		QPointF(center.x(), center.y() + half));
+ }
+ 
+ [[nodiscard]] not_null<Ui::RoundButton*> MakeButton(
+@@ -436,6 +482,7 @@ struct State {
+ 	QString query;
+ 	QString status;
+ 	QString initialSlug;
++	bool randomParts = false;
+ 	bool modelFailed = false;
+ 	rpl::variable<bool> playing = true;
+ 	int frame = 0;
+@@ -450,6 +497,9 @@ struct State {
+ 	bool weighted = false;
+ 	bool busy = false;
+ 	rpl::variable<OwnedQuery> owned;
++	rpl::variable<QString> modelName;
++	rpl::variable<QString> backdropName;
++	rpl::variable<QString> symbolName;
+ 	std::unique_ptr<Sweep> sweep;
+ 	Ui::Animations::Basic animation;
+ 	std::shared_ptr<std::atomic<bool>> alive
+@@ -798,6 +848,23 @@ void GiftStudioBox(
+ 			sliderHeight);
+ 	}, playRow->lifetime());
+ 
++	const auto sourceNote = addNote(panel, rpl::single(QString()));
++	const auto sourceLabel = sourceNote->entity();
++	const auto refreshSource = [=] {
++		const auto regular = IsRegularGift(state->gift);
++		if (regular) {
++			const auto source = RegularSource(state->gift);
++			auto text = TextWithEntities{ source.isEmpty()
++				? Lower(u"A regular gift: backdrops and symbols come from "
++					"every collection. "_q)
++				: Lower(u"A regular gift: backdrops and symbols come from "
++					"%1. "_q).arg(source) };
++			text.append(Ui::Text::Link(Lower(u"Change"_q)));
++			sourceLabel->setMarkedText(text);
++		}
++		sourceNote->toggle(regular, anim::type::instant);
++	};
++
+ 	const auto layouts = panel->add(
+ 		object_ptr<Ui::SettingsSlider>(panel, st::defaultSettingsSlider),
+ 		style::margins(0, line, 0, line));
+@@ -996,6 +1063,11 @@ void GiftStudioBox(
+ 				? Lower(u"subtitle"_q)
+ 				: Lower(u"custom subtitle"_q));
+ 		}
++		if (!o.customModel.isEmpty()
++			|| !o.customBackdrop.isEmpty()
++			|| !o.customSymbol.isEmpty()) {
++			shown.push_back(Lower(u"custom names"_q));
++		}
+ 		auto result = shown.isEmpty()
+ 			? Lower(u"hidden"_q)
+ 			: shown.join(u", "_q);
+@@ -1035,6 +1107,34 @@ void GiftStudioBox(
+ 			QString()),
+ 		style::margins(0, 0, 0, line));
+ 	subtitleField->setMaxLength(kMaxTitle);
++	const auto addNameField = [&](
++			const rpl::variable<QString> &name,
++			const QString &fallback) {
++		const auto result = text->add(
++			object_ptr<Ui::InputField>(
++				text,
++				st::defaultInputField,
++				name.value() | rpl::map([=](const QString &value) {
++					return value.isEmpty() ? Lower(fallback) : value;
++				}),
++				QString()),
++			style::margins(0, 0, 0, line));
++		result->setMaxLength(kMaxTitle);
++		return result;
++	};
++	const auto modelNameField = addNameField(
++		state->modelName,
++		u"Model name"_q);
++	const auto backdropNameField = addNameField(
++		state->backdropName,
++		u"Backdrop name"_q);
++	const auto symbolNameField = addNameField(
++		state->symbolName,
++		u"Symbol name"_q);
++	addNote(text, rpl::single(Lower(
++		u"Renames the model, backdrop and symbol on the card. "
++		"Leave empty to keep the real names."_q)))->show(
++			anim::type::instant);
+ 	addSlider(
+ 		text,
+ 		{ u"Text size"_q, Range(50, 200, 10), PercentText },
+@@ -1275,11 +1375,17 @@ void GiftStudioBox(
+ 				.arg(RarityChance(model, backdrop)));
+ 	};
+ 	state->updateTexts = [=] {
+-		state->renderer.setTexts(currentTexts());
++		const auto texts = currentTexts();
++		state->renderer.setTexts(texts);
++		state->modelName = texts.model;
++		state->backdropName = texts.backdrop;
++		state->symbolName = texts.symbol;
+ 		updateRarity();
+ 		const auto &parts = state->parts;
+ 		state->owned = OwnedQuery{
+-			.collection = state->gift,
++			.collection = IsVirtualCollection(state->gift)
++				? QString()
++				: state->gift,
+ 			.model = (state->model >= 0)
+ 				? parts.models[state->model].name
+ 				: QString(),
+@@ -1517,6 +1623,19 @@ void GiftStudioBox(
+ 			state->applyOptions();
+ 		}
+ 	}, subtitleField->lifetime());
++	const auto nameChanges = [=](
++			not_null<Ui::InputField*> field,
++			QString TextOptions::*option) {
++		field->changes() | rpl::on_next([=] {
++			if (!state->updating) {
++				state->options.text.*option = field->getLastText().trimmed();
++				state->applyOptions();
++			}
++		}, field->lifetime());
++	};
++	nameChanges(modelNameField, &TextOptions::customModel);
++	nameChanges(backdropNameField, &TextOptions::customBackdrop);
++	nameChanges(symbolNameField, &TextOptions::customSymbol);
+ 	pingPong->checkedChanges() | rpl::on_next([=](bool checked) {
+ 		state->motion.pingPong = checked;
+ 		motionChanged();
+@@ -1572,6 +1691,9 @@ void GiftStudioBox(
+ 		showRarity->setChecked(o.text.rarity);
+ 		showTgsText->setChecked(o.text.tgs);
+ 		subtitleField->setText(o.text.customSubtitle);
++		modelNameField->setText(o.text.customModel);
++		backdropNameField->setText(o.text.customBackdrop);
++		symbolNameField->setText(o.text.customSymbol);
+ 		pingPong->setChecked(state->motion.pingPong);
+ 		for (const auto &sync : state->syncers) {
+ 			sync();
+@@ -1683,7 +1805,7 @@ void GiftStudioBox(
+ 		const auto request = ++state->modelRequest;
+ 		RequestModel(
+ 			state->gift,
+-			state->parts.models[index].name,
++			state->parts.models[index],
+ 			crl::guard(box, [=](QByteArray json) {
+ 				if (request != state->modelRequest) {
+ 					return;
+@@ -1712,7 +1834,7 @@ void GiftStudioBox(
+ 		const auto request = ++state->symbolRequest;
+ 		RequestSymbol(
+ 			state->gift,
+-			state->parts.symbols[index].name,
++			state->parts.symbols[index],
+ 			crl::guard(box, [=](QByteArray json) {
+ 				if (request == state->symbolRequest) {
+ 					state->renderer.setSymbol(json);
+@@ -1747,11 +1869,18 @@ void GiftStudioBox(
+ 					+ wanted + u"\u201D"_q);
+ 			}
+ 		};
+-		pick(
+-			MatchName(parts.models, pending.model, name),
+-			pending.model,
+-			u"model"_q,
+-			state->selectModel);
++		const auto model = FindModel(parts.models, pending.model);
++		const auto customMissing = (model < 0)
++			&& IsCustomModel(pending.model);
++		if (!customMissing) {
++			pick(
++				(model >= 0)
++					? model
++					: MatchName(parts.models, pending.model, name),
++				pending.model,
++				u"model"_q,
++				state->selectModel);
++		}
+ 		pick(
+ 			MatchName(parts.backdrops, pending.backdrop, name),
+ 			pending.backdrop,
+@@ -1762,13 +1891,16 @@ void GiftStudioBox(
+ 			pending.symbol,
+ 			u"symbol"_q,
+ 			state->selectSymbol);
+-		if (!pending.title.isEmpty()) {
++		if (!pending.title.isEmpty() && !IsLegacyTitle(pending.title)) {
+ 			titleField->setText(pending.title);
+ 		}
+ 		numberField->setText(pending.number);
+ 		state->updateTexts();
+ 		state->refreshList(true);
+-		if (!missing.isEmpty()) {
++		if (customMissing) {
++			state->toast(Lower(u"Model not found: the code uses a custom "
++				".tgs model that isn't loaded on this device."_q));
++		} else if (!missing.isEmpty()) {
+ 			state->toast(Lower(u"Couldn't match "_q)
+ 				+ missing.join(u", "_q)
+ 				+ Lower(u", kept the current one."_q));
+@@ -1785,10 +1917,12 @@ void GiftStudioBox(
+ 		state->animation.stop();
+ 		state->frame = 0;
+ 		state->status = Lower(u"Loading\u2026"_q);
+-		titleField->setText(name);
++		titleField->setText(CollectionTitle(name));
++		refreshSource();
+ 		state->updateTexts();
+ 		state->updateFrame();
+ 		const auto request = ++state->partsRequest;
++		const auto random = base::take(state->randomParts);
+ 		RequestParts(name, crl::guard(box, [=](Parts parts) {
+ 			if (request != state->partsRequest) {
+ 				return;
+@@ -1796,10 +1930,15 @@ void GiftStudioBox(
+ 			state->parts = std::move(parts);
+ 			state->partsReady = true;
+ 			state->status = QString();
+-			state->selectBackdrop(0);
+-			state->selectSymbol(0);
+-			state->selectModel(0);
+-			state->refreshList(false);
++			const auto pick = [&](const auto &items) {
++				return random ? base::RandomIndex(int(items.size())) : 0;
++			};
++			state->selectBackdrop(pick(state->parts.backdrops));
++			state->selectSymbol(pick(state->parts.symbols));
++			state->selectModel(random
++				? PickIndex(ModelPermilles(state->parts.models), false)
++				: DefaultModel(state->parts.models));
++			state->refreshList(random);
+ 			state->applyPending();
+ 		}), crl::guard(box, [=] {
+ 			if (request == state->partsRequest) {
+@@ -1830,20 +1969,44 @@ void GiftStudioBox(
+ 		auto selected = -1;
+ 		const auto &parts = state->parts;
+ 		switch (state->tab) {
+-		case Tab::Collection:
+-			for (auto i = 0; i != int(state->gifts.size()); ++i) {
+-				add(state->gifts[i], std::nullopt, i);
+-				if (state->gifts[i] == state->gift) {
+-					selected = i;
++		case Tab::Collection: {
++			rows = CollectionRows(state->gifts, query);
++			const auto current = CollectionBase(state->gift);
++			const auto i = ranges::find(state->gifts, current);
++			if (i != end(state->gifts)) {
++				selected = int(i - begin(state->gifts));
++			}
++		} break;
++		case Tab::Model: {
++			for (auto i = 0; i != int(parts.models.size()); ++i) {
++				if (!parts.models[i].custom) {
++					add(parts.models[i].name, parts.models[i].permille, i);
+ 				}
+ 			}
+-			break;
+-		case Tab::Model:
++			if (!state->partsReady) {
++				break;
++			}
++			const auto header = int(rows.size());
+ 			for (auto i = 0; i != int(parts.models.size()); ++i) {
+-				add(parts.models[i].name, parts.models[i].permille, i);
++				if (parts.models[i].custom) {
++					add(parts.models[i].name, std::nullopt, i);
++				}
++			}
++			if (query.isEmpty() || int(rows.size()) > header) {
++				rows.insert(begin(rows) + header, PickerRow{
++					.name = Lower(u"My models"_q),
++					.index = -1,
++					.header = true,
++				});
++			}
++			if (query.isEmpty()) {
++				rows.push_back({
++					.name = Lower(u"Load .tgs\u2026"_q),
++					.index = kLoadModelIndex,
++				});
+ 			}
+ 			selected = state->model;
+-			break;
++		} break;
+ 		case Tab::Backdrop:
+ 			for (auto i = 0; i != int(parts.backdrops.size()); ++i) {
+ 				add(parts.backdrops[i].name, parts.backdrops[i].permille, i);
+@@ -1864,9 +2027,12 @@ void GiftStudioBox(
+ 			: (state->tab == Tab::Backdrop)
+ 			? int(parts.backdrops.size())
+ 			: int(parts.symbols.size());
+-		listInfo->setText((int(rows.size()) == total)
++		const auto shown = int(ranges::count_if(rows, [](const PickerRow &row) {
++			return (row.index >= 0);
++		}));
++		listInfo->setText((shown == total)
+ 			? Lower(u"%1 in total"_q).arg(total)
+-			: Lower(u"%1 of %2"_q).arg(rows.size()).arg(total));
++			: Lower(u"%1 of %2"_q).arg(shown).arg(total));
+ 		list->setRows(std::move(rows), selected);
+ 		if (scrollToSelected) {
+ 			scroll->scrollToY(
+@@ -1875,6 +2041,10 @@ void GiftStudioBox(
+ 	};
+ 	list->setPreview([=](QPainter &p, QRect rect, int index) {
+ 		const auto &parts = state->parts;
++		if (index == kLoadModelIndex) {
++			PaintLoadPreview(p, rect);
++			return;
++		}
+ 		switch (state->tab) {
+ 		case Tab::Collection:
+ 			if (index < int(state->gifts.size())) {
+@@ -1895,7 +2065,7 @@ void GiftStudioBox(
+ 					rect,
+ 					PreviewKind::Model,
+ 					state->gift,
+-					parts.models[index].name,
++					parts.models[index].key(),
+ 					list,
+ 					std::nullopt);
+ 			}
+@@ -1911,7 +2081,7 @@ void GiftStudioBox(
+ 					p,
+ 					rect,
+ 					PreviewKind::Symbol,
+-					state->gift,
++					AssetCollection(state->gift, parts.symbols[index]),
+ 					parts.symbols[index].name,
+ 					list,
+ 					st::windowSubTextFg->c);
+@@ -1919,12 +2089,78 @@ void GiftStudioBox(
+ 			break;
+ 		}
+ 	});
++	const auto syncCustom = [=] {
++		if (!state->partsReady) {
++			return;
++		}
++		const auto current = (state->model >= 0)
++			? state->parts.models[state->model].key()
++			: QString();
++		SyncCustomModels(state->parts.models);
++		const auto index = FindExactModel(state->parts.models, current);
++		if (index >= 0) {
++			state->model = index;
++		} else {
++			state->selectModel(DefaultModel(state->parts.models));
++		}
++		state->refreshList(false);
++	};
++	const auto loadCustom = [=] {
++		FileDialog::GetOpenPath(
++			Core::App().getFileDialogParent(),
++			Lower(u"Load a .tgs model"_q),
++			u"Telegram Sticker (*.tgs);;"_q + FileDialog::AllFilesFilter(),
++			crl::guard(box, [=](FileDialog::OpenResult &&result) {
++				if (result.paths.isEmpty()) {
++					return;
++				}
++				const auto imported = ImportModel(result.paths.front());
++				if (!imported.error.isEmpty()) {
++					state->toast(imported.error);
++					return;
++				}
++				syncCustom();
++				const auto index = FindExactModel(
++					state->parts.models,
++					imported.key);
++				if (index >= 0) {
++					state->selectModel(index);
++					state->refreshList(true);
++				}
++				state->toast(Lower(u"Added to my models."_q));
++			}));
++	};
++	const auto listMenu = box->lifetime().make_state<
++		base::unique_qptr<Ui::PopupMenu>>();
++	list->contextRequests() | rpl::on_next([=](int index) {
++		const auto &models = state->parts.models;
++		if (state->tab != Tab::Model
++			|| index < 0
++			|| index >= int(models.size())
++			|| !models[index].custom) {
++			return;
++		}
++		const auto key = models[index].key();
++		*listMenu = base::make_unique_q<Ui::PopupMenu>(
++			list,
++			st::popupMenuWithIcons);
++		(*listMenu)->addAction(Lower(u"Remove from my models"_q), [=] {
++			RemoveModel(key);
++			syncCustom();
++			state->toast(Lower(u"Removed from my models."_q));
++		}, &st::menuIconDelete);
++		(*listMenu)->popup(QCursor::pos());
++	}, list->lifetime());
+ 	const auto choose = [=](int index) {
++		if (state->tab == Tab::Model && index == kLoadModelIndex) {
++			loadCustom();
++			return;
++		}
+ 		switch (state->tab) {
+ 		case Tab::Collection:
+ 			if (index >= 0
+ 				&& index < int(state->gifts.size())
+-				&& state->gifts[index] != state->gift) {
++				&& state->gifts[index] != CollectionBase(state->gift)) {
+ 				state->pending = Pending();
+ 				state->selectGift(state->gifts[index]);
+ 			}
+@@ -1971,20 +2207,22 @@ void GiftStudioBox(
+ 		const auto weighted = state->weighted;
+ 		switch (tab) {
+ 		case Tab::Collection: {
+-			const auto count = int(state->gifts.size());
+-			if (count > 1) {
+-				auto index = base::RandomIndex(count - 1);
+-				const auto current = ranges::find(state->gifts, state->gift)
+-					- begin(state->gifts);
+-				if (index >= current) {
+-					++index;
++			const auto current = CollectionBase(state->gift);
++			auto candidates = std::vector<QString>();
++			for (const auto &gift : state->gifts) {
++				if (gift != current && !IsVirtualCollection(gift)) {
++					candidates.push_back(gift);
+ 				}
++			}
++			if (!candidates.empty()) {
+ 				state->pending = Pending();
+-				state->selectGift(state->gifts[index]);
++				state->selectGift(candidates[
++					base::RandomIndex(int(candidates.size()))]);
+ 			}
+ 		} break;
+ 		case Tab::Model:
+-			state->selectModel(PickIndex(permilles(parts.models), weighted));
++			state->selectModel(
++				PickIndex(ModelPermilles(parts.models), weighted));
+ 			break;
+ 		case Tab::Backdrop:
+ 			state->selectBackdrop(
+@@ -2036,7 +2274,9 @@ void GiftStudioBox(
+ 		const auto texts = state->renderer.texts();
+ 		return Combo{
+ 			.collection = state->gift,
+-			.model = texts.model,
++			.model = (state->model >= 0)
++				? state->parts.models[state->model].key()
++				: QString(),
+ 			.backdrop = texts.backdrop,
+ 			.symbol = texts.symbol,
+ 			.title = titleField->getLastText().trimmed(),
+@@ -2057,12 +2297,21 @@ void GiftStudioBox(
+ 			state->selectGift(collection);
+ 		}
+ 	};
+-	const auto applyCombo = [=](const Combo &combo) {
++	const auto resolveCollection = [=](const QString &collection) {
++		if (IsRegularGift(collection)) {
++			return ranges::contains(state->gifts, CollectionBase(collection))
++				? collection
++				: QString();
++		}
+ 		const auto same = [](const QString &name) {
+ 			return name;
+ 		};
+-		const auto index = MatchName(state->gifts, combo.collection, same);
+-		if (index < 0) {
++		const auto index = MatchName(state->gifts, collection, same);
++		return (index >= 0) ? state->gifts[index] : QString();
++	};
++	const auto applyCombo = [=](const Combo &combo) {
++		const auto collection = resolveCollection(combo.collection);
++		if (collection.isEmpty()) {
+ 			state->toast(Lower(u"Couldn't find the \u201C%1\u201D "
+ 				"collection on api.changes.tg."_q).arg(combo.collection));
+ 			return;
+@@ -2088,7 +2337,7 @@ void GiftStudioBox(
+ 			.number = combo.number,
+ 			.active = true,
+ 		};
+-		selectCollection(state->gifts[index]);
++		selectCollection(collection);
+ 	};
+ 
+ 	state->roll = SetupRoll(rollWrap->entity(), {
+@@ -2096,14 +2345,8 @@ void GiftStudioBox(
+ 		.collection = [=] { return state->gift; },
+ 		.open = [=](Combo combo) {
+ 			modes->setActiveSection(0);
+-			const auto same = [](const QString &name) {
+-				return name;
+-			};
+-			const auto index = MatchName(
+-				state->gifts,
+-				combo.collection,
+-				same);
+-			if (index < 0) {
++			const auto collection = resolveCollection(combo.collection);
++			if (collection.isEmpty()) {
+ 				return;
+ 			}
+ 			state->pending = Pending{
+@@ -2114,7 +2357,7 @@ void GiftStudioBox(
+ 				.number = combo.number,
+ 				.active = true,
+ 			};
+-			selectCollection(state->gifts[index]);
++			selectCollection(collection);
+ 		},
+ 		.width = previewWidth,
+ 	});
+@@ -2277,6 +2520,9 @@ void GiftStudioBox(
+ 		const auto plain = inside(titleField)
+ 			|| inside(numberField)
+ 			|| inside(subtitleField)
++			|| inside(modelNameField)
++			|| inside(backdropNameField)
++			|| inside(symbolNameField)
+ 			|| inside(widthField)
+ 			|| inside(heightField);
+ 		const auto ours = !ParseSlug(text).isEmpty()
+@@ -2308,7 +2554,7 @@ void GiftStudioBox(
+ 			? state->parts.models[state->model].name
+ 			: QString();
+ 		return filedialogDefaultName(
+-			FilePrefix(state->gift, model),
++			FilePrefix(CollectionTitle(state->gift), model),
+ 			extension);
+ 	};
+ 	const auto writeFile = [](const QString &path, const QByteArray &bytes) {
+@@ -2735,6 +2981,48 @@ void GiftStudioBox(
+ 				u".tgs"_q);
+ 		} },
+ 	});
++	const auto sourceMenu = box->lifetime().make_state<
++		base::unique_qptr<Ui::PopupMenu>>();
++	sourceLabel->setClickHandlerFilter([=](const auto &...) {
++		if (!IsRegularGift(state->gift)) {
++			return false;
++		}
++		*sourceMenu = base::make_unique_q<Ui::PopupMenu>(
++			sourceLabel,
++			st::popupMenuWithIcons);
++		const auto menu = sourceMenu->get();
++		const auto choose = [=](const QString &source) {
++			const auto key = RegularCollection(state->gift, source);
++			if (key == state->gift) {
++				return;
++			}
++			state->pending = Pending{
++				.model = (state->model >= 0)
++					? state->parts.models[state->model].key()
++					: QString(),
++				.backdrop = (state->backdrop >= 0)
++					? state->parts.backdrops[state->backdrop].name
++					: QString(),
++				.title = titleField->getLastText().trimmed(),
++				.number = numberField->getLastText().trimmed(),
++				.active = true,
++			};
++			state->selectGift(key);
++		};
++		menu->addAction(Lower(u"Every collection"_q), [=] {
++			choose(QString());
++		});
++		menu->addSeparator();
++		for (const auto &gift : state->gifts) {
++			if (!IsVirtualCollection(gift)) {
++				menu->addAction(gift, [=] {
++					choose(gift);
++				});
++			}
++		}
++		menu->popup(QCursor::pos());
++		return false;
++	});
+ 	const auto moreMenu = box->lifetime().make_state<
+ 		base::unique_qptr<Ui::PopupMenu>>();
+ 	more->setClickedCallback([=] {
+@@ -2858,6 +3146,13 @@ void GiftStudioBox(
+ 	body->widthValue() | rpl::on_next([=] {
+ 		state->relayout();
+ 	}, body->lifetime());
++	scroll->heightValue() | rpl::filter(
++		rpl::mappers::_1 > 0
++	) | rpl::take(1) | rpl::on_next([=] {
++		if (!state->gifts.empty()) {
++			state->refreshList(true);
++		}
++	}, scroll->lifetime());
+ 	root->heightValue() | rpl::on_next([=] {
+ 		state->relayout();
+ 	}, panel->lifetime());
+@@ -2887,7 +3182,19 @@ void GiftStudioBox(
+ 	RequestGifts(crl::guard(box, [=](std::vector<QString> gifts) {
+ 		state->gifts = std::move(gifts);
+ 		const auto slug = base::take(state->initialSlug);
+-		state->selectGift(state->gifts.front());
++		if (slug.isEmpty()) {
++			auto real = std::vector<QString>();
++			for (const auto &gift : state->gifts) {
++				if (!IsVirtualCollection(gift)) {
++					real.push_back(gift);
++				}
++			}
++			const auto &from = real.empty() ? state->gifts : real;
++			state->randomParts = true;
++			state->selectGift(from[base::RandomIndex(int(from.size()))]);
++		} else {
++			state->selectGift(state->gifts.front());
++		}
+ 		state->refreshList(true);
+ 		if (!slug.isEmpty()) {
+ 			loadLink(slug);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp
+index 116633e044226a736c09b29e1d2768206bb05d9e..ab212b96dbccdae144a8c3977bb697d90f090174 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp
+@@ -1,16 +1,23 @@
+ #include "tele/tele_gift_studio_data.h"
+ 
++#include "lottie/details/lottie_instance.h"
++#include "lottie/lottie_common.h"
+ #include "settings.h"
++#include "tele/tele_gift_studio_emoji.h"
++#include "tele/tele_gift_studio_store.h"
+ #include "tele/tele_launch_flags.h"
++#include "tele/tele_lowercase.h"
+ #include "ui/image/image_prepare.h"
+ 
+ #include <QtCore/QCoreApplication>
+ #include <QtCore/QCryptographicHash>
+ #include <QtCore/QDir>
+ #include <QtCore/QFile>
++#include <QtCore/QFileInfo>
+ #include <QtCore/QJsonArray>
+ #include <QtCore/QJsonDocument>
+ #include <QtCore/QJsonObject>
++#include <QtCore/QSaveFile>
+ #include <QtCore/QTimer>
+ #include <QtCore/QUrl>
+ #include <QtNetwork/QNetworkAccessManager>
+@@ -25,18 +32,108 @@ constexpr auto kTimeout = 20 * 1000;
+ constexpr auto kMaxSize = qint64(8 * 1024 * 1024);
+ constexpr auto kMaxMemory = qint64(48 * 1024 * 1024);
+ constexpr auto kMaxPreviewRequests = 6;
++constexpr auto kOriginalKey = "@original";
++constexpr auto kCustomPrefix = "@my/";
++constexpr auto kMaxCustomModel = qint64(1024 * 1024);
++constexpr auto kCustomIdLength = 16;
++constexpr auto kPreviewSide = 64;
++constexpr auto kSourceSeparator = ':';
++constexpr auto kTeddyCollection = "Teddy Bear (fake)";
++constexpr auto kTeddyTitle = "Teddy Bear";
++constexpr auto kEmojiPrefix = "@emoji/";
++constexpr auto kTeddyOriginal = uint64(5224731332222948037ULL);
++constexpr auto kTeddyPermille = 100;
++
++struct FakeModel {
++	const char *name = nullptr;
++	uint64 document = 0;
++};
++
++constexpr auto kTeddyModels = std::array<FakeModel, 9>{ {
++	{ "New Year's", 5226692594678924691ULL },
++	{ "Valentine's", 5224216743601277523ULL },
++	{ "March 8th", 5294364490236734763ULL },
++	{ "Lucky One", 5316536232405145208ULL },
++	{ "Clowning", 5361934504875297884ULL },
++	{ "Easter", 5393437879538063724ULL },
++	{ "Working Class", 5449398593280580173ULL },
++	{ "Football Lover", 5398020738491919159ULL },
++	{ "Explosive", 5470129614439362117ULL },
++} };
++
++struct RegularName {
++	uint64 id = 0;
++	const char *name = nullptr;
++};
++
++constexpr auto kRegularNames = std::array<RegularName, 30>{ {
++	{ 5170145012310081615ULL, "Ribbon Heart" },
++	{ 5170233102089322756ULL, "Cuddle Bear" },
++	{ 5170250947678437525ULL, "Surprise Box" },
++	{ 5168103777563050263ULL, "Red Rose" },
++	{ 5170144170496491616ULL, "Candle Cake" },
++	{ 5170314324215857265ULL, "Tulip Bouquet" },
++	{ 5170564780938756245ULL, "Space Rocket" },
++	{ 5168043875654172773ULL, "Golden Cup" },
++	{ 5170690322832818290ULL, "Sparkle Ring" },
++	{ 5170521118301225164ULL, "Blue Gem" },
++	{ 6028601630662853006ULL, "Bubbly Bottle" },
++	{ 5872744075014177223ULL, "Kitty Valentine" },
++	{ 5933770397739647689ULL, "March Eight" },
++	{ 5773791997064119815ULL, "Easter Kulich" },
++	{ 5807641025165919973ULL, "May Day" },
++	{ 5830323722413671504ULL, "Victory Star" },
++	{ 5832325860073407546ULL, "Dove Stamp" },
++	{ 5897607679345427347ULL, "Golden Sundae" },
++	{ 5832279504491381684ULL, "Hoodie Bear" },
++	{ 5834918435477259676ULL, "Beach Castle" },
++	{ 5832371318007268701ULL, "Coco Cocktail" },
++	{ 5884080014126745057ULL, "Secret Case" },
++	{ 6003477390536213997ULL, "Durov Figurine" },
++	{ 6001425315291727333ULL, "Training Shirt" },
++	{ 6001229799790478558ULL, "Black Sneakers" },
++	{ 5775955135867913556ULL, "Spooky Grave" },
++	{ 5776227780391864916ULL, "Ruby Coffin" },
++	{ 5775966332847654507ULL, "Slasher Mask" },
++	{ 5818708013426410448ULL, "Silver Plane" },
++	{ 5956308547863052791ULL, "Fire Horse" },
++} };
++
++[[nodiscard]] const char *RegularTitle(const QString &collection) {
++	auto ok = false;
++	const auto id = CollectionBase(collection).toULongLong(&ok);
++	if (!ok) {
++		return nullptr;
++	}
++	for (const auto &entry : kRegularNames) {
++		if (entry.id == id) {
++			return entry.name;
++		}
++	}
++	return nullptr;
++}
+ 
+ struct Pending {
+ 	std::vector<Fn<void(QByteArray)>> done;
+ 	std::vector<Fn<void()>> fail;
+ };
+ 
++struct Pool {
++	std::vector<Backdrop> backdrops;
++	std::vector<Attribute> symbols;
++};
++
+ struct Cache {
+ 	base::flat_map<QString, QByteArray> bytes;
++	base::flat_map<QString, int> regularNumbers;
++	std::optional<Pool> pool;
++	std::vector<Fn<void(const Pool&)>> poolDone;
++	std::vector<Fn<void()>> poolFail;
+ 	qint64 total = 0;
+ 	base::flat_map<QString, Pending> pending;
+ 	base::flat_map<QString, QImage> previews;
+ 	base::flat_set<QString> failedPreviews;
++	base::flat_set<QString> renderingPreviews;
+ 	int previewRequests = 0;
+ };
+ 
+@@ -66,6 +163,97 @@ struct Cache {
+ 	return DiskFolder() + QString::fromLatin1(hash.toHex());
+ }
+ 
++[[nodiscard]] QString ModelsFolder() {
++	return cWorkingDir() + u"tdata/tele_gift_studio_models/"_q;
++}
++
++[[nodiscard]] QString CustomId(const QString &key) {
++	if (!IsCustomModel(key)) {
++		return QString();
++	}
++	const auto result = key.mid(int(std::strlen(kCustomPrefix)));
++	if (result.size() != kCustomIdLength) {
++		return QString();
++	}
++	for (const auto ch : result) {
++		const auto hex = (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f');
++		if (!hex) {
++			return QString();
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] QString CustomFile(const QString &id) {
++	return ModelsFolder() + id + u".tgs"_q;
++}
++
++[[nodiscard]] QString CustomPath(const QString &id) {
++	return u"my/"_q + id;
++}
++
++[[nodiscard]] uint64 EmojiId(const QString &key) {
++	if (!key.startsWith(QLatin1String(kEmojiPrefix))) {
++		return 0;
++	}
++	auto ok = false;
++	const auto result = key.mid(
++		int(std::strlen(kEmojiPrefix))).toULongLong(&ok);
++	return ok ? result : 0;
++}
++
++[[nodiscard]] QString EmojiKey(uint64 id) {
++	return QString::fromLatin1(kEmojiPrefix) + QString::number(id);
++}
++
++[[nodiscard]] QString EmojiPath(uint64 id) {
++	return u"emoji/"_q + QString::number(id);
++}
++
++[[nodiscard]] uint64 ModelEmoji(const QString &gift, const QString &key) {
++	return (key == QLatin1String(kOriginalKey))
++		? (IsFakeCollection(gift) ? kTeddyOriginal : 0)
++		: EmojiId(key);
++}
++
++[[nodiscard]] bool LocalPreview(
++		PreviewKind kind,
++		const QString &gift,
++		const QString &name) {
++	switch (kind) {
++	case PreviewKind::Gift: return IsFakeCollection(gift);
++	case PreviewKind::Model:
++		return IsCustomModel(name) || (ModelEmoji(gift, name) != 0);
++	case PreviewKind::Symbol: return false;
++	}
++	return false;
++}
++
++[[nodiscard]] bool ValidLottie(const QByteArray &json) {
++	const auto instance = Lottie::Instance::Create(
++		Lottie::ReadUtf8(json),
++		nullptr);
++	return instance
++		&& (instance->framesCount() > 0)
++		&& (instance->frameRate() > 0.)
++		&& !instance->size().isEmpty();
++}
++
++[[nodiscard]] QImage RenderPreview(const QByteArray &json) {
++	const auto instance = Lottie::Instance::Create(
++		Lottie::ReadUtf8(json),
++		nullptr);
++	if (!instance || instance->framesCount() <= 0) {
++		return QImage();
++	}
++	auto result = QImage(
++		QSize(kPreviewSide, kPreviewSide),
++		QImage::Format_ARGB32_Premultiplied);
++	result.fill(Qt::transparent);
++	instance->renderToPrepared(result, 0);
++	return result;
++}
++
+ [[nodiscard]] QByteArray ReadDisk(const QString &path) {
+ 	auto file = QFile(DiskPath(path));
+ 	if (!file.open(QIODevice::ReadOnly) || file.size() > kMaxSize) {
+@@ -231,15 +419,93 @@ void Fetch(
+ 	const auto extension = u".png?size=64"_q;
+ 	switch (kind) {
+ 	case PreviewKind::Gift:
+-		return u"original/"_q + Segment(gift) + extension;
++		return IsFakeCollection(gift)
++			? (EmojiPath(kTeddyOriginal) + u".png"_q)
++			: (u"original/"_q + Segment(CollectionBase(gift)) + extension);
+ 	case PreviewKind::Model:
+-		return AssetPath(u"model"_q, gift, name, extension);
++		if (const auto emoji = ModelEmoji(gift, name)) {
++			return EmojiPath(emoji) + u".png"_q;
++		}
++		return IsOriginalModel(name)
++			? (u"original/"_q + Segment(CollectionBase(gift)) + extension)
++			: IsCustomModel(name)
++			? CustomPath(CustomId(name))
++			: AssetPath(u"model"_q, gift, name, extension);
+ 	case PreviewKind::Symbol:
+ 		return AssetPath(u"symbol"_q, gift, name, extension);
+ 	}
+ 	return QString();
+ }
+ 
++[[nodiscard]] std::vector<QString> ParseGifts(const QByteArray &bytes) {
++	auto result = std::vector<QString>();
++	for (const auto &value : ParseArray(bytes)) {
++		const auto name = value.toString();
++		if (!name.isEmpty()) {
++			result.push_back(name);
++		}
++	}
++	return result;
++}
++
++struct Dates {
++	base::flat_map<QString, qint64> upgradable;
++	std::vector<std::pair<QString, qint64>> regular;
++};
++
++[[nodiscard]] Dates ParseDates(const QByteArray &bytes) {
++	auto result = Dates();
++	for (const auto &value : ParseArray(bytes)) {
++		const auto object = value.toObject();
++		const auto name = object.value(u"name"_q).toString();
++		const auto upgradable = object.value(u"upgradableAt"_q);
++		const auto released = object.value(u"releasedAt"_q);
++		const auto date = upgradable.isDouble() ? upgradable : released;
++		if (!object.value(u"upgradable"_q).toBool(true)) {
++			const auto id = object.value(u"id"_q).toString();
++			auto ok = false;
++			id.toULongLong(&ok);
++			if (ok) {
++				result.regular.emplace_back(
++					id,
++					released.isDouble() ? qint64(released.toDouble()) : 0);
++			}
++		} else if (!name.isEmpty() && date.isDouble()) {
++			result.upgradable.emplace(name, qint64(date.toDouble()));
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<QString> RegularGifts(
++		std::vector<std::pair<QString, qint64>> list) {
++	auto &numbers = Data().regularNumbers;
++	numbers.clear();
++	for (auto i = 0; i != int(list.size()); ++i) {
++		numbers.emplace(list[i].first, i + 1);
++	}
++	ranges::reverse(list);
++	ranges::stable_sort(list, ranges::greater(), [](const auto &entry) {
++		return entry.second;
++	});
++	return list | ranges::views::transform([](const auto &entry) {
++		return entry.first;
++	}) | ranges::to_vector;
++}
++
++void SortNewestFirst(
++		std::vector<QString> &gifts,
++		const base::flat_map<QString, qint64> &dates) {
++	ranges::reverse(gifts);
++	const auto date = [&](const QString &name) {
++		const auto i = dates.find(name);
++		return (i != end(dates))
++			? i->second
++			: std::numeric_limits<qint64>::max();
++	};
++	ranges::stable_sort(gifts, ranges::greater(), date);
++}
++
+ void RequestLottie(
+ 		const QString &path,
+ 		Fn<void(QByteArray)> done,
+@@ -249,25 +515,352 @@ void RequestLottie(
+ 	}, fail);
+ }
+ 
++template <typename Item>
++void MergeUnique(
++		std::vector<Item> &to,
++		base::flat_set<QString> &names,
++		std::vector<Item> &&from,
++		const QString &source) {
++	for (auto &item : from) {
++		if (names.emplace(item.name).second) {
++			if constexpr (std::is_same_v<Item, Attribute>) {
++				item.source = source;
++			}
++			to.push_back(std::move(item));
++		}
++	}
++}
++
++void RequestPool(Fn<void(const Pool&)> done, Fn<void()> fail) {
++	auto &data = Data();
++	if (data.pool) {
++		done(*data.pool);
++		return;
++	}
++	data.poolDone.push_back(std::move(done));
++	data.poolFail.push_back(std::move(fail));
++	if (data.poolDone.size() > 1) {
++		return;
++	}
++	const auto failed = [] {
++		Data().poolDone.clear();
++		for (const auto &callback : base::take(Data().poolFail)) {
++			callback();
++		}
++	};
++	Fetch(u"gifts"_q, false, [=](QByteArray bytes) {
++		const auto gifts = ParseGifts(bytes);
++		if (gifts.empty()) {
++			failed();
++			return;
++		}
++		struct Collected {
++			std::vector<std::vector<Backdrop>> backdrops;
++			std::vector<std::vector<Attribute>> symbols;
++			int left = 0;
++			bool incomplete = false;
++		};
++		const auto count = int(gifts.size());
++		const auto collected = std::make_shared<Collected>();
++		collected->backdrops.resize(count);
++		collected->symbols.resize(count);
++		collected->left = 2 * count;
++		const auto check = [=] {
++			if (--collected->left) {
++				return;
++			}
++			auto pool = Pool();
++			auto backdropNames = base::flat_set<QString>();
++			auto symbolNames = base::flat_set<QString>();
++			for (auto i = 0; i != count; ++i) {
++				MergeUnique(
++					pool.backdrops,
++					backdropNames,
++					std::move(collected->backdrops[i]),
++					gifts[i]);
++				MergeUnique(
++					pool.symbols,
++					symbolNames,
++					std::move(collected->symbols[i]),
++					gifts[i]);
++			}
++			ranges::stable_sort(pool.backdrops, ranges::less(), &Backdrop::permille);
++			ranges::stable_sort(pool.symbols, ranges::less(), &Attribute::permille);
++			if (pool.backdrops.empty() || pool.symbols.empty()) {
++				failed();
++				return;
++			}
++			auto &data = Data();
++			data.poolFail.clear();
++			if (collected->incomplete) {
++				for (const auto &callback : base::take(data.poolDone)) {
++					callback(pool);
++				}
++				return;
++			}
++			data.pool = std::move(pool);
++			for (const auto &callback : base::take(data.poolDone)) {
++				callback(*data.pool);
++			}
++		};
++		const auto skip = [=] {
++			collected->incomplete = true;
++			check();
++		};
++		for (auto i = 0; i != count; ++i) {
++			const auto segment = Segment(gifts[i]);
++			Fetch(u"backdrops/"_q + segment + u"?sorted"_q, false, [=](
++					QByteArray bytes) {
++				collected->backdrops[i] = ParseBackdrops(bytes);
++				check();
++			}, skip);
++			Fetch(u"symbols/"_q + segment + u"?sorted"_q, false, [=](
++					QByteArray bytes) {
++				collected->symbols[i] = ParseAttributes(bytes);
++				check();
++			}, skip);
++		}
++	}, failed);
++}
++
++void RequestEmoji(
++		uint64 id,
++		Fn<void(QByteArray)> done,
++		Fn<void()> fail) {
++	const auto path = EmojiPath(id);
++	auto &data = Data();
++	if (const auto i = data.bytes.find(path); i != end(data.bytes)) {
++		done(i->second);
++		return;
++	}
++	if (const auto raw = ReadDisk(path); !raw.isEmpty()) {
++		auto json = Images::UnpackGzip(raw);
++		Remember(path, json);
++		done(std::move(json));
++		return;
++	}
++	auto &pending = data.pending[path];
++	pending.done.push_back(std::move(done));
++	pending.fail.push_back(std::move(fail));
++	if (pending.done.size() > 1) {
++		return;
++	}
++	const auto failed = [=] {
++		auto callbacks = Data().pending.take(path).value_or(Pending());
++		for (const auto &callback : callbacks.fail) {
++			callback();
++		}
++	};
++	LoadEmojiSticker(id, [=](QByteArray raw) {
++		auto json = Images::UnpackGzip(raw);
++		if (json == raw || !ValidLottie(json)) {
++			failed();
++			return;
++		}
++		WriteDisk(path, raw);
++		Remember(path, json);
++		auto callbacks = Data().pending.take(path).value_or(Pending());
++		for (const auto &callback : callbacks.done) {
++			callback(json);
++		}
++	}, failed);
++}
++
++[[nodiscard]] Attribute OriginalModel() {
++	return {
++		.name = ModelTitle(QString::fromLatin1(kOriginalKey)),
++		.id = QString::fromLatin1(kOriginalKey),
++	};
++}
++
++void RequestFakeParts(Fn<void(Parts)> done, Fn<void()> fail) {
++	auto models = std::vector<Attribute>{ OriginalModel() };
++	for (const auto &model : kTeddyModels) {
++		models.push_back({
++			.name = QString::fromUtf8(model.name),
++			.permille = kTeddyPermille,
++			.id = EmojiKey(model.document),
++		});
++	}
++	SyncCustomModels(models);
++	RequestPool([=](const Pool &pool) {
++		done(Parts{
++			.models = models,
++			.backdrops = pool.backdrops,
++			.symbols = pool.symbols,
++		});
++	}, fail);
++}
++
++void RequestRegularParts(
++		const QString &gift,
++		Fn<void(Parts)> done,
++		Fn<void()> fail) {
++	auto models = std::vector<Attribute>{ OriginalModel() };
++	SyncCustomModels(models);
++	const auto source = RegularSource(gift);
++	if (source.isEmpty()) {
++		RequestPool([=](const Pool &pool) {
++			done(Parts{
++				.models = models,
++				.backdrops = pool.backdrops,
++				.symbols = pool.symbols,
++			});
++		}, fail);
++		return;
++	}
++	struct Collected {
++		Parts parts;
++		int left = 2;
++		bool failed = false;
++	};
++	const auto collected = std::make_shared<Collected>();
++	collected->parts.models = std::move(models);
++	const auto check = [=] {
++		if (--collected->left || collected->failed) {
++			return;
++		}
++		auto &parts = collected->parts;
++		if (parts.backdrops.empty() || parts.symbols.empty()) {
++			fail();
++		} else {
++			done(std::move(parts));
++		}
++	};
++	const auto failed = [=] {
++		if (!collected->failed) {
++			collected->failed = true;
++			fail();
++		}
++	};
++	const auto segment = Segment(source);
++	Fetch(u"backdrops/"_q + segment + u"?sorted"_q, false, [=](
++			QByteArray bytes) {
++		collected->parts.backdrops = ParseBackdrops(bytes);
++		check();
++	}, failed);
++	Fetch(u"symbols/"_q + segment + u"?sorted"_q, false, [=](
++			QByteArray bytes) {
++		auto symbols = ParseAttributes(bytes);
++		for (auto &symbol : symbols) {
++			symbol.source = source;
++		}
++		collected->parts.symbols = std::move(symbols);
++		check();
++	}, failed);
++}
++
+ } // namespace
+ 
++bool IsRegularGift(const QString &collection) {
++	const auto base = CollectionBase(collection);
++	if (base.isEmpty()) {
++		return false;
++	}
++	for (const auto ch : base) {
++		if (!ch.isDigit()) {
++			return false;
++		}
++	}
++	return true;
++}
++
++bool IsFakeCollection(const QString &collection) {
++	return (collection == QLatin1String(kTeddyCollection));
++}
++
++bool IsVirtualCollection(const QString &collection) {
++	return IsRegularGift(collection) || IsFakeCollection(collection);
++}
++
++CollectionGroup CollectionGroupOf(const QString &collection) {
++	return IsFakeCollection(collection)
++		? CollectionGroup::Extra
++		: IsRegularGift(collection)
++		? CollectionGroup::Gift
++		: CollectionGroup::Collectible;
++}
++
++bool IsLegacyTitle(const QString &title) {
++	return !title.compare(
++		QLatin1String(kTeddyCollection),
++		Qt::CaseInsensitive);
++}
++
++QString CollectionBase(const QString &collection) {
++	const auto separator = collection.indexOf(kSourceSeparator);
++	return (separator > 0) ? collection.left(separator) : collection;
++}
++
++QString RegularSource(const QString &collection) {
++	const auto separator = collection.indexOf(kSourceSeparator);
++	return (separator > 0) ? collection.mid(separator + 1) : QString();
++}
++
++QString RegularCollection(
++		const QString &collection,
++		const QString &source) {
++	const auto base = CollectionBase(collection);
++	return source.isEmpty() ? base : (base + kSourceSeparator + source);
++}
++
++QString CollectionTitle(const QString &collection) {
++	if (IsFakeCollection(collection)) {
++		return QString::fromLatin1(kTeddyTitle);
++	} else if (!IsRegularGift(collection)) {
++		return collection;
++	} else if (const auto name = RegularTitle(collection)) {
++		return QString::fromUtf8(name);
++	}
++	const auto &numbers = Data().regularNumbers;
++	const auto i = numbers.find(CollectionBase(collection));
++	return (i != end(numbers))
++		? Lower(u"Regular gift #%1"_q).arg(i->second)
++		: Lower(u"Regular gift"_q);
++}
++
++QString AssetCollection(
++		const QString &collection,
++		const Attribute &attribute) {
++	return attribute.source.isEmpty() ? collection : attribute.source;
++}
++
+ void RequestGifts(
+ 		Fn<void(std::vector<QString>)> done,
+ 		Fn<void()> fail) {
+-	Fetch(u"gifts"_q, false, [=](QByteArray bytes) {
+-		auto result = std::vector<QString>();
+-		for (const auto &value : ParseArray(bytes)) {
+-			const auto name = value.toString();
+-			if (!name.isEmpty()) {
+-				result.push_back(name);
+-			}
++	struct Collected {
++		std::vector<QString> gifts;
++		Dates dates;
++		int left = 2;
++		bool failed = false;
++	};
++	const auto collected = std::make_shared<Collected>();
++	const auto check = [=] {
++		if (--collected->left || collected->failed) {
++			return;
+ 		}
+-		if (result.empty()) {
++		auto &gifts = collected->gifts;
++		if (gifts.empty()) {
+ 			fail();
+-		} else {
+-			done(std::move(result));
++			return;
+ 		}
+-	}, fail);
++		SortNewestFirst(gifts, collected->dates.upgradable);
++		auto regular = RegularGifts(std::move(collected->dates.regular));
++		gifts.insert(end(gifts), regular.begin(), regular.end());
++		gifts.push_back(QString::fromLatin1(kTeddyCollection));
++		done(std::move(gifts));
++	};
++	Fetch(u"gifts"_q, false, [=](QByteArray bytes) {
++		collected->gifts = ParseGifts(bytes);
++		check();
++	}, [=] {
++		collected->failed = true;
++		fail();
++	});
++	Fetch(u"dates"_q, false, [=](QByteArray bytes) {
++		collected->dates = ParseDates(bytes);
++		check();
++	}, check);
+ }
+ 
+ void RequestIds(
+@@ -299,6 +892,13 @@ void RequestParts(
+ 		const QString &gift,
+ 		Fn<void(Parts)> done,
+ 		Fn<void()> fail) {
++	if (IsFakeCollection(gift)) {
++		RequestFakeParts(std::move(done), std::move(fail));
++		return;
++	} else if (IsRegularGift(gift)) {
++		RequestRegularParts(gift, std::move(done), std::move(fail));
++		return;
++	}
+ 	struct Collected {
+ 		Parts parts;
+ 		int left = 3;
+@@ -326,7 +926,12 @@ void RequestParts(
+ 	};
+ 	const auto segment = Segment(gift);
+ 	Fetch(u"models/"_q + segment + u"?sorted"_q, false, [=](QByteArray bytes) {
+-		collected->parts.models = ParseAttributes(bytes);
++		auto models = ParseAttributes(bytes);
++		if (!models.empty()) {
++			models.insert(begin(models), OriginalModel());
++		}
++		SyncCustomModels(models);
++		collected->parts.models = std::move(models);
+ 		check();
+ 	}, failed);
+ 	Fetch(u"backdrops/"_q + segment + u"?sorted"_q, false, [=](
+@@ -341,24 +946,186 @@ void RequestParts(
+ 	}, failed);
+ }
+ 
++bool IsOriginalModel(const QString &key) {
++	return (key == QLatin1String(kOriginalKey));
++}
++
++bool IsCustomModel(const QString &key) {
++	return key.startsWith(QLatin1String(kCustomPrefix));
++}
++
++QString ModelTitle(const QString &key) {
++	if (IsOriginalModel(key)) {
++		return Lower(u"Original"_q);
++	} else if (const auto emoji = EmojiId(key)) {
++		for (const auto &model : kTeddyModels) {
++			if (model.document == emoji) {
++				return QString::fromUtf8(model.name);
++			}
++		}
++		return Lower(u"Missing model"_q);
++	} else if (!IsCustomModel(key)) {
++		return key;
++	}
++	const auto id = CustomId(key);
++	for (const auto &model : CustomModels()) {
++		if (model.id == id) {
++			return model.name;
++		}
++	}
++	return Lower(u"Missing model"_q);
++}
++
++ImportedModel ImportModel(const QString &path) {
++	const auto error = [](const QString &text) {
++		return ImportedModel{ .error = Lower(text) };
++	};
++	auto file = QFile(path);
++	if (!file.open(QIODevice::ReadOnly)) {
++		return error(u"Couldn't read the file."_q);
++	} else if (file.size() > kMaxCustomModel) {
++		return error(u"The file is larger than 1 MB."_q);
++	}
++	const auto bytes = file.readAll();
++	if (bytes.size() < 2
++		|| uchar(bytes[0]) != 0x1F
++		|| uchar(bytes[1]) != 0x8B) {
++		return error(u"That's not a .tgs file: it isn't gzip-compressed."_q);
++	}
++	const auto json = Images::UnpackGzip(bytes);
++	if (json.isEmpty() || json == bytes) {
++		return error(u"Couldn't unpack the .tgs file."_q);
++	} else if (!ValidLottie(json)) {
++		return error(u"Couldn't read the animation in this .tgs file."_q);
++	}
++	const auto id = QString::fromLatin1(QCryptographicHash::hash(
++		bytes,
++		QCryptographicHash::Sha1).toHex().left(kCustomIdLength));
++	const auto target = CustomFile(id);
++	if (!QFile::exists(target)) {
++		QDir().mkpath(ModelsFolder());
++		auto saved = QSaveFile(target);
++		if (!saved.open(QIODevice::WriteOnly)
++			|| saved.write(bytes) != bytes.size()
++			|| !saved.commit()) {
++			return error(u"Couldn't copy the model into tdata."_q);
++		}
++	}
++	auto name = QFileInfo(path).completeBaseName().trimmed();
++	AddCustomModel({
++		.id = id,
++		.name = name.isEmpty() ? u"model"_q : name,
++	});
++	return { .key = QString::fromLatin1(kCustomPrefix) + id };
++}
++
++void RemoveModel(const QString &key) {
++	const auto id = CustomId(key);
++	if (id.isEmpty()) {
++		return;
++	}
++	QFile::remove(CustomFile(id));
++	auto &data = Data();
++	const auto path = CustomPath(id);
++	if (const auto i = data.bytes.find(path); i != end(data.bytes)) {
++		data.total -= i->second.size();
++		data.bytes.erase(i);
++	}
++	const auto preview = PreviewPath(PreviewKind::Model, QString(), key);
++	data.previews.remove(preview);
++	data.failedPreviews.remove(preview);
++	RemoveCustomModel(id);
++}
++
++void SyncCustomModels(std::vector<Attribute> &models) {
++	models.erase(
++		ranges::remove(models, true, &Attribute::custom),
++		end(models));
++	for (const auto &model : CustomModels()) {
++		models.push_back({
++			.name = model.name,
++			.id = QString::fromLatin1(kCustomPrefix) + model.id,
++			.custom = true,
++		});
++	}
++}
++
++int FindModel(const std::vector<Attribute> &models, const QString &key) {
++	if (key.isEmpty()) {
++		return -1;
++	}
++	for (auto i = 0; i != int(models.size()); ++i) {
++		if (models[i].key() == key) {
++			return i;
++		}
++	}
++	for (auto i = 0; i != int(models.size()); ++i) {
++		if (!models[i].name.compare(key, Qt::CaseInsensitive)) {
++			return i;
++		}
++	}
++	return -1;
++}
++
++int DefaultModel(const std::vector<Attribute> &models) {
++	const auto i = ranges::find_if(models, [](const Attribute &model) {
++		return (model.permille > 0);
++	});
++	return (i != end(models))
++		? int(i - begin(models))
++		: models.empty()
++		? -1
++		: 0;
++}
++
+ void RequestModel(
+ 		const QString &gift,
+-		const QString &model,
++		const Attribute &model,
+ 		Fn<void(QByteArray)> done,
+ 		Fn<void()> fail) {
++	const auto &key = model.key();
++	if (const auto emoji = ModelEmoji(gift, key)) {
++		RequestEmoji(emoji, std::move(done), std::move(fail));
++		return;
++	} else if (IsCustomModel(key)) {
++		const auto id = CustomId(key);
++		const auto path = CustomPath(id);
++		auto &data = Data();
++		if (const auto i = data.bytes.find(path); i != end(data.bytes)) {
++			done(i->second);
++			return;
++		}
++		auto file = QFile(CustomFile(id));
++		if (id.isEmpty()
++			|| !file.open(QIODevice::ReadOnly)
++			|| file.size() > kMaxCustomModel) {
++			fail();
++			return;
++		}
++		auto json = Images::UnpackGzip(file.readAll());
++		Remember(path, json);
++		done(std::move(json));
++		return;
++	}
+ 	RequestLottie(
+-		AssetPath(u"model"_q, gift, model, u".tgs"_q),
++		(IsOriginalModel(key)
++			? (u"original/"_q + Segment(CollectionBase(gift)) + u".tgs"_q)
++			: AssetPath(u"model"_q, gift, key, u".tgs"_q)),
+ 		std::move(done),
+ 		std::move(fail));
+ }
+ 
+ void RequestSymbol(
+ 		const QString &gift,
+-		const QString &symbol,
++		const Attribute &symbol,
+ 		Fn<void(QByteArray)> done,
+ 		Fn<void()> fail) {
+ 	RequestLottie(
+-		AssetPath(u"symbol"_q, gift, symbol, u".tgs"_q),
++		AssetPath(
++			u"symbol"_q,
++			AssetCollection(gift, symbol),
++			symbol.key(),
++			u".tgs"_q),
+ 		std::move(done),
+ 		std::move(fail));
+ }
+@@ -382,6 +1149,7 @@ void RequestPreview(
+ 	if (data.previews.contains(path)
+ 		|| data.failedPreviews.contains(path)
+ 		|| data.pending.contains(path)
++		|| data.renderingPreviews.contains(path)
+ 		|| data.previewRequests >= kMaxPreviewRequests) {
+ 		return;
+ 	}
+@@ -389,6 +1157,7 @@ void RequestPreview(
+ 	const auto finish = [=](QImage image) {
+ 		auto &data = Data();
+ 		--data.previewRequests;
++		data.renderingPreviews.remove(path);
+ 		if (image.isNull()) {
+ 			data.failedPreviews.emplace(path);
+ 		} else {
+@@ -396,6 +1165,23 @@ void RequestPreview(
+ 		}
+ 		ready();
+ 	};
++	if (LocalPreview(kind, gift, name)) {
++		data.renderingPreviews.emplace(path);
++		const auto key = (kind == PreviewKind::Gift)
++			? QString::fromLatin1(kOriginalKey)
++			: name;
++		RequestModel(gift, Attribute{ .id = key }, [=](QByteArray json) {
++			crl::async([=] {
++				auto image = RenderPreview(json);
++				crl::on_main([=, image = std::move(image)]() mutable {
++					finish(std::move(image));
++				});
++			});
++		}, [=] {
++			finish(QImage());
++		});
++		return;
++	}
+ 	Fetch(path, true, [=](QByteArray bytes) {
+ 		auto image = QImage::fromData(bytes, "PNG");
+ 		finish(image.isNull()
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_data.h b/Telegram/SourceFiles/tele/tele_gift_studio_data.h
+index c732aea082792c208164ab39b39415a992c79ca7..afe8d5f8a8f05da2c0bcf18e6d33dd401eed3cf4 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_data.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_data.h
+@@ -5,6 +5,13 @@ namespace Tele::GiftStudio {
+ struct Attribute {
+ 	QString name;
+ 	int permille = 0;
++	QString id;
++	QString source;
++	bool custom = false;
++
++	[[nodiscard]] const QString &key() const {
++		return id.isEmpty() ? name : id;
++	}
+ };
+ 
+ struct Colors {
+@@ -26,12 +33,33 @@ struct Parts {
+ 	std::vector<Attribute> symbols;
+ };
+ 
++enum class CollectionGroup {
++	Collectible,
++	Gift,
++	Extra,
++};
++
+ enum class PreviewKind {
+ 	Gift,
+ 	Model,
+ 	Symbol,
+ };
+ 
++[[nodiscard]] bool IsRegularGift(const QString &collection);
++[[nodiscard]] bool IsFakeCollection(const QString &collection);
++[[nodiscard]] bool IsVirtualCollection(const QString &collection);
++[[nodiscard]] CollectionGroup CollectionGroupOf(const QString &collection);
++[[nodiscard]] bool IsLegacyTitle(const QString &title);
++[[nodiscard]] QString CollectionBase(const QString &collection);
++[[nodiscard]] QString RegularSource(const QString &collection);
++[[nodiscard]] QString RegularCollection(
++	const QString &collection,
++	const QString &source);
++[[nodiscard]] QString CollectionTitle(const QString &collection);
++[[nodiscard]] QString AssetCollection(
++	const QString &collection,
++	const Attribute &attribute);
++
+ void RequestGifts(
+ 	Fn<void(std::vector<QString>)> done,
+ 	Fn<void()> fail);
+@@ -42,14 +70,30 @@ void RequestParts(
+ 	const QString &gift,
+ 	Fn<void(Parts)> done,
+ 	Fn<void()> fail);
++struct ImportedModel {
++	QString key;
++	QString error;
++};
++
++[[nodiscard]] bool IsOriginalModel(const QString &key);
++[[nodiscard]] bool IsCustomModel(const QString &key);
++[[nodiscard]] ImportedModel ImportModel(const QString &path);
++void RemoveModel(const QString &key);
++void SyncCustomModels(std::vector<Attribute> &models);
++[[nodiscard]] QString ModelTitle(const QString &key);
++[[nodiscard]] int FindModel(
++	const std::vector<Attribute> &models,
++	const QString &key);
++[[nodiscard]] int DefaultModel(const std::vector<Attribute> &models);
++
+ void RequestModel(
+ 	const QString &gift,
+-	const QString &model,
++	const Attribute &model,
+ 	Fn<void(QByteArray)> done,
+ 	Fn<void()> fail);
+ void RequestSymbol(
+ 	const QString &gift,
+-	const QString &symbol,
++	const Attribute &symbol,
+ 	Fn<void(QByteArray)> done,
+ 	Fn<void()> fail);
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_emoji.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_emoji.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..a68b994779ae6fc38272d44262a39a35c0c96412
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_emoji.cpp
+@@ -0,0 +1,121 @@
++#include "tele/tele_gift_studio_emoji.h"
++
++#include "apiwrap.h"
++#include "core/application.h"
++#include "data/data_document.h"
++#include "data/data_document_media.h"
++#include "data/data_file_origin.h"
++#include "data/data_session.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++
++#include <QtCore/QCoreApplication>
++#include <QtCore/QFile>
++#include <QtCore/QTimer>
++
++namespace Tele::GiftStudio {
++namespace {
++
++constexpr auto kLoadTimeout = 20 * 1000;
++
++void Download(
++		not_null<Main::Session*> session,
++		not_null<DocumentData*> document,
++		Fn<void(QByteArray)> done,
++		Fn<void()> fail) {
++	const auto media = document->createMediaView();
++	const auto read = [=] {
++		auto bytes = media->bytes();
++		if (bytes.isEmpty()) {
++			auto file = QFile(document->filepath());
++			if (file.open(QIODevice::ReadOnly)) {
++				bytes = file.readAll();
++			}
++		}
++		return bytes;
++	};
++	if (media->loaded()) {
++		const auto bytes = read();
++		if (bytes.isEmpty()) {
++			fail();
++		} else {
++			done(bytes);
++		}
++		return;
++	}
++	const auto finished = std::make_shared<bool>(false);
++	const auto finish = [=](QByteArray bytes) {
++		if (*finished) {
++			return;
++		}
++		*finished = true;
++		if (bytes.isEmpty()) {
++			fail();
++		} else {
++			done(std::move(bytes));
++		}
++	};
++	document->save(document->stickerSetOrigin(), QString());
++	session->downloaderTaskFinished(
++	) | rpl::filter([=] {
++		return !*finished && media->loaded();
++	}) | rpl::take(1) | rpl::on_next([=] {
++		finish(read());
++	}, session->lifetime());
++	const auto weak = base::make_weak(session);
++	QTimer::singleShot(kLoadTimeout, QCoreApplication::instance(), [=] {
++		finish((weak && media->loaded()) ? read() : QByteArray());
++	});
++}
++
++} // namespace
++
++void LoadEmojiSticker(
++		uint64 documentId,
++		Fn<void(QByteArray)> loaded,
++		Fn<void()> failed) {
++	const auto session = Core::App().domain().active().maybeSession();
++	if (!session) {
++		failed();
++		return;
++	}
++	const auto finished = std::make_shared<bool>(false);
++	const auto done = [=](QByteArray bytes) {
++		if (!std::exchange(*finished, true)) {
++			loaded(std::move(bytes));
++		}
++	};
++	const auto fail = [=] {
++		if (!std::exchange(*finished, true)) {
++			failed();
++		}
++	};
++	QTimer::singleShot(2 * kLoadTimeout, QCoreApplication::instance(), fail);
++	const auto weak = base::make_weak(session);
++	session->api().request(MTPmessages_GetCustomEmojiDocuments(
++		MTP_vector<MTPlong>(1, MTP_long(documentId))
++	)).done([=](const MTPVector<MTPDocument> &result) {
++		const auto strong = weak.get();
++		if (!strong) {
++			fail();
++			return;
++		}
++		auto found = (DocumentData*)nullptr;
++		for (const auto &entry : result.v) {
++			const auto document = strong->data().processDocument(entry);
++			if (document->id == documentId) {
++				found = document;
++			}
++		}
++		if (!found) {
++			fail();
++			return;
++		}
++		Download(strong, found, done, fail);
++	}).fail([=] {
++		fail();
++	}).send();
++}
++
++} // namespace Tele::GiftStudio
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_emoji.h b/Telegram/SourceFiles/tele/tele_gift_studio_emoji.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..7924225221d83833ea07349d742f8f8f3b69ca39
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_emoji.h
+@@ -0,0 +1,10 @@
++#pragma once
++
++namespace Tele::GiftStudio {
++
++void LoadEmojiSticker(
++	uint64 documentId,
++	Fn<void(QByteArray)> done,
++	Fn<void()> fail);
++
++} // namespace Tele::GiftStudio
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp
+index 60abce1f1218b3aac9c018c53afe1733dab296d6..2cf5c5dbbf3b04ebb4b9214c89f158fde9168f47 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp
+@@ -91,6 +91,12 @@ struct CardMetrics {
+ 		: o.text.customSubtitle;
+ }
+ 
++[[nodiscard]] const QString &Renamed(
++		const QString &custom,
++		const QString &real) {
++	return custom.isEmpty() ? real : custom;
++}
++
+ [[nodiscard]] QString CardName(const Texts &texts, const Options &o) {
+ 	auto parts = QStringList();
+ 	if (o.text.title && !texts.title.isEmpty()) {
+@@ -1099,7 +1105,7 @@ void Renderer::paintCoverTexts(QPainter &p, const Layout &layout) {
+ 	const auto subtitleSource = !text.subtitle
+ 		? QString()
+ 		: text.customSubtitle.isEmpty()
+-		? _texts.subtitle
++		? Renamed(text.customModel, _texts.subtitle)
+ 		: text.customSubtitle;
+ 	const auto subtitleText = subtitle->elided(subtitleSource, available);
+ 	if (!subtitleText.isEmpty()) {
+@@ -1181,9 +1187,18 @@ void Renderer::paintCardTexts(QPainter &p, const Layout &layout) {
+ 			_colors.text);
+ 	}
+ 	auto rows = std::vector<std::pair<QString, QString>>{
+-		{ tr::lng_gift_unique_model(tr::now), _texts.model },
+-		{ tr::lng_gift_unique_symbol(tr::now), _texts.symbol },
+-		{ tr::lng_gift_unique_backdrop(tr::now), _texts.backdrop },
++		{
++			tr::lng_gift_unique_model(tr::now),
++			Renamed(_options.text.customModel, _texts.model),
++		},
++		{
++			tr::lng_gift_unique_symbol(tr::now),
++			Renamed(_options.text.customSymbol, _texts.symbol),
++		},
++		{
++			tr::lng_gift_unique_backdrop(tr::now),
++			Renamed(_options.text.customBackdrop, _texts.backdrop),
++		},
+ 	};
+ 	if (!_texts.rarity.isEmpty() && _options.text.rarity) {
+ 		rows.emplace_back(Lower(u"Rarity"_q), _texts.rarity);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_render.h b/Telegram/SourceFiles/tele/tele_gift_studio_render.h
+index 9fd8dc74649b25ff755170bdac145d3f7fd75efa..8ea85dda627379b5092c564cd7c954e6d6fc578f 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_render.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_render.h
+@@ -36,6 +36,9 @@ struct TextOptions {
+ 	bool rarity = true;
+ 	bool tgs = true;
+ 	QString customSubtitle;
++	QString customModel;
++	QString customBackdrop;
++	QString customSymbol;
+ 	float64 scale = 1.;
+ };
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp
+index aa460774b2bbd9a40cd7a3bb3fb16bf4d302b0e5..474e72e63b91a90d64ba7903227a888e3e5e0a2e 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp
+@@ -1,16 +1,20 @@
+ #include "tele/tele_gift_studio_roll.h"
+ 
++#include "base/random.h"
+ #include "data/data_star_gift.h"
+ #include "lang/lang_tag.h"
+ #include "main/main_session.h"
+ #include "settings/settings_common.h"
+ #include "tele/tele_gift_fake_upgrade.h"
+ #include "tele/tele_gift_studio_render.h"
++#include "tele/tele_gift_studio_widgets.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
++#include "ui/effects/animations.h"
+ #include "ui/vertical_list.h"
+ #include "ui/widgets/buttons.h"
+ #include "ui/widgets/labels.h"
++#include "ui/wrap/slide_wrap.h"
+ #include "ui/wrap/vertical_layout.h"
+ #include "window/window_session_controller.h"
+ #include "styles/style_layers.h"
+@@ -20,20 +24,94 @@
+ namespace Tele::GiftStudio {
+ namespace {
+ 
++constexpr auto kFakeHistoryLimit = 50;
++
++struct FakeRoll {
++	Combo combo;
++	QString odds;
++};
++
++struct FakeRolls {
++	std::vector<FakeRoll> list;
++	base::flat_map<QString, int> rolled;
++	rpl::event_stream<> changed;
++};
++
+ struct RollState {
+ 	explicit RollState(RollArgs &&args) : args(std::move(args)) {
+ 	}
+ 
+ 	RollArgs args;
+ 	Ui::VerticalLayout *history = nullptr;
++	Ui::SlideWrap<Ui::RpWidget> *resultWrap = nullptr;
++	Ui::RpWidget *result = nullptr;
++	Renderer renderer;
++	Ui::Animations::Basic animation;
++	crl::time started = 0;
++	int frame = 0;
++	uint64 request = 0;
+ 	bool opening = false;
+ };
+ 
++[[nodiscard]] FakeRolls &Rolls() {
++	static auto result = FakeRolls();
++	return result;
++}
++
++template <typename List>
++[[nodiscard]] int PickWeighted(const List &list) {
++	auto total = uint64();
++	for (const auto &item : list) {
++		total += uint64(std::max(item.permille, 0));
++	}
++	if (!total) {
++		return list.empty() ? -1 : base::RandomIndex(int(list.size()));
++	}
++	auto left = base::RandomValue<uint64>() % total;
++	for (auto i = 0; i != int(list.size()); ++i) {
++		const auto weight = uint64(std::max(list[i].permille, 0));
++		if (left < weight) {
++			return i;
++		}
++		left -= weight;
++	}
++	return int(list.size()) - 1;
++}
++
++void AddHistoryButton(
++		not_null<RollState*> state,
++		const QString &title,
++		const QString &odds,
++		const Combo &combo) {
++	const auto button = Settings::AddButtonWithLabel(
++		state->history,
++		rpl::single(title),
++		rpl::single(odds),
++		st::settingsButtonNoIcon);
++	const auto open = state->args.open;
++	button->setClickedCallback([=] {
++		open(combo);
++	});
++}
++
+ void RefreshHistory(not_null<RollState*> state) {
+ 	const auto history = state->history;
+ 	history->clear();
+ 	const auto list = FakeUpgrades(&state->args.controller->session());
+-	if (list.empty()) {
++	const auto &fake = Rolls().list;
++	for (const auto &roll : fake) {
++		const auto &combo = roll.combo;
++		AddHistoryButton(
++			state,
++			(CollectionTitle(combo.collection)
++				+ u" #"_q
++				+ Lang::FormatCountDecimal(combo.number.toInt())
++				+ u" \u00B7 "_q
++				+ ModelTitle(combo.model)),
++			roll.odds,
++			combo);
++	}
++	if (list.empty() && fake.empty()) {
+ 		history->add(
+ 			object_ptr<Ui::FlatLabel>(
+ 				history,
+@@ -50,25 +128,16 @@ void RefreshHistory(not_null<RollState*> state) {
+ 		const auto odds = RarityOdds(
+ 			gift->model.rarityPermille(),
+ 			gift->backdrop.rarityPermille());
+-		const auto button = Settings::AddButtonWithLabel(
+-			history,
+-			rpl::single(title),
+-			rpl::single(odds),
+-			st::settingsButtonNoIcon);
+-		const auto combo = Combo{
++		AddHistoryButton(state, title, odds, Combo{
+ 			.collection = gift->title,
+ 			.model = gift->model.name,
+ 			.backdrop = gift->backdrop.name,
+ 			.symbol = gift->pattern.name,
+ 			.title = gift->title,
+ 			.number = QString::number(gift->number),
+-		};
+-		const auto open = state->args.open;
+-		button->setClickedCallback([=] {
+-			open(combo);
+ 		});
+ 	}
+-	if (!list.empty()) {
++	if (!list.empty() || !fake.empty()) {
+ 		const auto session = &state->args.controller->session();
+ 		Settings::AddButtonWithIcon(
+ 			history,
+@@ -76,6 +145,10 @@ void RefreshHistory(not_null<RollState*> state) {
+ 			st::settingsAttentionButton
+ 		)->setClickedCallback(crl::guard(history, [=] {
+ 			crl::on_main(history, [=] {
++				auto &rolls = Rolls();
++				rolls.list.clear();
++				rolls.rolled.clear();
++				rolls.changed.fire({});
+ 				ClearFakeUpgrades(session);
+ 			});
+ 		}));
+@@ -83,6 +156,102 @@ void RefreshHistory(not_null<RollState*> state) {
+ 	history->resizeToWidth(state->args.width);
+ }
+ 
++void ShowFakeResult(
++		not_null<RollState*> state,
++		const QString &collection,
++		const Parts &parts,
++		int model,
++		int backdrop,
++		int symbol,
++		int number) {
++	const auto &chosenModel = parts.models[model];
++	const auto &chosenBackdrop = parts.backdrops[backdrop];
++	const auto &chosenSymbol = parts.symbols[symbol];
++	const auto request = ++state->request;
++	auto &renderer = state->renderer;
++	state->animation.stop();
++	state->frame = 0;
++	renderer.setModel(QByteArray());
++	renderer.setSymbol(QByteArray());
++	renderer.setColors(chosenBackdrop.colors);
++	renderer.setTexts({
++		.title = CollectionTitle(collection),
++		.number = NumberText(QString::number(number)),
++		.subtitle = chosenModel.name,
++		.model = chosenModel.name,
++		.backdrop = chosenBackdrop.name,
++		.symbol = chosenSymbol.name,
++		.rarity = RarityOdds(chosenModel.permille, chosenBackdrop.permille),
++	});
++	state->resultWrap->show(anim::type::instant);
++	state->result->update();
++	const auto result = state->result;
++	RequestModel(collection, chosenModel, crl::guard(result, [=](
++			QByteArray json) {
++		if (request != state->request) {
++			return;
++		}
++		state->renderer.setModel(json);
++		state->started = crl::now();
++		if (state->renderer.hasModel()) {
++			state->animation.start();
++		}
++		result->update();
++	}), [] {});
++	RequestSymbol(collection, chosenSymbol, crl::guard(result, [=](
++			QByteArray json) {
++		if (request == state->request) {
++			state->renderer.setSymbol(json);
++			result->update();
++		}
++	}), [] {});
++}
++
++void RollFake(not_null<RollState*> state, const QString &collection) {
++	const auto controller = state->args.controller;
++	state->opening = true;
++	RequestParts(collection, crl::guard(state->history, [=](Parts parts) {
++		state->opening = false;
++		const auto model = PickWeighted(parts.models);
++		const auto backdrop = PickWeighted(parts.backdrops);
++		const auto symbol = PickWeighted(parts.symbols);
++		if (model < 0 || backdrop < 0 || symbol < 0) {
++			ShowTeleToast(controller, Lower(u"Couldn't load the parts."_q));
++			return;
++		}
++		auto &rolls = Rolls();
++		const auto number = ++rolls.rolled[collection];
++		rolls.list.insert(begin(rolls.list), FakeRoll{
++			.combo = Combo{
++				.collection = collection,
++				.model = parts.models[model].key(),
++				.backdrop = parts.backdrops[backdrop].name,
++				.symbol = parts.symbols[symbol].name,
++				.title = CollectionTitle(collection),
++				.number = QString::number(number),
++			},
++			.odds = RarityOdds(
++				parts.models[model].permille,
++				parts.backdrops[backdrop].permille),
++		});
++		if (int(rolls.list.size()) > kFakeHistoryLimit) {
++			rolls.list.resize(kFakeHistoryLimit);
++		}
++		rolls.changed.fire({});
++		ShowFakeResult(
++			state,
++			collection,
++			parts,
++			model,
++			backdrop,
++			symbol,
++			number);
++	}), crl::guard(state->history, [=] {
++		state->opening = false;
++		ShowTeleToast(controller, Lower(u"Couldn't load the parts."_q));
++	}));
++}
++
+ void Roll(not_null<RollState*> state) {
+ 	if (state->opening) {
+ 		return;
+@@ -92,7 +261,16 @@ void Roll(not_null<RollState*> state) {
+ 	if (collection.isEmpty()) {
+ 		ShowTeleToast(controller, Lower(u"Pick a collection first."_q));
+ 		return;
++	} else if (IsRegularGift(collection)) {
++		ShowTeleToast(controller, Lower(u"Regular gifts can't be upgraded."_q));
++		return;
++	} else if (IsFakeCollection(collection)) {
++		RollFake(state, collection);
++		return;
+ 	}
++	++state->request;
++	state->animation.stop();
++	state->resultWrap->hide(anim::type::instant);
+ 	state->opening = true;
+ 	ShowFakeUpgrade(
+ 		controller,
+@@ -128,6 +306,39 @@ Fn<void()> SetupRoll(
+ 	upgrade->setClickedCallback([=] {
+ 		Roll(state);
+ 	});
++	state->resultWrap = container->add(
++		object_ptr<Ui::SlideWrap<Ui::RpWidget>>(
++			container,
++			object_ptr<Ui::RpWidget>(container)),
++		style::margins(0, line, 0, line));
++	state->resultWrap->hide(anim::type::instant);
++	state->result = state->resultWrap->entity();
++	{
++		auto options = Options();
++		options.canvas = DefaultCanvas(LayoutKind::Cover, 1);
++		state->renderer.setOptions(options);
++		state->result->resize(
++			width,
++			std::max(
++				int(base::SafeRound(width
++					* options.canvas.height()
++					/ float64(options.canvas.width()))),
++				1));
++	}
++	state->result->paintRequest() | rpl::on_next([=] {
++		auto p = QPainter(state->result);
++		state->renderer.paint(p, state->result->size(), state->frame);
++	}, state->result->lifetime());
++	state->animation.init([=](crl::time now) {
++		const auto count = state->renderer.framesCount();
++		if (!count) {
++			return;
++		}
++		const auto passed = now - state->started;
++		state->frame = int(passed * state->renderer.frameRate() / 1000.)
++			% count;
++		state->result->update();
++	});
+ 	container->add(
+ 		object_ptr<Ui::FlatLabel>(
+ 			container,
+@@ -145,8 +356,9 @@ Fn<void()> SetupRoll(
+ 	state->history = container->add(
+ 		object_ptr<Ui::VerticalLayout>(container));
+ 	RefreshHistory(state);
+-	FakeUpgradesChanged(
+-		&state->args.controller->session()
++	rpl::merge(
++		FakeUpgradesChanged(&state->args.controller->session()),
++		Rolls().changed.events()
+ 	) | rpl::on_next([=] {
+ 		RefreshHistory(state);
+ 	}, state->history->lifetime());
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp
+index d926a21a777d3398f6a1d41780bedd2e5be39f47..740c843e193770c0b5a1f4c40ed2b550160eb7cc 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_store.cpp
+@@ -18,6 +18,7 @@ constexpr auto kMarker = "tele_giftstudio?";
+ constexpr auto kFavoritesLimit = 200;
+ constexpr auto kGridsLimit = 100;
+ constexpr auto kGridCellsLimit = 300;
++constexpr auto kCustomModelsLimit = 500;
+ constexpr auto kMaxFile = 8 * 1024 * 1024;
+ constexpr auto kHideTitle = 1;
+ constexpr auto kHideNumber = 2;
+@@ -30,6 +31,7 @@ struct Store {
+ 	std::vector<Favorite> favorites;
+ 	std::vector<Combo> history;
+ 	std::vector<SavedGrid> grids;
++	std::vector<CustomModel> models;
+ 	base::flat_set<QString> expanded;
+ 	rpl::event_stream<> changes;
+ };
+@@ -95,11 +97,19 @@ void Save() {
+ 			{ u"cells"_q, grid.cells },
+ 		});
+ 	}
++	auto models = QJsonArray();
++	for (const auto &model : data.models) {
++		models.append(QJsonObject{
++			{ u"id"_q, model.id },
++			{ u"name"_q, model.name },
++		});
++	}
+ 	const auto bytes = QJsonDocument(QJsonObject{
+ 		{ u"favorites"_q, favorites },
+ 		{ u"history"_q, history },
+ 		{ u"expanded"_q, expanded },
+ 		{ u"grids"_q, grids },
++		{ u"models"_q, models },
+ 	}).toJson(QJsonDocument::Compact);
+ 	QDir().mkpath(cWorkingDir() + u"tdata"_q);
+ 	auto file = QSaveFile(FilePath());
+@@ -153,6 +163,17 @@ void Load() {
+ 			data.grids.push_back({ .name = name, .cells = cells });
+ 		}
+ 	}
++	for (const auto &value : object.value(u"models"_q).toArray()) {
++		const auto entry = value.toObject();
++		const auto id = entry.value(u"id"_q).toString();
++		const auto name = entry.value(u"name"_q).toString();
++		if (!id.isEmpty()
++			&& !name.isEmpty()
++			&& !ranges::contains(data.models, id, &CustomModel::id)
++			&& int(data.models.size()) < kCustomModelsLimit) {
++			data.models.push_back({ .id = id, .name = name });
++		}
++	}
+ 	if (int(data.history.size()) > kHistoryLimit) {
+ 		data.history.resize(kHistoryLimit);
+ 	}
+@@ -218,6 +239,15 @@ QString ComboCode(const Combo &combo) {
+ 	if (!o.text.customSubtitle.isEmpty()) {
+ 		add(u"st"_q, o.text.customSubtitle);
+ 	}
++	if (!o.text.customModel.isEmpty()) {
++		add(u"mn"_q, o.text.customModel);
++	}
++	if (!o.text.customBackdrop.isEmpty()) {
++		add(u"bn"_q, o.text.customBackdrop);
++	}
++	if (!o.text.customSymbol.isEmpty()) {
++		add(u"sn"_q, o.text.customSymbol);
++	}
+ 	number(u"ts"_q, Percent(o.text.scale), 100);
+ 	const auto &m = combo.motion;
+ 	number(u"sp"_q, Percent(m.speed), 100);
+@@ -301,6 +331,9 @@ std::optional<Combo> ParseComboCode(const QString &text) {
+ 	o.text.rarity = !(hidden & kHideRarity);
+ 	o.text.tgs = !(hidden & kHideTgsText);
+ 	o.text.customSubtitle = value(u"st"_q);
++	o.text.customModel = value(u"mn"_q);
++	o.text.customBackdrop = value(u"bn"_q);
++	o.text.customSymbol = value(u"sn"_q);
+ 	o.text.scale = percent(u"ts"_q, 0.25, 4.);
+ 	auto &m = result.motion;
+ 	m.speed = percent(u"sp"_q, 0.05, 20.);
+@@ -311,12 +344,12 @@ std::optional<Combo> ParseComboCode(const QString &text) {
+ }
+ 
+ QString ComboLabel(const Combo &combo) {
+-	auto result = combo.collection;
++	auto result = CollectionTitle(combo.collection);
+ 	if (!combo.number.isEmpty()) {
+ 		result += u" #"_q + combo.number;
+ 	}
+ 	return result + u" \u00B7 "_q + QStringList{
+-		combo.model,
++		ModelTitle(combo.model),
+ 		combo.backdrop,
+ 		combo.symbol,
+ 	}.join(u", "_q);
+@@ -395,6 +428,34 @@ void RemoveGrid(int index) {
+ 	}
+ }
+ 
++const std::vector<CustomModel> &CustomModels() {
++	Load();
++	return Data().models;
++}
++
++void AddCustomModel(CustomModel model) {
++	Load();
++	auto &list = Data().models;
++	if (ranges::contains(list, model.id, &CustomModel::id)) {
++		return;
++	}
++	list.push_back(std::move(model));
++	if (int(list.size()) > kCustomModelsLimit) {
++		list.erase(begin(list));
++	}
++	Save();
++}
++
++void RemoveCustomModel(const QString &id) {
++	Load();
++	auto &list = Data().models;
++	const auto was = list.size();
++	list.erase(ranges::remove(list, id, &CustomModel::id), end(list));
++	if (list.size() != was) {
++		Save();
++	}
++}
++
+ rpl::producer<> StoreChanges() {
+ 	return Data().changes.events();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_store.h b/Telegram/SourceFiles/tele/tele_gift_studio_store.h
+index 941bfa2df59bc2d0d3474f4bf2f433d0c1a2e9e0..55fb1d9e31930726ab0f817c6876e7ad5735bdd9 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_store.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_store.h
+@@ -27,6 +27,11 @@ struct SavedGrid {
+ 	QJsonArray cells;
+ };
+ 
++struct CustomModel {
++	QString id;
++	QString name;
++};
++
+ inline constexpr auto kHistoryLimit = 20;
+ 
+ [[nodiscard]] QString ComboCode(const Combo &combo);
+@@ -42,6 +47,9 @@ void ClearHistory();
+ [[nodiscard]] const std::vector<SavedGrid> &Grids();
+ void SaveGrid(SavedGrid grid);
+ void RemoveGrid(int index);
++[[nodiscard]] const std::vector<CustomModel> &CustomModels();
++void AddCustomModel(CustomModel model);
++void RemoveCustomModel(const QString &id);
+ [[nodiscard]] rpl::producer<> StoreChanges();
+ [[nodiscard]] bool SectionExpanded(const QString &id);
+ void SetSectionExpanded(const QString &id, bool expanded);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp
+index 858b0150305c52da344ce1e7f96a60285dc8d952..a7fbd0f51039b16873ec961bc367624149f97696 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp
+@@ -16,6 +16,9 @@ constexpr auto kSheetCaptionLines = 2;
+ constexpr auto kMaxSheetSide = 16384;
+ 
+ [[nodiscard]] QString RarityText(int permille) {
++	if (!permille) {
++		return u"0%"_q;
++	}
+ 	auto attribute = Data::UniqueGiftAttribute();
+ 	attribute.rarityValue = permille;
+ 	return Data::UniqueGiftAttributeText(attribute);
+@@ -44,10 +47,12 @@ Sweep::Sweep(
+ , _output(output)
+ , _target(std::move(target)) {
+ 	const auto &parts = _source.parts;
+-	const auto push = [&](const QString &name, int permille) {
++	const auto push = [&](const QString &name, std::optional<int> permille) {
+ 		_items.push_back({
+ 			.name = name,
+-			.caption = name + u" \u00B7 "_q + RarityText(permille),
++			.caption = permille
++				? (name + u" \u00B7 "_q + RarityText(*permille))
++				: name,
+ 		});
+ 	};
+ 	switch (_kind) {
+@@ -63,7 +68,9 @@ Sweep::Sweep(
+ 		break;
+ 	case SweepKind::Models:
+ 		for (const auto &model : parts.models) {
+-			push(model.name, model.permille);
++			push(
++				model.name,
++				model.custom ? std::nullopt : std::make_optional(model.permille));
+ 		}
+ 		break;
+ 	}
+@@ -76,6 +83,11 @@ Sweep::Sweep(
+ 	_renderer.setModel(_source.modelJson);
+ 	_renderer.setSymbol(_source.symbolJson);
+ 	auto options = _source.options;
++	switch (_kind) {
++	case SweepKind::Backdrops: options.text.customBackdrop = QString(); break;
++	case SweepKind::Symbols: options.text.customSymbol = QString(); break;
++	case SweepKind::Models: options.text.customModel = QString(); break;
++	}
+ 	if (_output == SweepOutput::Sheet) {
+ 		options.canvas = options.canvas.scaled(
+ 			kSheetTile,
+@@ -139,10 +151,18 @@ void Sweep::next() {
+ 		done(QByteArray());
+ 		break;
+ 	case SweepKind::Symbols:
+-		RequestSymbol(_source.collection, name, done, failed);
++		RequestSymbol(
++			_source.collection,
++			_source.parts.symbols[index],
++			done,
++			failed);
+ 		break;
+ 	case SweepKind::Models:
+-		RequestModel(_source.collection, name, done, failed);
++		RequestModel(
++			_source.collection,
++			_source.parts.models[index],
++			done,
++			failed);
+ 		break;
+ 	}
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+index a899d9119c15f7b67e763e69cd4edbe4948387e5..8637543a1c0952ab35c8b6fbae7ad655b4e6fbd2 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+@@ -30,6 +30,9 @@ int RowHeight() {
+ }
+ 
+ QString RarityText(int permille) {
++	if (!permille) {
++		return u"0%"_q;
++	}
+ 	auto attribute = Data::UniqueGiftAttribute();
+ 	attribute.rarityValue = permille;
+ 	return Data::UniqueGiftAttributeText(attribute);
+@@ -50,6 +53,38 @@ QString NumberText(QString text) {
+ 		: text);
+ }
+ 
++std::vector<PickerRow> CollectionRows(
++		const std::vector<QString> &collections,
++		const QString &query) {
++	auto result = std::vector<PickerRow>();
++	const auto groups = std::array{
++		std::pair{ CollectionGroup::Collectible, u"Collectibles"_q },
++		std::pair{ CollectionGroup::Gift, u"Gifts"_q },
++		std::pair{ CollectionGroup::Extra, u"Extras"_q },
++	};
++	for (const auto &[group, label] : groups) {
++		const auto header = int(result.size());
++		for (auto i = 0; i != int(collections.size()); ++i) {
++			const auto &collection = collections[i];
++			if (CollectionGroupOf(collection) != group) {
++				continue;
++			}
++			const auto title = CollectionTitle(collection);
++			if (query.isEmpty() || title.contains(query, Qt::CaseInsensitive)) {
++				result.push_back({ .name = title, .index = i });
++			}
++		}
++		if (int(result.size()) > header) {
++			result.insert(begin(result) + header, PickerRow{
++				.name = Lower(label),
++				.index = -1,
++				.header = true,
++			});
++		}
++	}
++	return result;
++}
++
+ void PaintBackdropPreview(QPainter &p, QRect rect, const Colors &colors) {
+ 	auto hq = PainterHighQualityEnabler(p);
+ 	auto gradient = QRadialGradient(QRectF(rect).center(), rect.width() / 2.);
+@@ -123,13 +158,18 @@ int PickerList::selectedTop() const {
+ }
+ 
+ int PickerList::firstIndex() const {
+-	return _rows.empty() ? -1 : _rows.front().index;
++	const auto i = ranges::find(_rows, false, &PickerRow::header);
++	return (i != end(_rows)) ? i->index : -1;
+ }
+ 
+ rpl::producer<int> PickerList::chosen() const {
+ 	return _chosen.events();
+ }
+ 
++rpl::producer<int> PickerList::contextRequests() const {
++	return _context.events();
++}
++
+ int PickerList::resizeGetHeight(int newWidth) {
+ 	return int(_rows.size()) * RowHeight();
+ }
+@@ -139,7 +179,7 @@ int PickerList::rowAt(QPoint position) const {
+ 		return -1;
+ 	}
+ 	const auto row = position.y() / RowHeight();
+-	return (row < int(_rows.size())) ? row : -1;
++	return (row < int(_rows.size()) && !_rows[row].header) ? row : -1;
+ }
+ 
+ void PickerList::setOver(int row) {
+@@ -171,6 +211,16 @@ void PickerList::paintEvent(QPaintEvent *e) {
+ 	for (auto i = from; i < till; ++i) {
+ 		const auto &row = _rows[i];
+ 		const auto top = i * height;
++		if (row.header) {
++			const auto &semibold = st::semiboldFont;
++			p.setFont(semibold->f);
++			p.setPen(st::windowSubTextFg);
++			p.drawText(
++				padding,
++				top + (height - semibold->height) / 2 + semibold->ascent,
++				semibold->elided(row.name, width() - 2 * padding));
++			continue;
++		}
+ 		const auto selected = (row.index == _selected);
+ 		if (selected) {
+ 			p.fillRect(0, top, width(), height, st::lightButtonBgOver);
+@@ -221,6 +271,12 @@ void PickerList::leaveEventHook(QEvent *e) {
+ 	setOver(-1);
+ }
+ 
++void PickerList::contextMenuEvent(QContextMenuEvent *e) {
++	if (const auto row = rowAt(e->pos()); row >= 0) {
++		_context.fire_copy(_rows[row].index);
++	}
++}
++
+ ColorSwatch::ColorSwatch(QWidget *parent, QString label)
+ : AbstractButton(parent)
+ , _label(std::move(label)) {
+@@ -396,7 +452,7 @@ void FavoritesBox(
+ 				st::boxRowPadding);
+ 		}
+ 		for (const auto &combo : history) {
+-			entry(combo.collection, combo, nullptr);
++			entry(CollectionTitle(combo.collection), combo, nullptr);
+ 		}
+ 		list->resizeToWidth(content->width());
+ 	};
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+index e08e0df3e01ef5ce5ceef9119c04dfa5c43448e1..a9f3e79010efe2739bf497662beaf0d76e1d5a9d 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+@@ -16,11 +16,15 @@ struct PickerRow {
+ 	QString name;
+ 	QString rarity;
+ 	int index = 0;
++	bool header = false;
+ };
+ 
+ [[nodiscard]] int RowHeight();
+ [[nodiscard]] QString RarityText(int permille);
+ [[nodiscard]] QString NumberText(QString text);
++[[nodiscard]] std::vector<PickerRow> CollectionRows(
++	const std::vector<QString> &collections,
++	const QString &query);
+ 
+ void PaintBackdropPreview(QPainter &p, QRect rect, const Colors &colors);
+ void PaintImagePreview(
+@@ -41,6 +45,7 @@ public:
+ 	[[nodiscard]] int selectedTop() const;
+ 	[[nodiscard]] int firstIndex() const;
+ 	[[nodiscard]] rpl::producer<int> chosen() const;
++	[[nodiscard]] rpl::producer<int> contextRequests() const;
+ 
+ protected:
+ 	int resizeGetHeight(int newWidth) override;
+@@ -49,6 +54,7 @@ protected:
+ 	void mousePressEvent(QMouseEvent *e) override;
+ 	void mouseReleaseEvent(QMouseEvent *e) override;
+ 	void leaveEventHook(QEvent *e) override;
++	void contextMenuEvent(QContextMenuEvent *e) override;
+ 
+ private:
+ 	[[nodiscard]] int rowAt(QPoint position) const;
+@@ -57,6 +63,7 @@ private:
+ 	std::vector<PickerRow> _rows;
+ 	Fn<void(QPainter&, QRect, int)> _preview;
+ 	rpl::event_stream<int> _chosen;
++	rpl::event_stream<int> _context;
+ 	int _selected = -1;
+ 	int _over = -1;
+ 	int _pressed = -1;

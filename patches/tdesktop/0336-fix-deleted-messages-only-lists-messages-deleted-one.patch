@@ -1,0 +1,726 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 25 Oct 2026 03:04:24 +0300
+Subject: [PATCH] fix: deleted messages only lists messages deleted one by one
+
+---
+ Telegram/SourceFiles/tele/tele_deleted.cpp    | 160 ++++++++++++++++--
+ Telegram/SourceFiles/tele/tele_deleted.h      |  10 ++
+ .../SourceFiles/tele/tele_deleted_section.cpp |  12 +-
+ Telegram/SourceFiles/tele/tele_kept_chats.cpp |  53 ++++--
+ Telegram/SourceFiles/tele/tele_kept_chats.h   |   1 +
+ Telegram/SourceFiles/tele/tele_kept_store.cpp |  59 +++++--
+ Telegram/SourceFiles/tele/tele_kept_store.h   |  13 +-
+ 7 files changed, 263 insertions(+), 45 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
+index 434962998299fda620df902bb100de54acffbe12..3c1dbe2b6e9ee60fdd39b089cab8b3f008923fb1 100644
+--- a/Telegram/SourceFiles/tele/tele_deleted.cpp
++++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
+@@ -44,6 +44,9 @@ struct State {
+ 	base::flat_map<
+ 		not_null<Main::Session*>,
+ 		base::flat_map<not_null<History*>, Items>> sessions;
++	base::flat_map<
++		not_null<Main::Session*>,
++		base::flat_map<not_null<History*>, base::flat_set<MsgId>>> withChat;
+ 	Icon icon;
+ 	rpl::event_stream<not_null<History*>> changes;
+ 	rpl::event_stream<KeptDeletedEvent> added;
+@@ -151,6 +154,28 @@ State::State() {
+ 	}, lifetime);
+ }
+ 
++void ForgetWithChat(
++		not_null<Main::Session*> session,
++		not_null<History*> history,
++		MsgId id) {
++	auto &all = Get().withChat;
++	const auto i = all.find(session);
++	if (i == end(all)) {
++		return;
++	}
++	const auto j = i->second.find(history);
++	if (j == end(i->second)) {
++		return;
++	}
++	j->second.remove(id);
++	if (j->second.empty()) {
++		i->second.erase(j);
++		if (i->second.empty()) {
++			all.erase(i);
++		}
++	}
++}
++
+ void Forget(
+ 		not_null<Main::Session*> session,
+ 		not_null<const HistoryItem*> item) {
+@@ -172,6 +197,7 @@ void Forget(
+ 	if (j->second.empty()) {
+ 		i->second.erase(j);
+ 	}
++	ForgetWithChat(session, history, item->id);
+ 	ForgetKeptDeleted(item);
+ 	Get().changes.fire_copy(history);
+ }
+@@ -189,9 +215,11 @@ void Forget(
+ 	session->data().sessionDataAboutToBeCleared(
+ 	) | rpl::on_next([=] {
+ 		Get().sessions.remove(session);
++		Get().withChat.remove(session);
+ 	}, session->lifetime());
+ 	session->lifetime().add([=] {
+ 		Get().sessions.remove(session);
++		Get().withChat.remove(session);
+ 	});
+ 	return sessions[session];
+ }
+@@ -207,6 +235,10 @@ void Forget(
+ 	return (j != end(i->second)) ? &j->second : nullptr;
+ }
+ 
++[[nodiscard]] bool HidesDeletedMark(not_null<const HistoryItem*> item) {
++	return KeptWithChat(item) && InKeptThread(item);
++}
++
+ [[nodiscard]] bool Keepable(not_null<HistoryItem*> item) {
+ 	const auto media = item->media();
+ 	return item->isRegular()
+@@ -256,7 +288,10 @@ void Forget(
+ 	return st::msgDateFont->height;
+ }
+ 
+-void Keep(std::vector<not_null<HistoryItem*>> &items, bool own) {
++void Keep(
++		std::vector<not_null<HistoryItem*>> &items,
++		bool own,
++		bool withChat) {
+ 	if (!KeepDeletedMessages() || (own && !KeepDeletedOwn())) {
+ 		return;
+ 	}
+@@ -268,8 +303,12 @@ void Keep(std::vector<not_null<HistoryItem*>> &items, bool own) {
+ 			return false;
+ 		}
+ 		const auto history = item->history();
+-		SessionItems(&history->session())[history].emplace(item->id, item);
+-		StoreKeptDeleted(item, own);
++		const auto session = not_null<Main::Session*>(&history->session());
++		SessionItems(session)[history].emplace(item->id, item);
++		if (withChat) {
++			Get().withChat[session][history].emplace(item->id);
++		}
++		StoreKeptDeleted(item, own, withChat);
+ 		kept.push_back(item);
+ 		return true;
+ 	}), end(items));
+@@ -303,9 +342,13 @@ void Restore(not_null<History*> history) {
+ 	if (restored.empty()) {
+ 		return;
+ 	}
+-	auto &items = SessionItems(&history->session())[history];
+-	for (const auto &item : restored) {
++	const auto session = not_null<Main::Session*>(&history->session());
++	auto &items = SessionItems(session)[history];
++	for (const auto &[item, withChat] : restored) {
+ 		items.emplace(item->id, item);
++		if (withChat) {
++			Get().withChat[session][history].emplace(item->id);
++		}
+ 	}
+ 	Get().changes.fire_copy(history);
+ }
+@@ -313,11 +356,43 @@ void Restore(not_null<History*> history) {
+ } // namespace
+ 
+ void KeepDeleted(std::vector<not_null<HistoryItem*>> &items) {
+-	Keep(items, false);
++	Keep(items, false, false);
+ }
+ 
+ void KeepOwnDeleted(std::vector<not_null<HistoryItem*>> &items) {
+-	Keep(items, true);
++	Keep(items, true, false);
++}
++
++void KeepWithChat(std::vector<not_null<HistoryItem*>> &items, bool own) {
++	Keep(items, own, true);
++}
++
++void MarkKeptWithChat(
++		not_null<History*> history,
++		const std::vector<MsgId> &ids) {
++	Restore(history);
++	const auto kept = Find(history);
++	if (!kept) {
++		return;
++	}
++	auto marked = std::vector<not_null<HistoryItem*>>();
++	for (const auto &id : ids) {
++		const auto i = kept->find(id);
++		if (i != end(*kept) && !KeptWithChat(i->second)) {
++			marked.push_back(i->second);
++		}
++	}
++	if (marked.empty()) {
++		return;
++	}
++	const auto session = not_null<Main::Session*>(&history->session());
++	auto &set = Get().withChat[session][history];
++	for (const auto &item : marked) {
++		set.emplace(item->id);
++		MarkKeptDeletedWithChat(session, item->fullId());
++		history->owner().requestItemViewRefresh(item);
++	}
++	Get().changes.fire_copy(history);
+ }
+ 
+ void KeepRecovered(std::vector<not_null<HistoryItem*>> &items) {
+@@ -360,6 +435,20 @@ bool IsKeptDeleted(not_null<const HistoryItem*> item) {
+ 	return (i != end(*items)) && (i->second.get() == item.get());
+ }
+ 
++bool KeptWithChat(not_null<const HistoryItem*> item) {
++	const auto &all = Get().withChat;
++	if (all.empty() || !IsKeptDeleted(item)) {
++		return false;
++	}
++	const auto history = item->history();
++	const auto i = all.find(not_null<Main::Session*>(&history->session()));
++	if (i == end(all)) {
++		return false;
++	}
++	const auto j = i->second.find(history);
++	return (j != end(i->second)) && j->second.contains(item->id);
++}
++
+ bool LeftOutOfLists(not_null<const HistoryItem*> item) {
+ 	return DeletedOutOfLists() && IsKeptDeleted(item);
+ }
+@@ -386,7 +475,9 @@ std::optional<HistoryItem*> LastListedMessage(
+ }
+ 
+ bool DeletedIconShown(not_null<const HistoryItem*> item) {
+-	return DeletedTrashIcon() && IsKeptDeleted(item);
++	return DeletedTrashIcon()
++		&& IsKeptDeleted(item)
++		&& !HidesDeletedMark(item);
+ }
+ 
+ int DeletedIconWidth() {
+@@ -536,6 +627,26 @@ int KeptDeletedCount(not_null<History*> history) {
+ 	return kept ? int(kept->size()) : 0;
+ }
+ 
++std::vector<not_null<HistoryItem*>> ListedDeletedItems(
++		not_null<History*> history) {
++	auto result = KeptDeletedItems(history);
++	result.erase(ranges::remove_if(result, [](not_null<HistoryItem*> item) {
++		return KeptWithChat(item);
++	}), end(result));
++	return result;
++}
++
++int ListedDeletedCount(not_null<History*> history) {
++	Restore(history);
++	const auto kept = Find(history);
++	if (!kept) {
++		return 0;
++	}
++	return int(ranges::count_if(*kept, [](const auto &pair) {
++		return !KeptWithChat(pair.second);
++	}));
++}
++
+ rpl::producer<> KeptDeletedChanges(not_null<History*> history) {
+ 	return Get().changes.events(
+ 	) | rpl::filter(
+@@ -556,6 +667,32 @@ void ClearKeptDeleted(not_null<History*> history) {
+ 	history->owner().histories().deleteMessages(ids, false);
+ }
+ 
++void ClearListedDeleted(not_null<History*> history) {
++	auto ids = MessageIdsList();
++	for (const auto &item : ListedDeletedItems(history)) {
++		ids.push_back(item->fullId());
++	}
++	if (!ids.empty()) {
++		history->owner().histories().deleteMessages(ids, false);
++	}
++}
++
++void RefreshKeptWithChat(not_null<History*> history) {
++	const auto kept = Find(history);
++	if (!kept) {
++		return;
++	}
++	auto items = std::vector<not_null<HistoryItem*>>();
++	for (const auto &[id, item] : *kept) {
++		if (KeptWithChat(item)) {
++			items.push_back(item);
++		}
++	}
++	for (const auto &item : items) {
++		history->owner().requestItemViewRefresh(item);
++	}
++}
++
+ rpl::producer<KeptDeletedEvent> KeptDeletedAdded() {
+ 	return Get().added.events();
+ }
+@@ -563,8 +700,11 @@ rpl::producer<KeptDeletedEvent> KeptDeletedAdded() {
+ DeletedFade::DeletedFade(
+ 		QPainter &p,
+ 		not_null<const HistoryView::Element*> view) {
+-	if ((!DeletedTrashIcon() && IsKeptDeleted(view->data()))
+-		|| IsFadedDraftItem(view->data())) {
++	const auto item = view->data();
++	if ((!DeletedTrashIcon()
++			&& IsKeptDeleted(item)
++			&& !HidesDeletedMark(item))
++		|| IsFadedDraftItem(item)) {
+ 		_painter = &p;
+ 		_opacity = p.opacity();
+ 		p.setOpacity(_opacity * kFadeOpacity);
+diff --git a/Telegram/SourceFiles/tele/tele_deleted.h b/Telegram/SourceFiles/tele/tele_deleted.h
+index 530c602e3560fd2a15932391bf1d37633a6c4abd..2c60423ac2b0a7accb58b382b0338d4c9f36328e 100644
+--- a/Telegram/SourceFiles/tele/tele_deleted.h
++++ b/Telegram/SourceFiles/tele/tele_deleted.h
+@@ -16,8 +16,13 @@ namespace Tele {
+ void KeepDeleted(std::vector<not_null<HistoryItem*>> &items);
+ void KeepOwnDeleted(std::vector<not_null<HistoryItem*>> &items);
+ void KeepRecovered(std::vector<not_null<HistoryItem*>> &items);
++void KeepWithChat(std::vector<not_null<HistoryItem*>> &items, bool own);
++void MarkKeptWithChat(
++	not_null<History*> history,
++	const std::vector<MsgId> &ids);
+ void UnkeepDeleted(not_null<HistoryItem*> item);
+ [[nodiscard]] bool IsKeptDeleted(not_null<const HistoryItem*> item);
++[[nodiscard]] bool KeptWithChat(not_null<const HistoryItem*> item);
+ [[nodiscard]] bool LeftOutOfLists(not_null<const HistoryItem*> item);
+ [[nodiscard]] std::optional<HistoryItem*> LastListedMessage(
+ 	not_null<const History*> history);
+@@ -38,8 +43,13 @@ void PaintDeletedServiceIcon(
+ [[nodiscard]] std::vector<not_null<HistoryItem*>> KeptDeletedItems(
+ 	not_null<History*> history);
+ [[nodiscard]] int KeptDeletedCount(not_null<History*> history);
++[[nodiscard]] std::vector<not_null<HistoryItem*>> ListedDeletedItems(
++	not_null<History*> history);
++[[nodiscard]] int ListedDeletedCount(not_null<History*> history);
+ [[nodiscard]] rpl::producer<> KeptDeletedChanges(not_null<History*> history);
+ void ClearKeptDeleted(not_null<History*> history);
++void ClearListedDeleted(not_null<History*> history);
++void RefreshKeptWithChat(not_null<History*> history);
+ 
+ struct KeptDeletedEvent {
+ 	std::vector<not_null<HistoryItem*>> items;
+diff --git a/Telegram/SourceFiles/tele/tele_deleted_section.cpp b/Telegram/SourceFiles/tele/tele_deleted_section.cpp
+index 4cd2a38faba077e5fcb1a61a32ac33efe1100221..933a7820735acba336bcc7dbf87165100a46d2c5 100644
+--- a/Telegram/SourceFiles/tele/tele_deleted_section.cpp
++++ b/Telegram/SourceFiles/tele/tele_deleted_section.cpp
+@@ -39,7 +39,7 @@ using namespace HistoryView;
+ void ConfirmClear(
+ 		not_null<Window::SessionController*> controller,
+ 		not_null<History*> history) {
+-	const auto count = KeptDeletedCount(history);
++	const auto count = ListedDeletedCount(history);
+ 	if (!count) {
+ 		return;
+ 	}
+@@ -50,7 +50,7 @@ void ConfirmClear(
+ 		.confirmed = [=](Fn<void()> &&close) {
+ 			close();
+ 			if (const auto strong = weak.get()) {
+-				ClearKeptDeleted(strong);
++				ClearListedDeleted(strong);
+ 			}
+ 		},
+ 		.confirmText = Lower(u"Clear"_q),
+@@ -285,7 +285,7 @@ DeletedWidget::DeletedWidget(
+ 	) | rpl::on_next([=] {
+ 		scheduleRefresh();
+ 	}, lifetime());
+-	if (const auto count = KeptDeletedCount(_history)) {
++	if (const auto count = ListedDeletedCount(_history)) {
+ 		setMessagesCount(count);
+ 	} else {
+ 		scheduleRefresh();
+@@ -331,7 +331,7 @@ void DeletedWidget::scheduleRefresh() {
+ }
+ 
+ void DeletedWidget::refresh() {
+-	const auto count = KeptDeletedCount(_history);
++	const auto count = ListedDeletedCount(_history);
+ 	if (!count) {
+ 		controller()->showBackFromStack();
+ 		return;
+@@ -350,7 +350,7 @@ void DeletedWidget::setMessagesCount(int count) {
+ 
+ Data::MessagesSlice DeletedWidget::buildSlice(
+ 		Data::MessagePosition aroundId) const {
+-	auto items = KeptDeletedItems(_history);
++	auto items = ListedDeletedItems(_history);
+ 	if (!_query.isEmpty()) {
+ 		const auto skip = [&](not_null<HistoryItem*> item) {
+ 			return !item->originalText().text.contains(
+@@ -763,7 +763,7 @@ void AddDeletedActions(
+ 	if (!history || !KeepDeletedMessages()) {
+ 		return;
+ 	}
+-	const auto count = KeptDeletedCount(history);
++	const auto count = ListedDeletedCount(history);
+ 	if (!count) {
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_kept_chats.cpp b/Telegram/SourceFiles/tele/tele_kept_chats.cpp
+index 26157f1f41686162cc5be2eb3239d39be4477207..a2f3841814118ef7f631c87b015622993c8a5d38 100644
+--- a/Telegram/SourceFiles/tele/tele_kept_chats.cpp
++++ b/Telegram/SourceFiles/tele/tele_kept_chats.cpp
+@@ -349,11 +349,7 @@ bool MarkChat(not_null<History*> history, bool own) {
+ 	state->chats[peer->id] = own;
+ 	const auto loaded = LoadedItems(history, std::nullopt);
+ 	auto items = loaded;
+-	if (own) {
+-		KeepOwnDeleted(items);
+-	} else {
+-		KeepDeleted(items);
+-	}
++	KeepWithChat(items, own);
+ 	if (!KeptDeletedCount(history)) {
+ 		state->chats.remove(peer->id);
+ 		return false;
+@@ -390,13 +386,17 @@ void ReleaseMarked(not_null<History*> history) {
+ 	const auto state = Find(&history->session());
+ 	const auto peer = history->peer;
+ 	const auto marked = state ? state->marked.take(peer->id) : std::nullopt;
+-	if (!marked || peer->isUser()) {
++	if (!marked) {
+ 		return;
+ 	}
+ 	auto &owner = history->owner();
+ 	for (const auto &id : *marked) {
+ 		if (const auto item = owner.message(peer->id, id)) {
+-			UnkeepDeleted(item);
++			if (peer->isUser()) {
++				owner.requestItemViewRefresh(item);
++			} else {
++				UnkeepDeleted(item);
++			}
+ 		}
+ 	}
+ }
+@@ -425,11 +425,7 @@ bool MarkTopic(not_null<Data::ForumTopic*> topic, bool own) {
+ 	const auto key = FullMsgId(history->peer->id, rootId);
+ 	state->topics[key] = own;
+ 	auto items = LoadedItems(history, rootId);
+-	if (own) {
+-		KeepOwnDeleted(items);
+-	} else {
+-		KeepDeleted(items);
+-	}
++	KeepWithChat(items, own);
+ 	if (KeptTopicItems(history, rootId).empty()) {
+ 		state->topics.remove(key);
+ 		return false;
+@@ -511,6 +507,7 @@ void RestoreTopics(not_null<Data::Forum*> forum) {
+ 	}
+ 	const auto peerId = history->peer->id;
+ 	const auto keptChat = IsKeptHistory(history);
++	auto refresh = false;
+ 	for (const auto &record : KeptThreads(session)) {
+ 		if (record.id.peer != peerId
+ 			|| !record.id.msg
+@@ -544,6 +541,7 @@ void RestoreTopics(not_null<Data::Forum*> forum) {
+ 		}
+ 		if (!parsed->whole) {
+ 			state->topics[record.id] = parsed->own;
++			refresh = true;
+ 		}
+ 		const auto topic = forum->applyTopicAdded(
+ 			rootId,
+@@ -556,6 +554,9 @@ void RestoreTopics(not_null<Data::Forum*> forum) {
+ 		topic->setClosed(parsed->closed);
+ 		topic->applyMaybeLast(last);
+ 	}
++	if (refresh) {
++		RefreshKeptWithChat(history);
++	}
+ }
+ 
+ void RestoreChat(
+@@ -570,9 +571,16 @@ void RestoreChat(
+ 		if (IsKeptHistory(existing)) {
+ 			return;
+ 		} else if (Accessible(existing->peer)) {
++			if (existing->peer->isUser()) {
++				MarkKeptWithChat(existing, parsed.marked);
++			}
+ 			ForgetKeptThread(session, record.id);
+-		} else if (!IsKeptHistory(existing)) {
+-			MarkChat(existing, parsed.own);
++		} else {
++			state->marked[peerId] = parsed.marked;
++			MarkKeptWithChat(existing, parsed.marked);
++			if (!MarkChat(existing, parsed.own)) {
++				state->marked.remove(peerId);
++			}
+ 		}
+ 		return;
+ 	}
+@@ -599,6 +607,7 @@ void RestoreChat(
+ 	const auto history = owner.history(peer);
+ 	state->chats[peerId] = parsed.own;
+ 	state->marked[peerId] = parsed.marked;
++	MarkKeptWithChat(history, parsed.marked);
+ 	const auto last = Newest(KeptDeletedItems(history));
+ 	if (!last) {
+ 		state->chats.remove(peerId);
+@@ -676,6 +685,7 @@ void Reacquire(not_null<Main::Session*> session) {
+ 		if (!back && KeptDeletedCount(history)) {
+ 			state->chats[peerId] = own;
+ 			Refresh(history);
++			RefreshKeptWithChat(history);
+ 		} else {
+ 			ForgetKeptThread(session, FullMsgId(peerId, MsgId()));
+ 			ForgetWholeTopics(session, peerId);
+@@ -688,6 +698,7 @@ void Reacquire(not_null<Main::Session*> session) {
+ 		const auto topic = forum ? forum->topicFor(key.msg) : nullptr;
+ 		if (topic && !KeptTopicItems(history, key.msg).empty()) {
+ 			state->topics[key] = own;
++			RefreshKeptWithChat(history);
+ 			if (topic->inChatList()) {
+ 				topic->updateChatListEntry();
+ 			}
+@@ -720,6 +731,7 @@ void ReleaseAll(not_null<Main::Session*> session) {
+ 	for (const auto &[peerId, own] : chats) {
+ 		if (const auto history = owner.historyLoaded(peerId)) {
+ 			Refresh(history);
++			RefreshKeptWithChat(history);
+ 		}
+ 	}
+ 	for (const auto &[key, own] : topics) {
+@@ -730,6 +742,7 @@ void ReleaseAll(not_null<Main::Session*> session) {
+ 				topic->updateChatListEntry();
+ 			}
+ 			Refresh(history);
++			RefreshKeptWithChat(history);
+ 		}
+ 	}
+ }
+@@ -845,6 +858,18 @@ bool IsKeptThread(const Data::Thread *thread) {
+ 	return false;
+ }
+ 
++bool InKeptThread(not_null<const HistoryItem*> item) {
++	const auto history = item->history();
++	if (IsKeptHistory(history)) {
++		return true;
++	}
++	const auto rootId = item->topicRootId();
++	return rootId
++		&& IsKeptTopicKey(
++			&history->session(),
++			FullMsgId(history->peer->id, rootId));
++}
++
+ bool KeptChatReadOnly(const PeerData *peer) {
+ 	return IsKeptChat(peer) && !peer->isUser();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_kept_chats.h b/Telegram/SourceFiles/tele/tele_kept_chats.h
+index 0ff6326288a1292650888f98f0e66fdbd3e7a49f..ef671cadd5a3e3a3c41fb9b6fdee6e8b41233c5d 100644
+--- a/Telegram/SourceFiles/tele/tele_kept_chats.h
++++ b/Telegram/SourceFiles/tele/tele_kept_chats.h
+@@ -39,6 +39,7 @@ void SetupKeptChats(not_null<Main::Session*> session);
+ [[nodiscard]] bool IsKeptChat(const PeerData *peer);
+ [[nodiscard]] bool IsKeptHistory(not_null<const History*> history);
+ [[nodiscard]] bool IsKeptThread(const Data::Thread *thread);
++[[nodiscard]] bool InKeptThread(not_null<const HistoryItem*> item);
+ [[nodiscard]] bool KeptChatReadOnly(const PeerData *peer);
+ [[nodiscard]] bool KeptThreadReadOnly(const Data::Thread *thread);
+ [[nodiscard]] QString KeptChatError(const PeerData *peer);
+diff --git a/Telegram/SourceFiles/tele/tele_kept_store.cpp b/Telegram/SourceFiles/tele/tele_kept_store.cpp
+index 01b39db88c5bf23570ce44905502f57f9816e30b..2541d66f3b3c1c6af210033ee3bbee8f10270dd5 100644
+--- a/Telegram/SourceFiles/tele/tele_kept_store.cpp
++++ b/Telegram/SourceFiles/tele/tele_kept_store.cpp
+@@ -98,6 +98,7 @@ struct Entry {
+ 	QString media;
+ 	int64 mediaSize = 0;
+ 	bool own = false;
++	bool withChat = false;
+ 	qint32 appVersion = AppVersion;
+ };
+ 
+@@ -812,7 +813,7 @@ void WritePut(
+ 	WriteKey(stream, Op::Put, kind, id);
+ 	stream
+ 		<< qint32(entry.stamp)
+-		<< quint8(entry.own ? 1 : 0)
++		<< quint8((entry.own ? 1 : 0) | (entry.withChat ? 2 : 0))
+ 		<< qint32(entry.appVersion)
+ 		<< entry.blob
+ 		<< entry.media
+@@ -852,9 +853,10 @@ public:
+ 
+ 	[[nodiscard]] static Store *Find(not_null<Main::Session*> session);
+ 
+-	void storeDeleted(not_null<HistoryItem*> item, bool own);
++	void storeDeleted(not_null<HistoryItem*> item, bool own, bool withChat);
++	void markDeletedWithChat(FullMsgId id);
+ 	void forgetDeleted(FullMsgId id);
+-	[[nodiscard]] std::vector<not_null<HistoryItem*>> restoreDeleted(
++	[[nodiscard]] std::vector<KeptDeletedRestored> restoreDeleted(
+ 		not_null<History*> history,
+ 		bool own);
+ 
+@@ -1093,7 +1095,8 @@ bool Store::readLegacy(const MTP::AuthKeyPtr &key) {
+ 			break;
+ 		}
+ 		entry.stamp = stamp;
+-		entry.own = (own != 0);
++		entry.own = (own & 1) != 0;
++		entry.withChat = (own & 2) != 0;
+ 		entry.mediaSize = mediaSize;
+ 		entry.appVersion = appVersion;
+ 		const auto id = FullMsgId(DeserializePeerId(peer), MsgId(msg));
+@@ -1145,7 +1148,8 @@ bool Store::apply(QDataStream &stream) {
+ 				return false;
+ 			}
+ 			entry.stamp = stamp;
+-			entry.own = (own != 0);
++			entry.own = (own & 1) != 0;
++			entry.withChat = (own & 2) != 0;
+ 			entry.appVersion = appVersion;
+ 			entry.mediaSize = mediaSize;
+ 			if (id.peer
+@@ -1336,7 +1340,10 @@ void Store::collectGarbage() {
+ 	});
+ }
+ 
+-void Store::storeDeleted(not_null<HistoryItem*> item, bool own) {
++void Store::storeDeleted(
++		not_null<HistoryItem*> item,
++		bool own,
++		bool withChat) {
+ 	if (!KeepDeletedPersist() || !ensureLoaded()) {
+ 		return;
+ 	}
+@@ -1348,11 +1355,26 @@ void Store::storeDeleted(not_null<HistoryItem*> item, bool own) {
+ 		.stamp = base::unixtime::now(),
+ 		.blob = SerializeDeleted(item),
+ 		.own = own,
++		.withChat = withChat,
+ 	});
+ 	copyMedia(id, item);
+ 	changed();
+ }
+ 
++void Store::markDeletedWithChat(FullMsgId id) {
++	if (!KeepDeletedPersist() || !ensureLoaded()) {
++		return;
++	}
++	const auto i = _deleted.find(id);
++	if (i == end(_deleted) || i->second.withChat) {
++		return;
++	}
++	auto entry = i->second;
++	entry.withChat = true;
++	put(EntryKind::Deleted, id, std::move(entry));
++	changed();
++}
++
+ void Store::forgetDeleted(FullMsgId id) {
+ 	if (_closing || !_loaded) {
+ 		return;
+@@ -1496,7 +1518,7 @@ void Store::restoreMedia(const Entry &entry, not_null<HistoryItem*> item) {
+ 	});
+ }
+ 
+-std::vector<not_null<HistoryItem*>> Store::restoreDeleted(
++std::vector<KeptDeletedRestored> Store::restoreDeleted(
+ 		not_null<History*> history,
+ 		bool own) {
+ 	if (!KeepDeletedPersist() || !ensureLoaded()) {
+@@ -1507,7 +1529,7 @@ std::vector<not_null<HistoryItem*>> Store::restoreDeleted(
+ 		return {};
+ 	}
+ 	auto &owner = history->owner();
+-	auto result = std::vector<not_null<HistoryItem*>>();
++	auto result = std::vector<KeptDeletedRestored>();
+ 	auto broken = std::vector<FullMsgId>();
+ 	for (auto i = _deleted.lower_bound(FullMsgId(peer, MsgId()))
+ 		; i != end(_deleted) && i->first.peer == peer
+@@ -1526,7 +1548,7 @@ std::vector<not_null<HistoryItem*>> Store::restoreDeleted(
+ 			continue;
+ 		}
+ 		restoreMedia(entry, item);
+-		result.push_back(item);
++		result.push_back({ .item = item, .withChat = entry.withChat });
+ 	}
+ 	for (const auto &id : broken) {
+ 		erase(EntryKind::Deleted, _deleted.find(id));
+@@ -1776,9 +1798,20 @@ void SetupKeptStore(not_null<Main::Session*> session) {
+ 	session->lifetime().make_state<Store>(session);
+ }
+ 
+-void StoreKeptDeleted(not_null<HistoryItem*> item, bool own) {
++void StoreKeptDeleted(
++		not_null<HistoryItem*> item,
++		bool own,
++		bool withChat) {
+ 	if (const auto store = StoreFor(item)) {
+-		store->storeDeleted(item, own);
++		store->storeDeleted(item, own, withChat);
++	}
++}
++
++void MarkKeptDeletedWithChat(
++		not_null<Main::Session*> session,
++		FullMsgId id) {
++	if (const auto store = Store::Find(session)) {
++		store->markDeletedWithChat(id);
+ 	}
+ }
+ 
+@@ -1788,13 +1821,13 @@ void ForgetKeptDeleted(not_null<const HistoryItem*> item) {
+ 	}
+ }
+ 
+-std::vector<not_null<HistoryItem*>> RestoreKeptDeleted(
++std::vector<KeptDeletedRestored> RestoreKeptDeleted(
+ 		not_null<History*> history,
+ 		bool own) {
+ 	const auto store = Store::Find(&history->session());
+ 	return store
+ 		? store->restoreDeleted(history, own)
+-		: std::vector<not_null<HistoryItem*>>();
++		: std::vector<KeptDeletedRestored>();
+ }
+ 
+ void StoreEditVersions(
+diff --git a/Telegram/SourceFiles/tele/tele_kept_store.h b/Telegram/SourceFiles/tele/tele_kept_store.h
+index 0cf226459bf98c0941f0f51d5f4ebeb26b750beb..7fd6d1cd2e0699e150622646e834c093866d7121 100644
+--- a/Telegram/SourceFiles/tele/tele_kept_store.h
++++ b/Telegram/SourceFiles/tele/tele_kept_store.h
+@@ -29,11 +29,20 @@ struct KeptThreadRecord {
+ 	qint32 appVersion = 0;
+ };
+ 
++struct KeptDeletedRestored {
++	not_null<HistoryItem*> item;
++	bool withChat = false;
++};
++
+ void SetupKeptStore(not_null<Main::Session*> session);
+ 
+-void StoreKeptDeleted(not_null<HistoryItem*> item, bool own);
++void StoreKeptDeleted(
++	not_null<HistoryItem*> item,
++	bool own,
++	bool withChat = false);
++void MarkKeptDeletedWithChat(not_null<Main::Session*> session, FullMsgId id);
+ void ForgetKeptDeleted(not_null<const HistoryItem*> item);
+-[[nodiscard]] std::vector<not_null<HistoryItem*>> RestoreKeptDeleted(
++[[nodiscard]] std::vector<KeptDeletedRestored> RestoreKeptDeleted(
+ 	not_null<History*> history,
+ 	bool own);
+ 

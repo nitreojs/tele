@@ -1,0 +1,959 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 04:51:34 +0300
+Subject: [PATCH] feat: send gifs as videos and videos as gifs
+
+---
+ Telegram/CMakeLists.txt                       |   4 +
+ Telegram/SourceFiles/boxes/send_files_box.cpp |  12 +
+ .../chat_helpers/gifs_list_widget.cpp         |   6 +
+ .../history/history_inner_widget.cpp          |   5 +
+ .../view/history_view_context_menu.cpp        |   2 +
+ .../SourceFiles/storage/localimageloader.cpp  |   8 +-
+ Telegram/SourceFiles/tele/tele_gif_video.cpp  | 308 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_gif_video.h    |  46 +++
+ Telegram/SourceFiles/tele/tele_send_files.cpp | 129 ++++++++
+ Telegram/SourceFiles/tele/tele_send_files.h   |  28 ++
+ Telegram/SourceFiles/tele/tele_shot.cpp       | 100 +-----
+ .../ui/chat/attach/attach_album_thumbnail.cpp |   7 +-
+ .../ui/chat/attach/attach_album_thumbnail.h   |   2 +
+ .../ui/chat/attach/attach_prepare.h           |   1 +
+ .../attach/attach_single_media_preview.cpp    |   6 +-
+ 15 files changed, 559 insertions(+), 105 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_gif_video.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gif_video.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_send_files.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_send_files.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index a15b9873d5c2221ddac96f9966db117ebe183ec1..92a792df1cd8ca1e4bff2b916c29a94b05f59002 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2539,6 +2539,8 @@ PRIVATE
+     tele/tele_edit_history_section.h
+     tele/tele_folders.cpp
+     tele/tele_folders.h
++    tele/tele_gif_video.cpp
++    tele/tele_gif_video.h
+     tele/tele_gifts.cpp
+     tele/tele_gifts.h
+     tele/tele_ghost.cpp
+@@ -2583,6 +2585,8 @@ PRIVATE
+     tele/tele_rich_timestamps.h
+     tele/tele_secret_media.cpp
+     tele/tele_secret_media.h
++    tele/tele_send_files.cpp
++    tele/tele_send_files.h
+     tele/tele_send_order.cpp
+     tele/tele_send_order.h
+     tele/tele_shortcuts.cpp
+diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
+index 7311fd204278929cdd8869b242b07e23c846e09f..cfee652375b860ee3a9c2978f6951217f060dbeb 100644
+--- a/Telegram/SourceFiles/boxes/send_files_box.cpp
++++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/mime_type.h"
+ #include "core/shortcuts.h"
+ #include "core/ui_integration.h"
++#include "tele/tele_gif_video.h"
+ #include "tele/tele_link_rewrites.h"
+ #include "base/event_filter.h"
+ #include "base/call_delayed.h"
+@@ -1940,6 +1941,17 @@ void SendFilesBox::pushBlock(int from, int till) {
+ 				&icons.menuSpoiler,
+ 				spoilered);
+ 		}
++		Tele::AddSendAsGifAction(
++			state->menu.get(),
++			file,
++			compressed && !hasPrice(),
++			(till - from > 1) && _sendWay.current().groupFiles(),
++			[=] {
++				applyBlockChanges();
++				refreshAllAfterChanges(from, [&] {
++					Tele::ToggleSendAsGif(_list.files[fileIndex], _show);
++				});
++			});
+ 		const auto ttlUser = _toPeer->asUser();
+ 		const auto canSetTtl = !hasPrice()
+ 			&& (_sendType == Api::SendType::Normal)
+diff --git a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
+index 9503a4e4eae922334155f88bb245ac282dc43b0a..9ecb91e8645c09dac223336bef24d0415e83e7cf 100644
+--- a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
+@@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_session_controller.h"
+ #include "history/view/history_view_cursor_state.h"
+ #include "storage/storage_account.h" // Account::writeSavedGifs
++#include "tele/tele_gif_video.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -433,6 +434,11 @@ base::unique_qptr<Ui::PopupMenu> GifsListWidget::fillContextMenu(
+ 				menu->addAction(text, std::move(done), icon);
+ 			};
+ 			AddGifAction(std::move(callback), _show, document, icons);
++			Tele::AddPanelGifAsVideoAction(
++				menu.get(),
++				_show,
++				document,
++				_inlineQueryPeer);
+ 		}
+ 	}
+ 
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 1da6051b84c797be3cb3bd108483acea04e45d4e..f195b394124c031480e21e7143c63608589141e1 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_gif_video.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_shot.h"
+@@ -3890,6 +3891,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 		(isUponSelected > 1) ? getSelectedItems() : MessageIdsList(),
+ 		(isUponSelected != -2) ? _dragStateItem : nullptr,
+ 		width());
++	Tele::AddResendAsGifAction(
++		_menu.get(),
++		controller,
++		(isUponSelected != -2) ? _dragStateItem : nullptr);
+ 	Tele::InsertMessageTools(
+ 		_menu.get(),
+ 		controller->uiShow(),
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index fabdee813ebd97bf0d5ee6ab6c777774172c116f..d708ee1e2584592a169203debbe012515c582726 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_custom_emoji.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_gif_video.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_shot.h"
+ #include "tele/tele_message_menu.h"
+@@ -1995,6 +1996,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+ 		}
+ 	}
+ 	Tele::AddShotAction(result.get(), list, request);
++	Tele::AddResendAsGifAction(result.get(), list->controller(), item);
+ 	Tele::InsertMessageTools(
+ 		result.get(),
+ 		list->controller()->uiShow(),
+diff --git a/Telegram/SourceFiles/storage/localimageloader.cpp b/Telegram/SourceFiles/storage/localimageloader.cpp
+index 641f3efc9f0dfbc6161acdf5a7325bc54612dd79..569cccca2213ffd5d75fa0c283c9f8a69e1b5d95 100644
+--- a/Telegram/SourceFiles/storage/localimageloader.cpp
++++ b/Telegram/SourceFiles/storage/localimageloader.cpp
+@@ -42,6 +42,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "mainwidget.h"
+ #include "mainwindow.h"
+ #include "main/main_session.h"
++#include "tele/tele_gif_video.h"
+ 
+ #include <QtCore/QBuffer>
+ #include <QtGui/QImageWriter>
+@@ -993,6 +994,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
+ 			auto coverHeight = video->thumbnail.height();
+ 			auto realSeconds = video->duration / 1000.;
+ 			const auto gif = video->modifications.gif && !_forceFile;
++			const auto silent = Tele::SendsAsSilentVideo(*_information);
+ 			const auto convertForGif = gif
+ 				&& video->isGifv
+ 				&& (filemime != u"video/mp4"_q);
+@@ -1007,11 +1009,11 @@ void FileLoadTask::process(ProcessArgs &&args) {
+ 						video->modifications,
+ 						video->thumbnail.size(),
+ 						video->duration,
+-						video->hasAudio))) {
++						video->hasAudio || silent))) {
+ 				auto source = Editor::ComposeVideoSource(
+ 					_filepath,
+ 					video->modifications,
+-					{},
++					{ .removeAudio = silent },
+ 					false);
+ 				source.bytes = _filepath.isEmpty() ? _content : QByteArray();
+ 				const auto target = Media::Encode::TranscodedSize(
+@@ -1065,7 +1067,7 @@ void FileLoadTask::process(ProcessArgs &&args) {
+ 				if (video->supportsStreaming) {
+ 					flags |= MTPDdocumentAttributeVideo::Flag::f_supports_streaming;
+ 				}
+-				if (gif) {
++				if (gif || silent) {
+ 					flags |= MTPDdocumentAttributeVideo::Flag::f_nosound;
+ 				}
+ 				const auto startTs = _result->videoCoverOffset;
+diff --git a/Telegram/SourceFiles/tele/tele_gif_video.cpp b/Telegram/SourceFiles/tele/tele_gif_video.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..d0ba9479b3028766f7812afc466e1c32f32177c2
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gif_video.cpp
+@@ -0,0 +1,308 @@
++#include "tele/tele_gif_video.h"
++
++#include "data/data_chat_participant_status.h"
++#include "data/data_document.h"
++#include "data/data_document_media.h"
++#include "data/data_file_origin.h"
++#include "data/data_media_types.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "chat_helpers/compose/compose_show.h"
++#include "dialogs/dialogs_key.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "main/main_session.h"
++#include "media/clip/media_clip_reader.h"
++#include "media/media_video_encode.h"
++#include "storage/file_download.h"
++#include "storage/localimageloader.h"
++#include "storage/storage_media_prepare.h"
++#include "tele/tele_launch_flags.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_send_files.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/layers/show.h"
++#include "ui/widgets/popup_menu.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++using Image = Ui::PreparedFileInformation::Image;
++using Video = Ui::PreparedFileInformation::Video;
++
++[[nodiscard]] Video *LookupVideo(const Ui::PreparedFile &file) {
++	return file.information
++		? std::get_if<Video>(&file.information->media)
++		: nullptr;
++}
++
++[[nodiscard]] bool Transcodable(const Ui::PreparedFile &file) {
++	const auto size = file.path.isEmpty()
++		? int64(file.content.size())
++		: file.size;
++	return (size < Media::Encode::MaxTranscodeSourceSize());
++}
++
++[[nodiscard]] bool IsGifImage(const Ui::PreparedFile &file) {
++	const auto image = file.information
++		? std::get_if<Image>(&file.information->media)
++		: nullptr;
++	return image
++		&& image->animated
++		&& (file.information->filemime == u"image/gif"_q)
++		&& (!file.path.isEmpty() || !file.content.isEmpty())
++		&& Transcodable(file);
++}
++
++void SetSendAsGif(Video &video, bool gif) {
++	video.modifications.gif = gif;
++	video.silentVideo = !gif && !video.hasAudio;
++}
++
++[[nodiscard]] bool ConvertGifToVideo(Ui::PreparedFile &file) {
++	auto prepared = Media::Clip::PrepareForSending(file.path, file.content);
++	const auto video = std::get_if<Video>(&prepared.media);
++	if (!video
++		|| (video->duration <= 0)
++		|| video->thumbnail.isNull()
++		|| !Ui::ValidateThumbDimensions(
++			video->thumbnail.width(),
++			video->thumbnail.height())) {
++		return false;
++	}
++	video->isGifv = false;
++	video->modifications.gif = false;
++	file.information->media = std::move(*video);
++	file.type = Ui::PreparedFile::Type::Video;
++	Storage::UpdateVideoDetails(
++		file,
++		st::sendMediaPreviewSize,
++		PhotoSideLimit());
++	return true;
++}
++
++[[nodiscard]] bool Loadable(not_null<DocumentData*> document) {
++	if (document->size >= Media::Encode::MaxTranscodeSourceSize()) {
++		return false;
++	}
++	const auto inMemory = (document->size <= Storage::kMaxFileInMemory);
++	return inMemory || !document->filepath(true).isEmpty();
++}
++
++[[nodiscard]] DocumentData *ResendDocument(not_null<HistoryItem*> item) {
++	const auto media = item->media();
++	const auto document = media ? media->document() : nullptr;
++	if (!document
++		|| media->ttlSeconds()
++		|| !item->isRegular()
++		|| item->isSponsored()
++		|| item->forbidsSaving()
++		|| (!document->isGifv()
++			&& (!document->isVideoFile() || document->isVideoMessage()))
++		|| !Loadable(document)) {
++		return nullptr;
++	}
++	return document;
++}
++
++[[nodiscard]] Ui::PreparedList PrepareResend(
++		not_null<DocumentData*> document,
++		const QByteArray &bytes,
++		bool toGif) {
++	auto result = Ui::PreparedList();
++	const auto path = bytes.isEmpty() ? document->filepath(true) : QString();
++	if (bytes.isEmpty() && path.isEmpty()) {
++		return result;
++	}
++	auto file = Ui::PreparedFile(path);
++	if (path.isEmpty()) {
++		file.content = QByteArray(bytes.constData(), bytes.size());
++		file.size = file.content.size();
++		file.displayName = document->filename();
++	} else {
++		file.size = QFileInfo(path).size();
++	}
++	Storage::PrepareDetails(file, st::sendMediaPreviewSize, PhotoSideLimit());
++	const auto video = LookupVideo(file);
++	if (!video
++		|| (file.type != Ui::PreparedFile::Type::Video)
++		|| !file.canEditVideo()) {
++		return result;
++	}
++	SetSendAsGif(*video, toGif);
++	result.files.push_back(std::move(file));
++	return result;
++}
++
++void Resend(
++		not_null<Window::SessionController*> controller,
++		not_null<DocumentData*> document,
++		Data::FileOrigin origin,
++		Fn<Data::Thread*()> resolveThread,
++		bool toGif) {
++	const auto media = document->createMediaView();
++	const auto ready = [=] {
++		const auto thread = resolveThread();
++		if (!thread) {
++			return;
++		}
++		auto list = PrepareResend(document, media->bytes(), toGif);
++		if (list.files.empty()) {
++			controller->showToast(Lower(u"Couldn't prepare this file."_q));
++			return;
++		}
++		ShowSendFilesBox(controller, thread, std::move(list));
++	};
++	if (media->loaded(true)) {
++		ready();
++		return;
++	} else if (document->size > Storage::kMaxFileInMemory) {
++		controller->showToast(Lower(u"Download the file first."_q));
++		return;
++	}
++	document->save(origin, QString());
++	if (media->loaded(true)) {
++		ready();
++		return;
++	} else if (!document->loading()) {
++		controller->showToast(Lower(u"Couldn't download this file."_q));
++		return;
++	}
++	controller->showToast(Lower(u"Downloading..."_q));
++	document->session().downloaderTaskFinished(
++	) | rpl::filter([=] {
++		return media->loaded(true) || !document->loading();
++	}) | rpl::take(1) | rpl::on_next([=] {
++		if (media->loaded(true)) {
++			ready();
++		} else {
++			controller->showToast(Lower(u"Couldn't download this file."_q));
++		}
++	}, controller->lifetime());
++}
++
++} // namespace
++
++bool SendsAsGif(const Ui::PreparedFile &file, bool album) {
++	if (const auto video = LookupVideo(file)) {
++		return video->modifications.gif && (!album || video->hasAudio);
++	}
++	return !album && IsGifImage(file);
++}
++
++bool SendsAsSilentVideo(const Ui::PreparedFileInformation &information) {
++	const auto video = std::get_if<Video>(&information.media);
++	return video
++		&& video->silentVideo
++		&& !video->modifications.gif
++		&& !video->hasAudio;
++}
++
++void AddSendAsGifAction(
++		not_null<Ui::PopupMenu*> menu,
++		const Ui::PreparedFile &file,
++		bool available,
++		bool album,
++		Fn<void()> toggle) {
++	if (!available) {
++		return;
++	}
++	const auto video = LookupVideo(file);
++	if (video) {
++		const auto toGif = !video->modifications.gif && video->hasAudio;
++		if (!file.canEditVideo()
++			|| (album && !video->hasAudio)
++			|| (toGif && !Transcodable(file))) {
++			return;
++		}
++	} else if (!IsGifImage(file)) {
++		return;
++	}
++	const auto gif = !video || video->modifications.gif;
++	menu->addAction(
++		Lower(gif ? u"Send as video"_q : u"Send as GIF"_q),
++		std::move(toggle),
++		gif ? &st::menuIconVideoChat : &st::menuIconGif);
++}
++
++void ToggleSendAsGif(
++		Ui::PreparedFile &file,
++		std::shared_ptr<Ui::Show> show) {
++	if (const auto video = LookupVideo(file)) {
++		SetSendAsGif(*video, !video->modifications.gif);
++	} else if (IsGifImage(file) && !ConvertGifToVideo(file)) {
++		show->showToast(Lower(u"Couldn't read this GIF as a video."_q));
++	}
++}
++
++void AddResendAsGifAction(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<Window::SessionController*> controller,
++		HistoryItem *item) {
++	const auto document = item ? ResendDocument(item) : nullptr;
++	if (!document || OfflineForLaunch()) {
++		return;
++	}
++	const auto toGif = !document->isGifv();
++	const auto thread = SendThread(controller, item);
++	const auto right = toGif
++		? ChatRestriction::SendGifs
++		: ChatRestriction::SendVideos;
++	if (!thread || !Data::CanSend(thread, right)) {
++		return;
++	}
++	const auto itemId = item->fullId();
++	menu->addAction(
++		Lower(toGif ? u"Send as GIF"_q : u"Send as video"_q),
++		[=] {
++			const auto resolveThread = [=]() -> Data::Thread* {
++				const auto item = document->owner().message(itemId);
++				return item ? SendThread(controller, item) : nullptr;
++			};
++			Resend(controller, document, itemId, resolveThread, toGif);
++		},
++		toGif ? &st::menuIconGif : &st::menuIconVideoChat);
++}
++
++void AddPanelGifAsVideoAction(
++		not_null<Ui::PopupMenu*> menu,
++		std::shared_ptr<ChatHelpers::Show> show,
++		DocumentData *document,
++		PeerData *peer) {
++	const auto controller = show->resolveWindow();
++	if (!controller
++		|| !document
++		|| !peer
++		|| !document->isGifv()
++		|| !Loadable(document)
++		|| OfflineForLaunch()) {
++		return;
++	}
++	const auto resolveThread = [=]() -> Data::Thread* {
++		const auto active = controller->activeChatCurrent().thread();
++		return (active && active->peer() == peer)
++			? active
++			: static_cast<Data::Thread*>(peer->owner().history(peer));
++	};
++	const auto thread = resolveThread();
++	if (!Data::CanSend(thread, ChatRestriction::SendVideos)) {
++		return;
++	}
++	menu->addAction(
++		Lower(u"Send as video"_q),
++		[=] {
++			Resend(
++				controller,
++				document,
++				document->stickerOrGifOrigin(),
++				resolveThread,
++				false);
++		},
++		&st::menuIconVideoChat);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gif_video.h b/Telegram/SourceFiles/tele/tele_gif_video.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..46178d68f5ccd2e5b8084f0f81f47c93d59eef53
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gif_video.h
+@@ -0,0 +1,46 @@
++#pragma once
++
++class DocumentData;
++class HistoryItem;
++class PeerData;
++
++namespace ChatHelpers {
++class Show;
++} // namespace ChatHelpers
++
++namespace Ui {
++struct PreparedFile;
++struct PreparedFileInformation;
++class PopupMenu;
++class Show;
++} // namespace Ui
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] bool SendsAsGif(const Ui::PreparedFile &file, bool album);
++[[nodiscard]] bool SendsAsSilentVideo(
++	const Ui::PreparedFileInformation &information);
++void AddSendAsGifAction(
++	not_null<Ui::PopupMenu*> menu,
++	const Ui::PreparedFile &file,
++	bool available,
++	bool album,
++	Fn<void()> toggle);
++void ToggleSendAsGif(
++	Ui::PreparedFile &file,
++	std::shared_ptr<Ui::Show> show);
++void AddResendAsGifAction(
++	not_null<Ui::PopupMenu*> menu,
++	not_null<Window::SessionController*> controller,
++	HistoryItem *item);
++void AddPanelGifAsVideoAction(
++	not_null<Ui::PopupMenu*> menu,
++	std::shared_ptr<ChatHelpers::Show> show,
++	DocumentData *document,
++	PeerData *peer);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_send_files.cpp b/Telegram/SourceFiles/tele/tele_send_files.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..7e66b44495e807e3e720d581cff8e5bed6d409ef
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_send_files.cpp
+@@ -0,0 +1,129 @@
++#include "tele/tele_send_files.h"
++
++#include "api/api_common.h"
++#include "apiwrap.h"
++#include "base/weak_ptr.h"
++#include "boxes/send_files_box.h"
++#include "data/data_forum_topic.h"
++#include "data/data_peer.h"
++#include "data/data_saved_sublist.h"
++#include "data/data_thread.h"
++#include "dialogs/dialogs_key.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_helpers.h"
++#include "main/main_session.h"
++#include "storage/localimageloader.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "window/window_session_controller.h"
++
++namespace Tele {
++namespace {
++
++void SendConfirmed(
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread,
++		FullMsgId replyTo,
++		std::shared_ptr<Ui::PreparedBundle> bundle,
++		Api::SendOptions options) {
++	if (!bundle) {
++		return;
++	}
++	const auto payment = std::make_shared<SendPaymentHelper>();
++	const auto weak = base::make_weak(thread);
++	const auto withPaymentApproved = crl::guard(controller, [=](
++			int approved) {
++		payment->clear();
++		if (const auto strong = weak.get()) {
++			auto copy = options;
++			copy.starsApproved = approved;
++			SendConfirmed(controller, strong, replyTo, bundle, copy);
++		}
++	});
++	const auto checked = payment->check(
++		controller,
++		thread->peer(),
++		options,
++		bundle->totalCount,
++		withPaymentApproved);
++	if (!checked) {
++		return;
++	}
++	const auto type = bundle->way.sendImagesAsPhotos()
++		? SendMediaType::Photo
++		: SendMediaType::File;
++	auto action = Api::SendAction(thread, options);
++	action.clearDraft = false;
++	action.replyTo = FullReplyTo{
++		.messageId = replyTo,
++		.topicRootId = thread->topicRootId(),
++		.monoforumPeerId = thread->monoforumPeerId(),
++	};
++	auto &api = controller->session().api();
++	for (auto &group : bundle->groups) {
++		const auto album = (group.type != Ui::AlbumType::None)
++			? std::make_shared<SendingAlbum>()
++			: nullptr;
++		api.sendFiles(std::move(group.list), type, album, action);
++	}
++}
++
++} // namespace
++
++[[nodiscard]] Data::Thread *SendThread(
++		not_null<Window::SessionController*> controller,
++		not_null<HistoryItem*> item) {
++	const auto peer = item->history()->peer;
++	if (const auto thread = controller->activeChatCurrent().thread()) {
++		if (thread->peer() == peer) {
++			return thread;
++		}
++	}
++	if (const auto topic = item->topic()) {
++		return topic;
++	} else if (const auto sublist = item->savedSublist()) {
++		return sublist;
++	}
++	return item->history();
++}
++
++void ShowSendFilesBox(
++		not_null<Window::SessionController*> controller,
++		not_null<Data::Thread*> thread,
++		Ui::PreparedList &&list,
++		Fn<void()> sent) {
++	const auto weak = base::make_weak(thread);
++	const auto peer = thread->peer();
++	const auto show = controller->uiShow();
++	show->show(Box<SendFilesBox>(SendFilesBoxDescriptor{
++		.show = show,
++		.list = std::move(list),
++		.caption = TextWithTags(),
++		.toPeer = peer,
++		.limits = DefaultLimitsForPeer(peer),
++		.check = DefaultCheckForPeer(show, peer),
++		.sendType = Api::SendType::Normal,
++		.confirmed = crl::guard(controller, [=](
++				std::shared_ptr<Ui::PreparedBundle> bundle,
++				Api::SendOptions options,
++				FullReplyTo currentReplyTo) {
++			if (const auto strong = weak.get()) {
++				SendConfirmed(
++					controller,
++					strong,
++					currentReplyTo.messageId,
++					std::move(bundle),
++					options);
++				if (sent) {
++					sent();
++				}
++			}
++		}),
++		.replyTo = FullReplyTo{
++			.topicRootId = thread->topicRootId(),
++			.monoforumPeerId = thread->monoforumPeerId(),
++		},
++	}));
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_send_files.h b/Telegram/SourceFiles/tele/tele_send_files.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..0fcee8730c769a434fc822553f4a6181325db779
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_send_files.h
+@@ -0,0 +1,28 @@
++#pragma once
++
++class HistoryItem;
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace Ui {
++struct PreparedList;
++} // namespace Ui
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] Data::Thread *SendThread(
++	not_null<Window::SessionController*> controller,
++	not_null<HistoryItem*> item);
++void ShowSendFilesBox(
++	not_null<Window::SessionController*> controller,
++	not_null<Data::Thread*> thread,
++	Ui::PreparedList &&list,
++	Fn<void()> sent = nullptr);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_shot.cpp b/Telegram/SourceFiles/tele/tele_shot.cpp
+index a2218dc0f667c242b0f3c7d1046e30038c27fea3..f24bd3f15e58333fb43dc774a0a03b07ebec26c1 100644
+--- a/Telegram/SourceFiles/tele/tele_shot.cpp
++++ b/Telegram/SourceFiles/tele/tele_shot.cpp
+@@ -1,9 +1,7 @@
+ #include "tele/tele_shot.h"
+ 
+ #include "api/api_common.h"
+-#include "apiwrap.h"
+ #include "base/weak_ptr.h"
+-#include "boxes/send_files_box.h"
+ #include "chat_helpers/compose/compose_show.h"
+ #include "core/application.h"
+ #include "core/file_utilities.h"
+@@ -19,7 +17,6 @@
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "history/history_item_components.h"
+-#include "history/history_item_helpers.h"
+ #include "history/view/history_view_context_menu.h"
+ #include "history/view/history_view_element.h"
+ #include "history/view/history_view_list_widget.h"
+@@ -32,6 +29,7 @@
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_send_files.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/chat/chat_style.h"
+ #include "ui/chat/chat_theme.h"
+@@ -159,23 +157,6 @@ struct ShotOptions {
+ 		&& Ui::ValidateThumbDimensions(size.width(), size.height());
+ }
+ 
+-[[nodiscard]] Data::Thread *SendThread(
+-		not_null<Window::SessionController*> controller,
+-		not_null<HistoryItem*> item) {
+-	const auto peer = item->history()->peer;
+-	if (const auto thread = controller->activeChatCurrent().thread()) {
+-		if (thread->peer() == peer) {
+-			return thread;
+-		}
+-	}
+-	if (const auto topic = item->topic()) {
+-		return topic;
+-	} else if (const auto sublist = item->savedSublist()) {
+-		return sublist;
+-	}
+-	return item->history();
+-}
+-
+ [[nodiscard]] bool CanSendShot(not_null<Data::Thread*> thread) {
+ 	return !OfflineForLaunch()
+ 		&& Data::CanSendAnyOf(
+@@ -885,54 +866,6 @@ void SaveShot(
+ 		}));
+ }
+ 
+-void SendConfirmed(
+-		not_null<Window::SessionController*> controller,
+-		not_null<Data::Thread*> thread,
+-		FullMsgId replyTo,
+-		std::shared_ptr<Ui::PreparedBundle> bundle,
+-		Api::SendOptions options) {
+-	if (!bundle) {
+-		return;
+-	}
+-	const auto payment = std::make_shared<SendPaymentHelper>();
+-	const auto weak = base::make_weak(thread);
+-	const auto withPaymentApproved = crl::guard(controller, [=](
+-			int approved) {
+-		payment->clear();
+-		if (const auto strong = weak.get()) {
+-			auto copy = options;
+-			copy.starsApproved = approved;
+-			SendConfirmed(controller, strong, replyTo, bundle, copy);
+-		}
+-	});
+-	const auto checked = payment->check(
+-		controller,
+-		thread->peer(),
+-		options,
+-		bundle->totalCount,
+-		withPaymentApproved);
+-	if (!checked) {
+-		return;
+-	}
+-	const auto type = bundle->way.sendImagesAsPhotos()
+-		? SendMediaType::Photo
+-		: SendMediaType::File;
+-	auto action = Api::SendAction(thread, options);
+-	action.clearDraft = false;
+-	action.replyTo = FullReplyTo{
+-		.messageId = replyTo,
+-		.topicRootId = thread->topicRootId(),
+-		.monoforumPeerId = thread->monoforumPeerId(),
+-	};
+-	auto &api = controller->session().api();
+-	for (auto &group : bundle->groups) {
+-		const auto album = (group.type != Ui::AlbumType::None)
+-			? std::make_shared<SendingAlbum>()
+-			: nullptr;
+-		api.sendFiles(std::move(group.list), type, album, action);
+-	}
+-}
+-
+ void SendShot(
+ 		not_null<Window::SessionController*> controller,
+ 		not_null<Data::Thread*> thread,
+@@ -947,36 +880,7 @@ void SendShot(
+ 	if (asFile) {
+ 		list.overrideSendImagesAsPhotos = false;
+ 	}
+-	const auto weak = base::make_weak(thread);
+-	const auto peer = thread->peer();
+-	const auto show = controller->uiShow();
+-	show->show(Box<SendFilesBox>(SendFilesBoxDescriptor{
+-		.show = show,
+-		.list = std::move(list),
+-		.caption = TextWithTags(),
+-		.toPeer = peer,
+-		.limits = DefaultLimitsForPeer(peer),
+-		.check = DefaultCheckForPeer(show, peer),
+-		.sendType = Api::SendType::Normal,
+-		.confirmed = crl::guard(controller, [=](
+-				std::shared_ptr<Ui::PreparedBundle> bundle,
+-				Api::SendOptions options,
+-				FullReplyTo currentReplyTo) {
+-			if (const auto strong = weak.get()) {
+-				SendConfirmed(
+-					controller,
+-					strong,
+-					currentReplyTo.messageId,
+-					std::move(bundle),
+-					options);
+-				sent();
+-			}
+-		}),
+-		.replyTo = FullReplyTo{
+-			.topicRootId = thread->topicRootId(),
+-			.monoforumPeerId = thread->monoforumPeerId(),
+-		},
+-	}));
++	ShowSendFilesBox(controller, thread, std::move(list), std::move(sent));
+ }
+ 
+ void ShotBox(
+diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp b/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp
+index 0a2dda3c9958b446ce40c4cc0740bc20692cd7dc..07ad47201243cf57af7aa15f27e147051dbb864e 100644
+--- a/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp
++++ b/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.cpp
+@@ -9,6 +9,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ 
+ #include "core/mime_type.h" // Core::IsMimeSticker.
+ #include "lang/lang_keys.h"
++#include "tele/tele_gif_video.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/image/image_prepare.h"
+ #include "ui/text/format_values.h"
+@@ -48,6 +49,8 @@ AlbumThumbnail::AlbumThumbnail(
+ , _canShowHighQualityBadge(file.canUseHighQualityPhoto())
+ , _canShowAnimatedBadge(file.hasAnimatedEditScene()
+ 	&& !file.hasAudioEditScene())
++, _sendsAsGif(Tele::SendsAsGif(file, false))
++, _sendsAsGifInAlbum(Tele::SendsAsGif(file, true))
+ , _videoQuality(file.videoQuality())
+ , _ttlSeconds(file.ttlSeconds)
+ , _isCompressedSticker(Core::IsMimeSticker(file.information->filemime))
+@@ -355,7 +358,7 @@ void AlbumThumbnail::paintInAlbum(
+ 	if (showHighQualityBadge && _canShowHighQualityBadge) {
+ 		PaintHighQualityBadge(p, _st, paintedTo);
+ 	}
+-	if (_canShowAnimatedBadge) {
++	if (_canShowAnimatedBadge || _sendsAsGifInAlbum) {
+ 		PaintAnimatedBadge(p, _st, paintedTo);
+ 	}
+ 	if (_videoQuality && !shrinkProgress) {
+@@ -573,7 +576,7 @@ void AlbumThumbnail::paintPhoto(
+ 	if (showHighQualityBadge && _canShowHighQualityBadge) {
+ 		PaintHighQualityBadge(p, _st, rect);
+ 	}
+-	if (_canShowAnimatedBadge) {
++	if (_canShowAnimatedBadge || _sendsAsGif) {
+ 		PaintAnimatedBadge(p, _st, rect);
+ 	}
+ 	if (_videoQuality) {
+diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.h b/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.h
+index 9e8f14403178e2c22c8f26ca3b91819ab70d9750..fd41e1e2c82ef8aa47309c77d1354204c536bf03 100644
+--- a/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.h
++++ b/Telegram/SourceFiles/ui/chat/attach/attach_album_thumbnail.h
+@@ -113,6 +113,8 @@ private:
+ 	bool _modifyAllowed = false;
+ 	const bool _canShowHighQualityBadge;
+ 	const bool _canShowAnimatedBadge;
++	const bool _sendsAsGif;
++	const bool _sendsAsGifInAlbum;
+ 	const int _videoQuality = 0;
+ 	const crl::time _ttlSeconds = 0;
+ 	QPixmap _albumImage;
+diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h b/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h
+index 50785134bdd79b10320d12998e3a48779f9c8f51..9f9afb728baee3165c14b3e608057619dbcbb2e6 100644
+--- a/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h
++++ b/Telegram/SourceFiles/ui/chat/attach/attach_prepare.h
+@@ -45,6 +45,7 @@ struct PreparedFileInformation {
+ 		bool isWebmSticker = false;
+ 		bool supportsStreaming = false;
+ 		bool hasAudio = false;
++		bool silentVideo = false;
+ 		crl::time duration = -1;
+ 		// Always the raw frame at |modifications.cover|, never modified.
+ 		QImage thumbnail;
+diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp b/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp
+index 01b5659bcae8fb404e36ef36ecacd27c1fd9baec..617ee7343b63caf1eb205ea2b2d5791a541d1703 100644
+--- a/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp
++++ b/Telegram/SourceFiles/ui/chat/attach/attach_single_media_preview.cpp
+@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/chat/attach/attach_single_media_preview.h"
+ 
+ #include "editor/photo_editor_common.h"
++#include "tele/tele_gif_video.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "core/mime_type.h"
+ #include "lottie/lottie_single_player.h"
+@@ -65,8 +66,9 @@ SingleMediaPreview *SingleMediaPreview::Create(
+ 	result->setModifyAllowed(
+ 		file.canEditVideo() || file.hasAudioEditScene());
+ 	result->setCanShowHighQualityBadge(file.canUseHighQualityPhoto());
+-	result->setCanShowAnimatedBadge(file.hasAnimatedEditScene()
+-		&& !file.hasAudioEditScene());
++	result->setCanShowAnimatedBadge((file.hasAnimatedEditScene()
++			&& !file.hasAudioEditScene())
++		|| Tele::SendsAsGif(file, false));
+ 	result->setVideoQuality(file.videoQuality());
+ 	return result;
+ }

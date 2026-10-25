@@ -16,10 +16,10 @@ Subject: [PATCH] feat: add an option to hide stories everywhere
  create mode 100644 Telegram/SourceFiles/tele/tele_options.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a8517b6c332d329201702013aa9c99dfc74b68e8..f57d18f4fcd492ea2c33e61b48b7530f4e85452f 100644
+index 9f7b660f8d0be172b34c00befb901d9f2d15cfd7..721c50a0aa25267cc52a8cd26b7efde7c1d344b9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2377,6 +2377,8 @@ PRIVATE
+@@ -2485,6 +2485,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_build.cpp
      tele/tele_build.h
@@ -106,10 +106,10 @@ index a1d5d89580b06cbee04217ef4d00269cd2e7aa76..03f5d38068ec4e8a131e7a47e73959dd
  	const auto maxId = data.vmax_id().value_or_empty();
  	const auto live = data.is_live();
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 2acbe80457cfc7d760ece77229ad2513b3fb2e41..855a6893be5473f19181a79ef8aaa92196f69bf4 100644
+index 88b6ecda7cfe7f4ec03da259a920da14e6c0be45..df98c5d10fa38430365294bcff230757b547f3ac 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "styles/style_menu_icons.h"
  #include "styles/style_ttl_media.h"
  #include "platform/platform_text_recognition.h"
@@ -117,7 +117,7 @@ index 2acbe80457cfc7d760ece77229ad2513b3fb2e41..855a6893be5473f19181a79ef8aaa921
  
  #include <QGraphicsOpacityEffect>
  
-@@ -4513,6 +4514,9 @@ void OverlayWidget::activate() {
+@@ -4537,6 +4538,9 @@ void OverlayWidget::activate() {
  
  void OverlayWidget::show(OpenRequest request) {
  	const auto story = request.story();

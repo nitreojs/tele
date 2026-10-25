@@ -1,0 +1,1222 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 23:22:43 +0300
+Subject: [PATCH] feat: link usernames to profiles locally
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/api/api_sending.cpp      |   4 +
+ Telegram/SourceFiles/apiwrap.cpp              |   2 +
+ .../chat_helpers/field_autocomplete.cpp       |  25 +-
+ .../info/profile/info_profile_actions.cpp     |  10 +
+ .../SourceFiles/settings/settings_tele.cpp    | 158 +++++
+ .../SourceFiles/tele/tele_button_payload.cpp  |   2 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  22 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../tele/tele_username_aliases.cpp            | 636 ++++++++++++++++++
+ .../SourceFiles/tele/tele_username_aliases.h  |  72 ++
+ .../SourceFiles/window/window_peer_menu.cpp   |   3 +
+ .../window/window_session_controller.cpp      |   4 +
+ 13 files changed, 940 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_username_aliases.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_username_aliases.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 6db32d8b6c4f6a874536ba41bfa98033077e0844..3792373f5d828316cd2fe4f1e7fe1dc7f7fef8c1 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2562,6 +2562,8 @@ PRIVATE
+     tele/tele_updater.cpp
+     tele/tele_updater.h
+     tele/tele_uploads.h
++    tele/tele_username_aliases.cpp
++    tele/tele_username_aliases.h
+     tele/tele_view_tl.cpp
+     tele/tele_view_tl.h
+ )
+diff --git a/Telegram/SourceFiles/api/api_sending.cpp b/Telegram/SourceFiles/api/api_sending.cpp
+index ddc96e46187241035802c829da0c71289654fe44..05ea4710eed8d31906426001f4908d01b5415838 100644
+--- a/Telegram/SourceFiles/api/api_sending.cpp
++++ b/Telegram/SourceFiles/api/api_sending.cpp
+@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula.h"
+ #include "tele/tele_links.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_username_aliases.h"
+ 
+ namespace Api {
+ namespace {
+@@ -262,6 +263,7 @@ void SendExistingMedia(
+ 	};
+ 	TextUtilities::Trim(caption);
+ 	Tele::PrepareSentLinks(caption);
++	Tele::ReplaceUsernameAliases(history, caption);
+ 	auto sentEntities = EntitiesToMTP(
+ 		session,
+ 		caption.entities,
+@@ -757,6 +759,7 @@ void SendMusicSelection(
+ 	};
+ 	TextUtilities::Trim(caption);
+ 	Tele::PrepareSentLinks(caption);
++	Tele::ReplaceUsernameAliases(message.action.history, caption);
+ 
+ 	const auto api = &message.action.history->session().api();
+ 
+@@ -1200,6 +1203,7 @@ struct ConfirmedLocalFile {
+ 	auto caption = PrepareConfirmedFileCaption(history, session, file);
+ 	if (!isEditing) {
+ 		Tele::PrepareSentLinks(caption);
++		Tele::ReplaceUsernameAliases(history, caption);
+ 	}
+ 	const auto flags = PrepareConfirmedFileFlags(
+ 		session,
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index edfa6f2303ca75b4d4b5d237d0df5f450b0a1358..730625065a013fa1f6c912fb40d8bb3f28ab4018 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula.h"
+ #include "tele/tele_links.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_username_aliases.h"
+ 
+ namespace {
+ 
+@@ -4834,6 +4835,7 @@ void ApiWrap::sendMessage(
+ 		_session->user()).flags;
+ 	TextUtilities::PrepareForSending(left, prepareFlags);
+ 	Tele::PrepareSentLinks(left);
++	Tele::ReplaceUsernameAliases(history, left);
+ 
+ 	HistoryItem *lastMessage = nullptr;
+ 
+diff --git a/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp b/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
+index 6fd3698f727ff9d27a8bb99b07873322612f6ae7..c242a7f44937499ada7bd458837a326b90d5ceaf 100644
+--- a/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
++++ b/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
+@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_send.h" // SendMenu::FillSendMenu
+ #include "storage/storage_account.h"
+ #include "tele/tele_shortcuts.h"
++#include "tele/tele_username_aliases.h"
+ #include "ui/effects/message_sending_animation_common.h"
+ #include "ui/effects/path_shift_gradient.h"
+ #include "ui/image/image.h"
+@@ -227,6 +228,7 @@ struct FieldAutocomplete::MentionRow {
+ 	Source source = Source::MentionCandidate;
+ 	Ui::Text::String name;
+ 	Ui::PeerUserpicView userpic;
++	QString alias;
+ 
+ 	[[nodiscard]] bool removable() const {
+ 		return (source == Source::InlineRecent)
+@@ -657,6 +659,16 @@ void FieldAutocomplete::updateFiltered(bool resetScroll) {
+ 				}
+ 			}
+ 		}
++		auto aliasIndex = 0;
++		for (const auto &[alias, user] : Tele::UsernameAliasMentions(
++				_session,
++				_filter)) {
++			mrows.insert(begin(mrows) + (aliasIndex++), MentionRow{
++				.user = user,
++				.userpic = user->activeUserpicView(),
++				.alias = alias,
++			});
++		}
+ 	} else if (_type == Type::Hashtags) {
+ 		const auto listAllSuggestions = _filter.isEmpty();
+ 		const auto &recent = cRecentWriteHashtags();
+@@ -1293,7 +1305,9 @@ void FieldAutocomplete::Inner::paintRows(Painter &p, QRect clip) {
+ 		if (!_mrows->empty()) {
+ 			auto &row = _mrows->at(i);
+ 			const auto user = row.user;
+-			const auto username = PrimaryUsername(user);
++			const auto username = row.alias.isEmpty()
++				? PrimaryUsername(user)
++				: row.alias;
+ 			auto first = (!filterIsEmpty
+ 				&& username.startsWith(filter, Qt::CaseInsensitive))
+ 				? ('@' + username.mid(0, filterSize))
+@@ -1605,8 +1619,13 @@ bool FieldAutocomplete::Inner::chooseAtIndex(
+ 		}
+ 	} else if (!_mrows->empty()) {
+ 		if (index < _mrows->size()) {
+-			const auto user = _mrows->at(index).user;
+-			_mentionChosen.fire({ user, PrimaryUsername(user), method });
++			const auto &row = _mrows->at(index);
++			const auto user = row.user;
++			_mentionChosen.fire({
++				user,
++				row.alias.isEmpty() ? PrimaryUsername(user) : row.alias,
++				method,
++			});
+ 			return true;
+ 		}
+ 	} else if (!_hrows->empty()) {
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+index 97855011687ff88af6410c0679a35d1694d90564..dfb81777ed3ebe39e849c80f722d4973991e72db 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+@@ -79,6 +79,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_peer_id.h"
++#include "tele/tele_username_aliases.h"
+ #include "ui/boxes/peer_qr_box.h"
+ #include "ui/boxes/report_box_graphics.h"
+ #include "ui/controls/userpic_button.h"
+@@ -1860,6 +1861,15 @@ Section DetailsFiller::makeInfo() {
+ 			_peer,
+ 			controller);
+ 	}
++	if (!_topic) {
++		Tele::SetupPeerAliasesLabel(
++			addInfoOneLine(
++				Tele::Lower(u"Aliases"_q),
++				Tele::PeerAliasesTextValue(_peer),
++				QString()).text,
++			_peer,
++			controller);
++	}
+ 	if (!_topic && Tele::ShowDc()) {
+ 		Tele::SetupPeerDcLabel(
+ 			addInfoOneLine(
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index bf9ea10dcdd92f890285c12ccc8a7181a41c7357..6f1254df1b8665544f208719b49d1bc978f43ef2 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -26,6 +26,7 @@
+ #include "tele/tele_options.h"
+ #include "tele/tele_title.h"
+ #include "tele/tele_updater.h"
++#include "tele/tele_username_aliases.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/boxes/single_choice_box.h"
+ #include "ui/layers/generic_box.h"
+@@ -1177,6 +1178,162 @@ void AddChatBackgrounds(SectionBuilder &builder) {
+ 	AddAbout(builder, description);
+ }
+ 
++class UsernameAliasRow final : public PeerListRowWithLink {
++public:
++	UsernameAliasRow(
++		not_null<PeerData*> peer,
++		PeerListRowId id,
++		const QString &alias)
++	: PeerListRowWithLink(peer, id)
++	, _alias(alias) {
++	}
++
++	QString generateName() override {
++		return '@' + _alias;
++	}
++
++	QString generateShortName() override {
++		return generateName();
++	}
++
++	[[nodiscard]] const QString &alias() const {
++		return _alias;
++	}
++
++private:
++	const QString _alias;
++
++};
++
++class UsernameAliasesController final : public PeerListController {
++public:
++	explicit UsernameAliasesController(
++		not_null<Window::SessionController*> window);
++
++	Main::Session &session() const override;
++	void prepare() override;
++	void rowClicked(not_null<PeerListRow*> row) override;
++	void rowRightActionClicked(not_null<PeerListRow*> row) override;
++
++private:
++	void refreshRows();
++
++	const not_null<Window::SessionController*> _window;
++	base::flat_map<std::pair<QString, PeerId>, PeerListRowId> _ids;
++
++};
++
++UsernameAliasesController::UsernameAliasesController(
++	not_null<Window::SessionController*> window)
++: _window(window) {
++}
++
++Main::Session &UsernameAliasesController::session() const {
++	return _window->session();
++}
++
++void UsernameAliasesController::prepare() {
++	delegate()->peerListSetTitle(
++		rpl::single(::Tele::Lower(u"Username aliases"_q)));
++	::Tele::UsernameAliasesChanges(
++	) | rpl::on_next([=] {
++		refreshRows();
++	}, lifetime());
++	refreshRows();
++}
++
++void UsernameAliasesController::refreshRows() {
++	const auto aliases = ::Tele::UsernameAliases(&session());
++	auto keep = base::flat_set<PeerListRowId>();
++	for (const auto &entry : aliases) {
++		const auto key = std::make_pair(entry.alias, entry.id);
++		if (!_ids.contains(key)) {
++			_ids.emplace(key, PeerListRowId(_ids.size() + 1));
++		}
++		keep.emplace(_ids[key]);
++	}
++	for (auto i = delegate()->peerListFullRowsCount(); i != 0;) {
++		const auto row = delegate()->peerListRowAt(--i);
++		if (!keep.contains(row->id())) {
++			delegate()->peerListRemoveRow(row);
++		}
++	}
++	for (const auto &entry : aliases) {
++		const auto id = _ids[std::make_pair(entry.alias, entry.id)];
++		if (delegate()->peerListFindRow(id)) {
++			continue;
++		}
++		const auto peer = session().data().peer(entry.id);
++		auto row = std::make_unique<UsernameAliasRow>(peer, id, entry.alias);
++		row->setActionLink(::Tele::Lower(u"Remove"_q));
++		row->setCustomStatus(peer->isMinimalLoaded()
++			? peer->name()
++			: ::Tele::Lower(u"Unknown chat"_q));
++		delegate()->peerListAppendRow(std::move(row));
++	}
++	setDescriptionText(aliases.empty()
++		? ::Tele::Lower(u"No aliases yet. Pick Add alias in a chat's "
++			"menu."_q)
++		: QString());
++	delegate()->peerListRefreshRows();
++}
++
++void UsernameAliasesController::rowClicked(not_null<PeerListRow*> row) {
++	const auto peer = row->peer();
++	if (!peer->isMinimalLoaded()) {
++		return;
++	}
++	const auto window = _window;
++	crl::on_main(window, [=] {
++		window->showPeerInfo(peer);
++	});
++}
++
++void UsernameAliasesController::rowRightActionClicked(
++		not_null<PeerListRow*> row) {
++	const auto alias = static_cast<UsernameAliasRow*>(row.get())->alias();
++	const auto session = &this->session();
++	crl::on_main(_window, [=] {
++		::Tele::RemoveUsernameAlias(session, alias);
++	});
++}
++
++void ShowUsernameAliasesBox(not_null<Window::SessionController*> window) {
++	auto initBox = [=](not_null<PeerListBox*> box) {
++		box->addButton(tr::lng_close(), [=] {
++			box->closeBox();
++		});
++	};
++	window->show(Box<PeerListBox>(
++		std::make_unique<UsernameAliasesController>(window),
++		std::move(initBox)));
++}
++
++void AddUsernameAliases(SectionBuilder &builder) {
++	const auto &option = base::options::lookup<QString>(
++		::Tele::kOptionUsernameAliases);
++	const auto controller = builder.controller();
++	const auto description = ::Tele::Lower(option.description());
++	const auto button = builder.addButton({
++		.id = option.id(),
++		.title = rpl::single(::Tele::Lower(option.name())),
++		.st = &st::settingsButtonNoIcon,
++		.label = ::Tele::UsernameAliasesCountValue(
++			builder.session()
++		) | rpl::map([](int count) {
++			return count ? QString::number(count) : u"none"_q;
++		}),
++		.onClick = [=] {
++			ShowUsernameAliasesBox(controller);
++		},
++		.keywords = { description },
++	});
++	if (button) {
++		SetupLink(button, option.id());
++	}
++	AddAbout(builder, description);
++}
++
+ void FillInterface(SectionBuilder &builder) {
+ 	builder.addSkip();
+ 	AddGroupTitle(builder, u"Title bar"_q);
+@@ -1239,6 +1396,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionHideSponsored);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideProxySponsor);
+ 	AddChatBackgrounds(builder);
++	AddUsernameAliases(builder);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Links"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+index 9ee9395ca1129edb0c8688782bcfd20431e0b536..1b99c8bccb1b0dd91f7b99a153ae796e7557f8c1 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.cpp
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -13,6 +13,7 @@
+ #include "tele/tele_links.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_username_aliases.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "styles/style_chat_helpers.h"
+@@ -284,6 +285,7 @@ void AddCopyButtonPayloadAction(
+ 		std::shared_ptr<Main::SessionShow> show,
+ 		const ClickHandlerPtr &link) {
+ 	AddOpenUncleanedAction(menu, link);
++	AddOpenRealUsernameAction(menu, show, link);
+ 	const auto handler = dynamic_cast<ReplyMarkupClickHandler*>(link.get());
+ 	const auto button = handler ? handler->getButton() : nullptr;
+ 	if (!button) {
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 86e082e925191aa1fd5ef5c7c85ed8f45cb85783..a2b64f3a3fa13d80f300fcfa7a674109620d51ca 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -65,6 +65,7 @@ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
++const char kOptionUsernameAliases[] = "tele-username-aliases";
+ 
+ namespace {
+ 
+@@ -455,6 +456,13 @@ base::options::option<QString> ChatBackgroundsOption({
+ 	.description = "Chats with a background only you see, set in a chat's menu.",
+ });
+ 
++base::options::option<QString> UsernameAliasesOption({
++	.id = kOptionUsernameAliases,
++	.name = "Username aliases",
++	.description = "Your own @names for chats, set in a chat's menu. "
++		"Clicking one opens the linked chat, sending one mentions it.",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -948,4 +956,18 @@ rpl::producer<QString> ChatBackgroundsValue() {
+ 	});
+ }
+ 
++void SetUsernameAliases(const QString &value) {
++	UsernameAliasesOption.set(value);
++}
++
++rpl::producer<QString> UsernameAliasesValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		UsernameAliasesOption.changes()
++	) | rpl::map([] {
++		return UsernameAliasesOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index bde5d13593daedafd84bf7774990c840c7ffee13..4947282735f3e39d5aa5abe512fb640e8a87fa0b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -62,6 +62,7 @@ extern const char kOptionQueueBehindMedia[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionChatBackgrounds[];
++extern const char kOptionUsernameAliases[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -156,5 +157,7 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] bool NoRichPastePrompt();
+ void SetChatBackgrounds(const QString &value);
+ [[nodiscard]] rpl::producer<QString> ChatBackgroundsValue();
++void SetUsernameAliases(const QString &value);
++[[nodiscard]] rpl::producer<QString> UsernameAliasesValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.cpp b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b3d3d2304e5e099ac47c1fe5ffcb5ed0188d98ad
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+@@ -0,0 +1,636 @@
++#include "tele/tele_username_aliases.h"
++
++#include "core/click_handler_types.h"
++#include "core/local_url_handlers.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "history/history.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "main/session/session_show.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/layers/generic_box.h"
++#include "ui/text/text_entity.h"
++#include "ui/text/text_utilities.h"
++#include "ui/toast/toast.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/widgets/popup_menu.h"
++#include "window/window_session_controller.h"
++#include "styles/style_add_contact_box.h"
++#include "styles/style_boxes.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QUrlQuery>
++
++namespace Tele {
++namespace {
++
++constexpr auto kChannelShift = int64(1000000000000LL);
++constexpr auto kMaxAliasLength = 32;
++
++using Map = base::flat_map<QString, PeerId>;
++
++struct State {
++	State();
++
++	Map production;
++	Map test;
++	rpl::event_stream<> changes;
++	rpl::lifetime lifetime;
++};
++
++bool SkipAliases = false;
++
++[[nodiscard]] PeerId ParseBotApiId(const QString &text) {
++	auto ok = false;
++	const auto id = text.toLongLong(&ok);
++	if (!ok || !id) {
++		return PeerId();
++	} else if (id > 0) {
++		return peerFromUser(UserId(uint64(id)));
++	} else if (id > -kChannelShift) {
++		return peerFromChat(ChatId(uint64(-id)));
++	}
++	return peerFromChannel(ChannelId(uint64(-id - kChannelShift)));
++}
++
++[[nodiscard]] QString BotApiId(PeerId id) {
++	const auto bare = int64(id.value & PeerId::kChatTypeMask);
++	return QString::number(peerIsChat(id)
++		? -bare
++		: peerIsChannel(id)
++		? -(kChannelShift + bare)
++		: bare);
++}
++
++[[nodiscard]] bool IsAliasChar(QChar ch) {
++	return ch.isLetterOrNumber() || (ch == '_');
++}
++
++[[nodiscard]] bool IsValidAlias(const QString &alias) {
++	if (alias.isEmpty() || alias.size() > kMaxAliasLength) {
++		return false;
++	}
++	for (const auto ch : alias) {
++		if (!IsAliasChar(ch)) {
++			return false;
++		}
++	}
++	return true;
++}
++
++[[nodiscard]] QString NormalizeAlias(QString alias) {
++	alias = alias.trimmed();
++	while (alias.startsWith('@')) {
++		alias = alias.mid(1);
++	}
++	return alias.toLower();
++}
++
++void Parse(const QString &value, Map &production, Map &test) {
++	production.clear();
++	test.clear();
++	for (const auto &part : value.split(QChar(','), Qt::SkipEmptyParts)) {
++		auto entry = part.trimmed();
++		const auto isTest = entry.startsWith(u"test:"_q);
++		if (isTest) {
++			entry = entry.mid(5);
++		}
++		const auto pair = entry.split(QChar('='));
++		if (pair.size() != 2) {
++			continue;
++		}
++		const auto alias = pair[0].trimmed().toLower();
++		const auto id = ParseBotApiId(pair[1].trimmed());
++		if (id && IsValidAlias(alias)) {
++			(isTest ? test : production)[alias] = id;
++		}
++	}
++}
++
++[[nodiscard]] QString Serialize(const Map &production, const Map &test) {
++	auto list = QStringList();
++	list.reserve(int(production.size() + test.size()));
++	for (const auto &[alias, id] : production) {
++		list.push_back(alias + '=' + BotApiId(id));
++	}
++	for (const auto &[alias, id] : test) {
++		list.push_back(u"test:"_q + alias + '=' + BotApiId(id));
++	}
++	return list.join(QChar(','));
++}
++
++State::State() {
++	UsernameAliasesValue(
++	) | rpl::on_next([=](const QString &value) {
++		Parse(value, production, test);
++		changes.fire({});
++	}, lifetime);
++}
++
++State &Get() {
++	static State state;
++	return state;
++}
++
++[[nodiscard]] const Map &SessionMap(not_null<Main::Session*> session) {
++	auto &state = Get();
++	return session->isTestMode() ? state.test : state.production;
++}
++
++void Save(not_null<Main::Session*> session, Map map) {
++	auto &state = Get();
++	SetUsernameAliases(session->isTestMode()
++		? Serialize(state.production, map)
++		: Serialize(map, state.test));
++}
++
++[[nodiscard]] PeerId AliasPeerId(
++		not_null<Main::Session*> session,
++		const QString &alias) {
++	const auto &map = SessionMap(session);
++	if (map.empty()) {
++		return PeerId();
++	}
++	const auto i = map.find(alias.toLower());
++	return (i != end(map)) ? i->second : PeerId();
++}
++
++[[nodiscard]] PeerData *LoadedPeer(
++		not_null<Main::Session*> session,
++		PeerId id) {
++	const auto peer = session->data().peerLoaded(id);
++	return (peer && peer->isMinimalLoaded()) ? peer : nullptr;
++}
++
++[[nodiscard]] QString LinkUsername(const std::shared_ptr<ClickHandler> &link) {
++	const auto url = link->url();
++	if (link->getTextEntity().type == EntityType::Mention) {
++		return url.startsWith('@') ? url.mid(1) : QString();
++	}
++	const auto local = Core::TryConvertUrlToLocal(url);
++	const auto prefix = u"tg://resolve?"_q;
++	if (!local.startsWith(prefix, Qt::CaseInsensitive)) {
++		return QString();
++	}
++	return QUrlQuery(local.mid(prefix.size())).queryItemValue(u"domain"_q);
++}
++
++[[nodiscard]] QString PublicUsername(not_null<PeerData*> peer) {
++	const auto &usernames = peer->usernames();
++	return usernames.empty() ? peer->username() : usernames.front();
++}
++
++[[nodiscard]] bool KeepsText(EntityType type) {
++	return (type == EntityType::Code)
++		|| (type == EntityType::Pre)
++		|| (type == EntityType::Url)
++		|| (type == EntityType::CustomUrl)
++		|| (type == EntityType::Email)
++		|| (type == EntityType::MentionName)
++		|| (type == EntityType::Hashtag)
++		|| (type == EntityType::Cashtag)
++		|| (type == EntityType::BotCommand)
++		|| (type == EntityType::CustomEmoji);
++}
++
++[[nodiscard]] std::optional<int> ReplaceableMention(
++		const EntitiesInText &entities,
++		int from,
++		int till) {
++	auto result = -1;
++	for (auto i = 0, count = int(entities.size()); i != count; ++i) {
++		const auto &entity = entities[i];
++		const auto start = entity.offset();
++		const auto end = start + entity.length();
++		if (end <= from || start >= till) {
++			continue;
++		} else if (KeepsText(entity.type())) {
++			return std::nullopt;
++		} else if (entity.type() == EntityType::Mention) {
++			if (start != from || end != till) {
++				return std::nullopt;
++			}
++			result = i;
++		} else if (start > from || end < till) {
++			return std::nullopt;
++		}
++	}
++	return result;
++}
++
++void ReplaceToken(
++		TextWithEntities &text,
++		int from,
++		int till,
++		const QString &value,
++		int mention,
++		const QString &mentionName) {
++	const auto delta = int(value.size()) - (till - from);
++	text.text.replace(from, till - from, value);
++	auto &entities = text.entities;
++	for (auto &entity : entities) {
++		const auto start = entity.offset();
++		const auto length = entity.length();
++		if (start >= till) {
++			entity = EntityInText(
++				entity.type(),
++				start + delta,
++				length,
++				entity.data());
++		} else if (start <= from && start + length >= till) {
++			entity = EntityInText(
++				entity.type(),
++				start,
++				length + delta,
++				entity.data());
++		}
++	}
++	if (mentionName.isEmpty()) {
++		return;
++	} else if (mention >= 0) {
++		entities.erase(entities.begin() + mention);
++	}
++	const auto position = ranges::find_if(entities, [&](
++			const EntityInText &entity) {
++		return entity.offset() > from;
++	});
++	entities.insert(position, EntityInText(
++		EntityType::MentionName,
++		from,
++		int(value.size()),
++		mentionName));
++}
++
++void ShowReplacedToast(
++		not_null<History*> history,
++		const std::vector<std::pair<QString, QString>> &replaced) {
++	auto done = QStringList();
++	auto skipped = QStringList();
++	for (const auto &[alias, value] : replaced) {
++		if (value.isEmpty()) {
++			skipped.push_back('@' + alias);
++		} else {
++			done.push_back('@' + alias + ' ' + QChar(0x2192) + ' ' + value);
++		}
++	}
++	auto message = done.join(u", "_q);
++	if (!skipped.isEmpty()) {
++		if (!message.isEmpty()) {
++			message += u"; "_q;
++		}
++		message += Lower(u"Not replaced: "_q) + skipped.join(u", "_q);
++	}
++	const auto session = &history->session();
++	if (const auto window = session->tryResolveWindow(history->peer)) {
++		window->showToast(message);
++	}
++}
++
++void AliasBox(not_null<Ui::GenericBox*> box, not_null<PeerData*> peer) {
++	const auto session = &peer->session();
++	box->setTitle(rpl::single(Lower(u"Alias for "_q) + peer->name()));
++	const auto wrap = box->addRow(object_ptr<Ui::RpWidget>(box));
++	const auto field = Ui::CreateChild<Ui::InputField>(
++		wrap,
++		st::setupChannelLink,
++		Ui::InputField::Mode::SingleLine,
++		nullptr,
++		QString());
++	field->setMaxLength(kMaxAliasLength);
++	const auto &font = st::setupChannelLink.style.font;
++	const auto prefix = u"@"_q;
++	field->setAdditionalMargins({ font->width(prefix), 0, 0, 0 });
++	const auto at = Ui::CreateChild<Ui::RpWidget>(field);
++	at->setAttribute(Qt::WA_TransparentForMouseEvents);
++	field->sizeValue(
++	) | rpl::on_next([=](QSize size) {
++		const auto margins = field->fullTextMargins();
++		at->setGeometry(
++			margins.left() - font->width(prefix),
++			0,
++			font->width(prefix),
++			size.height());
++		at->raise();
++	}, at->lifetime());
++	at->paintRequest(
++	) | rpl::on_next([=] {
++		auto p = QPainter(at);
++		const auto &st = st::setupChannelLink;
++		const auto line = std::max(st.style.lineHeight, font->height);
++		const auto ascent = line * 4. / 5.
++			- std::max(font->fleading.toReal(), 0.);
++		p.setFont(font);
++		p.setPen(st.placeholderFg);
++		p.drawText(
++			QPointF(0., field->fullTextMargins().top() + ascent),
++			prefix);
++	}, at->lifetime());
++	wrap->widthValue(
++	) | rpl::on_next([=](int width) {
++		field->resize(width, field->height());
++		field->moveToLeft(0, 0, width);
++	}, field->lifetime());
++	field->heightValue(
++	) | rpl::on_next([=](int height) {
++		wrap->resize(wrap->width(), height);
++	}, field->lifetime());
++	box->addRow(object_ptr<Ui::FlatLabel>(
++		box,
++		Lower(u"Mentions of this alias will open this profile. Only you "
++			"see it."_q),
++		st::boxDividerLabel));
++	const auto save = [=] {
++		const auto alias = NormalizeAlias(field->getLastText());
++		if (!IsValidAlias(alias)) {
++			field->showError();
++			box->showToast(Lower(
++				u"Use 1-32 letters, digits or underscores."_q));
++			return;
++		}
++		auto map = SessionMap(session);
++		if (const auto i = map.find(alias); i != end(map)) {
++			if (i->second != peer->id) {
++				const auto other = session->data().peerLoaded(i->second);
++				field->showError();
++				box->showToast('@'
++					+ alias
++					+ Lower(u" already links to "_q)
++					+ ((other && other->isMinimalLoaded())
++						? other->name()
++						: Lower(u"another chat"_q)));
++				return;
++			}
++		} else {
++			map.emplace(alias, peer->id);
++			Save(session, std::move(map));
++		}
++		box->closeBox();
++	};
++	field->submits(
++	) | rpl::on_next([=](Qt::KeyboardModifiers) {
++		save();
++	}, field->lifetime());
++	box->setFocusCallback([=] {
++		field->setFocusFast();
++	});
++	box->addButton(rpl::single(Lower(u"Add"_q)), save);
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++}
++
++} // namespace
++
++std::vector<UsernameAlias> UsernameAliases(
++		not_null<Main::Session*> session) {
++	auto result = std::vector<UsernameAlias>();
++	const auto &map = SessionMap(session);
++	result.reserve(map.size());
++	for (const auto &[alias, id] : map) {
++		result.push_back({ alias, id });
++	}
++	return result;
++}
++
++rpl::producer<> UsernameAliasesChanges() {
++	return Get().changes.events();
++}
++
++rpl::producer<QStringList> PeerAliasesValue(not_null<PeerData*> peer) {
++	const auto session = &peer->session();
++	const auto id = peer->id;
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		UsernameAliasesChanges()
++	) | rpl::map([=] {
++		auto list = QStringList();
++		for (const auto &[alias, peerId] : SessionMap(session)) {
++			if (peerId == id) {
++				list.push_back('@' + alias);
++			}
++		}
++		return list;
++	});
++}
++
++rpl::producer<TextWithEntities> PeerAliasesTextValue(
++		not_null<PeerData*> peer) {
++	return PeerAliasesValue(peer) | rpl::map([](const QStringList &list) {
++		auto result = TextWithEntities();
++		for (auto i = 0; i != int(list.size()); ++i) {
++			if (i) {
++				result.append(u", "_q);
++			}
++			result.append(Ui::Text::Link(list[i], i + 1));
++		}
++		return result;
++	});
++}
++
++void SetupPeerAliasesLabel(
++		not_null<Ui::FlatLabel*> label,
++		not_null<PeerData*> peer,
++		not_null<Window::SessionController*> controller) {
++	const auto weak = base::make_weak(controller);
++	PeerAliasesValue(peer) | rpl::on_next([=](const QStringList &list) {
++		for (auto i = 0; i != int(list.size()); ++i) {
++			const auto alias = list[i];
++			label->setLink(i + 1, std::make_shared<LambdaClickHandler>([=] {
++				TextUtilities::SetClipboardText({ alias });
++				if (const auto strong = weak.get()) {
++					strong->showToast({
++						.text = { Lower(u"Alias copied to clipboard."_q) },
++						.iconLottie = u"toast/copy"_q,
++						.iconLottieSize = st::toastLottieIconSize,
++					});
++				}
++			}));
++		}
++	}, label->lifetime());
++}
++
++rpl::producer<int> UsernameAliasesCountValue(
++		not_null<Main::Session*> session) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		UsernameAliasesChanges()
++	) | rpl::map([=] {
++		return int(SessionMap(session).size());
++	});
++}
++
++void RemoveUsernameAlias(
++		not_null<Main::Session*> session,
++		const QString &alias) {
++	auto map = SessionMap(session);
++	if (map.remove(alias)) {
++		Save(session, std::move(map));
++	}
++}
++
++void AddUsernameAliasAction(
++		not_null<Window::SessionController*> controller,
++		PeerData *peer,
++		const Ui::Menu::MenuCallback &addAction) {
++	if (!peer) {
++		return;
++	}
++	const auto weak = base::make_weak(controller);
++	addAction(Lower(u"Add alias"_q) + QChar(0x2026), [=] {
++		if (const auto strong = weak.get()) {
++			strong->show(Box(AliasBox, not_null(peer)));
++		}
++	}, &st::menuIconUsername);
++}
++
++bool ResolveUsernameAlias(
++		not_null<Window::SessionNavigation*> navigation,
++		const QString &username,
++		const Fn<void(not_null<PeerData*>)> &done) {
++	if (SkipAliases) {
++		return false;
++	}
++	const auto session = &navigation->session();
++	const auto id = AliasPeerId(session, username);
++	if (!id) {
++		return false;
++	} else if (const auto peer = LoadedPeer(session, id)) {
++		done(peer);
++	} else {
++		navigation->showToast('@'
++			+ username.toLower()
++			+ Lower(u" links to a chat that isn't loaded yet."_q));
++	}
++	return true;
++}
++
++void AddOpenRealUsernameAction(
++		not_null<Ui::PopupMenu*> menu,
++		const std::shared_ptr<Main::SessionShow> &show,
++		const std::shared_ptr<ClickHandler> &link) {
++	if (!link || !show) {
++		return;
++	}
++	const auto session = &show->session();
++	const auto username = LinkUsername(link);
++	if (username.isEmpty() || !AliasPeerId(session, username)) {
++		return;
++	}
++	const auto weak = base::make_weak(session->tryResolveWindow());
++	menu->addAction(Lower(u"Open the real "_q) + '@' + username, [=] {
++		SkipAliases = true;
++		link->onClick({
++			Qt::LeftButton,
++			QVariant::fromValue(ClickHandlerContext{
++				.sessionWindow = weak,
++			}),
++		});
++		SkipAliases = false;
++	}, &st::menuIconUsername);
++}
++
++std::vector<UsernameAliasMention> UsernameAliasMentions(
++		not_null<Main::Session*> session,
++		const QString &filter) {
++	auto result = std::vector<UsernameAliasMention>();
++	if (filter.isEmpty()) {
++		return result;
++	}
++	const auto query = filter.toLower();
++	for (const auto &[alias, id] : SessionMap(session)) {
++		if (alias.size() <= query.size()
++			|| !TextUtilities::RemoveAccents(alias).toLower().startsWith(
++				query)) {
++			continue;
++		}
++		const auto peer = LoadedPeer(session, id);
++		if (const auto user = peer ? peer->asUser() : nullptr) {
++			result.push_back({ alias, not_null(user) });
++		}
++	}
++	return result;
++}
++
++void ReplaceUsernameAliases(
++		not_null<History*> history,
++		TextWithEntities &text) {
++	const auto session = &history->session();
++	const auto &map = SessionMap(session);
++	if (map.empty()) {
++		return;
++	}
++	auto replaced = std::vector<std::pair<QString, QString>>();
++	auto position = 0;
++	while (true) {
++		const auto from = int(text.text.indexOf('@', position));
++		if (from < 0) {
++			break;
++		}
++		auto till = from + 1;
++		while (till < text.text.size() && IsAliasChar(text.text[till])) {
++			++till;
++		}
++		position = till;
++		const auto length = till - from - 1;
++		if (!length || length > kMaxAliasLength) {
++			continue;
++		} else if (from > 0) {
++			const auto previous = text.text.at(from - 1);
++			if (previous.isLetterOrNumber()
++				|| previous == '_'
++				|| previous == '@') {
++				continue;
++			}
++		}
++		const auto alias = text.text.mid(from + 1, length).toLower();
++		const auto i = map.find(alias);
++		if (i == end(map)) {
++			continue;
++		}
++		const auto mention = ReplaceableMention(text.entities, from, till);
++		if (!mention) {
++			continue;
++		}
++		const auto peer = LoadedPeer(session, i->second);
++		const auto username = peer ? PublicUsername(peer) : QString();
++		const auto user = peer ? peer->asUser() : nullptr;
++		auto value = QString();
++		auto mentionName = QString();
++		if (!username.isEmpty()) {
++			value = '@' + username;
++		} else if (user) {
++			value = user->firstName.isEmpty()
++				? user->name()
++				: user->firstName;
++			mentionName = TextUtilities::MentionNameDataFromFields({
++				.selfId = session->userId().bare,
++				.userId = peerToUser(user->id).bare,
++				.accessHash = user->accessHash(),
++			});
++		}
++		if (!value.isEmpty()) {
++			ReplaceToken(text, from, till, value, *mention, mentionName);
++			position = from + int(value.size());
++		}
++		if (!ranges::contains(
++				replaced,
++				alias,
++				&std::pair<QString, QString>::first)) {
++			replaced.emplace_back(alias, value);
++		}
++	}
++	if (!replaced.empty()) {
++		ShowReplacedToast(history, replaced);
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.h b/Telegram/SourceFiles/tele/tele_username_aliases.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..664a9918929ddd4b6b26414cdc111de43d71c6c2
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.h
+@@ -0,0 +1,72 @@
++#pragma once
++
++class ClickHandler;
++class History;
++class PeerData;
++class UserData;
++
++namespace Main {
++class Session;
++class SessionShow;
++} // namespace Main
++
++namespace Ui {
++class FlatLabel;
++class PopupMenu;
++} // namespace Ui
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++class SessionNavigation;
++} // namespace Window
++
++namespace Tele {
++
++struct UsernameAlias {
++	QString alias;
++	PeerId id;
++};
++
++struct UsernameAliasMention {
++	QString alias;
++	not_null<UserData*> user;
++};
++
++[[nodiscard]] std::vector<UsernameAlias> UsernameAliases(
++	not_null<Main::Session*> session);
++[[nodiscard]] rpl::producer<> UsernameAliasesChanges();
++[[nodiscard]] rpl::producer<int> UsernameAliasesCountValue(
++	not_null<Main::Session*> session);
++[[nodiscard]] rpl::producer<TextWithEntities> PeerAliasesTextValue(
++	not_null<PeerData*> peer);
++void SetupPeerAliasesLabel(
++	not_null<Ui::FlatLabel*> label,
++	not_null<PeerData*> peer,
++	not_null<Window::SessionController*> controller);
++void RemoveUsernameAlias(
++	not_null<Main::Session*> session,
++	const QString &alias);
++void AddUsernameAliasAction(
++	not_null<Window::SessionController*> controller,
++	PeerData *peer,
++	const Ui::Menu::MenuCallback &addAction);
++[[nodiscard]] bool ResolveUsernameAlias(
++	not_null<Window::SessionNavigation*> navigation,
++	const QString &username,
++	const Fn<void(not_null<PeerData*>)> &done);
++void AddOpenRealUsernameAction(
++	not_null<Ui::PopupMenu*> menu,
++	const std::shared_ptr<Main::SessionShow> &show,
++	const std::shared_ptr<ClickHandler> &link);
++[[nodiscard]] std::vector<UsernameAliasMention> UsernameAliasMentions(
++	not_null<Main::Session*> session,
++	const QString &filter);
++void ReplaceUsernameAliases(
++	not_null<History*> history,
++	TextWithEntities &text);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index 9650aa53d87e352222f0b9dfde3db7c1c56d7d80..d6622bd043d8be28e5fafbc59b494eb007dde986 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_jump_to_first.h"
++#include "tele/tele_username_aliases.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+@@ -1946,6 +1947,7 @@ void Filler::fillHistoryActions() {
+ 	addCreateTopic();
+ 	addInfo();
+ 	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
++	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
+ 	addViewAsTopics();
+ 	addManageChat();
+ 	addStoryArchive();
+@@ -1973,6 +1975,7 @@ void Filler::fillProfileActions() {
+ 	addNewContact();
+ 	addShareContact();
+ 	addEditContact();
++	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
+ 	addBotToGroup();
+ 	addNewMembers();
+ 	addSendGift();
+diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
+index c1a5818603c5c552c07895e7e3a9393109ce68d6..9d9fdc7dab9f525a979500fceb1384502f7a07f3 100644
+--- a/Telegram/SourceFiles/window/window_session_controller.cpp
++++ b/Telegram/SourceFiles/window/window_session_controller.cpp
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_premium.h"
+ #include "settings/sections/settings_privacy_security.h"
+ #include "tele/tele_folders.h"
++#include "tele/tele_username_aliases.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_window.h"
+ #include "styles/style_dialogs.h"
+@@ -539,6 +540,9 @@ void SessionNavigation::resolveUsername(
+ 		const QString &username,
+ 		Fn<void(not_null<PeerData*>)> done,
+ 		const QString &referral) {
++	if (Tele::ResolveUsernameAlias(this, username, done)) {
++		return;
++	}
+ 	if (referral.isEmpty()) {
+ 		if (const auto peer = _session->data().peerByUsername(username)) {
+ 			done(peer);

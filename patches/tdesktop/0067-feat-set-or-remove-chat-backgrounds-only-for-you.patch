@@ -1,0 +1,1019 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 22:59:24 +0300
+Subject: [PATCH] feat: set or remove chat backgrounds only for you
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/boxes/background_box.cpp |  20 +-
+ Telegram/SourceFiles/boxes/background_box.h   |   4 +-
+ .../boxes/background_preview_box.cpp          |   9 +-
+ .../boxes/background_preview_box.h            |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    | 125 +++++
+ .../tele/tele_chat_backgrounds.cpp            | 529 ++++++++++++++++++
+ .../SourceFiles/tele/tele_chat_backgrounds.h  |  45 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  21 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../SourceFiles/window/section_widget.cpp     |   3 +-
+ .../SourceFiles/window/window_peer_menu.cpp   |   3 +
+ 12 files changed, 756 insertions(+), 10 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_chat_backgrounds.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index cfa44461d570eda3a3fa17021cd7319dcd7bed0a..3d71d11ee40eb5b828f605b0f661dd34cf948a93 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2503,6 +2503,8 @@ PRIVATE
+     tele/tele_calls.h
+     tele/tele_changelog.cpp
+     tele/tele_changelog.h
++    tele/tele_chat_backgrounds.cpp
++    tele/tele_chat_backgrounds.h
+     tele/tele_crash.cpp
+     tele/tele_crash.h
+     tele/tele_deleted.cpp
+diff --git a/Telegram/SourceFiles/boxes/background_box.cpp b/Telegram/SourceFiles/boxes/background_box.cpp
+index 037af6339938580283bcd679f720ab83f05bfd3d..b04d729d38c16cc6290e82e7872eadca8cde8b23 100644
+--- a/Telegram/SourceFiles/boxes/background_box.cpp
++++ b/Telegram/SourceFiles/boxes/background_box.cpp
+@@ -152,9 +152,11 @@ private:
+ BackgroundBox::BackgroundBox(
+ 	QWidget*,
+ 	not_null<Window::SessionController*> controller,
+-	PeerData *forPeer)
++	PeerData *forPeer,
++	Fn<bool(const Data::WallPaper &, const QImage &)> teleApply)
+ : _controller(controller)
+-, _forPeer(forPeer) {
++, _forPeer(forPeer)
++, _teleApply(std::move(teleApply)) {
+ }
+ 
+ void BackgroundBox::prepare() {
+@@ -222,7 +224,7 @@ void BackgroundBox::prepare() {
+ }
+ 
+ void BackgroundBox::chooseFromFile() {
+-	const auto filterStart = _forPeer
++	const auto filterStart = (_forPeer || _teleApply)
+ 		? u"Image files (*"_q
+ 		: u"Theme files (*.tdesktop-theme *.tdesktop-palette *"_q;
+ 	auto filters = QStringList(
+@@ -235,7 +237,7 @@ void BackgroundBox::chooseFromFile() {
+ 			return;
+ 		}
+ 
+-		if (!_forPeer && !result.paths.isEmpty()) {
++		if (!_forPeer && !_teleApply && !result.paths.isEmpty()) {
+ 			const auto filePath = result.paths.front();
+ 			const auto hasExtension = [&](QLatin1String extension) {
+ 				return filePath.endsWith(extension, Qt::CaseInsensitive);
+@@ -261,7 +263,10 @@ void BackgroundBox::chooseFromFile() {
+ 		_controller->show(Box<BackgroundPreviewBox>(
+ 			_controller,
+ 			local,
+-			BackgroundPreviewArgs{ _forPeer }));
++			BackgroundPreviewArgs{
++				.forPeer = _forPeer,
++				.teleApply = _teleApply,
++			}));
+ 	};
+ 	FileDialog::GetOpenPath(
+ 		this,
+@@ -330,7 +335,10 @@ void BackgroundBox::chosen(const Data::WallPaper &paper) {
+ 	_controller->show(Box<BackgroundPreviewBox>(
+ 		_controller,
+ 		paper,
+-		BackgroundPreviewArgs{ _forPeer }));
++		BackgroundPreviewArgs{
++			.forPeer = _forPeer,
++			.teleApply = _teleApply,
++		}));
+ }
+ 
+ void BackgroundBox::resetForPeer() {
+diff --git a/Telegram/SourceFiles/boxes/background_box.h b/Telegram/SourceFiles/boxes/background_box.h
+index 8aa63ff9164ab80b4afda7d2efbd843e3638fe54..6b442d4d255958ce525c79f2f5701eafcd1db7cf 100644
+--- a/Telegram/SourceFiles/boxes/background_box.h
++++ b/Telegram/SourceFiles/boxes/background_box.h
+@@ -24,7 +24,8 @@ public:
+ 	BackgroundBox(
+ 		QWidget*,
+ 		not_null<Window::SessionController*> controller,
+-		PeerData *forPeer = nullptr);
++		PeerData *forPeer = nullptr,
++		Fn<bool(const Data::WallPaper &, const QImage &)> teleApply = nullptr);
+ 
+ protected:
+ 	void prepare() override;
+@@ -46,5 +47,6 @@ private:
+ 
+ 	QPointer<Inner> _inner;
+ 	PeerData *_forPeer = nullptr;
++	Fn<bool(const Data::WallPaper &, const QImage &)> _teleApply;
+ 
+ };
+diff --git a/Telegram/SourceFiles/boxes/background_preview_box.cpp b/Telegram/SourceFiles/boxes/background_preview_box.cpp
+index ef6591759767f340b720edf9cea3472ceaa2b019..3e7a5caaacaa2547a6b3d06dbba3621dd9e405cf 100644
+--- a/Telegram/SourceFiles/boxes/background_preview_box.cpp
++++ b/Telegram/SourceFiles/boxes/background_preview_box.cpp
+@@ -191,6 +191,7 @@ BackgroundPreviewBox::BackgroundPreviewBox(
+ , _controller(controller)
+ , _forPeer(args.forPeer)
+ , _fromMessageId(args.fromMessageId)
++, _teleApply(std::move(args.teleApply))
+ , _chatStyle(std::make_unique<Ui::ChatStyle>(
+ 	controller->session().colorIndicesValue()))
+ , _serviceHistory(_controller->session().data().history(
+@@ -218,7 +219,7 @@ BackgroundPreviewBox::BackgroundPreviewBox(
+ , _appNightMode(Window::Theme::IsNightModeValue())
+ , _boxDarkMode(_appNightMode.current())
+ , _dimmingIntensity(std::clamp(_paper.patternIntensity(), 0, 100))
+-, _dimmed(_forPeer
++, _dimmed((_forPeer || _teleApply)
+ 	&& (_paper.document() || _paper.localThumbnail())
+ 	&& !_paper.isPattern()) {
+ 	if (_media) {
+@@ -576,7 +577,11 @@ void BackgroundPreviewBox::recreateBlurCheckbox() {
+ }
+ 
+ void BackgroundPreviewBox::apply() {
+-	if (_forPeer) {
++	if (_teleApply) {
++		if (_teleApply(_paper, _full)) {
++			closeBox();
++		}
++	} else if (_forPeer) {
+ 		applyForPeer();
+ 	} else {
+ 		applyForEveryone();
+diff --git a/Telegram/SourceFiles/boxes/background_preview_box.h b/Telegram/SourceFiles/boxes/background_preview_box.h
+index 96150c6ba052563a210a2363b124c8b502dd8ce8..5470dc4402c7335fccd4a8302b03239570e5ef84 100644
+--- a/Telegram/SourceFiles/boxes/background_preview_box.h
++++ b/Telegram/SourceFiles/boxes/background_preview_box.h
+@@ -36,6 +36,7 @@ class FadeWrap;
+ struct BackgroundPreviewArgs {
+ 	PeerData *forPeer = nullptr;
+ 	FullMsgId fromMessageId;
++	Fn<bool(const Data::WallPaper &, const QImage &)> teleApply;
+ };
+ 
+ class BackgroundPreviewBox
+@@ -107,6 +108,7 @@ private:
+ 	PeerData * const _forPeer = nullptr;
+ 	bool _forPeerLevelCheck = false;
+ 	FullMsgId _fromMessageId;
++	Fn<bool(const Data::WallPaper &, const QImage &)> _teleApply;
+ 	std::unique_ptr<Ui::ChatStyle> _chatStyle;
+ 	const not_null<History*> _serviceHistory;
+ 	AdminLog::OwnedItem _service;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 0be5532022359fbd252d01f5c9f1bd4beb0b6417..206087a571e57b0a32f0bcfea0691ee678fa30c9 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -18,6 +18,7 @@
+ #include "settings/settings_common_session.h"
+ #include "tele/tele_badges.h"
+ #include "tele/tele_build.h"
++#include "tele/tele_chat_backgrounds.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_lowercase.h"
+@@ -1044,6 +1045,129 @@ void AddGhostChats(SectionBuilder &builder) {
+ 	AddAbout(builder, description);
+ }
+ 
++class ChatBackgroundsController final : public PeerListController {
++public:
++	explicit ChatBackgroundsController(
++		not_null<Window::SessionController*> window);
++
++	Main::Session &session() const override;
++	void prepare() override;
++	void rowClicked(not_null<PeerListRow*> row) override;
++	void rowRightActionClicked(not_null<PeerListRow*> row) override;
++
++private:
++	void refreshRows();
++
++	const not_null<Window::SessionController*> _window;
++
++};
++
++ChatBackgroundsController::ChatBackgroundsController(
++	not_null<Window::SessionController*> window)
++: _window(window) {
++}
++
++Main::Session &ChatBackgroundsController::session() const {
++	return _window->session();
++}
++
++void ChatBackgroundsController::prepare() {
++	delegate()->peerListSetTitle(
++		rpl::single(::Tele::Lower(u"Chat backgrounds"_q)));
++	::Tele::ChatBackgroundsChanges(
++	) | rpl::on_next([=] {
++		refreshRows();
++	}, lifetime());
++	refreshRows();
++}
++
++void ChatBackgroundsController::refreshRows() {
++	const auto chats = ::Tele::ChatBackgrounds(&session());
++	auto keep = base::flat_set<PeerListRowId>();
++	for (const auto &chat : chats) {
++		keep.emplace(chat.id.value);
++	}
++	for (auto i = delegate()->peerListFullRowsCount(); i != 0;) {
++		const auto row = delegate()->peerListRowAt(--i);
++		if (!keep.contains(row->id())) {
++			delegate()->peerListRemoveRow(row);
++		}
++	}
++	for (const auto &chat : chats) {
++		auto row = delegate()->peerListFindRow(chat.id.value);
++		if (!row) {
++			auto created = std::make_unique<GhostChatRow>(
++				session().data().peer(chat.id));
++			created->setActionLink(::Tele::Lower(u"Reset"_q));
++			row = created.get();
++			delegate()->peerListAppendRow(std::move(created));
++		}
++		row->setCustomStatus(chat.none
++			? ::Tele::Lower(u"My default background"_q)
++			: ::Tele::Lower(u"Chosen background"_q));
++	}
++	setDescriptionText(chats.empty()
++		? ::Tele::Lower(u"No chats yet. Pick Background for me in a chat's "
++			"menu."_q)
++		: QString());
++	delegate()->peerListRefreshRows();
++}
++
++void ChatBackgroundsController::rowClicked(not_null<PeerListRow*> row) {
++	const auto peer = row->peer();
++	if (!peer->isMinimalLoaded()) {
++		return;
++	}
++	const auto window = _window;
++	crl::on_main(window, [=] {
++		window->showPeerHistory(peer);
++	});
++}
++
++void ChatBackgroundsController::rowRightActionClicked(
++		not_null<PeerListRow*> row) {
++	const auto peer = row->peer();
++	crl::on_main(_window, [=] {
++		::Tele::ResetChatBackground(peer);
++	});
++}
++
++void ShowChatBackgroundsBox(not_null<Window::SessionController*> window) {
++	auto initBox = [=](not_null<PeerListBox*> box) {
++		box->addButton(tr::lng_close(), [=] {
++			box->closeBox();
++		});
++	};
++	window->show(Box<PeerListBox>(
++		std::make_unique<ChatBackgroundsController>(window),
++		std::move(initBox)));
++}
++
++void AddChatBackgrounds(SectionBuilder &builder) {
++	const auto &option = base::options::lookup<QString>(
++		::Tele::kOptionChatBackgrounds);
++	const auto controller = builder.controller();
++	const auto description = ::Tele::Lower(option.description());
++	const auto button = builder.addButton({
++		.id = option.id(),
++		.title = rpl::single(::Tele::Lower(option.name())),
++		.st = &st::settingsButtonNoIcon,
++		.label = ::Tele::ChatBackgroundsCountValue(
++			builder.session()
++		) | rpl::map([](int count) {
++			return count ? QString::number(count) : u"none"_q;
++		}),
++		.onClick = [=] {
++			ShowChatBackgroundsBox(controller);
++		},
++		.keywords = { description },
++	});
++	if (button) {
++		SetupLink(button, option.id());
++	}
++	AddAbout(builder, description);
++}
++
+ void FillInterface(SectionBuilder &builder) {
+ 	builder.addSkip();
+ 	AddGroupTitle(builder, u"Title bar"_q);
+@@ -1094,6 +1218,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideSponsored);
+ 	AddOptionToggle(builder, ::Tele::kOptionHideProxySponsor);
++	AddChatBackgrounds(builder);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Links"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoLinkWarning);
+diff --git a/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp b/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3f0268725427373751c7f5b56b3ab463f35c648
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_chat_backgrounds.cpp
+@@ -0,0 +1,529 @@
++#include "tele/tele_chat_backgrounds.h"
++
++#include "base/weak_ptr.h"
++#include "base/weak_qptr.h"
++#include "boxes/background_box.h"
++#include "data/data_peer.h"
++#include "data/data_wall_paper.h"
++#include "main/main_session.h"
++#include "settings.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/chat/chat_theme.h"
++#include "ui/image/image.h"
++#include "ui/layers/box_content.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/widgets/popup_menu.h"
++#include "window/themes/window_theme.h"
++#include "window/themes/window_themes_embedded.h"
++#include "window/window_session_controller.h"
++#include "styles/style_media_player.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QDateTime>
++#include <QtCore/QDir>
++#include <QtCore/QFile>
++
++#include <deque>
++
++namespace Tele {
++namespace {
++
++constexpr auto kTestBit = BareId(1) << 63;
++constexpr auto kChannelShift = int64(1000000000000LL);
++constexpr auto kThemesInMemory = 4;
++constexpr auto kJpegQuality = 90;
++
++using Key = BareId;
++using Themes = std::deque<std::shared_ptr<Ui::ChatTheme>>;
++
++struct Custom {
++	Data::WallPaper paper;
++	QString file;
++};
++
++struct State {
++	State();
++
++	base::flat_map<Key, QString> specs;
++	rpl::event_stream<> changes;
++	int paletteGeneration = 0;
++	bool paletteScheduled = false;
++	rpl::event_stream<> paletteChanges;
++	base::flat_map<QString, std::weak_ptr<Ui::ChatTheme>> themes;
++	base::flat_set<QString> creating;
++	rpl::event_stream<std::shared_ptr<Ui::ChatTheme>> created;
++	base::flat_map<
++		not_null<Window::SessionController*>,
++		not_null<Themes*>> lastUsed;
++	rpl::lifetime lifetime;
++};
++
++[[nodiscard]] QString NoneSpec() {
++	return u"none"_q;
++}
++
++[[nodiscard]] QString Folder() {
++	return cWorkingDir() + u"tdata/tele_backgrounds/"_q;
++}
++
++[[nodiscard]] Key MakeKey(PeerId id, bool test) {
++	return id.value | (test ? kTestBit : Key());
++}
++
++[[nodiscard]] Key PeerKey(not_null<PeerData*> peer) {
++	return MakeKey(peer->id, peer->session().isTestMode());
++}
++
++[[nodiscard]] PeerId KeyPeer(Key key) {
++	return PeerId(key & ~kTestBit);
++}
++
++[[nodiscard]] PeerId ParseBotApiId(const QString &text) {
++	auto ok = false;
++	const auto id = text.toLongLong(&ok);
++	if (!ok || !id) {
++		return PeerId();
++	} else if (id > 0) {
++		return peerFromUser(UserId(uint64(id)));
++	} else if (id > -kChannelShift) {
++		return peerFromChat(ChatId(uint64(-id)));
++	}
++	return peerFromChannel(ChannelId(uint64(-id - kChannelShift)));
++}
++
++[[nodiscard]] QString BotApiId(PeerId id) {
++	const auto bare = int64(id.value & PeerId::kChatTypeMask);
++	return QString::number(peerIsChat(id)
++		? -bare
++		: peerIsChannel(id)
++		? -(kChannelShift + bare)
++		: bare);
++}
++
++[[nodiscard]] QString SpecFile(const QString &spec) {
++	const auto separator = spec.indexOf(QChar('@'));
++	return (separator < 0) ? QString() : spec.mid(separator + 1);
++}
++
++[[nodiscard]] QString MakeSpec(
++		const Data::WallPaper &paper,
++		const QString &file) {
++	const auto encoded = QString::fromLatin1(paper.serialize().toBase64(
++		QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
++	return file.isEmpty() ? encoded : (encoded + '@' + file);
++}
++
++[[nodiscard]] std::optional<Custom> ParseCustom(const QString &spec) {
++	if (spec.isEmpty() || spec == NoneSpec()) {
++		return std::nullopt;
++	}
++	const auto separator = spec.indexOf(QChar('@'));
++	const auto encoded = (separator < 0) ? spec : spec.mid(0, separator);
++	const auto paper = Data::WallPaper::FromSerialized(
++		QByteArray::fromBase64(
++			encoded.toLatin1(),
++			(QByteArray::Base64UrlEncoding
++				| QByteArray::OmitTrailingEquals)));
++	if (!paper) {
++		return std::nullopt;
++	}
++	const auto file = SpecFile(spec);
++	if (file.isEmpty()) {
++		if (paper->isPattern() || paper->backgroundColors().empty()) {
++			return std::nullopt;
++		}
++	} else if (!QFile::exists(Folder() + file)) {
++		return std::nullopt;
++	}
++	return Custom{ *paper, file };
++}
++
++[[nodiscard]] base::flat_map<Key, QString> Parse(const QString &value) {
++	auto result = base::flat_map<Key, QString>();
++	for (const auto &part : value.split(QChar(','), Qt::SkipEmptyParts)) {
++		auto entry = part.trimmed();
++		const auto test = entry.startsWith(u"test:"_q);
++		if (test) {
++			entry = entry.mid(5);
++		}
++		const auto separator = entry.indexOf(QChar('='));
++		if (separator <= 0) {
++			continue;
++		}
++		const auto id = ParseBotApiId(entry.mid(0, separator).trimmed());
++		const auto spec = entry.mid(separator + 1).trimmed();
++		if (id && !spec.isEmpty()) {
++			result[MakeKey(id, test)] = spec;
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] QString Serialize(const base::flat_map<Key, QString> &specs) {
++	auto list = QStringList();
++	list.reserve(int(specs.size()));
++	for (const auto &[key, spec] : specs) {
++		list.push_back(((key & kTestBit) ? u"test:"_q : QString())
++			+ BotApiId(KeyPeer(key))
++			+ '='
++			+ spec);
++	}
++	return list.join(QChar(','));
++}
++
++void RemoveUnusedFiles(const base::flat_map<Key, QString> &specs) {
++	auto used = base::flat_set<QString>();
++	for (const auto &[key, spec] : specs) {
++		if (const auto file = SpecFile(spec); !file.isEmpty()) {
++			used.emplace(file);
++		}
++	}
++	const auto folder = Folder();
++	for (const auto &file : QDir(folder).entryList(QDir::Files)) {
++		if (!used.contains(file)) {
++			QFile::remove(folder + file);
++		}
++	}
++}
++
++State &Get();
++
++State::State() {
++	ChatBackgroundsValue(
++	) | rpl::on_next([=](const QString &value) {
++		specs = Parse(value);
++		changes.fire({});
++	}, lifetime);
++	RemoveUnusedFiles(specs);
++
++	style::PaletteChanged(
++	) | rpl::on_next([=] {
++		if (paletteScheduled) {
++			return;
++		}
++		paletteScheduled = true;
++		crl::on_main([] {
++			auto &state = Get();
++			state.paletteScheduled = false;
++			++state.paletteGeneration;
++			state.paletteChanges.fire({});
++		});
++	}, lifetime);
++}
++
++State &Get() {
++	static auto result = State();
++	return result;
++}
++
++[[nodiscard]] QString PeerSpec(not_null<PeerData*> peer) {
++	const auto &specs = Get().specs;
++	const auto i = specs.find(PeerKey(peer));
++	return (i != end(specs)) ? i->second : QString();
++}
++
++void SetPeerSpec(not_null<PeerData*> peer, const QString &spec) {
++	auto specs = Get().specs;
++	const auto key = PeerKey(peer);
++	if (spec.isEmpty()) {
++		if (!specs.remove(key)) {
++			return;
++		}
++	} else if (const auto i = specs.find(key); i != end(specs)) {
++		if (i->second == spec) {
++			return;
++		}
++		i->second = spec;
++	} else {
++		specs.emplace(key, spec);
++	}
++	SetChatBackgrounds(Serialize(specs));
++	RemoveUnusedFiles(specs);
++}
++
++[[nodiscard]] rpl::producer<QString> PeerSpecValue(
++		not_null<PeerData*> peer) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		Get().changes.events()
++	) | rpl::map([=] {
++		return PeerSpec(peer);
++	}) | rpl::distinct_until_changed();
++}
++
++[[nodiscard]] rpl::producer<int> PaletteGenerationValue() {
++	return rpl::single(
++		Get().paletteGeneration
++	) | rpl::then(Get().paletteChanges.events(
++	) | rpl::map([] {
++		return Get().paletteGeneration;
++	}));
++}
++
++void PushLastUsed(
++		not_null<Window::SessionController*> controller,
++		const std::shared_ptr<Ui::ChatTheme> &theme) {
++	auto &map = Get().lastUsed;
++	auto i = map.find(controller);
++	if (i == end(map)) {
++		const auto list = controller->lifetime().make_state<Themes>();
++		controller->lifetime().add([=] {
++			Get().lastUsed.remove(controller);
++		});
++		i = map.emplace(controller, list).first;
++	}
++	auto &list = *i->second;
++	const auto j = ranges::find(list, theme);
++	if (j != end(list)) {
++		list.erase(j);
++	}
++	list.push_front(theme);
++	if (int(list.size()) > kThemesInMemory) {
++		list.pop_back();
++	}
++}
++
++void CreateTheme(const QString &key, const Custom &custom, bool dark) {
++	const auto &paper = custom.paper;
++	auto descriptor = Ui::ChatThemeDescriptor{
++		.key = Ui::ChatThemeKey{ 0, dark },
++		.preparePalette = Window::Theme::PrepareCurrentPaletteCallback(),
++		.backgroundData = {
++			.key = key,
++			.path = (custom.file.isEmpty()
++				? QString()
++				: (Folder() + custom.file)),
++			.colors = paper.backgroundColors(),
++			.isPattern = paper.isPattern(),
++			.patternOpacity = paper.patternOpacity(),
++			.darkModeDimming = (paper.isPattern()
++				? 100
++				: std::clamp(paper.patternIntensity(), 0, 100)),
++			.isBlurred = paper.isBlurred(),
++			.forDarkMode = dark,
++			.generateGradient = true,
++			.gradientRotation = paper.gradientRotation(),
++		},
++		.basedOnDark = dark,
++	};
++	crl::async([descriptor = std::move(descriptor)]() mutable {
++		auto result = std::make_shared<Ui::ChatTheme>(std::move(descriptor));
++		crl::on_main([result = std::move(result)] {
++			result->finishCreateOnMain();
++			auto &state = Get();
++			const auto key = result->background().key;
++			state.creating.remove(key);
++			for (auto i = begin(state.themes); i != end(state.themes);) {
++				if (i->second.expired()) {
++					i = state.themes.erase(i);
++				} else {
++					++i;
++				}
++			}
++			state.themes[key] = result;
++			state.created.fire_copy(result);
++		});
++	});
++}
++
++[[nodiscard]] auto CachedThemeValue(
++	not_null<Window::SessionController*> controller,
++	const QString &spec,
++	const Custom &custom,
++	bool dark,
++	int generation)
++-> rpl::producer<std::shared_ptr<Ui::ChatTheme>> {
++	auto &state = Get();
++	const auto key = u"tele/"_q
++		+ spec
++		+ (dark ? u"/dark/"_q : u"/light/"_q)
++		+ QString::number(generation);
++	if (const auto i = state.themes.find(key); i != end(state.themes)) {
++		if (auto strong = i->second.lock()) {
++			PushLastUsed(controller, strong);
++			return rpl::single(std::move(strong));
++		}
++	}
++	if (!state.creating.contains(key)) {
++		state.creating.emplace(key);
++		CreateTheme(key, custom, dark);
++	}
++	return rpl::single(
++		controller->defaultChatTheme()
++	) | rpl::then(state.created.events(
++	) | rpl::filter([=](const std::shared_ptr<Ui::ChatTheme> &theme) {
++		return (theme->background().key == key);
++	}) | rpl::take(1) | rpl::map([=](std::shared_ptr<Ui::ChatTheme> theme) {
++		PushLastUsed(controller, theme);
++		return theme;
++	}));
++}
++
++[[nodiscard]] auto LocalThemeValue(
++	not_null<Window::SessionController*> controller,
++	const QString &spec)
++-> rpl::producer<std::shared_ptr<Ui::ChatTheme>> {
++	if (spec == NoneSpec()) {
++		return rpl::single(controller->defaultChatTheme());
++	}
++	const auto custom = ParseCustom(spec);
++	if (!custom) {
++		return rpl::single(std::shared_ptr<Ui::ChatTheme>());
++	}
++	return rpl::combine(
++		Window::Theme::IsThemeDarkValue() | rpl::distinct_until_changed(),
++		PaletteGenerationValue()
++	) | rpl::map([=](bool dark, int generation) {
++		return CachedThemeValue(controller, spec, *custom, dark, generation);
++	}) | rpl::flatten_latest();
++}
++
++bool SaveCustom(
++		not_null<Window::SessionController*> controller,
++		not_null<PeerData*> peer,
++		const Data::WallPaper &paper,
++		const QImage &full) {
++	auto file = QString();
++	if (paper.isPattern() || paper.backgroundColors().empty()) {
++		auto image = full;
++		if (image.isNull()) {
++			if (const auto thumbnail = paper.localThumbnail()) {
++				image = thumbnail->original();
++			}
++		}
++		if (image.isNull()) {
++			controller->showToast(
++				Lower(u"The background is still loading."_q));
++			return false;
++		}
++		const auto pattern = paper.isPattern();
++		file = BotApiId(peer->id)
++			+ (peer->session().isTestMode() ? u"_test_"_q : u"_"_q)
++			+ QString::number(QDateTime::currentMSecsSinceEpoch(), 16)
++			+ (pattern ? u".png"_q : u".jpg"_q);
++		const auto folder = Folder();
++		QDir().mkpath(folder);
++		image = Ui::PreprocessBackgroundImage(std::move(image));
++		if (!image.save(
++				folder + file,
++				pattern ? "PNG" : "JPG",
++				pattern ? -1 : kJpegQuality)) {
++			controller->showToast(
++				Lower(u"Couldn't save the background."_q));
++			return false;
++		}
++	}
++	SetPeerSpec(peer, MakeSpec(paper, file));
++	return true;
++}
++
++void ChooseBackground(
++		not_null<Window::SessionController*> controller,
++		not_null<PeerData*> peer) {
++	const auto box = std::make_shared<base::weak_qptr<Ui::BoxContent>>();
++	*box = controller->show(Box<BackgroundBox>(
++		controller,
++		nullptr,
++		[=](const Data::WallPaper &paper, const QImage &image) {
++			if (!SaveCustom(controller, peer, paper, image)) {
++				return false;
++			}
++			if (const auto strong = box->get()) {
++				strong->closeBox();
++			}
++			return true;
++		}));
++}
++
++} // namespace
++
++auto ChatBackgroundThemeValue(
++	not_null<Window::SessionController*> controller,
++	not_null<PeerData*> peer,
++	rpl::producer<std::shared_ptr<Ui::ChatTheme>> cloud)
++-> rpl::producer<std::shared_ptr<Ui::ChatTheme>> {
++	auto local = PeerSpecValue(
++		peer
++	) | rpl::map([=](const QString &spec) {
++		return LocalThemeValue(controller, spec);
++	}) | rpl::flatten_latest();
++	return rpl::combine(
++		std::move(cloud),
++		std::move(local)
++	) | rpl::map([](
++			std::shared_ptr<Ui::ChatTheme> &&cloud,
++			std::shared_ptr<Ui::ChatTheme> &&local) {
++		return local ? std::move(local) : std::move(cloud);
++	}) | rpl::distinct_until_changed();
++}
++
++void AddChatBackgroundAction(
++		not_null<Window::SessionController*> controller,
++		PeerData *peer,
++		const Ui::Menu::MenuCallback &addAction) {
++	if (!peer) {
++		return;
++	}
++	const auto now = PeerSpec(peer);
++	const auto weak = base::make_weak(controller);
++	addAction({
++		.text = Lower(u"Background for me"_q),
++		.handler = nullptr,
++		.icon = &st::menuIconPhoto,
++		.fillSubmenu = [=](not_null<Ui::PopupMenu*> menu) {
++			const auto check = [](bool checked) {
++				return checked ? &st::mediaPlayerMenuCheck : nullptr;
++			};
++			const auto add = [&](const QString &text, const QString &spec) {
++				menu->addAction(text, [=] {
++					SetPeerSpec(peer, spec);
++				}, check(now == spec));
++			};
++			add(Lower(u"Chat's own background"_q), QString());
++			add(Lower(u"My default background"_q), NoneSpec());
++			menu->addAction(
++				Lower(u"Choose a background"_q) + QChar(0x2026),
++				[=] {
++					if (const auto strong = weak.get()) {
++						ChooseBackground(strong, peer);
++					}
++				},
++				check(!now.isEmpty() && now != NoneSpec()));
++		},
++	});
++}
++
++std::vector<ChatBackground> ChatBackgrounds(
++		not_null<Main::Session*> session) {
++	const auto test = session->isTestMode();
++	auto result = std::vector<ChatBackground>();
++	for (const auto &[key, spec] : Get().specs) {
++		if (((key & kTestBit) != 0) == test) {
++			result.push_back({ KeyPeer(key), (spec == NoneSpec()) });
++		}
++	}
++	return result;
++}
++
++rpl::producer<> ChatBackgroundsChanges() {
++	return Get().changes.events();
++}
++
++rpl::producer<int> ChatBackgroundsCountValue(
++		not_null<Main::Session*> session) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ChatBackgroundsChanges()
++	) | rpl::map([=] {
++		return int(ChatBackgrounds(session).size());
++	});
++}
++
++void ResetChatBackground(not_null<PeerData*> peer) {
++	SetPeerSpec(peer, QString());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_chat_backgrounds.h b/Telegram/SourceFiles/tele/tele_chat_backgrounds.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..3cb9def2e64c782895ac2c12ba49578d85e77840
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_chat_backgrounds.h
+@@ -0,0 +1,45 @@
++#pragma once
++
++class PeerData;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class ChatTheme;
++} // namespace Ui
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++struct ChatBackground {
++	PeerId id;
++	bool none = false;
++};
++
++[[nodiscard]] auto ChatBackgroundThemeValue(
++	not_null<Window::SessionController*> controller,
++	not_null<PeerData*> peer,
++	rpl::producer<std::shared_ptr<Ui::ChatTheme>> cloud)
++-> rpl::producer<std::shared_ptr<Ui::ChatTheme>>;
++void AddChatBackgroundAction(
++	not_null<Window::SessionController*> controller,
++	PeerData *peer,
++	const Ui::Menu::MenuCallback &addAction);
++
++[[nodiscard]] std::vector<ChatBackground> ChatBackgrounds(
++	not_null<Main::Session*> session);
++[[nodiscard]] rpl::producer<> ChatBackgroundsChanges();
++[[nodiscard]] rpl::producer<int> ChatBackgroundsCountValue(
++	not_null<Main::Session*> session);
++void ResetChatBackground(not_null<PeerData*> peer);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 1341cbe70d0de68933b9cf114968b604b20fc076..85ffa49be0ee4b1f69aff978096f56a9f0d57338 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -63,6 +63,7 @@ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
+ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
++const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+ 
+ namespace {
+ 
+@@ -440,6 +441,12 @@ base::options::toggle NoRichPastePromptOption({
+ 		"message.",
+ });
+ 
++base::options::option<QString> ChatBackgroundsOption({
++	.id = kOptionChatBackgrounds,
++	.name = "Chat backgrounds",
++	.description = "Chats with a background only you see, set in a chat's menu.",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -901,4 +908,18 @@ bool NoRichPastePrompt() {
+ 	return NoRichPastePromptOption.value();
+ }
+ 
++void SetChatBackgrounds(const QString &value) {
++	ChatBackgroundsOption.set(value);
++}
++
++rpl::producer<QString> ChatBackgroundsValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ChatBackgroundsOption.changes()
++	) | rpl::map([] {
++		return ChatBackgroundsOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 56be81723c6c6d849488f2bbc6b98716bcf5db7d..33f64472daac36649ac304d2bb8011a72cac77c9 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -60,6 +60,7 @@ extern const char kOptionSentToBottom[];
+ extern const char kOptionQueueBehindMedia[];
+ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionNoRichPastePrompt[];
++extern const char kOptionChatBackgrounds[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -149,5 +150,7 @@ void SetMessageMenuLayout(const QString &value);
+ [[nodiscard]] rpl::producer<> QueueBehindMediaChanges();
+ [[nodiscard]] bool InlineWithoutVia();
+ [[nodiscard]] bool NoRichPastePrompt();
++void SetChatBackgrounds(const QString &value);
++[[nodiscard]] rpl::producer<QString> ChatBackgroundsValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/window/section_widget.cpp b/Telegram/SourceFiles/window/section_widget.cpp
+index 1c11463f2104cfffed4938c7bec6af73cad633cf..fd6e51304ca06455dc7281a125b743b457c5beda 100644
+--- a/Telegram/SourceFiles/window/section_widget.cpp
++++ b/Telegram/SourceFiles/window/section_widget.cpp
+@@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "menu/menu_send.h"
+ #include "settings/sections/settings_premium.h"
++#include "tele/tele_chat_backgrounds.h"
+ #include "ui/text/text_custom_emoji.h"
+ #include "ui/toast/toast.h"
+ #include "window/section_memento.h"
+@@ -576,7 +577,7 @@ auto ChatThemeValueFromPeer(
+ 	) | rpl::distinct_until_changed();
+ 
+ 	return rpl::combine(
+-		std::move(cloud),
++		Tele::ChatBackgroundThemeValue(controller, peer, std::move(cloud)),
+ 		controller->peerThemeOverrideValue()
+ 	) | rpl::map([=](
+ 			std::shared_ptr<Ui::ChatTheme> &&cloud,
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index ff774564863dcaa91caf5e1ac4bf781986531e5c..9650aa53d87e352222f0b9dfde3db7c1c56d7d80 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/peers/edit_peer_info_box.h"
+ #include "boxes/peers/manage_community_box.h"
+ #include "boxes/premium_preview_box.h"
++#include "tele/tele_chat_backgrounds.h"
+ #include "tele/tele_deleted_section.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+@@ -1953,6 +1954,7 @@ void Filler::fillHistoryActions() {
+ 	addCreatePoll();
+ 	addCreateTodoList();
+ 	addThemeEdit();
++	Tele::AddChatBackgroundAction(_controller, _peer, _addAction);
+ 	addToggleNoForwards();
+ 	addViewDiscussion();
+ 	addDirectMessages();
+@@ -2000,6 +2002,7 @@ void Filler::fillRepliesActions() {
+ 		addInfo();
+ 		Tele::AddJumpToFirstAction(_controller, _topic, _addAction);
+ 		addManageTopic();
++		Tele::AddChatBackgroundAction(_controller, _peer, _addAction);
+ 	}
+ 	addBoostChat();
+ 	addCreatePoll();

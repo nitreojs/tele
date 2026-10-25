@@ -1,0 +1,183 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 12:40:17 +0300
+Subject: [PATCH] feat: dim every other address group like ios
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../SourceFiles/tele/tele_wallet_address.cpp  | 80 +++++++++++++++++++
+ .../SourceFiles/tele/tele_wallet_address.h    | 15 ++++
+ .../wallet/wallet_address_label.cpp           |  6 +-
+ .../SourceFiles/wallet/wallet_content.cpp     |  1 +
+ 5 files changed, 102 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_wallet_address.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_wallet_address.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 5dfb865e080ef2bdf902c81c0a6648c4f1577f48..8312e6a57d0dc3065724446318ba15873ce4b62f 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2898,6 +2898,8 @@ PRIVATE
+     tele/tele_voice_fade.h
+     tele/tele_voice_quality.cpp
+     tele/tele_voice_quality.h
++    tele/tele_wallet_address.cpp
++    tele/tele_wallet_address.h
+     tele/tele_wallet_links.cpp
+     tele/tele_wallet_links.h
+     tele/tele_who_reacted.cpp
+diff --git a/Telegram/SourceFiles/tele/tele_wallet_address.cpp b/Telegram/SourceFiles/tele/tele_wallet_address.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..8d5b1840a3d39c5cda8da15da690302bafe9e334
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_wallet_address.cpp
+@@ -0,0 +1,80 @@
++#include "tele/tele_wallet_address.h"
++
++#include "ui/text/text_utilities.h"
++#include "ui/widgets/labels.h"
++#include "styles/style_basic.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kGroup = 4;
++constexpr auto kGroupsPerLine = 4;
++
++} // namespace
++
++TextWithEntities WalletAddressText(const QString &address) {
++	auto result = TextWithEntities();
++	auto line = TextWithEntities();
++	const auto flush = [&] {
++		if (line.text.isEmpty()) {
++			return;
++		} else if (!result.text.isEmpty()) {
++			result.append(QChar('\n'));
++		}
++		result.append(Ui::Text::Wrapped(
++			base::take(line),
++			EntityType::Code));
++	};
++	auto index = 0;
++	for (auto offset = 0; offset < address.size(); offset += kGroup) {
++		const auto row = index / kGroupsPerLine;
++		const auto column = index % kGroupsPerLine;
++		++index;
++		if (!column) {
++			flush();
++		} else {
++			line.append(QChar(' '));
++		}
++		const auto group = address.mid(offset, kGroup);
++		if ((row + column) % 2) {
++			line.append(Ui::Text::Colorized(group, 1));
++		} else {
++			line.append(group);
++		}
++	}
++	flush();
++	return result;
++}
++
++TextWithEntities WalletAddressLines(const QStringList &lines) {
++	auto result = TextWithEntities();
++	for (auto row = 0; row != int(lines.size()); ++row) {
++		if (row) {
++			result.append(QChar('\n'));
++		}
++		const auto groups = lines[row].split(QChar(' '));
++		for (auto column = 0; column != int(groups.size()); ++column) {
++			if (column) {
++				result.append(QChar(' '));
++			}
++			if ((row + column) % 2) {
++				result.append(Ui::Text::Colorized(groups[column], 1));
++			} else {
++				result.append(groups[column]);
++			}
++		}
++	}
++	return result;
++}
++
++void SetupWalletAddressColors(not_null<Ui::FlatLabel*> label) {
++	const auto colors = label->lifetime().make_state<
++		std::array<Ui::Text::SpecialColor, 1>>();
++	(*colors)[0] = {
++		.pen = &st::windowSubTextFg->p,
++		.penSelected = &st::windowSubTextFg->p,
++	};
++	label->setColors(*colors);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_wallet_address.h b/Telegram/SourceFiles/tele/tele_wallet_address.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5d17018fd1d15c2c33c039743fce558a091f0e18
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_wallet_address.h
+@@ -0,0 +1,15 @@
++#pragma once
++
++#include "ui/text/text_entity.h"
++
++namespace Ui {
++class FlatLabel;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] TextWithEntities WalletAddressText(const QString &address);
++[[nodiscard]] TextWithEntities WalletAddressLines(const QStringList &lines);
++void SetupWalletAddressColors(not_null<Ui::FlatLabel*> label);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/wallet/wallet_address_label.cpp b/Telegram/SourceFiles/wallet/wallet_address_label.cpp
+index 4baf21058eaa53b78a0aeafb3c64cb07fe54688d..8f853095811531abcc4e8602794522c24e64c797 100644
+--- a/Telegram/SourceFiles/wallet/wallet_address_label.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_address_label.cpp
+@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "wallet/wallet_address_label.h"
+ 
+ #include "lang/lang_text_entity.h"
++#include "tele/tele_wallet_address.h"
+ #include "ui/widgets/labels.h"
+ 
+ namespace Wallet {
+@@ -64,13 +65,13 @@ private:
+ }
+ 
+ [[nodiscard]] TextWithEntities DetailsAddressValue(const QStringList &lines) {
+-	auto result = tr::marked(lines.join(QChar('\n')));
++	auto result = Tele::WalletAddressLines(lines);
+ 	if (result.empty()) {
+ 		return result;
+ 	}
+ 	// WHY: a Code entity spanning newlines gets no click handler, so one
+ 	// link over all lines makes the whole address a single press target.
+-	result.entities.push_back({
++	result.entities.push_front({
+ 		EntityType::Code,
+ 		0,
+ 		int(result.text.size()),
+@@ -86,6 +87,7 @@ AddressLabel::AddressLabel(
+ : FlatLabel(parent, st)
+ , _address(address)
+ , _link(std::make_shared<LambdaClickHandler>(std::move(clicked))) {
++	Tele::SetupWalletAddressColors(this);
+ 	setLines(DetailsAddressLines(_address, st.style.font->monospace(), 0));
+ 	_unwrappedWidth = textMaxWidth();
+ 	_refreshing = false;
+diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
+index 1be2831e952ab1d206ffc767fb5f9f20e1ebc1a7..9279215d903f0ca50d05cfc5bb7b16ab25a982b2 100644
+--- a/Telegram/SourceFiles/wallet/wallet_content.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
+@@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_domain.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_wallet_address.h"
+ #include "tele/tele_wallet_links.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/controls/feature_list.h"

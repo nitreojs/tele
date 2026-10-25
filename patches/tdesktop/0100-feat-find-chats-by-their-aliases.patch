@@ -1,0 +1,321 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 05:59:47 +0300
+Subject: [PATCH] feat: find chats by their aliases
+
+---
+ Telegram/SourceFiles/boxes/peer_list_box.cpp  |  14 ++
+ .../dialogs/dialogs_inner_widget.cpp          |  71 +++++++++-
+ .../tele/tele_username_aliases.cpp            | 127 ++++++++++++++++++
+ .../SourceFiles/tele/tele_username_aliases.h  |   5 +
+ 4 files changed, 216 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/boxes/peer_list_box.cpp b/Telegram/SourceFiles/boxes/peer_list_box.cpp
+index c040923da3bd7c98b9649cab76312a7e5b6c02a6..d78e6b921e47a24dd0dd9c5c245bf989cfdc6779 100644
+--- a/Telegram/SourceFiles/boxes/peer_list_box.cpp
++++ b/Telegram/SourceFiles/boxes/peer_list_box.cpp
+@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/session/session_show.h"
+ #include "main/main_session.h"
+ #include "mainwidget.h"
++#include "tele/tele_username_aliases.h"
+ #include "ui/effects/loading_element.h"
+ #include "ui/effects/outline_segments.h"
+ #include "ui/effects/round_checkbox.h"
+@@ -2473,6 +2474,19 @@ void PeerListContent::searchQueryChanged(QString query) {
+ 					}
+ 				}
+ 			}
++			const auto aliased = ::Tele::UsernameAliasPeers(
++				&_controller->session(),
++				query);
++			for (const auto &peer : aliased | ranges::views::reverse) {
++				const auto row = findRow(peer->id.value);
++				if (!row || row->special() || row->peer() != peer) {
++					continue;
++				}
++				_filterResults.erase(
++					ranges::remove(_filterResults, not_null(row)),
++					end(_filterResults));
++				_filterResults.insert(begin(_filterResults), row);
++			}
+ 		}
+ 		if (_controller->hasComplexSearch()) {
+ 			_controller->search(_searchQuery);
+diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
+index bebc4a7cb888ad019ee9831c0ea0594331e14013..ef6d5b959eac26cc822f6d63609cc2fd620c07f6 100644
+--- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
++++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
+@@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/peers/edit_forum_topic_box.h"
+ #include "boxes/peer_list_box.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_username_aliases.h"
+ #include "api/api_chat_filters.h"
+ #include "base/qt/qt_common_adapters.h"
+ #include "styles/style_dialogs.h"
+@@ -400,6 +401,31 @@ InnerWidget::InnerWidget(
+ 		refresh();
+ 	}, lifetime());
+ 
++	::Tele::UsernameAliasPeersResolved(
++	) | rpl::filter([=](not_null<Main::Session*> session) {
++		return (session == &this->session())
++			&& (_state == WidgetState::Filtered)
++			&& !_filter.isEmpty();
++	}) | rpl::on_next([=] {
++		const auto selected = base::in_range(
++			_filteredSelected,
++			0,
++			int(_filterResults.size()))
++			? _filterResults[_filteredSelected].key()
++			: Key();
++		refreshFilterResults();
++		if (selected) {
++			const auto i = ranges::find(
++				_filterResults,
++				selected,
++				&FilterResult::key);
++			_filteredSelected = (i != end(_filterResults))
++				? int(i - begin(_filterResults))
++				: -1;
++		}
++		refresh();
++	}, lifetime());
++
+ 	Ui::ScheduleThanosEffectWarmUp(&session(), lifetime());
+ 
+ 	rpl::merge(
+@@ -4409,6 +4435,45 @@ void InnerWidget::refreshFilterResults() {
+ 			_filterResults.back().row->recountHeight(_narrowRatio, _filterId);
+ 		}
+ 	}
++	if (!_searchState.filterChatsList()
++		|| words.isEmpty()
++		|| _savedSublists
++		|| _openedForum) {
++		return;
++	}
++	const auto aliased = ::Tele::UsernameAliasPeers(
++		&session(),
++		_searchState.query,
++		true);
++	if (aliased.empty()) {
++		return;
++	}
++	auto results = std::vector<FilterResult>();
++	for (const auto &peer : aliased) {
++		const auto key = Key(session().data().history(peer));
++		const auto i = ranges::find(_filterResults, key, &FilterResult::key);
++		if (i != end(_filterResults)) {
++			results.push_back(*i);
++			_filterResults.erase(i);
++			continue;
++		}
++		auto &row = _filterResultsGlobal[key];
++		if (!row) {
++			row = std::make_unique<Row>(key, 0, 0);
++			trackResultsHistory(key.owningHistory());
++		}
++		results.emplace_back(row.get());
++	}
++	_filterResults.insert(
++		begin(_filterResults),
++		begin(results),
++		end(results));
++	auto top = 0;
++	for (auto &result : _filterResults) {
++		result.top = top;
++		result.row->recountHeight(_narrowRatio, _filterId);
++		top += result.row->height();
++	}
+ }
+ 
+ void InnerWidget::appendToFiltered(Key key) {
+@@ -4848,7 +4913,11 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
+ 	const auto inlist = [&](not_null<PeerData*> peer) {
+ 		if (const auto history = peer->owner().historyLoaded(peer)) {
+ 			// Skip existing chats.
+-			return history->inChatList();
++			return history->inChatList()
++				|| ranges::contains(
++					_filterResults,
++					Key(history),
++					&FilterResult::key);
+ 		}
+ 		return false;
+ 	};
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.cpp b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+index f5bd2f972e717866a3741204d9c38d9743e9fd45..d46abe592c6df058761e1816593b8ff40ca3a2b2 100644
+--- a/Telegram/SourceFiles/tele/tele_username_aliases.cpp
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.cpp
+@@ -1,5 +1,6 @@
+ #include "tele/tele_username_aliases.h"
+ 
++#include "apiwrap.h"
+ #include "core/application.h"
+ #include "core/click_handler_types.h"
+ #include "core/local_url_handlers.h"
+@@ -66,6 +67,11 @@ struct ServerState {
+ 	rpl::lifetime lifetime;
+ };
+ 
++struct SearchResolves {
++	base::flat_set<std::pair<uint64, QString>> requested;
++	rpl::event_stream<not_null<Main::Session*>> resolved;
++};
++
+ bool SkipAliases = false;
+ 
+ [[nodiscard]] PeerId ParseBotApiId(const QString &text) {
+@@ -266,6 +272,48 @@ void ServerState::rebuild() {
+ 	return (peer && peer->isMinimalLoaded()) ? peer : nullptr;
+ }
+ 
++[[nodiscard]] SearchResolves &Resolves() {
++	static auto result = SearchResolves();
++	return result;
++}
++
++[[nodiscard]] QString NormalizeSearchQuery(const QString &query) {
++	auto result = query.trimmed();
++	while (result.startsWith('@')) {
++		result = result.mid(1);
++	}
++	result = TextUtilities::RemoveAccents(result).toLower();
++	return IsValidAlias(result) ? result : QString();
++}
++
++[[nodiscard]] bool AliasMatches(const QString &alias, const QString &query) {
++	return TextUtilities::RemoveAccents(alias).toLower().startsWith(query);
++}
++
++void ResolveSearchTarget(
++		not_null<Main::Session*> session,
++		const QString &username) {
++	const auto key = std::make_pair(session->uniqueId(), username.toLower());
++	if (!Resolves().requested.emplace(key).second) {
++		return;
++	}
++	const auto weak = base::make_weak(session);
++	session->api().request(MTPcontacts_ResolveUsername(
++		MTP_flags(0),
++		MTP_string(username),
++		MTP_string()
++	)).done([=](const MTPcontacts_ResolvedPeer &result) {
++		const auto strong = weak.get();
++		if (!strong) {
++			return;
++		}
++		const auto &data = result.data();
++		strong->data().processUsers(data.vusers());
++		strong->data().processChats(data.vchats());
++		Resolves().resolved.fire(not_null(strong));
++	}).send();
++}
++
+ [[nodiscard]] QString LinkUsername(const std::shared_ptr<ClickHandler> &link) {
+ 	const auto url = link->url();
+ 	if (link->getTextEntity().type == EntityType::Mention) {
+@@ -698,6 +746,85 @@ std::vector<UsernameAliasMention> UsernameAliasMentions(
+ 	return result;
+ }
+ 
++std::vector<not_null<PeerData*>> UsernameAliasPeers(
++		not_null<Main::Session*> session,
++		const QString &query,
++		bool resolve) {
++	struct Found {
++		QString alias;
++		PeerData *peer = nullptr;
++		bool local = false;
++	};
++	auto result = std::vector<not_null<PeerData*>>();
++	const auto normalized = NormalizeSearchQuery(query);
++	if (normalized.isEmpty()) {
++		return result;
++	}
++	auto found = std::vector<Found>();
++	for (const auto &[alias, id] : SessionMap(session)) {
++		if (AliasMatches(alias, normalized)) {
++			if (const auto peer = LoadedPeer(session, id)) {
++				found.push_back({ alias, peer, true });
++			}
++		}
++	}
++	auto targets = base::flat_map<QString, std::vector<QString>>();
++	if (ServerUsernamesOn(session)) {
++		for (const auto &[alias, username] : Server().targets) {
++			if (AliasMatches(alias, normalized)
++				&& !AliasPeerId(session, alias)) {
++				targets[username.toLower()].push_back(alias);
++			}
++		}
++	}
++	if (!targets.empty()) {
++		auto missing = targets;
++		const auto check = [&](not_null<PeerData*> peer) {
++			if (!peer->isMinimalLoaded()) {
++				return;
++			}
++			auto usernames = peer->usernames();
++			usernames.push_back(peer->username());
++			for (const auto &username : usernames) {
++				const auto lower = username.toLower();
++				const auto i = targets.find(lower);
++				if (i == end(targets) || !missing.remove(lower)) {
++					continue;
++				}
++				for (const auto &alias : i->second) {
++					found.push_back({ alias, peer.get(), false });
++				}
++			}
++		};
++		session->data().enumerateUsers(check);
++		session->data().enumerateGroups(check);
++		session->data().enumerateBroadcasts(check);
++		if (resolve && missing.size() == 1) {
++			ResolveSearchTarget(session, missing.front().first);
++		}
++	}
++	ranges::stable_sort(found, [&](const Found &a, const Found &b) {
++		const auto aExact = (a.alias.size() == normalized.size());
++		const auto bExact = (b.alias.size() == normalized.size());
++		return (aExact != bExact)
++			? aExact
++			: (a.local != b.local)
++			? a.local
++			: (a.alias < b.alias);
++	});
++	for (const auto &entry : found) {
++		const auto peer = not_null(entry.peer);
++		if (!ranges::contains(result, peer)) {
++			result.push_back(peer);
++		}
++	}
++	return result;
++}
++
++rpl::producer<not_null<Main::Session*>> UsernameAliasPeersResolved() {
++	return Resolves().resolved.events();
++}
++
+ std::vector<QString> WithServerUsernames(
+ 		not_null<PeerData*> peer,
+ 		const std::vector<QString> &usernames) {
+diff --git a/Telegram/SourceFiles/tele/tele_username_aliases.h b/Telegram/SourceFiles/tele/tele_username_aliases.h
+index 548f686a8a0a41f8ff4835de814d8ec8543eb855..c27c4df9c307211056997332e4d7e3cd48754470 100644
+--- a/Telegram/SourceFiles/tele/tele_username_aliases.h
++++ b/Telegram/SourceFiles/tele/tele_username_aliases.h
+@@ -72,6 +72,11 @@ void AddOpenRealUsernameAction(
+ [[nodiscard]] std::vector<UsernameAliasMention> UsernameAliasMentions(
+ 	not_null<Main::Session*> session,
+ 	const QString &filter);
++[[nodiscard]] std::vector<not_null<PeerData*>> UsernameAliasPeers(
++	not_null<Main::Session*> session,
++	const QString &query,
++	bool resolve = false);
++[[nodiscard]] rpl::producer<not_null<Main::Session*>> UsernameAliasPeersResolved();
+ void ReplaceUsernameAliases(
+ 	not_null<History*> history,
+ 	TextWithEntities &text);

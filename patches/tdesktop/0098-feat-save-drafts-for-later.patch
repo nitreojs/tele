@@ -1,0 +1,6522 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 05:30:43 +0300
+Subject: [PATCH] feat: save drafts for later
+
+---
+ Telegram/CMakeLists.txt                       |   10 +
+ Telegram/SourceFiles/boxes/send_files_box.cpp |    6 +
+ Telegram/SourceFiles/boxes/send_files_box.h   |    6 +
+ Telegram/SourceFiles/history/history.cpp      |    2 +
+ .../SourceFiles/history/history_widget.cpp    |   54 +-
+ Telegram/SourceFiles/history/history_widget.h |    6 +
+ .../history_view_compose_controls.cpp         |   67 +-
+ .../controls/history_view_compose_controls.h  |    8 +
+ .../view/history_view_chat_section.cpp        |    1 +
+ .../view/history_view_context_menu.cpp        |    4 +
+ .../iv/editor/iv_editor_session.cpp           |   16 +
+ Telegram/SourceFiles/menu/menu_send.cpp       |    6 +-
+ Telegram/SourceFiles/menu/menu_send_details.h |    5 +
+ .../SourceFiles/settings/settings_tele.cpp    |   31 +
+ Telegram/SourceFiles/tele/tele_deleted.cpp    |    4 +-
+ Telegram/SourceFiles/tele/tele_drafts.cpp     | 1009 ++++++++++
+ Telegram/SourceFiles/tele/tele_drafts.h       |  182 ++
+ Telegram/SourceFiles/tele/tele_drafts_box.cpp |  766 +++++++
+ Telegram/SourceFiles/tele/tele_drafts_box.h   |   51 +
+ .../SourceFiles/tele/tele_drafts_compose.cpp  | 1379 +++++++++++++
+ .../SourceFiles/tele/tele_drafts_compose.h    |  184 ++
+ .../SourceFiles/tele/tele_drafts_rich.cpp     |  356 ++++
+ Telegram/SourceFiles/tele/tele_drafts_rich.h  |   20 +
+ .../SourceFiles/tele/tele_drafts_section.cpp  | 1751 +++++++++++++++++
+ .../SourceFiles/tele/tele_drafts_section.h    |   58 +
+ 25 files changed, 5972 insertions(+), 10 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_box.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_box.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_compose.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_compose.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_rich.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_rich.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_section.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_drafts_section.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 96d24f3a2fb4a300feb61272c14b4d60e25f0005..693d485e8f062226634e4456696bc26815cb0e30 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2523,6 +2523,16 @@ PRIVATE
+     tele/tele_custom_emoji.h
+     tele/tele_debug_logs.cpp
+     tele/tele_debug_logs.h
++    tele/tele_drafts.cpp
++    tele/tele_drafts.h
++    tele/tele_drafts_box.cpp
++    tele/tele_drafts_box.h
++    tele/tele_drafts_compose.cpp
++    tele/tele_drafts_compose.h
++    tele/tele_drafts_rich.cpp
++    tele/tele_drafts_rich.h
++    tele/tele_drafts_section.cpp
++    tele/tele_drafts_section.h
+     tele/tele_deleted.cpp
+     tele/tele_deleted.h
+     tele/tele_deleted_reply.cpp
+diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
+index cfee652375b860ee3a9c2978f6951217f060dbeb..8c8a838288aa8fb9f3512d6d6176dc8c9184d907 100644
+--- a/Telegram/SourceFiles/boxes/send_files_box.cpp
++++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/shortcuts.h"
+ #include "core/ui_integration.h"
+ #include "tele/tele_gif_video.h"
++#include "tele/tele_drafts_compose.h"
+ #include "tele/tele_link_rewrites.h"
+ #include "base/event_filter.h"
+ #include "base/call_delayed.h"
+@@ -841,6 +842,7 @@ Fn<SendMenu::Details()> SendFilesBox::prepareSendMenuDetails(
+ 		result.price = canChangePrice()
+ 			? _price.current()
+ 			: std::optional<uint64>();
++		Tele::SendFilesDraftMenu(this, result);
+ 		return result;
+ 	});
+ }
+@@ -1280,6 +1282,7 @@ void SendFilesBox::refreshButtons() {
+ 		}));
+ 
+ 	addMenuButton();
++	Tele::AddSendFilesDraftButton(this);
+ }
+ 
+ bool SendFilesBox::hasSendMenu(const MenuDetails &details) const {
+@@ -2851,6 +2854,9 @@ bool SendFilesBox::validateLength(const QString &text) const {
+ void SendFilesBox::send(
+ 		Api::SendOptions options,
+ 		bool ctrlShiftEnter) {
++	if (Tele::SendFilesDraftIntercept(this)) {
++		return;
++	}
+ 	if (options.scheduled
+ 		&& ranges::any_of(_list.files, &Ui::PreparedFile::ttlSeconds)) {
+ 		showToast(tr::lng_ttl_no_schedule(tr::now));
+diff --git a/Telegram/SourceFiles/boxes/send_files_box.h b/Telegram/SourceFiles/boxes/send_files_box.h
+index 523b2490d03f4ac86b2fc94610b4488fb68a3ced..9f55433d149a013bb718ab8a7ee2332e14fd0856 100644
+--- a/Telegram/SourceFiles/boxes/send_files_box.h
++++ b/Telegram/SourceFiles/boxes/send_files_box.h
+@@ -67,6 +67,10 @@ namespace SendFiles {
+ class ReplyPillHeader;
+ } // namespace SendFiles
+ 
++namespace Tele {
++struct SendFilesBoxAccess;
++} // namespace Tele
++
+ enum class SendFilesAllow {
+ 	OnlyOne = (1 << 0),
+ 	Photos = (1 << 1),
+@@ -170,6 +174,8 @@ protected:
+ 	void resizeEvent(QResizeEvent *e) override;
+ 
+ private:
++	friend struct Tele::SendFilesBoxAccess;
++
+ 	using MenuAction = SendMenu::Action;
+ 	using MenuDetails = SendMenu::Details;
+ 
+diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
+index 65165816832c02f8c5c78e57d0b28f7c996930d5..0f87d48bf229b4a62aeb1797dbbf02550f9adf9a 100644
+--- a/Telegram/SourceFiles/history/history.cpp
++++ b/Telegram/SourceFiles/history/history.cpp
+@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_shared_media.h"
+ #include "storage/storage_account.h"
+ #include "support/support_helper.h"
++#include "tele/tele_drafts_compose.h"
+ #include "ui/image/image.h"
+ #include "ui/text/text_options.h"
+ #include "ui/text/text_utilities.h"
+@@ -314,6 +315,7 @@ void History::takeLocalDraft(not_null<History*> from) {
+ void History::createLocalDraftFromCloud(
+ 		MsgId topicRootId,
+ 		PeerId monoforumPeerId) {
++	Tele::NoteCloudDraftReplace(this, topicRootId, monoforumPeerId);
+ 	const auto draft = cloudDraft(topicRootId, monoforumPeerId);
+ 	if (!draft) {
+ 		clearLocalDraft(topicRootId, monoforumPeerId);
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 74a714a165f88a7307c2120222839aaf8369591a..594cb931c9a8a8edd37ce8c86893c2dd6eb7a25f 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula_preview.h"
+ #include "tele/tele_link_previews.h"
+ #include "tele/tele_calls.h"
++#include "tele/tele_drafts_compose.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
+ #include "tele/tele_deleted_reply.h"
+@@ -531,6 +532,30 @@ HistoryWidget::HistoryWidget(
+ 				: FullMsgId();
+ 		},
+ 	});
++	_teleDrafts = std::make_unique<Tele::ComposeDrafts>(
++		Tele::ComposeDraftsDescriptor{
++			.parent = this,
++			.field = _field.data(),
++			.show = controller->uiShow(),
++			.st = &st::historyAttach,
++			.thread = [=]() -> Data::Thread* { return _history; },
++			.editing = [=] { return _editMsgId != 0; },
++			.reply = [=] { return replyTo(); },
++			.webpage = [=] {
++				return _preview ? _preview->draft() : Data::WebPageDraft();
++			},
++			.relayout = [=] { updateFieldSize(); },
++			.send = [=](Api::SendOptions options) { send(options); },
++			.sendDetails = [=] { return sendButtonDefaultDetails(); },
++			.barChanged = [=] {
++				updateSendButtonType();
++				updateControlsGeometry();
++				updateHistoryGeometry();
++				update();
++			},
++			.rich = [=] { return shownRichMessage(); },
++			.clearRich = [=] { clearRichDraft(); },
++		});
+ 	Data::AmPremiumValue(&session()) | rpl::on_next([=] {
+ 		checkCharsLimitation();
+ 		updateAiButtonVisibility();
+@@ -625,6 +650,7 @@ HistoryWidget::HistoryWidget(
+ 		if (_scheduled) {
+ 			_scheduled->setVisible(!hide);
+ 		}
++		Tele::ComposeDraftsAllow(_teleDrafts.get(), !hide && !_editMsgId);
+ 		updateFieldSize();
+ 		moveFieldControls();
+ 	}, lifetime());
+@@ -4490,6 +4516,11 @@ void HistoryWidget::updateControlsVisibility() {
+ 					rightButtonsChanged = true;
+ 				}
+ 			}
++			if (Tele::ComposeDraftsAllow(
++					_teleDrafts.get(),
++					(!_editMsgId) && (!hideExtra))) {
++				rightButtonsChanged = true;
++			}
+ 			if (_toggleSuggestPost) {
+ 				const auto was = _toggleSuggestPost->isVisible();
+ 				const auto now = !_suggestOptions;
+@@ -5857,6 +5888,9 @@ void HistoryWidget::sendVoice(const VoiceToSend &data) {
+ void HistoryWidget::send(Api::SendOptions options) {
+ 	if (!_history) {
+ 		return;
++	} else if (!options.starsApproved
++		&& Tele::ComposeDraftsIntercept(_teleDrafts.get())) {
++		return;
+ 	} else if (_editMsgId) {
+ 		saveEditMessage({});
+ 		return;
+@@ -6149,7 +6183,7 @@ SendMenu::Details HistoryWidget::saveMenuDetails() const {
+ auto HistoryWidget::computeSendButtonType() const {
+ 	using Type = Ui::SendButton::Type;
+ 
+-	if (_editMsgId) {
++	if (_editMsgId || Tele::ComposeDraftsSaves(_teleDrafts.get())) {
+ 		return Type::Save;
+ 	} else if (_isInlineBot) {
+ 		return Type::Cancel;
+@@ -6180,11 +6214,15 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
+ 	}
+ 	const auto type = computeSendButtonType();
+ 	if (type == Type::Save) {
+-		return saveMenuDetails();
++		auto result = saveMenuDetails();
++		Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
++		return result;
+ 	} else if (type != Type::Send) {
+ 		return {};
+ 	}
+-	return sendButtonDefaultDetails();
++	auto result = sendButtonDefaultDetails();
++	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
++	return result;
+ }
+ 
+ SendMenu::Details HistoryWidget::sendButtonDefaultDetails() const {
+@@ -7641,6 +7679,7 @@ void HistoryWidget::moveFieldControls() {
+ 		_scheduled->moveToRight(right, buttonsBottom);
+ 		right += _scheduled->width();
+ 	}
++	right += Tele::ComposeDraftsMove(_teleDrafts.get(), right, buttonsBottom);
+ 	if (_ttlInfo) {
+ 		_ttlInfo->move(width() - right - _ttlInfo->width(), buttonsBottom);
+ 	}
+@@ -7652,6 +7691,12 @@ void HistoryWidget::moveFieldControls() {
+ 	_fieldBarCancel->moveToRight(
+ 		0,
+ 		_field->y() - st::historySendPadding - _fieldBarCancel->height());
++	Tele::ComposeDraftsMoveBar(
++		_teleDrafts.get(),
++		width(),
++		(_fieldBarCancel->isHidden()
++			? (_field->y() - st::historySendPadding)
++			: _fieldBarCancel->y()));
+ 	if (_inlineResults) {
+ 		_inlineResults->moveBottom(_field->y() - st::historySendPadding);
+ 	}
+@@ -7710,6 +7755,7 @@ void HistoryWidget::updateFieldSize() {
+ 	if (_scheduled && !_scheduled->isHidden()) {
+ 		fieldWidth -= _scheduled->width();
+ 	}
++	fieldWidth -= Tele::ComposeDraftsWidth(_teleDrafts.get());
+ 	if (_ttlInfo && _ttlInfo->isVisible()) {
+ 		fieldWidth -= _ttlInfo->width();
+ 	}
+@@ -8653,6 +8699,7 @@ void HistoryWidget::updateHistoryGeometry(
+ 			|| _suggestOptions) {
+ 			newScrollHeight -= st::historyReplyHeight;
+ 		}
++		newScrollHeight -= Tele::ComposeDraftsBarHeight(_teleDrafts.get());
+ 		if (_kbShown) {
+ 			newScrollHeight -= _kbScroll->height();
+ 		}
+@@ -9087,6 +9134,7 @@ int HistoryWidget::computeMaxFieldHeight() const {
+ 			|| _previewDrawPreview)
+ 			? st::historyReplyHeight
+ 			: 0)
++		- Tele::ComposeDraftsBarHeight(_teleDrafts.get())
+ 		- (2 * st::historySendPadding)
+ 		- st::historyReplyHeight; // at least this height for history.
+ 	return std::min(st::historyComposeFieldMaxHeight, available);
+diff --git a/Telegram/SourceFiles/history/history_widget.h b/Telegram/SourceFiles/history/history_widget.h
+index 4357b0112d49304b6c6ab02088b1aa6c17060cd0..f4a4ef94050676c3875150b026f8f7ca77ef29b3 100644
+--- a/Telegram/SourceFiles/history/history_widget.h
++++ b/Telegram/SourceFiles/history/history_widget.h
+@@ -145,6 +145,10 @@ using AiTooltipManager = ComposeTooltipManager;
+ struct VoiceToSend;
+ } // namespace HistoryView::Controls
+ 
++namespace Tele {
++class ComposeDrafts;
++} // namespace Tele
++
+ class BotKeyboard;
+ class HistoryInner;
+ 
+@@ -1037,4 +1041,6 @@ private:
+ 
+ 	rpl::event_stream<> _cancelRequests;
+ 
++	std::unique_ptr<Tele::ComposeDrafts> _teleDrafts;
++
+ };
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index c6f8a1cd8a16089b51363ece80ab4d29cf1ad5df..614a86a970dfa8359ba2fa743f6df643c7159e82 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_calcmula_preview.h"
+ #include "tele/tele_link_previews.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_drafts_compose.h"
+ #include "tele/tele_emoji_panel.h"
+ #include "support/support_helper.h"
+ #include "ui/item_text_options.h"
+@@ -1569,6 +1570,39 @@ void ComposeControls::setHistory(SetHistoryArgs &&args) {
+ 		: Ui::InputField::Mode::MultiLine);
+ }
+ 
++void ComposeControls::setupTeleDrafts() {
++	_teleDrafts = std::make_unique<Tele::ComposeDrafts>(
++		Tele::ComposeDraftsDescriptor{
++			.parent = _wrap.get(),
++			.field = _field,
++			.show = _show,
++			.st = &_st.attach,
++			.thread = [=]() -> Data::Thread* {
++				return _history
++					? _history->threadFor(_topicRootId, _monoforumPeerId)
++					: nullptr;
++			},
++			.editing = [=] { return isEditingMessage(); },
++			.reply = [=] { return replyingToMessage(); },
++			.webpage = [=] {
++				return _preview ? _preview->draft() : Data::WebPageDraft();
++			},
++			.relayout = [=] { updateControlsGeometry(_wrap->size()); },
++			.send = [=](Api::SendOptions options) {
++				_sendCustomRequests.fire(std::move(options));
++			},
++			.sendDetails = [=] { return sendMenuDetails(); },
++			.barChanged = [=] {
++				updateSendButtonType();
++				updateHeight();
++				updateControlsGeometry(_wrap->size());
++			},
++			.rich = [=] { return shownRichMessage(); },
++			.clearRich = [=] { clearRichDraft(); },
++		});
++	updateControlsGeometry(_wrap->size());
++}
++
+ void ComposeControls::initLikeButton() {
+ 	if (_like) {
+ 		_like->setClickedCallback([=] { _likeToggled.fire({}); });
+@@ -2230,7 +2264,8 @@ rpl::producer<MessageToEdit> ComposeControls::editRequests() const {
+ 	auto toValue = rpl::map([=] { return _header->queryToEdit(); });
+ 	auto filter = rpl::filter([=] {
+ 		return (_send->type() == Ui::SendButton::Type::Save)
+-			&& !_header->mediaEditCoverUploading();
++			&& !_header->mediaEditCoverUploading()
++			&& !Tele::ComposeDraftsIntercept(_teleDrafts.get());
+ 	});
+ 	return rpl::merge(
+ 		_send->clicks() | filter | toValue,
+@@ -3516,7 +3551,11 @@ void ComposeControls::fieldChanged() {
+ 	const auto hideExtra = hideExtraButtons()
+ 		|| isEditingMessage()
+ 		|| textExceedsMaxSize();
+-	const auto refreshControls = commandShown
++	const auto draftsChanged = Tele::ComposeDraftsAllow(
++		_teleDrafts.get(),
++		!hideExtra);
++	const auto refreshControls = draftsChanged
++		|| commandShown
+ 		|| menuRefreshed
+ 		|| likeShown
+ 		|| (giftToUserVisible != (_giftToUser
+@@ -4897,13 +4936,18 @@ void ComposeControls::updateWrappingVisibility() {
+ 
+ auto ComposeControls::baseSendButtonType() const {
+ 	using Type = Ui::SendButton::Type;
+-	return (_mode == Mode::Normal) ? Type::Send : Type::Schedule;
++	return (_mode == Mode::Normal)
++		? Type::Send
++		: (_mode == Mode::TeleDrafts)
++		? Type::Save
++		: Type::Schedule;
+ }
+ 
+ auto ComposeControls::computeSendButtonType() const {
+ 	using Type = Ui::SendButton::Type;
+ 
+-	if (_header->isEditingMessage()) {
++	if (_header->isEditingMessage()
++		|| Tele::ComposeDraftsSaves(_teleDrafts.get())) {
+ 		return Type::Save;
+ 	} else if (_isInlineBot) {
+ 		return Type::Cancel;
+@@ -4957,7 +5001,9 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+ 	}
+ 	const auto type = computeSendButtonType();
+ 	if (type == Ui::SendButton::Type::Save) {
+-		return saveMenuDetails();
++		auto result = saveMenuDetails();
++		Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
++		return result;
+ 	} else if (type != Ui::SendButton::Type::Send) {
+ 		return SendMenu::Details();
+ 	}
+@@ -4965,6 +5011,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+ 	if (!hasSendableContent() && !_previewShown) {
+ 		result.effectAllowed = false;
+ 	}
++	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
+ 	return result;
+ }
+ 
+@@ -5082,6 +5129,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+ 		- ((_scheduled && !_scheduled->isHidden())
+ 			? _scheduled->width()
+ 			: 0)
++		- Tele::ComposeDraftsWidth(_teleDrafts.get())
+ 		- (_botKeyboardShow ? _botKeyboardShow->width() : 0)
+ 		- (_botKeyboardHide ? _botKeyboardHide->width() : 0)
+ 		- ((_ttlInfo && _ttlInfo->isVisible()) ? _ttlInfo->width() : 0)
+@@ -5143,6 +5191,12 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+ 	_header->moveToLeft(
+ 		0,
+ 		fieldTop - _st.padding.top() - _header->height());
++	Tele::ComposeDraftsMoveBar(
++		_teleDrafts.get(),
++		size.width(),
++		(_header->isDisplayed()
++			? _header->y()
++			: (fieldTop - _st.padding.top())));
+ 
+ 	auto right = 0;
+ 	if (_starsReaction) {
+@@ -5207,6 +5261,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+ 			right += _scheduled->width();
+ 		}
+ 	}
++	right += Tele::ComposeDraftsMove(_teleDrafts.get(), right, buttonsTop);
+ 	if (_ttlInfo) {
+ 		_ttlInfo->move(size.width() - right - _ttlInfo->width(), buttonsTop);
+ 	}
+@@ -5256,6 +5311,7 @@ void ComposeControls::updateControlsVisibility() {
+ 	if (_scheduled) {
+ 		_scheduled->setVisible(!hide);
+ 	}
++	Tele::ComposeDraftsAllow(_teleDrafts.get(), !hide);
+ 	if (_giftToUser) {
+ 		_giftToUser->setVisible(showGiftToUser);
+ 	}
+@@ -5862,6 +5918,7 @@ int ComposeControls::composeFieldHeight() const {
+ 
+ void ComposeControls::updateHeight() {
+ 	const auto height = (_header->isDisplayed() ? _header->height() : 0)
++		+ Tele::ComposeDraftsBarHeight(_teleDrafts.get())
+ 		+ _st.padding.top()
+ 		+ composeFieldHeight()
+ 		+ _st.padding.bottom();
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h
+index 099da1b9956deed8a455a755ac940be17050f630..894a08ed777452210dbd17992bad74c37e676182 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.h
+@@ -107,6 +107,10 @@ namespace Api {
+ enum class SendProgressType;
+ } // namespace Api
+ 
++namespace Tele {
++class ComposeDrafts;
++} // namespace Tele
++
+ namespace HistoryView::Controls {
+ class RichDraftPreview;
+ class VoiceRecordBar;
+@@ -126,6 +130,7 @@ class FieldHeader;
+ enum class ComposeControlsMode {
+ 	Normal,
+ 	Scheduled,
++	TeleDrafts,
+ };
+ 
+ extern const ChatHelpers::PauseReason kDefaultPanelsLevel;
+@@ -179,6 +184,7 @@ public:
+ 
+ 	[[nodiscard]] Main::Session &session() const;
+ 	void setHistory(SetHistoryArgs &&args);
++	void setupTeleDrafts();
+ 	void updateFeatures(ChatHelpers::ComposeFeatures features);
+ 	void updateTopicRootId(MsgId topicRootId);
+ 	void updateShortcutId(BusinessShortcutId shortcutId);
+@@ -685,6 +691,8 @@ private:
+ 	rpl::lifetime _threadFieldVisibleLifetime;
+ 	rpl::lifetime _uploaderSubscriptions;
+ 
++	std::unique_ptr<Tele::ComposeDrafts> _teleDrafts;
++
+ };
+ 
+ [[nodiscard]] rpl::producer<int> SlowmodeSecondsLeft(
+diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+index cdb011129b89bc5e893b9672a05556dddbc0e383..5129db157935942209e85808710086e43646b01d 100644
+--- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+@@ -825,6 +825,7 @@ ChatWidget::ChatWidget(
+ 	setupComposeControls();
+ 	setupComposeStash();
+ 	setupShortcuts();
++	_composeControls->setupTeleDrafts();
+ 	setupSwipeReplyAndBack();
+ 
+ 	if (mode() != Mode::Sublist) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index d708ee1e2584592a169203debbe012515c582726..3e8670b7b405d1afad274145b98ec9a3942df198 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_button_payload.h"
+ #include "tele/tele_custom_emoji.h"
+ #include "tele/tele_deleted_reply.h"
++#include "tele/tele_drafts_section.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_gif_video.h"
+ #include "tele/tele_secret_media.h"
+@@ -1970,6 +1971,9 @@ void FillContextMenuItems(
+ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+ 		not_null<ListWidget*> list,
+ 		const ContextMenuRequest &request) {
++	if (auto menu = Tele::DraftsContextMenu(list, request)) {
++		return menu;
++	}
+ 	const auto link = request.link;
+ 	const auto item = request.item;
+ 	const auto itemId = item ? item->fullId() : FullMsgId();
+diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+index a455a42f0cf2c761ab9fbaf1cf3dc25329669ade..3e6f552ba134543267bebccbcd2ce26938706720 100644
+--- a/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
++++ b/Telegram/SourceFiles/iv/editor/iv_editor_session.cpp
+@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/localimageloader.h"
+ #include "storage/storage_account.h"
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_drafts_compose.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/controls/location_picker.h"
+@@ -1085,6 +1086,21 @@ private:
+ 		}
+ 		if (showDetachedScheduleBox()) {
+ 			return false;
++		} else if (_mode == Mode::Compose
++			&& _composeAction
++			&& _composeThreadKey
++			&& !detachedCompose()) {
++			const auto saved = Tele::SaveEditedRichDraft(
++				_composeAction->history,
++				_composeThreadKey->draftKey.topicRootId(),
++				_composeThreadKey->draftKey.monoforumPeerId(),
++				_state->richPage());
++			if (saved) {
++				if (*saved) {
++					cancelRichDraftAutosave();
++				}
++				return *saved;
++			}
+ 		}
+ 		auto simple = SerializeAsSimple(_state->richPage(), _session);
+ 		const auto weak = base::make_weak(this);
+diff --git a/Telegram/SourceFiles/menu/menu_send.cpp b/Telegram/SourceFiles/menu/menu_send.cpp
+index ca3977d9445fbfe29b350d98cb42a379e82cba80..9133cd9e0aa1a4ccd94b0d2bd70954c8c4447ae5 100644
+--- a/Telegram/SourceFiles/menu/menu_send.cpp
++++ b/Telegram/SourceFiles/menu/menu_send.cpp
+@@ -729,7 +729,8 @@ FillMenuResult FillSendMenu(
+ 		&& (details.caption == CaptionState::None)
+ 		&& (details.photoQuality == PhotoQualityState::None)
+ 		&& (details.cover == CoverState::None)
+-		&& !details.price.has_value();
++		&& !details.price.has_value()
++		&& !details.teleMenu;
+ 	if (empty || !action) {
+ 		return FillMenuResult::Skipped;
+ 	} else if (type == Type::EditCommentPrice) {
+@@ -832,6 +833,9 @@ FillMenuResult FillSendMenu(
+ 			[=] { action({ .type = ActionType::ChangePrice }, details); },
+ 			&icons.menuPrice);
+ 	}
++	if (details.teleMenu) {
++		details.teleMenu(menu);
++	}
+ 
+ 	if (maybeShow) {
+ 		return AttachSendMenuEffect(
+diff --git a/Telegram/SourceFiles/menu/menu_send_details.h b/Telegram/SourceFiles/menu/menu_send_details.h
+index cf57a6cd8c6b90aece73443572b84c464f016a30..33a78582f49ab30045cbe644b946737fc52fe0ee 100644
+--- a/Telegram/SourceFiles/menu/menu_send_details.h
++++ b/Telegram/SourceFiles/menu/menu_send_details.h
+@@ -13,6 +13,10 @@ namespace style {
+ struct EmojiPan;
+ } // namespace style
+ 
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
+ namespace SendMenu {
+ 
+ enum class Type : uchar {
+@@ -62,6 +66,7 @@ struct Details {
+ 	std::optional<uint64> commentPriceMin;
+ 	const style::EmojiPan *effectsPan = nullptr;
+ 	bool effectAllowed = false;
++	Fn<void(not_null<Ui::PopupMenu*>)> teleMenu;
+ };
+ 
+ } // namespace SendMenu
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index bf752e63cf4e6482efdc2b39ace0675b4d6e30c2..683522616e82fd7d27815b02bfddc4b0d0202905 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -24,6 +24,8 @@
+ #include "tele/tele_build.h"
+ #include "tele/tele_chat_backgrounds.h"
+ #include "tele/tele_debug_logs.h"
++#include "tele/tele_drafts.h"
++#include "tele/tele_drafts_box.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_link_rewrites.h"
+@@ -1238,6 +1240,32 @@ void AddUsernameAliases(SectionBuilder &builder) {
+ 	AddAbout(builder, description);
+ }
+ 
++void AddSavedDrafts(SectionBuilder &builder) {
++	const auto controller = builder.controller();
++	const auto session = builder.session();
++	const auto description = ::Tele::Lower(u"Drafts you keep on this device, "
++		"any number per chat, apart from the regular one. Save them with "
++		"Ctrl+S or a right click on the send button."_q);
++	builder.addButton({
++		.id = u"tele-saved-drafts"_q,
++		.title = rpl::single(::Tele::Lower(u"Saved drafts"_q)),
++		.st = &st::settingsButtonNoIcon,
++		.label = rpl::single(
++			rpl::empty_value()
++		) | rpl::then(
++			::Tele::Drafts(session).changes()
++		) | rpl::map([=] {
++			const auto count = ::Tele::Drafts(session).savedCount();
++			return count ? QString::number(count) : u"none"_q;
++		}),
++		.onClick = [=] {
++			::Tele::ShowAllDraftsBox(controller);
++		},
++		.keywords = { description, u"draft"_q, u"drafts"_q },
++	});
++	AddAbout(builder, description);
++}
++
+ void AddLinkRewrites(SectionBuilder &builder) {
+ 	const auto &option = base::options::lookup<QString>(
+ 		::Tele::kOptionLinkRewrites);
+@@ -1575,6 +1603,9 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionPunctualScheduled);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoRichPastePrompt);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Drafts"_q);
++	AddSavedDrafts(builder);
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+ 	AddOptionToggle(builder, ::Tele::kOptionScreenshotSecretMedia);
+diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
+index a98c8651fe75920d9469a79922d417a1d4a0f0d3..cc77304607e96aaf664dde8d2aaaf3897179eabf 100644
+--- a/Telegram/SourceFiles/tele/tele_deleted.cpp
++++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
+@@ -9,6 +9,7 @@
+ #include "ui/chat/chat_style.h"
+ #include "ui/painter.h"
+ #include "main/main_session.h"
++#include "tele/tele_drafts_section.h"
+ #include "tele/tele_options.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+@@ -362,7 +363,8 @@ void ClearKeptDeleted(not_null<History*> history) {
+ DeletedFade::DeletedFade(
+ 		QPainter &p,
+ 		not_null<const HistoryView::Element*> view) {
+-	if (!DeletedTrashIcon() && IsKeptDeleted(view->data())) {
++	if ((!DeletedTrashIcon() && IsKeptDeleted(view->data()))
++		|| IsFadedDraftItem(view->data())) {
+ 		_painter = &p;
+ 		_opacity = p.opacity();
+ 		p.setOpacity(_opacity * kFadeOpacity);
+diff --git a/Telegram/SourceFiles/tele/tele_drafts.cpp b/Telegram/SourceFiles/tele/tele_drafts.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..15551020c547f55df89f26068e921b5e3b33f12b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts.cpp
+@@ -0,0 +1,1009 @@
++#include "tele/tele_drafts.h"
++
++#include "base/random.h"
++#include "base/unixtime.h"
++#include "data/components/scheduled_messages.h"
++#include "data/data_forum_topic.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/storage_account.h"
++#include "iv/iv_rich_page.h"
++#include "tele/tele_drafts_rich.h"
++#include "tele/tele_lowercase.h"
++
++#include <QtCore/QBuffer>
++#include <QtCore/QDir>
++#include <QtCore/QFile>
++#include <QtCore/QFileInfo>
++#include <QtGui/QImageReader>
++#include <QtGui/QPainter>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMagic = quint32(0x46524454);
++constexpr auto kVersion = qint32(2);
++constexpr auto kFileMagic = quint32(0x46444454);
++constexpr auto kFileVersion = qint32(1);
++constexpr auto kChunkSize = 1024 * 1024;
++constexpr auto kThumbnailSize = 160;
++constexpr auto kPreviewSide = 1280;
++constexpr auto kPreviewPixels = int64(64) * 1024 * 1024;
++constexpr auto kDiscardedPerChat = 5;
++constexpr auto kDiscardedLifetime = TimeId(7 * 86400);
++
++using namespace Storage::details;
++
++[[nodiscard]] std::map<
++		not_null<Main::Session*>,
++		std::unique_ptr<DraftsStore>> &Stores() {
++	static auto result = std::map<
++		not_null<Main::Session*>,
++		std::unique_ptr<DraftsStore>>();
++	return result;
++}
++
++[[nodiscard]] bool IsStoredName(const QString &name) {
++	if (name.size() != 16) {
++		return false;
++	}
++	for (const auto ch : name) {
++		const auto code = ch.unicode();
++		if (!((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f'))) {
++			return false;
++		}
++	}
++	return true;
++}
++
++[[nodiscard]] QString RandomHex() {
++	return u"%1"_q.arg(base::RandomValue<uint64>(), 16, 16, QChar('0'));
++}
++
++[[nodiscard]] QString SafeName(QString name) {
++	for (auto &ch : name) {
++		if (ch < QChar(32) || u"\\/:*?\"<>|"_q.contains(ch)) {
++			ch = QChar('_');
++		}
++	}
++	name = name.trimmed();
++	while (name.startsWith('.')) {
++		name = name.mid(1);
++	}
++	return name.isEmpty() ? u"file"_q : name;
++}
++
++[[nodiscard]] QString UniqueName(
++		const QString &name,
++		base::flat_set<QString> &used) {
++	const auto info = QFileInfo(name);
++	const auto base = info.completeBaseName();
++	const auto suffix = info.suffix();
++	auto result = name;
++	for (auto i = 2; used.contains(result.toLower()); ++i) {
++		result = suffix.isEmpty()
++			? u"%1 (%2)"_q.arg(base).arg(i)
++			: u"%1 (%2).%3"_q.arg(base).arg(i).arg(suffix);
++	}
++	used.emplace(result.toLower());
++	return result;
++}
++
++[[nodiscard]] QByteArray PrepareThumbnail(QImage image) {
++	if (image.isNull()) {
++		return QByteArray();
++	}
++	if (image.width() > kThumbnailSize || image.height() > kThumbnailSize) {
++		image = image.scaled(
++			kThumbnailSize,
++			kThumbnailSize,
++			Qt::KeepAspectRatio,
++			Qt::SmoothTransformation);
++	}
++	auto flat = QImage(image.size(), QImage::Format_RGB32);
++	flat.fill(Qt::white);
++	{
++		auto p = QPainter(&flat);
++		p.drawImage(0, 0, image);
++	}
++	auto result = QByteArray();
++	auto buffer = QBuffer(&result);
++	buffer.open(QIODevice::WriteOnly);
++	flat.save(&buffer, "JPG", 80);
++	return result;
++}
++
++[[nodiscard]] int64 WriteEncryptedFile(
++		const DraftFileSource &source,
++		const QString &path,
++		const MTP::AuthKeyPtr &key) {
++	auto bytes = source.bytes;
++	if (source.path.isEmpty() && bytes.isEmpty() && !source.image.isNull()) {
++		auto buffer = QBuffer(&bytes);
++		buffer.open(QIODevice::WriteOnly);
++		source.image.save(&buffer, "PNG");
++	}
++	auto input = std::unique_ptr<QIODevice>();
++	if (!source.path.isEmpty()) {
++		input = std::make_unique<QFile>(source.path);
++	} else {
++		input = std::make_unique<QBuffer>(&bytes);
++	}
++	if (!input->open(QIODevice::ReadOnly)) {
++		return -1;
++	}
++	auto output = QFile(path);
++	if (!output.open(QIODevice::WriteOnly)) {
++		return -1;
++	}
++	auto stream = QDataStream(&output);
++	stream.setVersion(QDataStream::Qt_5_1);
++	stream << kFileMagic << kFileVersion;
++	auto total = int64();
++	while (stream.status() == QDataStream::Ok) {
++		const auto chunk = input->read(kChunkSize);
++		if (chunk.isEmpty()) {
++			break;
++		}
++		auto data = EncryptedDescriptor(chunk.size());
++		data.stream.writeRawData(chunk.constData(), chunk.size());
++		stream << PrepareEncrypted(data, key);
++		total += chunk.size();
++	}
++	const auto ok = (stream.status() == QDataStream::Ok)
++		&& input->atEnd()
++		&& output.flush();
++	output.close();
++	if (!ok) {
++		QFile::remove(path);
++		return -1;
++	}
++	return total;
++}
++
++[[nodiscard]] bool DecryptStoredFile(
++		const QString &from,
++		const QString &to,
++		const MTP::AuthKeyPtr &key) {
++	auto input = QFile(from);
++	if (!input.open(QIODevice::ReadOnly)) {
++		return false;
++	}
++	auto stream = QDataStream(&input);
++	stream.setVersion(QDataStream::Qt_5_1);
++	auto magic = quint32();
++	auto version = qint32();
++	stream >> magic >> version;
++	if (stream.status() != QDataStream::Ok
++		|| magic != kFileMagic
++		|| version != kFileVersion) {
++		return false;
++	}
++	auto output = QFile(to);
++	if (!output.open(QIODevice::WriteOnly)) {
++		return false;
++	}
++	auto ok = true;
++	while (ok && !stream.atEnd()) {
++		auto encrypted = QByteArray();
++		stream >> encrypted;
++		auto data = EncryptedDescriptor();
++		const auto skip = int(sizeof(uint32));
++		ok = (stream.status() == QDataStream::Ok)
++			&& DecryptLocal(data, encrypted, key)
++			&& (data.data.size() >= skip);
++		if (ok) {
++			const auto size = data.data.size() - skip;
++			ok = (output.write(data.data.constData() + skip, size) == size);
++		}
++	}
++	ok = ok && output.flush();
++	output.close();
++	if (!ok) {
++		QFile::remove(to);
++	}
++	return ok;
++}
++
++[[nodiscard]] qint32 WebPageFlags(const Data::WebPageDraft &webpage) {
++	return (webpage.forceLargeMedia ? 1 : 0)
++		| (webpage.forceSmallMedia ? 2 : 0)
++		| (webpage.invert ? 4 : 0)
++		| (webpage.manual ? 8 : 0)
++		| (webpage.removed ? 16 : 0);
++}
++
++void ApplyWebPageFlags(Data::WebPageDraft &webpage, qint32 flags) {
++	webpage.forceLargeMedia = (flags & 1) != 0;
++	webpage.forceSmallMedia = (flags & 2) != 0;
++	webpage.invert = (flags & 4) != 0;
++	webpage.manual = (flags & 8) != 0;
++	webpage.removed = (flags & 16) != 0;
++}
++
++void Serialize(QDataStream &stream, const SavedDraft &draft) {
++	const auto quoteTags = TextUtilities::ConvertEntitiesToTextTags(
++		draft.reply.quote.entities);
++	stream
++		<< quint64(draft.id)
++		<< SerializePeerId(draft.thread.peer)
++		<< qint64(draft.thread.topicRootId.bare)
++		<< SerializePeerId(draft.thread.monoforumPeerId)
++		<< draft.name
++		<< draft.text.text
++		<< TextUtilities::SerializeTags(draft.text.tags)
++		<< SerializePeerId(draft.reply.messageId.peer)
++		<< qint64(draft.reply.messageId.msg.bare)
++		<< draft.reply.quote.text
++		<< TextUtilities::SerializeTags(quoteTags)
++		<< qint32(draft.reply.quoteOffset)
++		<< SerializePeerId(draft.reply.storyId.peer)
++		<< qint32(draft.reply.storyId.story)
++		<< qint32(draft.reply.todoItemId)
++		<< draft.reply.pollOption
++		<< quint64(draft.webpage.id)
++		<< draft.webpage.url
++		<< WebPageFlags(draft.webpage)
++		<< qint32(draft.filesWay)
++		<< qint32((draft.invertCaption ? 1 : 0) | (draft.discarded ? 2 : 0))
++		<< qint32(draft.created)
++		<< qint32(draft.edited)
++		<< quint32(draft.files.size());
++	for (const auto &file : draft.files) {
++		stream
++			<< file.name
++			<< file.stored
++			<< qint64(file.size)
++			<< file.thumbnail
++			<< qint32(file.spoiler ? 1 : 0);
++	}
++	stream << draft.richData;
++}
++
++[[nodiscard]] std::optional<SavedDraft> Deserialize(
++		QDataStream &stream,
++		qint32 version) {
++	auto id = quint64();
++	auto peer = quint64();
++	auto topicRootId = qint64();
++	auto monoforumPeerId = quint64();
++	auto name = QString();
++	auto text = QString();
++	auto tags = QByteArray();
++	auto replyPeer = quint64();
++	auto replyMsg = qint64();
++	auto quote = QString();
++	auto quoteTags = QByteArray();
++	auto quoteOffset = qint32();
++	auto storyPeer = quint64();
++	auto storyId = qint32();
++	auto todoItemId = qint32();
++	auto pollOption = QByteArray();
++	auto webpageId = quint64();
++	auto webpageUrl = QString();
++	auto webpageFlags = qint32();
++	auto filesWay = qint32();
++	auto flags = qint32();
++	auto created = qint32();
++	auto edited = qint32();
++	auto filesCount = quint32();
++	stream
++		>> id
++		>> peer
++		>> topicRootId
++		>> monoforumPeerId
++		>> name
++		>> text
++		>> tags
++		>> replyPeer
++		>> replyMsg
++		>> quote
++		>> quoteTags
++		>> quoteOffset
++		>> storyPeer
++		>> storyId
++		>> todoItemId
++		>> pollOption
++		>> webpageId
++		>> webpageUrl
++		>> webpageFlags
++		>> filesWay
++		>> flags
++		>> created
++		>> edited
++		>> filesCount;
++	if (!CheckStreamStatus(stream) || filesCount > 1024) {
++		return std::nullopt;
++	}
++	auto result = SavedDraft{
++		.id = id,
++		.thread = {
++			.peer = DeserializePeerId(peer),
++			.topicRootId = MsgId(topicRootId),
++			.monoforumPeerId = DeserializePeerId(monoforumPeerId),
++		},
++		.name = name,
++		.text = {
++			text,
++			TextUtilities::DeserializeTags(tags, int(text.size())),
++		},
++		.filesWay = filesWay,
++		.invertCaption = (flags & 1) != 0,
++		.discarded = (flags & 2) != 0,
++		.created = TimeId(created),
++		.edited = TimeId(edited),
++	};
++	result.reply.messageId = FullMsgId(
++		DeserializePeerId(replyPeer),
++		MsgId(replyMsg));
++	result.reply.quote = TextWithEntities{
++		quote,
++		TextUtilities::ConvertTextTagsToEntities(
++			TextUtilities::DeserializeTags(quoteTags, int(quote.size()))),
++	};
++	result.reply.quoteOffset = quoteOffset;
++	result.reply.storyId = FullStoryId{
++		DeserializePeerId(storyPeer),
++		StoryId(storyId),
++	};
++	result.reply.todoItemId = todoItemId;
++	result.reply.pollOption = pollOption;
++	result.reply.topicRootId = result.thread.topicRootId;
++	result.reply.monoforumPeerId = result.thread.monoforumPeerId;
++	result.webpage.id = WebPageId(webpageId);
++	result.webpage.url = webpageUrl;
++	ApplyWebPageFlags(result.webpage, webpageFlags);
++	for (auto i = quint32(); i != filesCount; ++i) {
++		auto file = SavedDraftFile();
++		auto size = qint64();
++		auto spoiler = qint32();
++		stream
++			>> file.name
++			>> file.stored
++			>> size
++			>> file.thumbnail
++			>> spoiler;
++		if (!CheckStreamStatus(stream)) {
++			return std::nullopt;
++		}
++		file.size = size;
++		file.spoiler = (spoiler != 0);
++		result.files.push_back(std::move(file));
++	}
++	if (version >= 2) {
++		stream >> result.richData;
++		if (!CheckStreamStatus(stream)) {
++			return std::nullopt;
++		}
++	}
++	return result;
++}
++
++} // namespace
++
++DraftsThread DraftsThread::From(not_null<Data::Thread*> thread) {
++	return {
++		.peer = thread->peer()->id,
++		.topicRootId = thread->topicRootId(),
++		.monoforumPeerId = thread->monoforumPeerId(),
++	};
++}
++
++DraftsStore::DraftsStore(not_null<Main::Session*> session)
++: _session(session) {
++	QDir(tempFolder()).removeRecursively();
++	read();
++	_session->data().newItemAdded(
++	) | rpl::filter([](not_null<HistoryItem*> item) {
++		return item->isSending();
++	}) | rpl::on_next([=](not_null<HistoryItem*> item) {
++		noteSent(item->history()->peer->id);
++	}, _lifetime);
++}
++
++DraftsStore::~DraftsStore() {
++	QDir(tempFolder()).removeRecursively();
++}
++
++not_null<Main::Session*> DraftsStore::session() const {
++	return _session;
++}
++
++const std::vector<SavedDraft> &DraftsStore::list() const {
++	return _list;
++}
++
++std::vector<SavedDraft> DraftsStore::saved(DraftsThread thread) const {
++	auto result = std::vector<SavedDraft>();
++	for (const auto &draft : _list) {
++		if (!draft.discarded && draft.thread == thread) {
++			result.push_back(draft);
++		}
++	}
++	return result;
++}
++
++int DraftsStore::discardedCount(DraftsThread thread) const {
++	return int(ranges::count_if(_list, [&](const SavedDraft &draft) {
++		return draft.discarded && draft.thread == thread;
++	}));
++}
++
++void DraftsStore::addDiscarded(
++		DraftsThread thread,
++		TextWithTags text,
++		FullReplyTo reply,
++		Data::WebPageDraft webpage) {
++	const auto trimmed = text.text.trimmed();
++	if (!thread || trimmed.isEmpty()) {
++		return;
++	}
++	for (const auto &draft : _list) {
++		if (draft.thread == thread && draft.text.text.trimmed() == trimmed) {
++			if (draft.discarded) {
++				update(draft);
++			}
++			return;
++		}
++	}
++	const auto now = base::unixtime::now();
++	_list.insert(begin(_list), SavedDraft{
++		.id = generateId(),
++		.thread = thread,
++		.text = std::move(text),
++		.reply = NormalizeDraftReply(reply, thread),
++		.webpage = webpage,
++		.discarded = true,
++		.created = now,
++		.edited = now,
++	});
++	prune();
++	changed();
++}
++
++void DraftsStore::noteSent(PeerId peer) {
++	_sent[peer] = crl::now();
++}
++
++bool DraftsStore::sentSince(PeerId peer, crl::time when) const {
++	const auto i = _sent.find(peer);
++	return (i != end(_sent)) && (i->second >= when);
++}
++
++void DraftsStore::trackScheduled(not_null<History*> history) {
++	if (_scheduled.contains(history)) {
++		return;
++	}
++	auto &scheduled = _session->scheduledMessages();
++	_scheduled.emplace(history, scheduled.count(history));
++	scheduled.updates(history) | rpl::on_next([=] {
++		const auto now = _session->scheduledMessages().count(history);
++		auto &was = _scheduled[history];
++		if (now > was) {
++			noteSent(history->peer->id);
++		}
++		was = now;
++	}, _lifetime);
++}
++
++bool DraftsStore::prune() {
++	const auto now = base::unixtime::now();
++	auto counts = base::flat_map<DraftsThread, int>();
++	const auto was = _list.size();
++	_list.erase(ranges::remove_if(_list, [&](const SavedDraft &draft) {
++		if (!draft.discarded) {
++			return false;
++		} else if (draft.edited + kDiscardedLifetime < now) {
++			return true;
++		}
++		return (++counts[draft.thread] > kDiscardedPerChat);
++	}), end(_list));
++	return (_list.size() != was);
++}
++
++int DraftsStore::savedCount(DraftsThread thread) const {
++	return int(ranges::count_if(_list, [&](const SavedDraft &draft) {
++		return !draft.discarded && draft.thread == thread;
++	}));
++}
++
++int DraftsStore::savedCount() const {
++	return int(ranges::count(_list, false, &SavedDraft::discarded));
++}
++
++const SavedDraft *DraftsStore::find(uint64 id) const {
++	const auto i = ranges::find(_list, id, &SavedDraft::id);
++	return (i != end(_list)) ? &*i : nullptr;
++}
++
++rpl::producer<> DraftsStore::changes() const {
++	return _changes.events();
++}
++
++uint64 DraftsStore::generateId() const {
++	while (true) {
++		const auto result = base::RandomValue<uint64>();
++		if (result && !find(result)) {
++			return result;
++		}
++	}
++}
++
++uint64 DraftsStore::add(SavedDraft draft) {
++	const auto now = base::unixtime::now();
++	draft.id = generateId();
++	draft.created = draft.edited = now;
++	_list.insert(begin(_list), std::move(draft));
++	const auto result = _list.front().id;
++	changed();
++	return result;
++}
++
++void DraftsStore::update(SavedDraft draft) {
++	const auto i = ranges::find(_list, draft.id, &SavedDraft::id);
++	if (i == end(_list)) {
++		return;
++	}
++	draft.edited = base::unixtime::now();
++	_list.erase(i);
++	_list.insert(begin(_list), std::move(draft));
++	changed();
++}
++
++void DraftsStore::remove(uint64 id) {
++	const auto i = ranges::find(_list, id, &SavedDraft::id);
++	if (i == end(_list)) {
++		return;
++	}
++	_list.erase(i);
++	auto editing = false;
++	for (auto j = begin(_editing); j != end(_editing);) {
++		if (j->second.id == id) {
++			j = _editing.erase(j);
++			editing = true;
++		} else {
++			++j;
++		}
++	}
++	changed();
++	if (editing) {
++		_editingChanges.fire({});
++	}
++}
++
++uint64 DraftsStore::duplicate(uint64 id) {
++	const auto existing = find(id);
++	if (!existing) {
++		return 0;
++	}
++	auto copy = *existing;
++	copy.discarded = false;
++	if (!copy.name.isEmpty()) {
++		copy.name = Lower(u"%1 (copy)"_q).arg(copy.name);
++	}
++	return add(std::move(copy));
++}
++
++void DraftsStore::startEditing(
++		DraftsThread thread,
++		uint64 id,
++		std::shared_ptr<Data::Draft> before,
++		std::shared_ptr<Data::Draft> beforeRich) {
++	if (!thread || !find(id)) {
++		return;
++	}
++	_editing[thread] = Editing{ id, std::move(before), std::move(beforeRich) };
++	_editingChanges.fire({});
++}
++
++void DraftsStore::stopEditing(DraftsThread thread) {
++	if (_editing.remove(thread)) {
++		_editingChanges.fire({});
++	}
++}
++
++uint64 DraftsStore::editing(DraftsThread thread) const {
++	const auto i = _editing.find(thread);
++	return (i != end(_editing) && find(i->second.id)) ? i->second.id : 0;
++}
++
++std::shared_ptr<Data::Draft> DraftsStore::editingBefore(
++		DraftsThread thread) const {
++	const auto i = _editing.find(thread);
++	return (i != end(_editing)) ? i->second.before : nullptr;
++}
++
++std::shared_ptr<Data::Draft> DraftsStore::editingBeforeRich(
++		DraftsThread thread) const {
++	const auto i = _editing.find(thread);
++	return (i != end(_editing)) ? i->second.beforeRich : nullptr;
++}
++
++rpl::producer<> DraftsStore::editingChanges() const {
++	return _editingChanges.events();
++}
++
++void DraftsStore::importFiles(
++		std::vector<DraftFileSource> sources,
++		Fn<void(std::optional<std::vector<SavedDraftFile>>)> done) {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		done(std::nullopt);
++		return;
++	}
++	const auto path = folder();
++	auto names = std::vector<QString>();
++	for (auto &source : sources) {
++		if (!source.reuse.isEmpty() && !QFile::exists(path + source.reuse)) {
++			source.reuse = QString();
++		}
++		const auto name = source.reuse.isEmpty()
++			? generateStoredName()
++			: source.reuse;
++		_importing.emplace(name);
++		names.push_back(name);
++	}
++	crl::async([=, sources = std::move(sources)] {
++		QDir().mkpath(path);
++		auto result = std::vector<SavedDraftFile>();
++		auto failed = false;
++		for (auto i = 0; i != int(sources.size()); ++i) {
++			const auto &source = sources[i];
++			auto file = SavedDraftFile{
++				.name = source.name,
++				.stored = names[i],
++				.size = source.size,
++				.thumbnail = PrepareThumbnail(source.thumbnail),
++				.spoiler = source.spoiler,
++			};
++			if (source.reuse.isEmpty()) {
++				const auto size = WriteEncryptedFile(
++					source,
++					path + names[i],
++					key);
++				if (size < 0) {
++					failed = true;
++					break;
++				}
++				file.size = size;
++			}
++			result.push_back(std::move(file));
++		}
++		crl::on_main(this, [=, result = std::move(result)]() mutable {
++			for (const auto &name : names) {
++				_importing.remove(name);
++			}
++			if (failed) {
++				collectGarbage();
++				done(std::nullopt);
++			} else {
++				done(std::move(result));
++			}
++		});
++	});
++}
++
++void DraftsStore::exportFiles(
++		std::vector<SavedDraftFile> files,
++		Fn<void(QStringList)> done) {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		done(QStringList());
++		return;
++	}
++	const auto from = folder();
++	const auto to = tempFolder() + RandomHex() + '/';
++	crl::async([=] {
++		auto result = QStringList();
++		auto used = base::flat_set<QString>();
++		QDir().mkpath(to);
++		for (const auto &file : files) {
++			const auto target = to + UniqueName(SafeName(file.name), used);
++			if (!DecryptStoredFile(from + file.stored, target, key)) {
++				result.clear();
++				break;
++			}
++			result.push_back(target);
++		}
++		crl::on_main(this, [=] {
++			for (auto i = 0; i != int(result.size()); ++i) {
++				_exported[result[i]] = files[i].stored;
++			}
++			done(result);
++		});
++	});
++}
++
++void DraftsStore::prepareView(
++		std::vector<SavedDraftFile> files,
++		Fn<void()> done) {
++	const auto key = _session->local().peekLegacyLocalKey();
++	files.erase(ranges::remove_if(files, [&](const SavedDraftFile &file) {
++		return _viewPaths.contains(file.stored)
++			|| _viewPreparing.contains(file.stored)
++			|| fileMissing(file);
++	}), end(files));
++	if (!key || files.empty()) {
++		return;
++	}
++	for (const auto &file : files) {
++		_viewPreparing.emplace(file.stored);
++	}
++	const auto from = folder();
++	const auto to = tempFolder() + u"view/"_q;
++	crl::async([=] {
++		auto paths = base::flat_map<QString, QString>();
++		auto previews = base::flat_map<QString, QImage>();
++		for (const auto &file : files) {
++			const auto folder = to + file.stored + '/';
++			const auto target = folder + SafeName(file.name);
++			QDir().mkpath(folder);
++			if (!DecryptStoredFile(from + file.stored, target, key)) {
++				continue;
++			}
++			paths.emplace(file.stored, target);
++			auto reader = QImageReader(target);
++			reader.setAutoTransform(true);
++			const auto size = reader.size();
++			if (!reader.canRead()
++				|| size.isEmpty()
++				|| size.width() * int64(size.height()) > kPreviewPixels) {
++				continue;
++			}
++			auto image = reader.read();
++			if (image.isNull()) {
++				continue;
++			} else if (image.width() > kPreviewSide
++				|| image.height() > kPreviewSide) {
++				image = image.scaled(
++					kPreviewSide,
++					kPreviewSide,
++					Qt::KeepAspectRatio,
++					Qt::SmoothTransformation);
++			}
++			previews.emplace(
++				file.stored,
++				image.convertToFormat(QImage::Format_ARGB32_Premultiplied));
++		}
++		crl::on_main(this, [=] {
++			for (const auto &[stored, path] : paths) {
++				_viewPaths[stored] = path;
++			}
++			for (const auto &[stored, image] : previews) {
++				_viewPreviews[stored] = image;
++			}
++			done();
++		});
++	});
++}
++
++QString DraftsStore::viewPath(const QString &stored) const {
++	const auto i = _viewPaths.find(stored);
++	return (i != end(_viewPaths)) ? i->second : QString();
++}
++
++QImage DraftsStore::viewPreview(const QString &stored) const {
++	const auto i = _viewPreviews.find(stored);
++	return (i != end(_viewPreviews)) ? i->second : QImage();
++}
++
++QString DraftsStore::storedForExported(const QString &path) const {
++	const auto i = _exported.find(path);
++	return (i != end(_exported)) ? i->second : QString();
++}
++
++bool DraftsStore::fileMissing(const SavedDraftFile &file) const {
++	return file.stored.isEmpty() || !QFile::exists(folder() + file.stored);
++}
++
++bool DraftsStore::broken(const SavedDraft &draft) const {
++	return (!draft.richData.isEmpty() && !draft.rich)
++		|| ranges::any_of(draft.files, [&](const SavedDraftFile &file) {
++		return fileMissing(file);
++	});
++}
++
++QString DraftsStore::tempFolder() const {
++	return _session->local().tempDirectory() + u"tele_drafts/"_q;
++}
++
++QString DraftsStore::generateStoredName() const {
++	const auto path = folder();
++	while (true) {
++		const auto result = RandomHex();
++		if (!_importing.contains(result) && !QFile::exists(path + result)) {
++			return result;
++		}
++	}
++}
++
++QString DraftsStore::folder() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + u"/tele_drafts/"_q;
++}
++
++void DraftsStore::changed() {
++	write();
++	collectGarbage();
++	_changes.fire({});
++}
++
++void DraftsStore::read() {
++	auto file = FileReadDescriptor();
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || !ReadEncryptedFile(file, u"index"_q, folder(), key)) {
++		return;
++	}
++	auto magic = quint32();
++	auto version = qint32();
++	auto owner = quint64();
++	auto count = quint32();
++	file.stream >> magic >> version >> owner >> count;
++	if (!CheckStreamStatus(file.stream)
++		|| magic != kMagic
++		|| version < 1
++		|| version > kVersion) {
++		return;
++	} else if (owner != _session->uniqueId()) {
++		wipe();
++		return;
++	}
++	for (auto i = quint32(); i != count; ++i) {
++		auto draft = Deserialize(file.stream, version);
++		if (!draft) {
++			break;
++		} else if (draft->id && draft->thread && !find(draft->id)) {
++			if (!draft->richData.isEmpty()) {
++				draft->rich = ParseRichDraft(_session, draft->richData);
++			}
++			_list.push_back(std::move(*draft));
++		}
++	}
++	ranges::stable_sort(_list, ranges::greater(), &SavedDraft::edited);
++	if (prune() || version != kVersion) {
++		write();
++	}
++	collectGarbage();
++}
++
++void DraftsStore::write() {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		return;
++	}
++	auto size = sizeof(quint32) * 3 + sizeof(quint64);
++	for (const auto &draft : _list) {
++		size += 256 + draft.text.text.size() * sizeof(QChar);
++		for (const auto &file : draft.files) {
++			size += 64 + file.thumbnail.size();
++		}
++		size += 4 + draft.richData.size();
++	}
++	auto data = EncryptedDescriptor(size);
++	data.stream
++		<< kMagic
++		<< kVersion
++		<< quint64(_session->uniqueId())
++		<< quint32(_list.size());
++	for (const auto &draft : _list) {
++		Serialize(data.stream, draft);
++	}
++	auto file = FileWriteDescriptor(u"index"_q, folder());
++	file.writeEncrypted(data, key);
++}
++
++void DraftsStore::wipe() {
++	QDir(folder()).removeRecursively();
++}
++
++void DraftsStore::collectGarbage() {
++	auto used = _importing;
++	for (const auto &draft : _list) {
++		for (const auto &file : draft.files) {
++			used.emplace(file.stored);
++		}
++	}
++	const auto path = folder();
++	for (const auto &name : QDir(path).entryList(QDir::Files)) {
++		if (IsStoredName(name) && !used.contains(name)) {
++			QFile::remove(path + name);
++		}
++	}
++	for (auto i = begin(_viewPaths); i != end(_viewPaths);) {
++		if (used.contains(i->first)) {
++			++i;
++			continue;
++		}
++		QDir(QFileInfo(i->second).absolutePath()).removeRecursively();
++		_viewPreviews.remove(i->first);
++		i = _viewPaths.erase(i);
++	}
++}
++
++DraftsStore &Drafts(not_null<Main::Session*> session) {
++	auto &stores = Stores();
++	const auto i = stores.find(session);
++	if (i != end(stores)) {
++		return *i->second;
++	}
++	session->lifetime().add([=] {
++		Stores().erase(session);
++	});
++	return *stores.emplace(
++		session,
++		std::make_unique<DraftsStore>(session)).first->second;
++}
++
++Data::Thread *ResolveDraftsThread(
++		not_null<Main::Session*> session,
++		DraftsThread thread) {
++	const auto peer = thread ? session->data().peerLoaded(thread.peer) : nullptr;
++	if (!peer) {
++		return nullptr;
++	}
++	const auto history = session->data().history(peer);
++	return history->threadFor(thread.topicRootId, thread.monoforumPeerId);
++}
++
++QString DraftsThreadName(
++		not_null<Main::Session*> session,
++		DraftsThread thread) {
++	const auto peer = session->data().peerLoaded(thread.peer);
++	if (!peer) {
++		return Lower(u"Unknown chat"_q);
++	}
++	auto result = peer->name();
++	const auto separator = u" \u203A "_q;
++	if (thread.topicRootId) {
++		const auto resolved = ResolveDraftsThread(session, thread);
++		result += separator + (resolved
++			? resolved->chatListName()
++			: Lower(u"Topic"_q));
++	} else if (thread.monoforumPeerId) {
++		const auto sublist = session->data().peerLoaded(
++			thread.monoforumPeerId);
++		result += separator + (sublist
++			? sublist->name()
++			: Lower(u"Unknown chat"_q));
++	}
++	return result;
++}
++
++bool AssignRichDraft(
++		not_null<Main::Session*> session,
++		SavedDraft &draft,
++		std::shared_ptr<const Iv::RichPage> page) {
++	if (!page) {
++		draft.rich = nullptr;
++		draft.richData = QByteArray();
++		return true;
++	}
++	auto data = SerializeRichDraft(session, *page);
++	if (data.isEmpty()) {
++		return false;
++	}
++	const auto summary = Iv::FlattenRichPageSummary(*page, false);
++	draft.text = TextWithTags{ summary.text, {} };
++	draft.files.clear();
++	draft.webpage = Data::WebPageDraft();
++	draft.rich = std::move(page);
++	draft.richData = std::move(data);
++	return true;
++}
++
++FullReplyTo NormalizeDraftReply(FullReplyTo reply, DraftsThread thread) {
++	if (reply.messageId.msg == thread.topicRootId
++		&& reply.quote.empty()) {
++		reply.messageId = FullMsgId();
++	}
++	reply.topicRootId = thread.topicRootId;
++	reply.monoforumPeerId = thread.monoforumPeerId;
++	return reply;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts.h b/Telegram/SourceFiles/tele/tele_drafts.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..f9576471864c7901970163e76b9a754c2e83bf1a
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts.h
+@@ -0,0 +1,182 @@
++#pragma once
++
++#include "base/weak_ptr.h"
++#include "data/data_drafts.h"
++#include "data/data_msg_id.h"
++
++#include <QtGui/QImage>
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Iv {
++struct RichPage;
++} // namespace Iv
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++class History;
++
++namespace Tele {
++
++struct DraftsThread {
++	PeerId peer = 0;
++	MsgId topicRootId = 0;
++	PeerId monoforumPeerId = 0;
++
++	[[nodiscard]] static DraftsThread From(not_null<Data::Thread*> thread);
++
++	explicit operator bool() const {
++		return peer != 0;
++	}
++	friend inline auto operator<=>(
++		const DraftsThread &,
++		const DraftsThread &) = default;
++	friend inline bool operator==(
++		const DraftsThread &,
++		const DraftsThread &) = default;
++};
++
++struct SavedDraftFile {
++	QString name;
++	QString stored;
++	int64 size = 0;
++	QByteArray thumbnail;
++	bool spoiler = false;
++};
++
++struct DraftFileSource {
++	QString path;
++	QByteArray bytes;
++	QImage image;
++	QString name;
++	QString reuse;
++	int64 size = 0;
++	QImage thumbnail;
++	bool spoiler = false;
++};
++
++struct SavedDraft {
++	uint64 id = 0;
++	DraftsThread thread;
++	QString name;
++	TextWithTags text;
++	FullReplyTo reply;
++	Data::WebPageDraft webpage;
++	std::vector<SavedDraftFile> files;
++	std::shared_ptr<const Iv::RichPage> rich;
++	QByteArray richData;
++	int32 filesWay = 0;
++	bool invertCaption = false;
++	bool discarded = false;
++	TimeId created = 0;
++	TimeId edited = 0;
++};
++
++class DraftsStore final : public base::has_weak_ptr {
++public:
++	explicit DraftsStore(not_null<Main::Session*> session);
++	~DraftsStore();
++
++	[[nodiscard]] not_null<Main::Session*> session() const;
++	[[nodiscard]] const std::vector<SavedDraft> &list() const;
++	[[nodiscard]] std::vector<SavedDraft> saved(DraftsThread thread) const;
++	[[nodiscard]] int discardedCount(DraftsThread thread) const;
++	[[nodiscard]] int savedCount(DraftsThread thread) const;
++	[[nodiscard]] int savedCount() const;
++	[[nodiscard]] const SavedDraft *find(uint64 id) const;
++	[[nodiscard]] rpl::producer<> changes() const;
++
++	uint64 add(SavedDraft draft);
++	void update(SavedDraft draft);
++	void remove(uint64 id);
++	uint64 duplicate(uint64 id);
++
++	void startEditing(
++		DraftsThread thread,
++		uint64 id,
++		std::shared_ptr<Data::Draft> before,
++		std::shared_ptr<Data::Draft> beforeRich);
++	void stopEditing(DraftsThread thread);
++	[[nodiscard]] uint64 editing(DraftsThread thread) const;
++	[[nodiscard]] std::shared_ptr<Data::Draft> editingBefore(
++		DraftsThread thread) const;
++	[[nodiscard]] std::shared_ptr<Data::Draft> editingBeforeRich(
++		DraftsThread thread) const;
++	[[nodiscard]] rpl::producer<> editingChanges() const;
++
++	void addDiscarded(
++		DraftsThread thread,
++		TextWithTags text,
++		FullReplyTo reply,
++		Data::WebPageDraft webpage);
++	void noteSent(PeerId peer);
++	[[nodiscard]] bool sentSince(PeerId peer, crl::time when) const;
++	void trackScheduled(not_null<History*> history);
++
++	void importFiles(
++		std::vector<DraftFileSource> sources,
++		Fn<void(std::optional<std::vector<SavedDraftFile>>)> done);
++	void exportFiles(
++		std::vector<SavedDraftFile> files,
++		Fn<void(QStringList)> done);
++	[[nodiscard]] QString storedForExported(const QString &path) const;
++	void prepareView(std::vector<SavedDraftFile> files, Fn<void()> done);
++	[[nodiscard]] QString viewPath(const QString &stored) const;
++	[[nodiscard]] QImage viewPreview(const QString &stored) const;
++	[[nodiscard]] bool fileMissing(const SavedDraftFile &file) const;
++	[[nodiscard]] bool broken(const SavedDraft &draft) const;
++
++private:
++	[[nodiscard]] QString folder() const;
++	[[nodiscard]] QString tempFolder() const;
++	[[nodiscard]] QString generateStoredName() const;
++	[[nodiscard]] uint64 generateId() const;
++	void read();
++	void write();
++	void wipe();
++	void changed();
++	void collectGarbage();
++	bool prune();
++
++	const not_null<Main::Session*> _session;
++	std::vector<SavedDraft> _list;
++	struct Editing {
++		uint64 id = 0;
++		std::shared_ptr<Data::Draft> before;
++		std::shared_ptr<Data::Draft> beforeRich;
++	};
++
++	base::flat_map<DraftsThread, Editing> _editing;
++	rpl::event_stream<> _editingChanges;
++	base::flat_set<QString> _importing;
++	base::flat_map<QString, QString> _exported;
++	base::flat_map<QString, QString> _viewPaths;
++	base::flat_map<QString, QImage> _viewPreviews;
++	base::flat_set<QString> _viewPreparing;
++	base::flat_map<PeerId, crl::time> _sent;
++	base::flat_map<not_null<History*>, int> _scheduled;
++	rpl::event_stream<> _changes;
++	rpl::lifetime _lifetime;
++
++};
++
++[[nodiscard]] DraftsStore &Drafts(not_null<Main::Session*> session);
++[[nodiscard]] Data::Thread *ResolveDraftsThread(
++	not_null<Main::Session*> session,
++	DraftsThread thread);
++[[nodiscard]] QString DraftsThreadName(
++	not_null<Main::Session*> session,
++	DraftsThread thread);
++bool AssignRichDraft(
++	not_null<Main::Session*> session,
++	SavedDraft &draft,
++	std::shared_ptr<const Iv::RichPage> page);
++[[nodiscard]] FullReplyTo NormalizeDraftReply(
++	FullReplyTo reply,
++	DraftsThread thread);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_box.cpp b/Telegram/SourceFiles/tele/tele_drafts_box.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..f467af93591e7dc078bf35c359e7b30061f567c8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_box.cpp
+@@ -0,0 +1,766 @@
++#include "tele/tele_drafts_box.h"
++
++#include "api/api_common.h"
++#include "apiwrap.h"
++#include "boxes/peer_list_box.h"
++#include "chat_helpers/compose/compose_show.h"
++#include "data/data_changes.h"
++#include "data/data_chat_participant_status.h"
++#include "data/data_peer.h"
++#include "data/data_premium_limits.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/view/history_view_schedule_box.h"
++#include "iv/editor/iv_editor_session.h"
++#include "iv/iv_rich_message_serializer.h"
++#include "iv/iv_rich_page.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "main/session/send_as_peers.h"
++#include "mainwidget.h"
++#include "menu/menu_send.h"
++#include "storage/localimageloader.h"
++#include "storage/storage_media_prepare.h"
++#include "tele/tele_drafts.h"
++#include "tele/tele_drafts_compose.h"
++#include "tele/tele_drafts_section.h"
++#include "tele/tele_lowercase.h"
++#include "ui/boxes/confirm_box.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/layers/generic_box.h"
++#include "ui/text/text_utilities.h"
++#include "ui/toast/toast.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/checkbox.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/labels.h"
++#include "ui/wrap/vertical_layout.h"
++#include "window/window_peer_menu.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_layers.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kPreviewLength = 1024;
++
++[[nodiscard]] QString Flatten(QString text) {
++	for (auto &ch : text) {
++		if (ch == QChar('\n')
++			|| ch == QChar::LineSeparator
++			|| ch == QChar::ParagraphSeparator) {
++			ch = QChar(' ');
++		}
++	}
++	return text.simplified();
++}
++
++void AddInfoLine(
++		not_null<Ui::VerticalLayout*> container,
++		const QString &text) {
++	container->add(
++		object_ptr<Ui::FlatLabel>(
++			container,
++			text,
++			st::boxDividerLabel),
++		st::boxRowPadding);
++}
++
++[[nodiscard]] QString ReplyText(
++		not_null<Main::Session*> session,
++		const FullReplyTo &reply) {
++	if (!reply.quote.empty()) {
++		return Flatten(reply.quote.text.left(kPreviewLength));
++	} else if (const auto item = session->data().message(reply.messageId)) {
++		const auto text = Flatten(item->originalText().text.left(
++			kPreviewLength));
++		return text.isEmpty() ? Lower(u"a message"_q) : text;
++	}
++	return Lower(u"a message"_q);
++}
++
++[[nodiscard]] QString WebPageText(const Data::WebPageDraft &webpage) {
++	if (webpage.removed) {
++		return Lower(u"Link preview: off"_q);
++	} else if (!webpage.url.isEmpty()) {
++		return Lower(u"Link preview: %1"_q).arg(webpage.url);
++	}
++	return QString();
++}
++
++[[nodiscard]] QString FilesLine(const SavedDraft &draft) {
++	auto names = QStringList();
++	for (const auto &file : draft.files) {
++		names.push_back(file.name);
++	}
++	return Lower(u"Files: %1"_q).arg(names.join(u", "_q));
++}
++
++bool SendDraftFiles(
++		not_null<Main::Session*> session,
++		const SavedDraft &draft,
++		const QStringList &paths,
++		Api::SendAction action) {
++	auto list = Storage::PrepareMediaList(
++		paths,
++		st::sendMediaPreviewSize,
++		session->premium());
++	if (list.error != Ui::PreparedList::Error::None
++		|| list.files.size() != draft.files.size()) {
++		return false;
++	}
++	const auto way = Ui::SendFilesWay::FromSerialized(
++		draft.filesWay
++	).value_or(Ui::SendFilesWay());
++	for (auto i = 0; i != int(list.files.size()); ++i) {
++		list.files[i].spoiler = draft.files[i].spoiler;
++		list.files[i].sendLargePhotos = way.sendLargePhotos();
++	}
++	auto caption = draft.text;
++	const auto limit = Data::PremiumLimits(session).captionLengthCurrent();
++	if (caption.text.size() > limit) {
++		auto message = Api::MessageToSend(action);
++		message.textWithTags = base::take(caption);
++		message.webPage = draft.webpage;
++		session->api().sendMessage(std::move(message));
++	}
++	auto bundle = Ui::PrepareFilesBundle(
++		Ui::DivideByGroups(std::move(list), way, false),
++		way,
++		false);
++	if (!bundle->groups.empty()) {
++		auto &group = bundle->groups.back();
++		auto &files = group.list.files;
++		if (!files.empty()) {
++			auto &captioned = (group.type == Ui::AlbumType::PhotoVideo)
++				? files.front()
++				: files.back();
++			if (!captioned.isSticker() || way.sendImagesAsPhotos()) {
++				captioned.caption = std::move(caption);
++			}
++		}
++	}
++	action.options.invertCaption = draft.invertCaption;
++	const auto type = way.sendImagesAsPhotos()
++		? SendMediaType::Photo
++		: SendMediaType::File;
++	for (auto &group : bundle->groups) {
++		const auto album = (group.type != Ui::AlbumType::None)
++			? std::make_shared<SendingAlbum>()
++			: nullptr;
++		session->api().sendFiles(std::move(group.list), type, album, action);
++	}
++	return true;
++}
++
++bool SendDraft(
++		not_null<Window::SessionController*> controller,
++		uint64 id,
++		DraftsThread target,
++		Api::SendOptions options,
++		Fn<void()> sent) {
++	const auto session = &controller->session();
++	const auto draft = Drafts(session).find(id);
++	const auto thread = ResolveDraftsThread(session, target);
++	if (!draft || !thread) {
++		controller->showToast(Lower(u"This chat is unavailable."_q));
++		return false;
++	}
++	const auto peer = thread->peer();
++	const auto files = !draft->files.empty();
++	if (peer->starsPerMessageChecked() > 0) {
++		controller->showToast(Lower(
++			u"This chat charges for messages, send the draft from the "
++			"chat itself."_q));
++		return false;
++	} else if (files
++		? !Data::CanSendAnyOf(thread, Data::FilesSendRestrictions())
++		: !Data::CanSendTexts(thread)) {
++		controller->showToast(Lower(
++			u"You can't send this to the chat."_q));
++		return false;
++	} else if (Drafts(session).broken(*draft)) {
++		controller->showToast(Lower(draft->files.empty()
++			? u"This rich message draft can't be read."_q
++			: u"Some files of this draft are missing."_q));
++		return false;
++	}
++	if (session->sendAsPeers().chosen(peer)) {
++		options.sendAs = session->sendAsPeers().resolveChosen(peer);
++	}
++	auto action = Api::SendAction(thread, options);
++	action.clearDraft = false;
++	action.replyTo.monoforumPeerId = thread->monoforumPeerId();
++	if (draft->thread == target && draft->reply.replying()) {
++		action.replyTo.messageId = draft->reply.messageId;
++		action.replyTo.quote = draft->reply.quote;
++		action.replyTo.quoteOffset = draft->reply.quoteOffset;
++		action.replyTo.storyId = draft->reply.storyId;
++		action.replyTo.todoItemId = draft->reply.todoItemId;
++		action.replyTo.pollOption = draft->reply.pollOption;
++	}
++	if (const auto page = draft->rich) {
++		if (!session->premium() && Iv::RichPageUsesPremiumFormatting(*page)) {
++			Iv::Editor::ShowRichMessagesPremiumToast(controller->uiShow());
++			return false;
++		}
++		const auto serialized = Iv::SerializeInputRichMessage(
++			session,
++			*page,
++			Iv::SerializeInputRichMessageMode::FinalSubmit);
++		using Status = Iv::SerializeInputRichMessageStatus;
++		if (serialized.status != Status::Success || !serialized.value) {
++			controller->showToast((serialized.status == Status::EmptyContent)
++				? tr::lng_article_submit_empty(tr::now)
++				: tr::lng_attach_failed(tr::now));
++			return false;
++		}
++		session->api().sendRichMessage(page, *serialized.value, action);
++		sent();
++		return true;
++	} else if (!files) {
++		auto message = Api::MessageToSend(action);
++		message.textWithTags = draft->text;
++		message.webPage = draft->webpage;
++		session->api().sendMessage(std::move(message));
++		sent();
++		return true;
++	}
++	const auto copy = *draft;
++	Drafts(session).exportFiles(copy.files, crl::guard(controller, [=](
++			QStringList paths) {
++		if (paths.size() != int(copy.files.size())) {
++			controller->showToast(Lower(
++				u"Couldn't read the files of this draft."_q));
++			return;
++		}
++		if (!SendDraftFiles(session, copy, paths, action)) {
++			controller->showToast(Lower(
++				u"Couldn't prepare the files of this draft."_q));
++			return;
++		}
++		sent();
++	}));
++	return true;
++}
++
++void RenameDraftBox(
++		not_null<Ui::GenericBox*> box,
++		not_null<Main::Session*> session,
++		uint64 id) {
++	const auto draft = Drafts(session).find(id);
++	box->setTitle(rpl::single(Lower(u"Draft name"_q)));
++	const auto field = box->addRow(object_ptr<Ui::InputField>(
++		box,
++		st::defaultInputField,
++		rpl::single(Lower(u"Name"_q)),
++		draft ? draft->name : QString()));
++	box->setFocusCallback([=] {
++		field->setFocusFast();
++	});
++	const auto save = [=] {
++		if (const auto current = Drafts(session).find(id)) {
++			auto copy = *current;
++			copy.name = field->getLastText().trimmed();
++			Drafts(session).update(std::move(copy));
++		}
++		box->closeBox();
++	};
++	field->submits() | rpl::on_next(save, field->lifetime());
++	box->addButton(tr::lng_settings_save(), save);
++	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
++}
++
++void SendDraftsBox(
++		not_null<Ui::GenericBox*> box,
++		not_null<Window::SessionController*> controller,
++		std::vector<uint64> ids,
++		DraftsThread target,
++		Fn<void()> done) {
++	const auto session = &controller->session();
++	const auto thread = ResolveDraftsThread(session, target);
++	auto drafts = std::vector<SavedDraft>();
++	for (const auto id : ids) {
++		if (const auto draft = Drafts(session).find(id)) {
++			drafts.push_back(*draft);
++		}
++	}
++	ranges::sort(drafts, ranges::less(), &SavedDraft::edited);
++	box->setWidth(st::boxWideWidth);
++	box->setTitle(rpl::single((drafts.size() > 1)
++		? Lower(u"Send %1 drafts"_q).arg(drafts.size())
++		: Lower(u"Send draft"_q)));
++	const auto container = box->verticalLayout();
++	if (drafts.empty() || !thread) {
++		AddInfoLine(container, Lower(u"This chat is unavailable."_q));
++		box->addButton(tr::lng_close(), [=] { box->closeBox(); });
++		return;
++	}
++	AddInfoLine(
++		container,
++		Lower(u"To: %1"_q).arg(DraftsThreadName(session, target)));
++	if (drafts.size() == 1) {
++		const auto &draft = drafts.front();
++		if (draft.thread == target && draft.reply.replying()) {
++			AddInfoLine(
++				container,
++				Lower(u"Reply to: %1"_q).arg(ReplyText(session, draft.reply)));
++		}
++		if (const auto webpage = WebPageText(draft.webpage)
++			; !webpage.isEmpty()) {
++			AddInfoLine(container, webpage);
++		}
++		if (draft.rich) {
++			AddInfoLine(container, Lower(u"Rich message"_q));
++		}
++		if (!draft.files.empty()) {
++			AddInfoLine(container, FilesLine(draft));
++			if (Drafts(session).broken(draft)) {
++				AddInfoLine(
++					container,
++					Lower(u"Some files are missing, the draft can't be "
++						"sent."_q));
++			}
++		}
++		Ui::AddSkip(container);
++		Ui::AddDivider(container);
++		Ui::AddSkip(container);
++		const auto text = container->add(
++			object_ptr<Ui::FlatLabel>(container, st::boxLabel),
++			st::boxRowPadding);
++		text->setMarkedText(TextWithEntities{
++			draft.text.text,
++			TextUtilities::ConvertTextTagsToEntities(draft.text.tags),
++		});
++		text->setSelectable(true);
++	} else {
++		AddInfoLine(
++			container,
++			Lower(u"They go out one by one, oldest first."_q));
++	}
++	Ui::AddSkip(container);
++	Ui::AddDivider(container);
++	Ui::AddSkip(container);
++
++	const auto peer = thread->peer();
++	const auto silent = peer->isSelf()
++		? nullptr
++		: container->add(
++			object_ptr<Ui::Checkbox>(
++				container,
++				Lower(u"Send without sound"_q),
++				false,
++				st::defaultBoxCheckbox),
++			st::boxRowPadding);
++	if (silent) {
++		Ui::AddSkip(container);
++	}
++	const auto remove = container->add(
++		object_ptr<Ui::Checkbox>(
++			container,
++			Lower((drafts.size() > 1)
++				? u"Delete the drafts after sending"_q
++				: u"Delete the draft after sending"_q),
++			true,
++			st::defaultBoxCheckbox),
++		st::boxRowPadding);
++
++	auto ordered = std::vector<uint64>();
++	for (const auto &draft : drafts) {
++		ordered.push_back(draft.id);
++	}
++	const auto send = [=](Api::SendOptions options) {
++		options.silent = options.silent || (silent && silent->checked());
++		const auto deleting = remove->checked();
++		auto any = false;
++		for (const auto id : ordered) {
++			const auto sent = [=] {
++				if (deleting) {
++					Drafts(session).remove(id);
++				}
++			};
++			if (SendDraft(controller, id, target, options, sent)) {
++				any = true;
++			}
++		}
++		if (any) {
++			if (done) {
++				done();
++			}
++			box->closeBox();
++		}
++	};
++	box->addButton(rpl::single(Lower(u"Send"_q)), [=] {
++		send({});
++	});
++	box->addButton(rpl::single(Lower(u"Schedule"_q)), [=] {
++		const auto details = SendMenu::Details{
++			.type = (peer->isSelf()
++				? SendMenu::Type::Reminder
++				: SendMenu::Type::Scheduled),
++			.barePeerId = peer->id.value,
++		};
++		controller->show(HistoryView::PrepareScheduleBox(
++			box,
++			controller->uiShow(),
++			details,
++			send));
++	});
++	box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
++}
++
++class ChatsController final : public PeerListController {
++public:
++	explicit ChatsController(
++		not_null<Window::SessionController*> window);
++
++	Main::Session &session() const override;
++	void prepare() override;
++	void rowClicked(not_null<PeerListRow*> row) override;
++
++private:
++	class Row final : public PeerListRow {
++	public:
++		Row(
++			not_null<PeerData*> peer,
++			PeerListRowId id,
++			DraftsThread thread,
++			QString name)
++		: PeerListRow(peer, id)
++		, _thread(thread)
++		, _name(std::move(name)) {
++		}
++
++		QString generateName() override {
++			return _name;
++		}
++		QString generateShortName() override {
++			return _name;
++		}
++		[[nodiscard]] DraftsThread thread() const {
++			return _thread;
++		}
++
++	private:
++		DraftsThread _thread;
++		QString _name;
++
++	};
++
++	void refreshRows();
++
++	const not_null<Window::SessionController*> _window;
++
++};
++
++ChatsController::ChatsController(
++	not_null<Window::SessionController*> window)
++: _window(window) {
++}
++
++Main::Session &ChatsController::session() const {
++	return _window->session();
++}
++
++void ChatsController::prepare() {
++	delegate()->peerListSetTitle(rpl::single(Lower(u"Saved drafts"_q)));
++	refreshRows();
++	Drafts(&session()).changes(
++	) | rpl::on_next([=] {
++		refreshRows();
++	}, lifetime());
++}
++
++void ChatsController::refreshRows() {
++	const auto session = &this->session();
++	for (auto i = delegate()->peerListFullRowsCount(); i != 0;) {
++		delegate()->peerListRemoveRow(delegate()->peerListRowAt(--i));
++	}
++	struct Counts {
++		int saved = 0;
++		int discarded = 0;
++		TimeId edited = 0;
++	};
++	auto threads = base::flat_map<DraftsThread, Counts>();
++	for (const auto &draft : Drafts(session).list()) {
++		auto &counts = threads[draft.thread];
++		++(draft.discarded ? counts.discarded : counts.saved);
++		counts.edited = std::max(counts.edited, draft.edited);
++	}
++	auto ordered = std::vector<std::pair<DraftsThread, Counts>>();
++	for (const auto &[thread, counts] : threads) {
++		ordered.emplace_back(thread, counts);
++	}
++	ranges::sort(ordered, ranges::greater(), [](const auto &pair) {
++		return pair.second.edited;
++	});
++	auto id = PeerListRowId();
++	for (const auto &[thread, counts] : ordered) {
++		const auto peer = session->data().peerLoaded(thread.peer);
++		if (!peer) {
++			continue;
++		}
++		auto row = std::make_unique<Row>(
++			peer,
++			++id,
++			thread,
++			DraftsThreadName(session, thread));
++		auto status = QStringList();
++		if (counts.saved) {
++			status.push_back((counts.saved == 1)
++				? Lower(u"1 draft"_q)
++				: Lower(u"%1 drafts"_q).arg(counts.saved));
++		}
++		if (counts.discarded) {
++			status.push_back(Lower(u"%1 discarded"_q).arg(counts.discarded));
++		}
++		row->setCustomStatus(status.join(u", "_q));
++		delegate()->peerListAppendRow(std::move(row));
++	}
++	setDescriptionText(!id
++		? Lower(u"No saved drafts yet. Right-click the send button or "
++			"press Ctrl+S in the message field to save one."_q)
++		: QString());
++	delegate()->peerListRefreshRows();
++}
++
++void ChatsController::rowClicked(not_null<PeerListRow*> row) {
++	const auto thread = static_cast<Row*>(row.get())->thread();
++	const auto window = _window;
++	crl::on_main(window, [=] {
++		window->hideLayer();
++		ShowDraftsSection(window, thread);
++	});
++}
++
++} // namespace
++
++void ShowSendDraftsBox(
++		not_null<Window::SessionController*> controller,
++		std::vector<uint64> ids,
++		DraftsThread target,
++		Fn<void()> done) {
++	controller->show(Box(
++		SendDraftsBox,
++		controller,
++		std::move(ids),
++		target,
++		std::move(done)));
++}
++
++void ShowSendDraftElsewhere(
++		not_null<Window::SessionController*> controller,
++		uint64 id) {
++	const auto chosen = std::make_shared<DraftsThread>();
++	Window::ShowChooseRecipientBox(
++		controller,
++		[=](not_null<Data::Thread*> thread) {
++			*chosen = DraftsThread::From(thread);
++			return true;
++		},
++		rpl::single(Lower(u"Send draft to"_q)),
++		[=] {
++			if (*chosen) {
++				ShowSendDraftsBox(controller, { id }, *chosen);
++			}
++		});
++}
++
++void ShowRenameDraftBox(
++		not_null<Window::SessionController*> controller,
++		uint64 id) {
++	controller->show(Box(RenameDraftBox, &controller->session(), id));
++}
++
++void ConfirmDeleteDrafts(
++		not_null<Window::SessionController*> controller,
++		std::vector<uint64> ids,
++		Fn<void()> done) {
++	const auto session = &controller->session();
++	controller->show(Ui::MakeConfirmBox({
++		.text = ((ids.size() > 1)
++			? Lower(u"Delete %1 drafts?"_q).arg(ids.size())
++			: Lower(u"Delete this draft?"_q)),
++		.confirmed = [=](Fn<void()> close) {
++			for (const auto id : ids) {
++				Drafts(session).remove(id);
++			}
++			if (done) {
++				done();
++			}
++			close();
++		},
++		.confirmText = Lower(u"Delete"_q),
++		.confirmStyle = &st::attentionBoxButton,
++	}));
++}
++
++void EditDraft(
++		not_null<Window::SessionController*> controller,
++		uint64 id) {
++	const auto session = &controller->session();
++	const auto draft = Drafts(session).find(id);
++	if (!draft) {
++		return;
++	}
++	const auto copy = *draft;
++	if (!ResolveDraftsThread(session, copy.thread)) {
++		controller->showToast(Lower(u"This chat is unavailable."_q));
++		return;
++	}
++	StartDraftEditing(session, copy.thread, copy.id);
++	if (!LoadDraftIntoField(controller, copy, false)) {
++		Drafts(session).stopEditing(copy.thread);
++		return;
++	}
++	if (copy.files.empty()) {
++		return;
++	}
++	auto files = std::vector<SavedDraftFile>();
++	for (const auto &file : copy.files) {
++		if (!Drafts(session).fileMissing(file)) {
++			files.push_back(file);
++		}
++	}
++	if (files.size() != copy.files.size()) {
++		controller->showToast(Lower(
++			u"Some files of this draft are missing."_q));
++	}
++	if (files.empty()) {
++		return;
++	}
++	Drafts(session).exportFiles(files, crl::guard(controller, [=](
++			QStringList paths) {
++		const auto thread = ResolveDraftsThread(session, copy.thread);
++		if (paths.isEmpty() || !thread) {
++			controller->showToast(Lower(
++				u"Couldn't read the files of this draft."_q));
++			return;
++		}
++		controller->content()->sendPaths(thread, paths);
++	}));
++}
++
++void RestoreDraft(
++		not_null<Window::SessionController*> controller,
++		uint64 id) {
++	const auto session = &controller->session();
++	const auto draft = Drafts(session).find(id);
++	if (!draft) {
++		return;
++	}
++	const auto copy = *draft;
++	if (LoadDraftIntoField(controller, copy, true)) {
++		Drafts(session).remove(copy.id);
++	}
++}
++
++void KeepDraft(not_null<Main::Session*> session, uint64 id) {
++	if (const auto draft = Drafts(session).find(id)) {
++		auto copy = *draft;
++		copy.discarded = false;
++		Drafts(session).update(std::move(copy));
++	}
++}
++
++void ShowAllDraftsBox(not_null<Window::SessionController*> controller) {
++	auto init = [=](not_null<PeerListBox*> box) {
++		box->addButton(tr::lng_close(), [=] { box->closeBox(); });
++	};
++	controller->show(Box<PeerListBox>(
++		std::make_unique<ChatsController>(controller),
++		std::move(init)));
++}
++
++void ShowDraftSavedToast(
++		std::shared_ptr<ChatHelpers::Show> show,
++		DraftsThread thread,
++		bool updated) {
++	auto text = TextWithEntities{ Lower(updated
++		? u"Draft updated. "_q
++		: u"Saved as draft. "_q) };
++	text.append(Ui::Text::Link(Lower(u"Open"_q)));
++	const auto weak = std::weak_ptr<ChatHelpers::Show>(show);
++	show->showToast({
++		.text = std::move(text),
++		.filter = [=](const ClickHandlerPtr &, Qt::MouseButton button) {
++			if (button != Qt::LeftButton) {
++				return false;
++			} else if (const auto strong = weak.lock()) {
++				if (const auto window = strong->resolveWindow()) {
++					ShowDraftsSection(window, thread);
++				}
++			}
++			return true;
++		},
++		.duration = 3 * crl::time(1000),
++	});
++}
++
++bool LoadDraftIntoField(
++		not_null<Window::SessionController*> controller,
++		const SavedDraft &draft,
++		bool noteReplaced) {
++	const auto session = &controller->session();
++	const auto thread = ResolveDraftsThread(session, draft.thread);
++	if (!thread) {
++		controller->showToast(Lower(u"This chat is unavailable."_q));
++		return false;
++	}
++	const auto history = thread->owningHistory();
++	const auto reply = NormalizeDraftReply(draft.reply, draft.thread);
++	if (noteReplaced) {
++		NoteLocalDraftReplace(
++			history,
++			reply.topicRootId,
++			reply.monoforumPeerId,
++			&draft.text);
++	}
++	if (draft.rich) {
++		history->setLocalDraft(std::make_unique<Data::Draft>(
++			TextWithTags(),
++			reply,
++			SuggestOptions(),
++			MessageCursor(),
++			Data::WebPageDraft()));
++		auto rich = Data::Draft(
++			TextWithTags(),
++			reply,
++			SuggestOptions(),
++			MessageCursor(),
++			Data::WebPageDraft());
++		rich.richMessage = draft.rich;
++		rich.richMessageSummary = Iv::FlattenRichPageSummary(draft.rich);
++		history->createCloudDraft(
++			reply.topicRootId,
++			reply.monoforumPeerId,
++			&rich);
++	} else {
++		const auto size = int(draft.text.text.size());
++		history->setLocalDraft(std::make_unique<Data::Draft>(
++			draft.text,
++			reply,
++			SuggestOptions(),
++			MessageCursor{ size, size, Ui::kQFixedMax },
++			draft.webpage));
++		const auto cloud = history->cloudDraft(
++			reply.topicRootId,
++			reply.monoforumPeerId);
++		if (!noteReplaced && cloud && cloud->hasRichMessage()) {
++			history->clearCloudDraft(
++				reply.topicRootId,
++				reply.monoforumPeerId);
++		}
++	}
++	history->clearLocalEditDraft(reply.topicRootId, reply.monoforumPeerId);
++	session->changes().entryUpdated(
++		thread,
++		Data::EntryUpdate::Flag::LocalDraftSet);
++	return true;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_box.h b/Telegram/SourceFiles/tele/tele_drafts_box.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..db12c210559618f214894bcad1f38881533edc07
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_box.h
+@@ -0,0 +1,51 @@
++#pragma once
++
++namespace ChatHelpers {
++class Show;
++} // namespace ChatHelpers
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++struct DraftsThread;
++struct SavedDraft;
++
++void ShowAllDraftsBox(not_null<Window::SessionController*> controller);
++void ShowDraftSavedToast(
++	std::shared_ptr<ChatHelpers::Show> show,
++	DraftsThread thread,
++	bool updated);
++bool LoadDraftIntoField(
++	not_null<Window::SessionController*> controller,
++	const SavedDraft &draft,
++	bool noteReplaced);
++
++void EditDraft(not_null<Window::SessionController*> controller, uint64 id);
++void RestoreDraft(
++	not_null<Window::SessionController*> controller,
++	uint64 id);
++void KeepDraft(not_null<Main::Session*> session, uint64 id);
++void ShowSendDraftsBox(
++	not_null<Window::SessionController*> controller,
++	std::vector<uint64> ids,
++	DraftsThread target,
++	Fn<void()> done = nullptr);
++void ShowSendDraftElsewhere(
++	not_null<Window::SessionController*> controller,
++	uint64 id);
++void ShowRenameDraftBox(
++	not_null<Window::SessionController*> controller,
++	uint64 id);
++void ConfirmDeleteDrafts(
++	not_null<Window::SessionController*> controller,
++	std::vector<uint64> ids,
++	Fn<void()> done = nullptr);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_compose.cpp b/Telegram/SourceFiles/tele/tele_drafts_compose.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..0cf2ecff0d0d2036f0a5f766ed0f99078b24f1a3
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_compose.cpp
+@@ -0,0 +1,1379 @@
++#include "tele/tele_drafts_compose.h"
++
++#include "api/api_common.h"
++#include "apiwrap.h"
++#include "base/event_filter.h"
++#include "base/invoke_queued.h"
++#include "boxes/send_files_box.h"
++#include "chat_helpers/compose/compose_show.h"
++#include "core/application.h"
++#include "data/data_changes.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "history/history.h"
++#include "iv/iv_rich_page.h"
++#include "window/window_controller.h"
++#include "history/view/history_view_schedule_box.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "storage/storage_account.h"
++#include "menu/menu_send_details.h"
++#include "storage/storage_media_prepare.h"
++#include "tele/tele_drafts.h"
++#include "tele/tele_drafts_box.h"
++#include "tele/tele_drafts_section.h"
++#include "tele/tele_lowercase.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/effects/ripple_animation.h"
++#include "ui/painter.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/popup_menu.h"
++#include "window/window_session_controller.h"
++#include "styles/style_chat.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_dialogs.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_widgets.h"
++
++#include <QtCore/QFileInfo>
++#include <QtGui/QKeyEvent>
++#include <QtWidgets/QTextEdit>
++
++namespace Tele {
++namespace {
++
++constexpr auto kMinDiscardLength = 30;
++constexpr auto kSnapshotDelay = crl::time(300);
++constexpr auto kPendingDelay = crl::time(1500);
++constexpr auto kSentWindow = crl::time(2000);
++
++[[nodiscard]] std::vector<ComposeDrafts*> &Instances() {
++	static auto result = std::vector<ComposeDrafts*>();
++	return result;
++}
++
++[[nodiscard]] QString NormalizedDiscardText(const QString &text) {
++	return text.simplified();
++}
++
++[[nodiscard]] bool DiscardMeaningful(const QString &text) {
++	return text.trimmed().size() > kMinDiscardLength;
++}
++
++[[nodiscard]] bool DiscardLost(const QString &was, const QString &now) {
++	if (!DiscardMeaningful(was)) {
++		return false;
++	}
++	const auto limit = int(std::min(was.size(), now.size()));
++	auto prefix = 0;
++	while (prefix < limit && was[prefix] == now[prefix]) {
++		++prefix;
++	}
++	auto suffix = 0;
++	while (suffix < limit - prefix
++		&& was[was.size() - 1 - suffix] == now[now.size() - 1 - suffix]) {
++		++suffix;
++	}
++	return ((prefix + suffix) * 2 < was.size())
++		&& !now.contains(was.trimmed());
++}
++
++[[nodiscard]] bool LocalDraftContains(
++		not_null<Main::Session*> session,
++		DraftsThread thread,
++		const QString &normalized) {
++	const auto resolved = ResolveDraftsThread(session, thread);
++	const auto draft = resolved
++		? resolved->owningHistory()->localDraft(
++			thread.topicRootId,
++			thread.monoforumPeerId)
++		: nullptr;
++	return draft
++		&& NormalizedDiscardText(draft->textWithTags.text).contains(
++			normalized);
++}
++
++[[nodiscard]] bool IsSaveShortcut(not_null<QKeyEvent*> event) {
++	const auto modifiers = event->modifiers()
++		& ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
++#ifdef Q_OS_WIN
++	const auto key = (event->nativeVirtualKey() == 'S')
++		|| (event->key() == Qt::Key_S);
++#else
++	const auto key = (event->key() == Qt::Key_S);
++#endif
++	return key && (modifiers == Qt::ControlModifier);
++}
++
++[[nodiscard]] bool IsCancelShortcut(not_null<QKeyEvent*> event) {
++	const auto modifiers = event->modifiers()
++		& ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
++	return (event->key() == Qt::Key_Escape) && !modifiers;
++}
++
++[[nodiscard]] QString BarSubtitle(const SavedDraft *draft) {
++	if (!draft) {
++		return QString();
++	} else if (!draft->name.isEmpty()) {
++		return draft->name;
++	}
++	const auto text = draft->text.text.trimmed();
++	const auto newline = text.indexOf('\n');
++	const auto line = (newline >= 0) ? text.left(newline) : text;
++	if (!line.trimmed().isEmpty()) {
++		return line.simplified();
++	}
++	const auto count = int(draft->files.size());
++	return (count == 1)
++		? Lower(u"1 file"_q)
++		: Lower(u"%1 files"_q).arg(count);
++}
++
++[[nodiscard]] std::shared_ptr<Data::Draft> CopyLocalDraft(
++		not_null<Main::Session*> session,
++		DraftsThread thread) {
++	const auto resolved = ResolveDraftsThread(session, thread);
++	const auto draft = resolved
++		? resolved->owningHistory()->localDraft(
++			thread.topicRootId,
++			thread.monoforumPeerId)
++		: nullptr;
++	if (Data::DraftIsNull(draft)) {
++		return nullptr;
++	}
++	auto result = std::make_shared<Data::Draft>(*draft);
++	result->saveRequestId = 0;
++	return result;
++}
++
++[[nodiscard]] std::shared_ptr<Data::Draft> CopyRichCloudDraft(
++		not_null<Main::Session*> session,
++		DraftsThread thread) {
++	const auto resolved = ResolveDraftsThread(session, thread);
++	const auto draft = resolved
++		? resolved->owningHistory()->cloudDraft(
++			thread.topicRootId,
++			thread.monoforumPeerId)
++		: nullptr;
++	if (!draft || !draft->hasRichMessage()) {
++		return nullptr;
++	}
++	auto result = std::make_shared<Data::Draft>(*draft);
++	result->saveRequestId = 0;
++	return result;
++}
++
++void RestoreFieldDraft(
++		not_null<Main::Session*> session,
++		DraftsThread thread,
++		std::shared_ptr<Data::Draft> before,
++		std::shared_ptr<Data::Draft> beforeRich) {
++	const auto resolved = ResolveDraftsThread(session, thread);
++	if (!resolved) {
++		return;
++	}
++	const auto history = resolved->owningHistory();
++	if (before) {
++		auto draft = std::make_unique<Data::Draft>(*before);
++		draft->reply.topicRootId = thread.topicRootId;
++		draft->reply.monoforumPeerId = thread.monoforumPeerId;
++		history->setLocalDraft(std::move(draft));
++	} else {
++		history->clearLocalDraft(thread.topicRootId, thread.monoforumPeerId);
++	}
++	const auto cloud = history->cloudDraft(
++		thread.topicRootId,
++		thread.monoforumPeerId);
++	if (beforeRich) {
++		auto copy = Data::Draft(*beforeRich);
++		copy.saveRequestId = 0;
++		if (const auto restored = history->createCloudDraft(
++				thread.topicRootId,
++				thread.monoforumPeerId,
++				&copy)) {
++			session->api().saveDraftToCloud(resolved, *restored);
++		}
++	} else if (cloud && cloud->hasRichMessage()) {
++		history->clearCloudDraft(thread.topicRootId, thread.monoforumPeerId);
++	}
++	const auto shown = ranges::any_of(Instances(), [&](ComposeDrafts *i) {
++		return i->shows(session, thread);
++	});
++	if (shown) {
++		session->changes().entryUpdated(
++			resolved,
++			Data::EntryUpdate::Flag::LocalDraftSet);
++	} else {
++		session->local().writeDrafts(history);
++	}
++	session->api().saveDraftToCloudDelayed(resolved);
++}
++
++[[nodiscard]] std::shared_ptr<ChatHelpers::Show> ShowForHistory(
++		not_null<History*> history) {
++	const auto peer = history->peer;
++	if (const auto window = Core::App().windowFor(peer)) {
++		if (const auto controller = window->sessionController()) {
++			if (&controller->session() == &peer->session()) {
++				return controller->uiShow();
++			}
++		}
++	}
++	return nullptr;
++}
++
++void AddSendThroughActions(
++		not_null<Ui::PopupMenu*> menu,
++		not_null<QWidget*> guard,
++		std::shared_ptr<ChatHelpers::Show> show,
++		SendMenu::Details details,
++		Fn<void(Api::SendOptions)> send) {
++	using Type = SendMenu::Type;
++	menu->addAction(
++		Lower(u"Send and remove draft"_q),
++		crl::guard(guard, [=] { send({}); }),
++		&st::menuIconSend);
++	if (details.type != Type::Disabled && details.type != Type::Reminder) {
++		menu->addAction(
++			Lower(u"Send without sound and remove draft"_q),
++			crl::guard(guard, [=] { send({ .silent = true }); }),
++			&st::menuIconMute);
++	}
++	if (details.type == Type::Scheduled
++		|| details.type == Type::ScheduledToUser
++		|| details.type == Type::Reminder) {
++		menu->addAction(
++			Lower(u"Schedule and remove draft"_q),
++			crl::guard(guard, [=] {
++				show->showBox(HistoryView::PrepareScheduleBox(
++					guard.get(),
++					show,
++					details,
++					send));
++			}),
++			&st::menuIconSchedule);
++	}
++}
++
++} // namespace
++
++class DraftsBar final : public Ui::RpWidget {
++public:
++	explicit DraftsBar(QWidget *parent);
++
++	void setSubtitle(const QString &text);
++	[[nodiscard]] rpl::producer<> cancelRequests() const;
++
++protected:
++	void paintEvent(QPaintEvent *e) override;
++	void resizeEvent(QResizeEvent *e) override;
++
++private:
++	object_ptr<Ui::IconButton> _cancel;
++	QString _subtitle;
++
++};
++
++DraftsBar::DraftsBar(QWidget *parent)
++: RpWidget(parent)
++, _cancel(this, st::historyReplyCancel) {
++	_cancel->setAccessibleName(tr::lng_cancel(tr::now));
++	resize(width(), st::historyReplyHeight);
++}
++
++void DraftsBar::setSubtitle(const QString &text) {
++	if (_subtitle != text) {
++		_subtitle = text;
++		update();
++	}
++}
++
++rpl::producer<> DraftsBar::cancelRequests() const {
++	return _cancel->clicks() | rpl::to_empty;
++}
++
++void DraftsBar::resizeEvent(QResizeEvent *e) {
++	_cancel->moveToRight(0, 0);
++}
++
++void DraftsBar::paintEvent(QPaintEvent *e) {
++	auto p = Painter(this);
++	p.fillRect(e->rect(), st::historyReplyBg);
++	st::historyEditIcon.paint(p, st::historyReplyIconPosition, width());
++	const auto left = st::historyReplySkip;
++	const auto available = std::max(
++		width() - left - _cancel->width() - st::msgReplyPadding.right(),
++		0);
++	const auto top = st::msgReplyPadding.top();
++	p.setPen(st::historyReplyNameFg);
++	p.setFont(st::msgServiceNameFont);
++	p.drawTextLeft(
++		left,
++		top,
++		width(),
++		st::msgServiceNameFont->elided(
++			Lower(u"Editing draft"_q),
++			available));
++	p.setPen(st::historyComposeAreaFg);
++	p.setFont(st::msgFont);
++	p.drawTextLeft(
++		left,
++		top + st::msgServiceNameFont->height,
++		width(),
++		st::msgFont->elided(_subtitle, available));
++}
++
++class DraftsButton final : public Ui::RippleButton {
++public:
++	DraftsButton(QWidget *parent, const style::IconButton &st);
++
++	void setCount(int count);
++
++protected:
++	void paintEvent(QPaintEvent *e) override;
++	void onStateChanged(State was, StateChangeSource source) override;
++	QImage prepareRippleMask() const override;
++	QPoint prepareRippleStartPosition() const override;
++
++private:
++	const style::IconButton &_st;
++	int _count = 0;
++
++};
++
++DraftsButton::DraftsButton(QWidget *parent, const style::IconButton &st)
++: RippleButton(parent, st.ripple)
++, _st(st) {
++	resize(_st.width, _st.height);
++	setCursor(style::cur_pointer);
++	setAccessibleName(Lower(u"Saved drafts"_q));
++}
++
++void DraftsButton::setCount(int count) {
++	if (_count != count) {
++		_count = count;
++		update();
++	}
++}
++
++void DraftsButton::paintEvent(QPaintEvent *e) {
++	auto p = Painter(this);
++	paintRipple(p, _st.rippleAreaPosition);
++
++	const auto &icon = st::menuIconEdit;
++	const auto color = isOver()
++		? st::historyComposeIconFgOver->c
++		: st::historyComposeIconFg->c;
++	const auto iconLeft = (width() - icon.width()) / 2;
++	const auto iconTop = (height() - icon.height()) / 2;
++	icon.paint(p, iconLeft, iconTop, width(), color);
++
++	if (_count <= 0) {
++		return;
++	}
++	const auto &font = st::dialogsUnreadFont;
++	const auto text = (_count > 99) ? u"99+"_q : QString::number(_count);
++	const auto textWidth = font->width(text);
++	const auto badgeHeight = font->height;
++	const auto badgeWidth = std::max(badgeHeight, textWidth + badgeHeight / 2);
++	const auto badgeLeft = std::min(
++		iconLeft + icon.width() - badgeWidth / 2,
++		width() - badgeWidth);
++	const auto badgeTop = std::max(iconTop - badgeHeight / 3, 0);
++	auto hq = PainterHighQualityEnabler(p);
++	p.setPen(Qt::NoPen);
++	p.setBrush(st::activeButtonBg);
++	p.drawRoundedRect(
++		QRect(badgeLeft, badgeTop, badgeWidth, badgeHeight),
++		badgeHeight / 2.,
++		badgeHeight / 2.);
++	p.setFont(font);
++	p.setPen(st::activeButtonFg);
++	p.drawText(
++		QRect(badgeLeft, badgeTop, badgeWidth, badgeHeight),
++		text,
++		style::al_center);
++}
++
++void DraftsButton::onStateChanged(State was, StateChangeSource source) {
++	RippleButton::onStateChanged(was, source);
++	update();
++}
++
++QImage DraftsButton::prepareRippleMask() const {
++	return Ui::RippleAnimation::EllipseMask(
++		QSize(_st.rippleAreaSize, _st.rippleAreaSize));
++}
++
++QPoint DraftsButton::prepareRippleStartPosition() const {
++	const auto result = mapFromGlobal(QCursor::pos())
++		- _st.rippleAreaPosition;
++	const auto rect = QRect(0, 0, _st.rippleAreaSize, _st.rippleAreaSize);
++	return rect.contains(result)
++		? result
++		: DisabledRippleStartPosition();
++}
++
++ComposeDrafts::ComposeDrafts(ComposeDraftsDescriptor &&descriptor)
++: _session(&descriptor.show->session())
++, _field(descriptor.field)
++, _show(std::move(descriptor.show))
++, _thread(std::move(descriptor.thread))
++, _editing(std::move(descriptor.editing))
++, _reply(std::move(descriptor.reply))
++, _webpage(std::move(descriptor.webpage))
++, _relayout(std::move(descriptor.relayout))
++, _send(std::move(descriptor.send))
++, _sendDetails(std::move(descriptor.sendDetails))
++, _barChanged(std::move(descriptor.barChanged))
++, _rich(std::move(descriptor.rich))
++, _clearRich(std::move(descriptor.clearRich))
++, _button(base::make_unique_q<DraftsButton>(
++	descriptor.parent,
++	*descriptor.st))
++, _bar(base::make_unique_q<DraftsBar>(descriptor.parent)) {
++	_button->hide();
++	_bar->hide();
++	_bar->cancelRequests(
++	) | rpl::on_next([=] {
++		finishEditing();
++	}, _bar->lifetime());
++	Drafts(_session).editingChanges(
++	) | rpl::on_next([=] {
++		_previous = std::nullopt;
++		barStateChanged();
++	}, _bar->lifetime());
++	_button->setClickedCallback([=] {
++		if (const auto thread = currentThread()) {
++			if (const auto window = _show->resolveWindow()) {
++				ShowDraftsSection(window, thread);
++			}
++		}
++	});
++	Drafts(_session).changes(
++	) | rpl::on_next([=] {
++		refreshAndRelayout();
++		barStateChanged();
++	}, _button->lifetime());
++	_field->shownValue(
++	) | rpl::skip(1) | rpl::on_next([=] {
++		refreshAndRelayout();
++		barStateChanged();
++	}, _button->lifetime());
++	_field->changes(
++	) | rpl::on_next([=] {
++		fieldChanged();
++	}, _button->lifetime());
++	_snapshotTimer.setCallback([=] { takeSnapshot(); });
++	_pendingTimer.setCallback([=] { checkPending(); });
++	setupShortcut();
++	Instances().push_back(this);
++}
++
++ComposeDrafts::~ComposeDrafts() {
++	Instances().erase(ranges::remove(Instances(), this), end(Instances()));
++}
++
++bool ComposeDrafts::shows(
++		not_null<Main::Session*> session,
++		DraftsThread thread) const {
++	return (_session == session) && (currentThread() == thread);
++}
++
++DraftsThread ComposeDrafts::currentThread() const {
++	const auto thread = _thread();
++	return thread ? DraftsThread::From(thread) : DraftsThread();
++}
++
++std::shared_ptr<const Iv::RichPage> ComposeDrafts::richShown() const {
++	return _rich ? _rich() : nullptr;
++}
++
++uint64 ComposeDrafts::editingId() const {
++	const auto thread = currentThread();
++	return (thread && !_editing()) ? Drafts(_session).editing(thread) : 0;
++}
++
++bool ComposeDrafts::refreshBar() {
++	const auto id = editingId();
++	const auto shown = (id != 0) && (!_field->isHidden() || richShown());
++	if (shown) {
++		const auto draft = Drafts(_session).find(id);
++		const auto subtitle = BarSubtitle(draft);
++		_bar->setSubtitle((draft && !draft->files.empty() && !richShown())
++			? Lower(u"%1 \u00B7 saved without media"_q).arg(subtitle)
++			: subtitle);
++	}
++	if (_bar->isHidden() != shown) {
++		return false;
++	}
++	_bar->setVisible(shown);
++	return true;
++}
++
++void ComposeDrafts::barStateChanged() {
++	refreshBar();
++	if (_barChanged) {
++		_barChanged();
++	}
++}
++
++int ComposeDrafts::barHeight() {
++	if (refreshBar() && !_barRelayoutQueued) {
++		_barRelayoutQueued = true;
++		InvokeQueued(_bar.get(), [=] {
++			_barRelayoutQueued = false;
++			if (_barChanged) {
++				_barChanged();
++			}
++		});
++	}
++	return _bar->isHidden() ? 0 : _bar->height();
++}
++
++void ComposeDrafts::moveBar(int width, int bottom) {
++	const auto height = barHeight();
++	_bar->setGeometry(0, bottom - height, width, st::historyReplyHeight);
++}
++
++bool ComposeDrafts::savesDraft() const {
++	return !_sendingThrough && (editingId() != 0);
++}
++
++bool ComposeDrafts::intercept() {
++	if (!savesDraft()) {
++		return false;
++	} else if (save(false)) {
++		finishEditing();
++	}
++	return true;
++}
++
++void ComposeDrafts::finishEditing() {
++	if (const auto thread = currentThread()) {
++		_previous = std::nullopt;
++		FinishDraftEditing(_session, thread);
++	}
++}
++
++void ComposeDrafts::sendThrough(Api::SendOptions options) {
++	const auto thread = currentThread();
++	const auto id = editingId();
++	if (!thread || !id || !_send) {
++		return;
++	}
++	_sendingThrough = true;
++	_send(options);
++	_sendingThrough = false;
++	if (!_field->getLastText().isEmpty() || richShown()) {
++		return;
++	}
++	auto &store = Drafts(_session);
++	const auto before = store.editingBefore(thread);
++	const auto beforeRich = store.editingBeforeRich(thread);
++	store.stopEditing(thread);
++	store.remove(id);
++	if (before || beforeRich) {
++		_previous = std::nullopt;
++		RestoreFieldDraft(_session, thread, before, beforeRich);
++	}
++}
++
++void ComposeDrafts::fieldChanged() {
++	const auto thread = currentThread();
++	const auto &text = _field->getLastText();
++	if (!thread || _editing()) {
++		_previous = std::nullopt;
++		_snapshot = std::nullopt;
++		return;
++	}
++	if (_previous
++		&& _previous->thread == thread
++		&& DiscardLost(_previous->text.text, text)) {
++		auto snapshot = std::move(*_previous);
++		if (_snapshot
++			&& _snapshot->thread == thread
++			&& _snapshot->text.text == snapshot.text.text) {
++			snapshot = *_snapshot;
++		}
++		_pending.push_back({ std::move(snapshot), crl::now() });
++		_pendingTimer.callOnce(kPendingDelay);
++	}
++	if (DiscardMeaningful(text)) {
++		_previous = Snapshot{
++			.thread = thread,
++			.text = { text, {} },
++			.reply = (_snapshot && _snapshot->thread == thread)
++				? _snapshot->reply
++				: FullReplyTo(),
++		};
++		_snapshotTimer.callOnce(kSnapshotDelay);
++	} else {
++		_previous = std::nullopt;
++	}
++}
++
++void ComposeDrafts::takeSnapshot() {
++	const auto thread = currentThread();
++	if (!thread || _editing() || !DiscardMeaningful(_field->getLastText())) {
++		return;
++	}
++	_snapshot = Snapshot{
++		.thread = thread,
++		.text = _field->getTextWithTags(),
++		.reply = _reply(),
++		.webpage = _webpage(),
++	};
++	if (_previous && _previous->thread == thread) {
++		_previous->reply = _snapshot->reply;
++		_previous->webpage = _snapshot->webpage;
++	}
++}
++
++void ComposeDrafts::checkPending() {
++	if (_pending.empty()) {
++		return;
++	}
++	const auto window = _show->resolveWindow();
++	if (window && window->isLayerShown()) {
++		_pendingTimer.callOnce(kPendingDelay);
++		return;
++	}
++	auto &store = Drafts(_session);
++	const auto current = currentThread();
++	const auto editing = _editing();
++	const auto field = NormalizedDiscardText(_field->getLastText());
++	for (auto &pending : base::take(_pending)) {
++		const auto &snapshot = pending.snapshot;
++		const auto text = NormalizedDiscardText(snapshot.text.text);
++		if (store.sentSince(snapshot.thread.peer, pending.when - kSentWindow)) {
++			continue;
++		} else if (current == snapshot.thread && !editing) {
++			if (field.contains(text)) {
++				continue;
++			}
++		} else if (LocalDraftContains(_session, snapshot.thread, text)) {
++			continue;
++		}
++		store.addDiscarded(
++			snapshot.thread,
++			snapshot.text,
++			snapshot.reply,
++			snapshot.webpage);
++	}
++}
++
++bool ComposeDrafts::refresh() {
++	const auto thread = currentThread();
++	if (const auto resolved = thread ? _thread() : nullptr) {
++		Drafts(_session).trackScheduled(resolved->owningHistory());
++	}
++	const auto count = thread ? Drafts(_session).savedCount(thread) : 0;
++	_button->setCount(count);
++	const auto shown = _allowed
++		&& (count > 0)
++		&& !_field->isHidden()
++		&& !_editing();
++	if (_button->isHidden() != shown) {
++		return false;
++	}
++	_button->setVisible(shown);
++	return true;
++}
++
++void ComposeDrafts::refreshAndRelayout() {
++	if (refresh()) {
++		_relayout();
++	}
++}
++
++int ComposeDrafts::shownWidth() {
++	refresh();
++	return _button->isHidden() ? 0 : _button->width();
++}
++
++int ComposeDrafts::moveToRight(int right, int top) {
++	refresh();
++	_button->moveToRight(right, top);
++	return _button->isHidden() ? 0 : _button->width();
++}
++
++bool ComposeDrafts::setAllowed(bool allowed) {
++	if (_allowed == allowed) {
++		return false;
++	}
++	_allowed = allowed;
++	return refresh();
++}
++
++void ComposeDrafts::fillMenuDetails(SendMenu::Details &details) {
++	if (!currentThread() || _editing()) {
++		return;
++	}
++	details.teleMenu = crl::guard(_button.get(), [=](
++			not_null<Ui::PopupMenu*> menu) {
++		fillMenu(menu);
++	});
++}
++
++void ComposeDrafts::fillMenu(not_null<Ui::PopupMenu*> menu) {
++	const auto thread = currentThread();
++	if (!thread) {
++		return;
++	}
++	const auto &store = Drafts(_session);
++	const auto guard = _button.get();
++	if (!menu->empty()) {
++		menu->addSeparator();
++	}
++	if (editingId()) {
++		AddSendThroughActions(
++			menu,
++			guard,
++			_show,
++			_sendDetails ? _sendDetails() : SendMenu::Details(),
++			crl::guard(guard, [=](Api::SendOptions options) {
++				sendThrough(options);
++			}));
++		menu->addAction(Lower(u"Save as new draft"_q), crl::guard(guard, [=] {
++			if (save(true)) {
++				finishEditing();
++			}
++		}), &st::menuIconArchive);
++	} else {
++		menu->addAction(Lower(u"Save as draft"_q), crl::guard(guard, [=] {
++			save(true);
++		}), &st::menuIconArchive);
++	}
++	const auto open = crl::guard(guard, [=] {
++		if (const auto window = _show->resolveWindow()) {
++			ShowDraftsSection(window, thread);
++		}
++	});
++	if (const auto count = store.savedCount(thread)) {
++		menu->addAction(
++			Lower(u"Saved drafts (%1)"_q).arg(count),
++			open,
++			&st::menuIconArchiveOpen);
++	}
++	if (const auto count = store.discardedCount(thread)) {
++		menu->addAction(
++			Lower(u"Recently discarded (%1)"_q).arg(count),
++			open,
++			&st::menuIconRestore);
++	}
++}
++
++void ComposeDrafts::setupShortcut() {
++	base::install_event_filter(
++		_button.get(),
++		_field->rawTextEdit(),
++		[=](not_null<QEvent*> e) {
++			if (e->type() != QEvent::KeyPress) {
++				return base::EventFilterResult::Continue;
++			}
++			const auto event = static_cast<QKeyEvent*>(e.get());
++			if (IsCancelShortcut(event) && editingId()) {
++				finishEditing();
++				return base::EventFilterResult::Cancel;
++			} else if (!IsSaveShortcut(event)
++				|| !currentThread()
++				|| _editing()) {
++				return base::EventFilterResult::Continue;
++			} else if (!intercept()) {
++				save(true);
++			}
++			return base::EventFilterResult::Cancel;
++		});
++	InvokeQueued(_button.get(), [=] {
++		base::install_event_filter(
++			_button.get(),
++			_button->window(),
++			[=](not_null<QEvent*> e) {
++				if (e->type() != QEvent::KeyPress
++					|| !richShown()
++					|| !_button->parentWidget()->isVisible()
++					|| !currentThread()
++					|| _editing()) {
++					return base::EventFilterResult::Continue;
++				}
++				const auto event = static_cast<QKeyEvent*>(e.get());
++				if (IsCancelShortcut(event) && editingId()) {
++					finishEditing();
++					return base::EventFilterResult::Cancel;
++				} else if (!IsSaveShortcut(event)) {
++					return base::EventFilterResult::Continue;
++				} else if (!intercept()) {
++					save(true);
++				}
++				return base::EventFilterResult::Cancel;
++			});
++	});
++}
++
++bool ComposeDrafts::save(bool asNew) {
++	const auto thread = currentThread();
++	if (!thread || _editing()) {
++		return false;
++	}
++	auto text = _field->getTextWithAppliedMarkdown();
++	const auto page = Data::DraftStringIsEmpty(text.text)
++		? richShown()
++		: nullptr;
++	if (!page && Data::DraftStringIsEmpty(text.text)) {
++		_show->showToast(Lower(u"Type something to save it as a draft."_q));
++		return false;
++	}
++	auto &store = Drafts(_session);
++	const auto reply = NormalizeDraftReply(_reply(), thread);
++	const auto webpage = page ? Data::WebPageDraft() : _webpage();
++	const auto updating = asNew ? uint64() : store.editing(thread);
++	const auto existing = updating ? store.find(updating) : nullptr;
++	auto draft = existing ? *existing : SavedDraft{ .thread = thread };
++	draft.text = std::move(text);
++	draft.reply = reply;
++	draft.webpage = webpage;
++	draft.files.clear();
++	draft.filesWay = 0;
++	draft.invertCaption = false;
++	if (!AssignRichDraft(_session, draft, page)) {
++		_show->showToast(Lower(
++			u"This rich message can't be saved as a draft yet, "
++			"wait until its media is uploaded."_q));
++		return false;
++	}
++	if (existing) {
++		store.update(std::move(draft));
++		ShowDraftSavedToast(_show, thread, true);
++		return true;
++	}
++	store.add(std::move(draft));
++	ShowDraftSavedToast(_show, thread, false);
++	if (!editingId()) {
++		_previous = std::nullopt;
++		if (page && _clearRich) {
++			_clearRich();
++		} else {
++			RestoreFieldDraft(_session, thread, nullptr, nullptr);
++		}
++	}
++	return true;
++}
++
++namespace {
++
++[[nodiscard]] std::optional<DraftFileSource> SourceFromFile(
++		const Ui::PreparedFile &file,
++		const DraftsStore &store) {
++	const auto image = file.information
++		? std::get_if<Ui::PreparedFileInformation::Image>(
++			&file.information->media)
++		: nullptr;
++	auto source = DraftFileSource{
++		.name = (!file.displayName.isEmpty()
++			? file.displayName
++			: !file.path.isEmpty()
++			? QFileInfo(file.path).fileName()
++			: QString()),
++		.size = file.size,
++		.thumbnail = ((image && !image->data.isNull())
++			? image->data
++			: file.preview),
++		.spoiler = file.spoiler,
++	};
++	if (!file.path.isEmpty()) {
++		source.path = file.path;
++		source.reuse = store.storedForExported(file.path);
++	} else if (!file.content.isEmpty()) {
++		source.bytes = file.content;
++	} else if (image && !image->data.isNull()) {
++		source.image = image->data;
++		source.name = u"image.png"_q;
++	} else {
++		return std::nullopt;
++	}
++	if (source.name.isEmpty()) {
++		source.name = (file.type == Ui::PreparedFile::Type::Photo)
++			? u"image.png"_q
++			: u"file"_q;
++	}
++	return source;
++}
++
++struct MediaDraft {
++	DraftsThread thread;
++	TextWithTags text;
++	FullReplyTo reply;
++	int32 way = 0;
++	bool invert = false;
++	uint64 editingId = 0;
++	bool finishEditing = false;
++	bool toast = true;
++};
++
++void ImportMediaDraft(
++		std::shared_ptr<ChatHelpers::Show> show,
++		std::vector<DraftFileSource> sources,
++		MediaDraft draft) {
++	const auto session = &show->session();
++	Drafts(session).importFiles(std::move(sources), [=](
++			std::optional<std::vector<SavedDraftFile>> files) {
++		if (!files) {
++			show->showToast(Lower(u"Couldn't copy the files into the draft."_q));
++			return;
++		}
++		auto &store = Drafts(session);
++		const auto editingId = draft.editingId;
++		if (const auto existing = editingId ? store.find(editingId) : nullptr) {
++			auto copy = *existing;
++			AssignRichDraft(session, copy, nullptr);
++			copy.text = draft.text;
++			copy.reply = draft.reply;
++			copy.webpage = Data::WebPageDraft();
++			copy.files = std::move(*files);
++			copy.filesWay = draft.way;
++			copy.invertCaption = draft.invert;
++			store.update(std::move(copy));
++			if (draft.toast) {
++				ShowDraftSavedToast(show, draft.thread, true);
++			}
++		} else {
++			store.add({
++				.thread = draft.thread,
++				.text = draft.text,
++				.reply = draft.reply,
++				.files = std::move(*files),
++				.filesWay = draft.way,
++				.invertCaption = draft.invert,
++			});
++			if (draft.toast) {
++				ShowDraftSavedToast(show, draft.thread, false);
++			}
++		}
++		if (draft.finishEditing) {
++			FinishDraftEditing(session, draft.thread);
++		}
++	});
++}
++
++} // namespace
++
++struct SendFilesBoxAccess {
++	[[nodiscard]] static DraftsThread Thread(not_null<SendFilesBox*> box);
++	[[nodiscard]] static bool SavesOnly(not_null<SendFilesBox*> box);
++	[[nodiscard]] static bool Allowed(not_null<SendFilesBox*> box);
++	[[nodiscard]] static uint64 Editing(not_null<SendFilesBox*> box);
++	static void Save(not_null<SendFilesBox*> box, bool asNew);
++	static void SendThrough(
++		not_null<SendFilesBox*> box,
++		Api::SendOptions options);
++	static bool Intercept(not_null<SendFilesBox*> box);
++	static void FillMenu(
++		not_null<SendFilesBox*> box,
++		not_null<Ui::PopupMenu*> menu,
++		SendMenu::Details details);
++	static void Setup(not_null<SendFilesBox*> box);
++	static void AddButton(not_null<SendFilesBox*> box);
++};
++
++DraftsThread SendFilesBoxAccess::Thread(not_null<SendFilesBox*> box) {
++	return {
++		.peer = box->_toPeer->id,
++		.topicRootId = box->_replyTo.topicRootId,
++		.monoforumPeerId = box->_replyTo.monoforumPeerId,
++	};
++}
++
++bool SendFilesBoxAccess::SavesOnly(not_null<SendFilesBox*> box) {
++	return box->property("teleDraftsSave").toBool();
++}
++
++bool SendFilesBoxAccess::Allowed(not_null<SendFilesBox*> box) {
++	return (box->_sendType == Api::SendType::Normal)
++		&& (box->_confirmedCallback != nullptr)
++		&& !SavesOnly(box);
++}
++
++uint64 SendFilesBoxAccess::Editing(not_null<SendFilesBox*> box) {
++	return Allowed(box)
++		? Drafts(&box->_show->session()).editing(Thread(box))
++		: 0;
++}
++
++bool SendFilesBoxAccess::Intercept(not_null<SendFilesBox*> box) {
++	if (!Editing(box) || box->property("teleDraftsThrough").toBool()) {
++		return false;
++	}
++	Save(box, false);
++	return true;
++}
++
++void SendFilesBoxAccess::SendThrough(
++		not_null<SendFilesBox*> box,
++		Api::SendOptions options) {
++	const auto id = Editing(box);
++	if (!id) {
++		return;
++	}
++	const auto session = &box->_show->session();
++	const auto thread = Thread(box);
++	box->setProperty("teleDraftsThrough", true);
++	box->send(options, false);
++	if (!box->_confirmed) {
++		return;
++	}
++	auto &store = Drafts(session);
++	const auto before = store.editingBefore(thread);
++	const auto beforeRich = store.editingBeforeRich(thread);
++	store.stopEditing(thread);
++	store.remove(id);
++	RestoreFieldDraft(session, thread, before, beforeRich);
++}
++
++void SendFilesBoxAccess::Save(not_null<SendFilesBox*> box, bool asNew) {
++	if (!Allowed(box)) {
++		return;
++	} else if (box->_preparing) {
++		box->showToast(Lower(u"Wait until the files are ready."_q));
++		return;
++	}
++	const auto thread = Thread(box);
++	const auto show = box->_show;
++	auto &store = Drafts(&show->session());
++	for (auto &item : box->_list.files) {
++		item.spoiler = false;
++	}
++	box->applyBlockChanges();
++	Storage::ApplyModifications(box->_list, false);
++	auto sources = std::vector<DraftFileSource>();
++	for (const auto &file : box->_list.files) {
++		auto source = SourceFromFile(file, store);
++		if (!source) {
++			box->showToast(Lower(u"This file can't be kept in a draft."_q));
++			return;
++		}
++		sources.push_back(std::move(*source));
++	}
++	auto draft = MediaDraft{
++		.thread = thread,
++		.text = box->fieldText(),
++		.reply = NormalizeDraftReply(box->_replyTo, thread),
++		.way = box->_sendWay.current().serialize(),
++		.invert = box->_invertCaption,
++		.editingId = asNew ? uint64() : store.editing(thread),
++		.finishEditing = (store.editing(thread) != 0),
++	};
++	box->_confirmed = true;
++	box->closeBox();
++	ImportMediaDraft(show, std::move(sources), std::move(draft));
++}
++
++void SendFilesBoxAccess::FillMenu(
++		not_null<SendFilesBox*> box,
++		not_null<Ui::PopupMenu*> menu,
++		SendMenu::Details details) {
++	if (!menu->empty()) {
++		menu->addSeparator();
++	}
++	if (Editing(box)) {
++		AddSendThroughActions(
++			menu,
++			box,
++			box->_show,
++			details,
++			crl::guard(box, [=](Api::SendOptions options) {
++				SendThrough(box, options);
++			}));
++		menu->addAction(Lower(u"Save as new draft"_q), crl::guard(box, [=] {
++			Save(box, true);
++		}), &st::menuIconArchive);
++	} else {
++		menu->addAction(Lower(u"Save as draft"_q), crl::guard(box, [=] {
++			Save(box, true);
++		}), &st::menuIconArchive);
++	}
++}
++
++void SendFilesBoxAccess::Setup(not_null<SendFilesBox*> box) {
++	const auto session = &box->_show->session();
++	const auto peer = box->_toPeer->id;
++	if (SavesOnly(box)) {
++		return;
++	}
++	box->boxClosing() | rpl::on_next([=] {
++		if (box->_confirmed) {
++			Drafts(session).noteSent(peer);
++		}
++	}, box->lifetime());
++	if (!Allowed(box)) {
++		return;
++	}
++	base::install_event_filter(
++		box,
++		box->_caption->rawTextEdit(),
++		[=](not_null<QEvent*> e) {
++			if (e->type() == QEvent::KeyPress
++				&& IsSaveShortcut(static_cast<QKeyEvent*>(e.get()))) {
++				Save(box, false);
++				return base::EventFilterResult::Cancel;
++			}
++			return base::EventFilterResult::Continue;
++		});
++}
++
++void SendFilesBoxAccess::AddButton(not_null<SendFilesBox*> box) {
++	if (!box->property("teleDrafts").toBool()) {
++		box->setProperty("teleDrafts", true);
++		Setup(box);
++	}
++	if ((SavesOnly(box) || Editing(box)) && box->_send) {
++		box->_send->setText(rpl::single(Lower(u"Save draft"_q)));
++	}
++	if (!Allowed(box)) {
++		return;
++	}
++	const auto button = box->addTopButton(box->_st.files.menu, [=] {
++		Save(box, false);
++	});
++	button->setIconOverride(&st::menuIconArchive, &st::menuIconArchive);
++	button->setAccessibleName(Lower(u"Save as draft"_q));
++}
++
++void SendFilesDraftMenu(
++		not_null<SendFilesBox*> box,
++		SendMenu::Details &details) {
++	if (!SendFilesBoxAccess::Allowed(box)) {
++		return;
++	}
++	const auto normal = details;
++	if (SendFilesBoxAccess::Editing(box)) {
++		details.type = SendMenu::Type::Disabled;
++		details.effectAllowed = false;
++	}
++	details.teleMenu = crl::guard(box, [=](not_null<Ui::PopupMenu*> menu) {
++		SendFilesBoxAccess::FillMenu(box, menu, normal);
++	});
++}
++
++bool SendFilesDraftIntercept(not_null<SendFilesBox*> box) {
++	return SendFilesBoxAccess::Intercept(box);
++}
++
++void AddSendFilesDraftButton(not_null<SendFilesBox*> box) {
++	SendFilesBoxAccess::AddButton(box);
++}
++
++void SetSendFilesBoxSavesDraft(not_null<SendFilesBox*> box) {
++	box->setProperty("teleDraftsSave", true);
++}
++
++bool SaveBundleAsDraft(
++		std::shared_ptr<ChatHelpers::Show> show,
++		DraftsThread thread,
++		std::shared_ptr<Ui::PreparedBundle> bundle,
++		bool invertCaption) {
++	const auto &store = Drafts(&show->session());
++	auto sources = std::vector<DraftFileSource>();
++	auto text = TextWithTags();
++	for (const auto &group : bundle->groups) {
++		for (const auto &file : group.list.files) {
++			auto source = SourceFromFile(file, store);
++			if (!source) {
++				show->showToast(
++					Lower(u"This file can't be kept in a draft."_q));
++				return false;
++			}
++			if (!file.caption.text.isEmpty()) {
++				text = file.caption;
++			}
++			sources.push_back(std::move(*source));
++		}
++	}
++	ImportMediaDraft(show, std::move(sources), {
++		.thread = thread,
++		.text = std::move(text),
++		.reply = NormalizeDraftReply(FullReplyTo(), thread),
++		.way = bundle->way.serialize(),
++		.invert = invertCaption,
++		.toast = false,
++	});
++	return true;
++}
++
++void NoteLocalDraftReplace(
++		not_null<History*> history,
++		MsgId topicRootId,
++		PeerId monoforumPeerId,
++		const TextWithTags *replacement) {
++	const auto session = &history->session();
++	const auto thread = DraftsThread{
++		.peer = history->peer->id,
++		.topicRootId = topicRootId,
++		.monoforumPeerId = monoforumPeerId,
++	};
++	for (const auto instance : Instances()) {
++		if (instance->shows(session, thread)) {
++			return;
++		}
++	}
++	const auto existing = history->localDraft(topicRootId, monoforumPeerId);
++	if (!existing
++		|| !DiscardMeaningful(existing->textWithTags.text)
++		|| (replacement
++			&& !DiscardLost(existing->textWithTags.text, replacement->text))) {
++		return;
++	}
++	auto &store = Drafts(session);
++	if (store.sentSince(thread.peer, crl::now() - kSentWindow)) {
++		return;
++	}
++	store.addDiscarded(
++		thread,
++		existing->textWithTags,
++		existing->reply,
++		existing->webpage);
++}
++
++void NoteCloudDraftReplace(
++		not_null<History*> history,
++		MsgId topicRootId,
++		PeerId monoforumPeerId) {
++	const auto existing = history->localDraft(topicRootId, monoforumPeerId);
++	const auto cloud = history->cloudDraft(topicRootId, monoforumPeerId);
++	if (Data::DraftIsNull(existing) || existing == cloud) {
++		return;
++	} else if (!cloud) {
++		NoteLocalDraftReplace(history, topicRootId, monoforumPeerId, nullptr);
++	} else if (!Data::DraftIsNull(cloud)
++		&& cloud->date
++		&& !cloud->hasRichMessage()
++		&& (!existing->date || cloud->date >= existing->date)) {
++		NoteLocalDraftReplace(
++			history,
++			topicRootId,
++			monoforumPeerId,
++			&cloud->textWithTags);
++	}
++}
++
++void StartDraftEditing(
++		not_null<Main::Session*> session,
++		DraftsThread thread,
++		uint64 id) {
++	Core::App().materializeLocalDrafts();
++	auto &store = Drafts(session);
++	const auto already = (store.editing(thread) != 0);
++	auto before = already
++		? store.editingBefore(thread)
++		: CopyLocalDraft(session, thread);
++	auto beforeRich = already
++		? store.editingBeforeRich(thread)
++		: CopyRichCloudDraft(session, thread);
++	store.startEditing(thread, id, std::move(before), std::move(beforeRich));
++}
++
++void FinishDraftEditing(
++		not_null<Main::Session*> session,
++		DraftsThread thread) {
++	auto &store = Drafts(session);
++	if (!store.editing(thread)) {
++		store.stopEditing(thread);
++		return;
++	}
++	const auto before = store.editingBefore(thread);
++	const auto beforeRich = store.editingBeforeRich(thread);
++	store.stopEditing(thread);
++	RestoreFieldDraft(session, thread, before, beforeRich);
++}
++
++std::optional<bool> SaveEditedRichDraft(
++		not_null<History*> history,
++		MsgId topicRootId,
++		PeerId monoforumPeerId,
++		const Iv::RichPage &page) {
++	const auto session = &history->session();
++	const auto thread = DraftsThread{
++		.peer = history->peer->id,
++		.topicRootId = topicRootId,
++		.monoforumPeerId = monoforumPeerId,
++	};
++	auto &store = Drafts(session);
++	const auto id = store.editing(thread);
++	const auto existing = id ? store.find(id) : nullptr;
++	if (!existing) {
++		return std::nullopt;
++	}
++	const auto show = ShowForHistory(history);
++	auto copy = *existing;
++	if (auto simple = Iv::SerializeAsSimple(page, session)) {
++		AssignRichDraft(session, copy, nullptr);
++		copy.text = TextWithTags{
++			simple->text,
++			TextUtilities::ConvertEntitiesToTextTags(simple->entities),
++		};
++		copy.webpage = Data::WebPageDraft{ .removed = true };
++		copy.files.clear();
++		copy.filesWay = 0;
++		copy.invertCaption = false;
++	} else if (!AssignRichDraft(
++			session,
++			copy,
++			std::make_shared<const Iv::RichPage>(page))) {
++		if (show) {
++			show->showToast(Lower(
++				u"This rich message can't be saved as a draft yet, "
++				"wait until its media is uploaded."_q));
++		}
++		return false;
++	}
++	store.update(std::move(copy));
++	if (show) {
++		ShowDraftSavedToast(show, thread, true);
++	}
++	crl::on_main(session, [=] {
++		crl::on_main(session, [=] {
++			FinishDraftEditing(session, thread);
++		});
++	});
++	return true;
++}
++
++int ComposeDraftsBarHeight(ComposeDrafts *drafts) {
++	return drafts ? drafts->barHeight() : 0;
++}
++
++void ComposeDraftsMoveBar(ComposeDrafts *drafts, int width, int bottom) {
++	if (drafts) {
++		drafts->moveBar(width, bottom);
++	}
++}
++
++bool ComposeDraftsSaves(const ComposeDrafts *drafts) {
++	return drafts && drafts->savesDraft();
++}
++
++bool ComposeDraftsIntercept(ComposeDrafts *drafts) {
++	return drafts && drafts->intercept();
++}
++
++int ComposeDraftsWidth(ComposeDrafts *drafts) {
++	return drafts ? drafts->shownWidth() : 0;
++}
++
++int ComposeDraftsMove(ComposeDrafts *drafts, int right, int top) {
++	return drafts ? drafts->moveToRight(right, top) : 0;
++}
++
++bool ComposeDraftsAllow(ComposeDrafts *drafts, bool allowed) {
++	return drafts && drafts->setAllowed(allowed);
++}
++
++void ComposeDraftsMenu(ComposeDrafts *drafts, SendMenu::Details &details) {
++	if (drafts) {
++		drafts->fillMenuDetails(details);
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_compose.h b/Telegram/SourceFiles/tele/tele_drafts_compose.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..add6580e94eca358af0ea077aa15f93368e70535
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_compose.h
+@@ -0,0 +1,184 @@
++#pragma once
++
++#include "base/timer.h"
++#include "base/unique_qptr.h"
++#include "data/data_drafts.h"
++#include "tele/tele_drafts.h"
++
++class History;
++class SendFilesBox;
++
++namespace style {
++struct IconButton;
++} // namespace style
++
++namespace ChatHelpers {
++class Show;
++} // namespace ChatHelpers
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class InputField;
++struct PreparedBundle;
++class PopupMenu;
++class RpWidget;
++} // namespace Ui
++
++namespace SendMenu {
++struct Details;
++} // namespace SendMenu
++
++namespace Api {
++struct SendOptions;
++} // namespace Api
++
++namespace Iv {
++struct RichPage;
++} // namespace Iv
++
++namespace Tele {
++
++class DraftsButton;
++class DraftsBar;
++
++struct ComposeDraftsDescriptor {
++	not_null<Ui::RpWidget*> parent;
++	not_null<Ui::InputField*> field;
++	std::shared_ptr<ChatHelpers::Show> show;
++	not_null<const style::IconButton*> st;
++	Fn<Data::Thread*()> thread;
++	Fn<bool()> editing;
++	Fn<FullReplyTo()> reply;
++	Fn<Data::WebPageDraft()> webpage;
++	Fn<void()> relayout;
++	Fn<void(Api::SendOptions)> send;
++	Fn<SendMenu::Details()> sendDetails;
++	Fn<void()> barChanged;
++	Fn<std::shared_ptr<const Iv::RichPage>()> rich;
++	Fn<void()> clearRich;
++};
++
++class ComposeDrafts final {
++public:
++	explicit ComposeDrafts(ComposeDraftsDescriptor &&descriptor);
++	~ComposeDrafts();
++
++	[[nodiscard]] bool shows(
++		not_null<Main::Session*> session,
++		DraftsThread thread) const;
++	[[nodiscard]] int shownWidth();
++	int moveToRight(int right, int top);
++	bool setAllowed(bool allowed);
++	void fillMenuDetails(SendMenu::Details &details);
++
++	[[nodiscard]] int barHeight();
++	void moveBar(int width, int bottom);
++	[[nodiscard]] bool savesDraft() const;
++	bool intercept();
++
++private:
++	struct Snapshot {
++		DraftsThread thread;
++		TextWithTags text;
++		FullReplyTo reply;
++		Data::WebPageDraft webpage;
++	};
++	struct Pending {
++		Snapshot snapshot;
++		crl::time when = 0;
++	};
++
++	[[nodiscard]] DraftsThread currentThread() const;
++	[[nodiscard]] uint64 editingId() const;
++	[[nodiscard]] std::shared_ptr<const Iv::RichPage> richShown() const;
++	bool refreshBar();
++	void barStateChanged();
++	void finishEditing();
++	void sendThrough(Api::SendOptions options);
++	void fieldChanged();
++	void takeSnapshot();
++	void checkPending();
++	bool refresh();
++	void refreshAndRelayout();
++	void fillMenu(not_null<Ui::PopupMenu*> menu);
++	void setupShortcut();
++	bool save(bool asNew);
++
++	const not_null<Main::Session*> _session;
++	const not_null<Ui::InputField*> _field;
++	const std::shared_ptr<ChatHelpers::Show> _show;
++	const Fn<Data::Thread*()> _thread;
++	const Fn<bool()> _editing;
++	const Fn<FullReplyTo()> _reply;
++	const Fn<Data::WebPageDraft()> _webpage;
++	const Fn<void()> _relayout;
++	const Fn<void(Api::SendOptions)> _send;
++	const Fn<SendMenu::Details()> _sendDetails;
++	const Fn<void()> _barChanged;
++	const Fn<std::shared_ptr<const Iv::RichPage>()> _rich;
++	const Fn<void()> _clearRich;
++	const base::unique_qptr<DraftsButton> _button;
++	const base::unique_qptr<DraftsBar> _bar;
++	bool _barRelayoutQueued = false;
++	bool _sendingThrough = false;
++	std::optional<Snapshot> _previous;
++	std::optional<Snapshot> _snapshot;
++	std::vector<Pending> _pending;
++	base::Timer _snapshotTimer;
++	base::Timer _pendingTimer;
++	bool _allowed = true;
++
++};
++
++[[nodiscard]] int ComposeDraftsWidth(ComposeDrafts *drafts);
++int ComposeDraftsMove(ComposeDrafts *drafts, int right, int top);
++bool ComposeDraftsAllow(ComposeDrafts *drafts, bool allowed);
++void ComposeDraftsMenu(ComposeDrafts *drafts, SendMenu::Details &details);
++[[nodiscard]] int ComposeDraftsBarHeight(ComposeDrafts *drafts);
++void ComposeDraftsMoveBar(ComposeDrafts *drafts, int width, int bottom);
++[[nodiscard]] bool ComposeDraftsSaves(const ComposeDrafts *drafts);
++bool ComposeDraftsIntercept(ComposeDrafts *drafts);
++
++void SendFilesDraftMenu(
++	not_null<SendFilesBox*> box,
++	SendMenu::Details &details);
++void AddSendFilesDraftButton(not_null<SendFilesBox*> box);
++bool SendFilesDraftIntercept(not_null<SendFilesBox*> box);
++void SetSendFilesBoxSavesDraft(not_null<SendFilesBox*> box);
++bool SaveBundleAsDraft(
++	std::shared_ptr<ChatHelpers::Show> show,
++	DraftsThread thread,
++	std::shared_ptr<Ui::PreparedBundle> bundle,
++	bool invertCaption);
++
++void StartDraftEditing(
++	not_null<Main::Session*> session,
++	DraftsThread thread,
++	uint64 id);
++void FinishDraftEditing(
++	not_null<Main::Session*> session,
++	DraftsThread thread);
++[[nodiscard]] std::optional<bool> SaveEditedRichDraft(
++	not_null<History*> history,
++	MsgId topicRootId,
++	PeerId monoforumPeerId,
++	const Iv::RichPage &page);
++
++void NoteLocalDraftReplace(
++	not_null<History*> history,
++	MsgId topicRootId,
++	PeerId monoforumPeerId,
++	const TextWithTags *replacement);
++void NoteCloudDraftReplace(
++	not_null<History*> history,
++	MsgId topicRootId,
++	PeerId monoforumPeerId);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_rich.cpp b/Telegram/SourceFiles/tele/tele_drafts_rich.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..6e257245a09c8e6e5fc0700fa4cf02c78f0fe2b6
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_rich.cpp
+@@ -0,0 +1,356 @@
++#include "tele/tele_drafts_rich.h"
++
++#include "data/data_document.h"
++#include "data/data_photo.h"
++#include "data/data_session.h"
++#include "data/stickers/data_stickers.h"
++#include "data/stickers/data_stickers_set.h"
++#include "iv/iv_rich_message_serializer.h"
++#include "iv/iv_rich_page.h"
++#include "main/main_session.h"
++#include "ui/image/image_location.h"
++
++namespace Tele {
++namespace {
++
++[[nodiscard]] int32 DcFromMediaKey(MediaKey key) {
++	return int32(uint32(key.first & 0xFFFF'FFFFULL));
++}
++
++[[nodiscard]] QString ThumbLetter(
++		const ImageLocation &location,
++		UserId self) {
++	if (!location.valid()) {
++		return QString();
++	}
++	const auto storage = std::get_if<StorageFileLocation>(
++		&location.file().data);
++	if (!storage || !storage->valid()) {
++		return QString();
++	}
++	return storage->tl(self).match([](const MTPDinputPhotoFileLocation &d) {
++		return qs(d.vthumb_size());
++	}, [](const MTPDinputDocumentFileLocation &d) {
++		return qs(d.vthumb_size());
++	}, [](const auto &) {
++		return QString();
++	});
++}
++
++[[nodiscard]] std::optional<MTPPhoto> PhotoToMTP(
++		not_null<PhotoData*> photo) {
++	const auto input = photo->mtpInput();
++	if (input.type() != mtpc_inputPhoto) {
++		return std::nullopt;
++	}
++	const auto &fields = input.c_inputPhoto();
++	const auto self = photo->session().userId();
++	auto sizes = QVector<MTPPhotoSize>();
++	if (const auto bytes = photo->inlineThumbnailBytes(); !bytes.isEmpty()) {
++		sizes.push_back(MTP_photoStrippedSize(
++			MTP_string("i"),
++			MTP_bytes(bytes)));
++	}
++	auto letters = base::flat_set<QString>();
++	for (const auto size : {
++			Data::PhotoSize::Small,
++			Data::PhotoSize::Thumbnail,
++			Data::PhotoSize::Large }) {
++		const auto &location = photo->location(size);
++		const auto letter = ThumbLetter(location, self);
++		if (letter.isEmpty() || !letters.emplace(letter).second) {
++			continue;
++		}
++		sizes.push_back(MTP_photoSize(
++			MTP_string(letter),
++			MTP_int(location.width()),
++			MTP_int(location.height()),
++			MTP_int(photo->imageByteSize(size))));
++	}
++	using Flag = MTPDphoto::Flag;
++	return MTP_photo(
++		MTP_flags(photo->hasAttachedStickers()
++			? Flag::f_has_stickers
++			: Flag()),
++		fields.vid(),
++		fields.vaccess_hash(),
++		fields.vfile_reference(),
++		MTP_int(photo->date()),
++		MTP_vector<MTPPhotoSize>(sizes),
++		MTPVector<MTPVideoSize>(),
++		MTP_int(DcFromMediaKey(photo->mediaKey())));
++}
++
++[[nodiscard]] QVector<MTPDocumentAttribute> DocumentAttributes(
++		not_null<DocumentData*> document) {
++	auto result = QVector<MTPDocumentAttribute>();
++	if (const auto name = document->filename(); !name.isEmpty()) {
++		result.push_back(MTP_documentAttributeFilename(MTP_string(name)));
++	}
++	const auto duration = document->hasDuration()
++		? document->duration()
++		: crl::time(0);
++	const auto &size = document->dimensions;
++	if (const auto sticker = document->sticker()) {
++		const auto set = sticker->set
++			? Data::InputStickerSet(sticker->set)
++			: MTP_inputStickerSetEmpty();
++		if (sticker->setType == Data::StickersType::Emoji) {
++			using Flag = MTPDdocumentAttributeCustomEmoji::Flag;
++			result.push_back(MTP_documentAttributeCustomEmoji(
++				MTP_flags(document->emojiUsesTextColor()
++					? Flag::f_text_color
++					: Flag()),
++				MTP_string(sticker->alt),
++				set));
++		} else {
++			result.push_back(MTP_documentAttributeSticker(
++				MTP_flags(0),
++				MTP_string(sticker->alt),
++				set,
++				MTPMaskCoords()));
++		}
++		if (size.width() > 0 && size.height() > 0) {
++			result.push_back(MTP_documentAttributeImageSize(
++				MTP_int(size.width()),
++				MTP_int(size.height())));
++		}
++	} else if (document->isVideoFile()
++		|| document->isVideoMessage()
++		|| document->isGifv()) {
++		using Flag = MTPDdocumentAttributeVideo::Flag;
++		result.push_back(MTP_documentAttributeVideo(
++			MTP_flags((document->isVideoMessage()
++				? Flag::f_round_message
++				: Flag())
++				| (document->supportsStreaming()
++					? Flag::f_supports_streaming
++					: Flag())),
++			MTP_double(duration / 1000.),
++			MTP_int(size.width()),
++			MTP_int(size.height()),
++			MTPint(),
++			MTPdouble(),
++			MTPstring()));
++		if (document->isGifv()) {
++			result.push_back(MTP_documentAttributeAnimated());
++		}
++	} else if (document->isAnimation()) {
++		result.push_back(MTP_documentAttributeAnimated());
++		if (size.width() > 0 && size.height() > 0) {
++			result.push_back(MTP_documentAttributeImageSize(
++				MTP_int(size.width()),
++				MTP_int(size.height())));
++		}
++	} else if (const auto song = document->song()) {
++		using Flag = MTPDdocumentAttributeAudio::Flag;
++		result.push_back(MTP_documentAttributeAudio(
++			MTP_flags(Flag::f_title | Flag::f_performer),
++			MTP_int(duration / 1000),
++			MTP_string(song->title),
++			MTP_string(song->performer),
++			MTPbytes()));
++	} else if (document->isVoiceMessage()) {
++		using Flag = MTPDdocumentAttributeAudio::Flag;
++		result.push_back(MTP_documentAttributeAudio(
++			MTP_flags(Flag::f_voice),
++			MTP_int(duration / 1000),
++			MTPstring(),
++			MTPstring(),
++			MTPbytes()));
++	} else if (size.width() > 0 && size.height() > 0) {
++		result.push_back(MTP_documentAttributeImageSize(
++			MTP_int(size.width()),
++			MTP_int(size.height())));
++	}
++	return result;
++}
++
++[[nodiscard]] std::optional<MTPDocument> DocumentToMTP(
++		not_null<DocumentData*> document) {
++	const auto input = document->mtpInput();
++	if (input.type() != mtpc_inputDocument) {
++		return std::nullopt;
++	}
++	const auto &fields = input.c_inputDocument();
++	auto thumbs = QVector<MTPPhotoSize>();
++	if (const auto bytes = document->inlineThumbnailBytes()
++		; !bytes.isEmpty()) {
++		thumbs.push_back(document->inlineThumbnailIsPath()
++			? MTP_photoPathSize(MTP_string("j"), MTP_bytes(bytes))
++			: MTP_photoStrippedSize(MTP_string("i"), MTP_bytes(bytes)));
++	}
++	const auto &thumbnail = document->thumbnailLocation();
++	const auto letter = ThumbLetter(
++		thumbnail,
++		document->session().userId());
++	if (!letter.isEmpty()) {
++		thumbs.push_back(MTP_photoSize(
++			MTP_string(letter),
++			MTP_int(thumbnail.width()),
++			MTP_int(thumbnail.height()),
++			MTP_int(document->thumbnailByteSize())));
++	}
++	using Flag = MTPDdocument::Flag;
++	return MTP_document(
++		MTP_flags(thumbs.isEmpty() ? Flag() : Flag::f_thumbs),
++		fields.vid(),
++		fields.vaccess_hash(),
++		fields.vfile_reference(),
++		MTP_int(document->date),
++		MTP_string(document->mimeString()),
++		MTP_long(document->size),
++		MTP_vector<MTPPhotoSize>(thumbs),
++		MTPVector<MTPVideoSize>(),
++		MTP_int(DcFromMediaKey(document->mediaKey())),
++		MTP_vector<MTPDocumentAttribute>(DocumentAttributes(document)));
++}
++
++[[nodiscard]] QVector<MTPPageBlock> ConvertBlocks(
++	const QVector<MTPPageBlock> &blocks);
++
++[[nodiscard]] MTPPageBlock ConvertBlock(const MTPPageBlock &block) {
++	return block.match([&](const MTPDinputPageBlockMap &data) -> MTPPageBlock {
++		return data.vgeo().match([&](const MTPDinputGeoPoint &geo) -> MTPPageBlock {
++			return MTP_pageBlockMap(
++				MTP_geoPoint(
++					MTP_flags(0),
++					geo.vlong(),
++					geo.vlat(),
++					MTP_long(0),
++					MTPint()),
++				data.vzoom(),
++				data.vw(),
++				data.vh(),
++				data.vcaption());
++		}, [&](const auto &) -> MTPPageBlock {
++			return block;
++		});
++	}, [&](const MTPDpageBlockDetails &data) -> MTPPageBlock {
++		return MTP_pageBlockDetails(
++			data.vflags(),
++			MTP_vector<MTPPageBlock>(ConvertBlocks(data.vblocks().v)),
++			data.vtitle());
++	}, [&](const MTPDpageBlockBlockquoteBlocks &data) -> MTPPageBlock {
++		return MTP_pageBlockBlockquoteBlocks(
++			MTP_vector<MTPPageBlock>(ConvertBlocks(data.vblocks().v)),
++			data.vcaption());
++	}, [&](const MTPDpageBlockList &data) -> MTPPageBlock {
++		auto items = QVector<MTPPageListItem>();
++		for (const auto &item : data.vitems().v) {
++			items.push_back(item.match([&](
++					const MTPDpageListItemBlocks &data) -> MTPPageListItem {
++				return MTP_pageListItemBlocks(
++					data.vflags(),
++					MTP_vector<MTPPageBlock>(
++						ConvertBlocks(data.vblocks().v)));
++			}, [&](const auto &) -> MTPPageListItem {
++				return item;
++			}));
++		}
++		return MTP_pageBlockList(MTP_vector<MTPPageListItem>(items));
++	}, [&](const MTPDpageBlockOrderedList &data) -> MTPPageBlock {
++		auto items = QVector<MTPPageListOrderedItem>();
++		for (const auto &item : data.vitems().v) {
++			items.push_back(item.match([&](
++					const MTPDpageListOrderedItemBlocks &data) -> MTPPageListOrderedItem {
++				return MTP_pageListOrderedItemBlocks(
++					data.vflags(),
++					data.vnum() ? *data.vnum() : MTPstring(),
++					MTP_vector<MTPPageBlock>(
++						ConvertBlocks(data.vblocks().v)),
++					data.vvalue() ? *data.vvalue() : MTPint(),
++					data.vtype() ? *data.vtype() : MTPstring());
++			}, [&](const auto &) -> MTPPageListOrderedItem {
++				return item;
++			}));
++		}
++		return MTP_pageBlockOrderedList(
++			data.vflags(),
++			MTP_vector<MTPPageListOrderedItem>(items),
++			data.vstart() ? *data.vstart() : MTPint(),
++			data.vtype() ? *data.vtype() : MTPstring());
++	}, [&](const auto &) -> MTPPageBlock {
++		return block;
++	});
++}
++
++QVector<MTPPageBlock> ConvertBlocks(const QVector<MTPPageBlock> &blocks) {
++	auto result = QVector<MTPPageBlock>();
++	result.reserve(blocks.size());
++	for (const auto &block : blocks) {
++		result.push_back(ConvertBlock(block));
++	}
++	return result;
++}
++
++} // namespace
++
++QByteArray SerializeRichDraft(
++		not_null<Main::Session*> session,
++		const Iv::RichPage &page) {
++	const auto serialized = Iv::SerializeInputRichMessage(
++		session,
++		page,
++		Iv::SerializeInputRichMessageMode::Draft);
++	if (serialized.status != Iv::SerializeInputRichMessageStatus::Success
++		|| !serialized.value
++		|| serialized.value->type() != mtpc_inputRichMessage) {
++		return QByteArray();
++	}
++	const auto &input = serialized.value->c_inputRichMessage();
++	auto photos = QVector<MTPPhoto>();
++	if (const auto list = input.vphotos()) {
++		for (const auto &photo : list->v) {
++			if (photo.type() != mtpc_inputPhoto) {
++				continue;
++			}
++			const auto id = photo.c_inputPhoto().vid().v;
++			if (const auto mtp = PhotoToMTP(session->data().photo(id))) {
++				photos.push_back(*mtp);
++			}
++		}
++	}
++	auto documents = QVector<MTPDocument>();
++	if (const auto list = input.vdocuments()) {
++		for (const auto &document : list->v) {
++			if (document.type() != mtpc_inputDocument) {
++				continue;
++			}
++			const auto id = document.c_inputDocument().vid().v;
++			const auto data = session->data().document(id);
++			if (const auto mtp = DocumentToMTP(data)) {
++				documents.push_back(*mtp);
++			}
++		}
++	}
++	using Flag = MTPDrichMessage::Flag;
++	const auto message = MTP_richMessage(
++		MTP_flags(input.is_rtl() ? Flag::f_rtl : Flag()),
++		MTP_vector<MTPPageBlock>(ConvertBlocks(input.vblocks().v)),
++		MTP_vector<MTPPhoto>(photos),
++		MTP_vector<MTPDocument>(documents));
++	auto buffer = mtpBuffer();
++	message.write(buffer);
++	return QByteArray(
++		reinterpret_cast<const char*>(buffer.constData()),
++		buffer.size() * sizeof(mtpPrime));
++}
++
++std::shared_ptr<const Iv::RichPage> ParseRichDraft(
++		not_null<Main::Session*> session,
++		const QByteArray &serialized) {
++	if (serialized.isEmpty() || (serialized.size() % sizeof(mtpPrime))) {
++		return nullptr;
++	}
++	auto from = reinterpret_cast<const mtpPrime*>(serialized.constData());
++	const auto end = from + (serialized.size() / sizeof(mtpPrime));
++	auto message = MTPrichMessage();
++	if (!message.read(from, end, mtpc_richMessage) || from != end) {
++		return nullptr;
++	}
++	auto result = Iv::ParseRichPage(session, MTPRichMessage(message));
++	return (result && !result->blocks.empty()) ? result : nullptr;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_rich.h b/Telegram/SourceFiles/tele/tele_drafts_rich.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..dbeeb536d14ce6b0fc2b375cff5cf8d8d0a1eecb
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_rich.h
+@@ -0,0 +1,20 @@
++#pragma once
++
++namespace Iv {
++struct RichPage;
++} // namespace Iv
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++[[nodiscard]] QByteArray SerializeRichDraft(
++	not_null<Main::Session*> session,
++	const Iv::RichPage &page);
++[[nodiscard]] std::shared_ptr<const Iv::RichPage> ParseRichDraft(
++	not_null<Main::Session*> session,
++	const QByteArray &serialized);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_section.cpp b/Telegram/SourceFiles/tele/tele_drafts_section.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..3cfcdcb2dc08030af5b43b738d53732f766f263b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_section.cpp
+@@ -0,0 +1,1751 @@
++#include "tele/tele_drafts_section.h"
++
++#include "api/api_common.h"
++#include "apiwrap.h"
++#include "base/call_delayed.h"
++#include "base/random.h"
++#include "base/unixtime.h"
++#include "boxes/send_files_box.h"
++#include "chat_helpers/compose/compose_show.h"
++#include "core/file_location.h"
++#include "core/file_utilities.h"
++#include "core/mime_type.h"
++#include "data/data_changes.h"
++#include "data/data_document.h"
++#include "data/data_peer.h"
++#include "data/data_peer_values.h"
++#include "data/data_photo.h"
++#include "data/data_premium_limits.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "data/data_web_page.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "iv/iv_rich_page.h"
++#include "history/history_item_helpers.h"
++#include "history/history_view_swipe_back_session.h"
++#include "history/view/controls/history_view_compose_controls.h"
++#include "history/view/controls/history_view_webpage_processor.h"
++#include "history/view/history_view_context_menu.h"
++#include "history/view/history_view_element.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "menu/menu_send_details.h"
++#include "storage/storage_media_prepare.h"
++#include "tele/tele_drafts_box.h"
++#include "tele/tele_drafts_compose.h"
++#include "tele/tele_lowercase.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/chat/chat_style.h"
++#include "ui/image/image_location_factory.h"
++#include "ui/image/image_prepare.h"
++#include "ui/painter.h"
++#include "ui/text/text_utilities.h"
++#include "ui/ui_utility.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/elastic_scroll.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/widgets/shadow.h"
++#include "window/window_adaptive.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_chat.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_dialogs.h"
++#include "styles/style_info.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_window.h"
++
++#include <QtCore/QMimeData>
++#include <QtCore/QMimeDatabase>
++#include <QtGui/QClipboard>
++#include <QtGui/QGuiApplication>
++
++namespace Tele {
++namespace {
++
++using namespace HistoryView;
++
++constexpr auto kMaxAlbum = 10;
++
++enum class FileKind {
++	Photo,
++	Video,
++	File,
++};
++
++[[nodiscard]] base::flat_set<FullMsgId> &FadedItems() {
++	static auto result = base::flat_set<FullMsgId>();
++	return result;
++}
++
++[[nodiscard]] QString MimeFor(const QString &name) {
++	return QMimeDatabase().mimeTypeForFile(
++		name,
++		QMimeDatabase::MatchExtension).name();
++}
++
++[[nodiscard]] FileKind ComputeKind(const SavedDraftFile &file, bool compress) {
++	if (!compress) {
++		return FileKind::File;
++	}
++	const auto mime = MimeFor(file.name);
++	if (mime == u"image/jpeg"_q
++		|| mime == u"image/png"_q
++		|| mime == u"image/webp"_q
++		|| mime == u"image/bmp"_q) {
++		return FileKind::Photo;
++	} else if (mime.startsWith(u"video/"_q)) {
++		return FileKind::Video;
++	}
++	return FileKind::File;
++}
++
++[[nodiscard]] uint64 MediaId(const QString &stored, int stage) {
++	const auto value = stored.toULongLong(nullptr, 16);
++	return ((value & ~uint64(3)) | uint64(stage)) ^ 0x5445'4C45'4452'4654ULL;
++}
++
++[[nodiscard]] TextWithEntities ToEntities(const TextWithTags &text) {
++	return {
++		text.text,
++		TextUtilities::ConvertTextTagsToEntities(text.tags),
++	};
++}
++
++class TopBar final : public Ui::RpWidget {
++public:
++	TopBar(
++		QWidget *parent,
++		not_null<Main::Session*> session,
++		DraftsThread thread,
++		Fn<void()> back);
++
++	void setSelected(int count, bool sendable);
++	[[nodiscard]] rpl::producer<> sendRequests() const;
++	[[nodiscard]] rpl::producer<> deleteRequests() const;
++	[[nodiscard]] rpl::producer<> clearRequests() const;
++
++private:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++	void updateControlsGeometry(int newWidth);
++
++	const not_null<Main::Session*> _session;
++	const DraftsThread _thread;
++	object_ptr<Ui::IconButton> _back;
++	object_ptr<Ui::RoundButton> _send;
++	object_ptr<Ui::RoundButton> _delete;
++	object_ptr<Ui::RoundButton> _clear;
++	int _selected = 0;
++
++};
++
++TopBar::TopBar(
++	QWidget *parent,
++	not_null<Main::Session*> session,
++	DraftsThread thread,
++	Fn<void()> back)
++: RpWidget(parent)
++, _session(session)
++, _thread(thread)
++, _back(this, st::historyTopBarBack)
++, _send(this, rpl::single(Lower(u"Send"_q)), st::defaultActiveButton)
++, _delete(this, rpl::single(Lower(u"Delete"_q)), st::defaultActiveButton)
++, _clear(this, tr::lng_selected_clear(), st::topBarClearButton) {
++	_back->setClickedCallback(std::move(back));
++	_back->setAccessibleName(tr::lng_go_back(tr::now));
++	_back->moveToLeft(0, 0);
++	_send->hide();
++	_delete->hide();
++	_clear->hide();
++	session->changes().peerUpdates(
++		Data::PeerUpdate::Flag::Name
++	) | rpl::filter([=](const Data::PeerUpdate &update) {
++		return (update.peer->id == _thread.peer);
++	}) | rpl::on_next([=] {
++		update();
++	}, lifetime());
++}
++
++void TopBar::setSelected(int count, bool sendable) {
++	_selected = count;
++	_back->setVisible(!count);
++	_send->setVisible(count && sendable);
++	_delete->setVisible(count > 0);
++	_clear->setVisible(count > 0);
++	if (count) {
++		_send->setNumbersText(count);
++		_delete->setNumbersText(count);
++	}
++	updateControlsGeometry(width());
++	update();
++}
++
++rpl::producer<> TopBar::sendRequests() const {
++	return _send->clicks() | rpl::to_empty;
++}
++
++rpl::producer<> TopBar::deleteRequests() const {
++	return _delete->clicks() | rpl::to_empty;
++}
++
++rpl::producer<> TopBar::clearRequests() const {
++	return _clear->clicks() | rpl::to_empty;
++}
++
++int TopBar::resizeGetHeight(int newWidth) {
++	updateControlsGeometry(newWidth);
++	return st::topBarHeight;
++}
++
++void TopBar::updateControlsGeometry(int newWidth) {
++	const auto top = (st::topBarHeight - _delete->height()) / 2;
++	auto left = st::topBarActionSkip;
++	if (!_send->isHidden()) {
++		_send->moveToLeft(left, top, newWidth);
++		left += _send->width() + st::topBarActionSkip;
++	}
++	_delete->moveToLeft(left, top, newWidth);
++	_clear->moveToRight(st::topBarActionSkip, top, newWidth);
++}
++
++void TopBar::paintEvent(QPaintEvent *e) {
++	auto p = Painter(this);
++	p.fillRect(e->rect(), st::topBarBg);
++	if (_selected) {
++		return;
++	}
++	const auto left = _back->width();
++	const auto available = std::max(
++		width() - left - st::topBarArrowPadding.right(),
++		0);
++	const auto title = Lower(u"Drafts"_q);
++	const auto subtitle = DraftsThreadName(_session, _thread);
++	p.setPen(st::dialogsNameFg);
++	p.setFont(st::semiboldFont);
++	p.drawTextLeft(
++		left,
++		st::topBarArrowPadding.top(),
++		width(),
++		st::semiboldFont->elided(title, available));
++	p.setPen(st::historyStatusFg);
++	p.setFont(st::dialogsTextFont);
++	p.drawTextLeft(
++		left,
++		(st::topBarHeight
++			- st::topBarArrowPadding.bottom()
++			- st::dialogsTextFont->height),
++		width(),
++		st::dialogsTextFont->elided(subtitle, available));
++}
++
++class DraftsWidget final
++	: public Window::SectionWidget
++	, public HistoryView::WindowListDelegate {
++public:
++	DraftsWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		not_null<History*> history,
++		DraftsThread thread);
++	~DraftsWidget();
++
++	[[nodiscard]] DraftsThread thread() const {
++		return _thread;
++	}
++	[[nodiscard]] base::unique_qptr<Ui::PopupMenu> fillMenu(
++		const ContextMenuRequest &request);
++
++	Dialogs::RowDescriptor activeChat() const override;
++	bool hasTopBarShadow() const override {
++		return true;
++	}
++	QPixmap grabForShowAnimation(
++		const Window::SectionSlideParams &params) override;
++	bool showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) override;
++	std::shared_ptr<Window::SectionMemento> createMemento() override;
++	void setInternalState(
++		const QRect &geometry,
++		not_null<DraftsMemento*> memento);
++	bool preventsClose(Fn<void()> &&continueCallback) const override;
++	bool pushTabbedSelectorToThirdSection(
++		not_null<Data::Thread*> thread,
++		const Window::SectionShow &params) override;
++	bool returnTabbedSelector() override;
++	bool confirmSendingFiles(const QStringList &files) override;
++	bool confirmSendingFiles(not_null<const QMimeData*> data) override;
++
++	bool floatPlayerHandleWheelEvent(QEvent *e) override;
++	QRect floatPlayerAvailableRect() override;
++
++	Context listContext() override;
++	bool listScrollTo(int top, bool syntetic = true) override;
++	void listCancelRequest() override;
++	void listDeleteRequest() override;
++	void listTryProcessKeyInput(not_null<QKeyEvent*> e) override;
++	rpl::producer<Data::MessagesSlice> listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) override;
++	bool listAllowsMultiSelect() override;
++	bool listIsItemGoodForSelection(not_null<HistoryItem*> item) override;
++	bool listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) override;
++	void listSelectionChanged(SelectedItems &&items) override;
++	void listMarkReadTill(not_null<HistoryItem*> item) override;
++	void listMarkContentsRead(
++		const base::flat_set<not_null<HistoryItem*>> &items) override;
++	MessagesBarData listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) override;
++	void listContentRefreshed() override;
++	void listUpdateDateLink(
++		ClickHandlerPtr &link,
++		not_null<Element*> view) override;
++	bool listElementHideReply(not_null<const Element*> view) override;
++	bool listElementShownUnread(not_null<const Element*> view) override;
++	bool listIsGoodForAroundPosition(
++		not_null<const Element*> view) override;
++	void listSendBotCommand(
++		const QString &command,
++		const FullMsgId &context) override;
++	void listSearch(
++		const QString &query,
++		const FullMsgId &context) override;
++	void listHandleViaClick(not_null<UserData*> bot) override;
++	not_null<Ui::ChatTheme*> listChatTheme() override;
++	CopyRestrictionType listCopyRestrictionType(HistoryItem *item) override;
++	CopyRestrictionType listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) override;
++	CopyRestrictionType listSelectRestrictionType() override;
++	auto listAllowedReactionsValue()
++		-> rpl::producer<Data::AllowedReactions> override;
++	void listShowPremiumToast(not_null<DocumentData*> document) override;
++	void listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) override;
++	void listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) override;
++	void listPaintEmpty(
++		Painter &p,
++		const Ui::ChatPaintContext &context) override;
++	QString listElementAuthorRank(not_null<const Element*> view) override;
++	bool listElementHideTopicButton(not_null<const Element*> view) override;
++	History *listTranslateHistory() override;
++	void listAddTranslatedItems(
++		not_null<TranslateTracker*> tracker) override;
++	bool listAllowsDragForward() override;
++	Ui::ElasticScroll *listScrollArea() const override;
++	bool listThanosEffectEnabled() const override;
++
++private:
++	struct Group {
++		std::vector<std::pair<const SavedDraftFile*, FileKind>> files;
++		bool album = false;
++	};
++
++	void resizeEvent(QResizeEvent *e) override;
++	void paintEvent(QPaintEvent *e) override;
++	void showAnimatedHook(
++		const Window::SectionSlideParams &params) override;
++	void showFinishedHook() override;
++	void doSetInnerFocus() override;
++	void checkActivation() override;
++
++	void setupComposeControls();
++	void setupTopBar();
++	void onScroll();
++	void updateInnerVisibleArea();
++	void updateControlsGeometry();
++	void updateAdaptiveLayout();
++	void recountChatWidth();
++
++	void saveFromField();
++	void chooseAttach();
++	bool confirmSendingFiles(Ui::PreparedList &&list);
++
++	void build();
++	void scheduleRebuild();
++	void rebuild();
++	[[nodiscard]] Data::MessagesSlice buildSlice() const;
++	void destroyItems(std::vector<FullMsgId> ids);
++	void addService(const QString &text, TimeId date, uint64 draftId);
++	void addDraft(const SavedDraft &draft);
++	void addText(
++		const SavedDraft &draft,
++		const TextWithEntities &text,
++		bool webpage);
++	void addMedia(
++		const SavedDraft &draft,
++		const std::vector<const SavedDraftFile*> &files,
++		TextWithEntities caption);
++	void push(not_null<HistoryItem*> item, const SavedDraft &draft);
++	[[nodiscard]] HistoryItemCommonFields fields(
++		const SavedDraft &draft,
++		uint64 groupedId);
++	[[nodiscard]] WebPageData *resolvePage(const Data::WebPageDraft &page);
++	[[nodiscard]] PhotoData *photoFor(const SavedDraftFile &file);
++	[[nodiscard]] not_null<DocumentData*> documentFor(
++		const SavedDraftFile &file,
++		FileKind kind);
++
++	[[nodiscard]] uint64 draftFor(not_null<const HistoryItem*> item) const;
++	[[nodiscard]] std::vector<uint64> selectedDrafts() const;
++	void normalizeSelection();
++	void applySelection();
++	void updateSelectionBar();
++	void clearDraftSelection();
++	void sendSelected();
++	void deleteSelected();
++
++	const not_null<History*> _history;
++	const DraftsThread _thread;
++	const std::shared_ptr<ChatHelpers::Show> _show;
++	std::shared_ptr<Ui::ChatTheme> _theme;
++	object_ptr<TopBar> _topBar;
++	object_ptr<Ui::PlainShadow> _topBarShadow;
++	std::unique_ptr<Ui::ElasticScroll> _scroll;
++	QPointer<ListWidget> _inner;
++	std::unique_ptr<ComposeControls> _composeControls;
++	std::shared_ptr<Controls::WebpageResolver> _resolver;
++	bool _skipScrollEvent = false;
++	bool _choosingAttach = false;
++
++	std::vector<FullMsgId> _ids;
++	base::flat_map<FullMsgId, uint64> _drafts;
++	base::flat_set<FullMsgId> _services;
++	std::vector<SavedDraftFile> _viewNeeded;
++	QString _resolving;
++	rpl::event_stream<> _refreshes;
++	bool _rebuildScheduled = false;
++	bool _scrollToBottom = false;
++	base::flat_map<uint64, std::vector<FullMsgId>> _draftItems;
++	base::flat_set<uint64> _selectedDrafts;
++	bool _selecting = false;
++	bool _normalizeQueued = false;
++
++};
++
++DraftsWidget::DraftsWidget(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller,
++	not_null<History*> history,
++	DraftsThread thread)
++: Window::SectionWidget(parent, controller, history->peer)
++, HistoryView::WindowListDelegate(controller)
++, _history(history)
++, _thread(thread)
++, _show(controller->uiShow())
++, _topBar(
++	this,
++	&history->session(),
++	thread,
++	[=] { controller->showBackFromStack(); })
++, _topBarShadow(this)
++, _scroll(std::make_unique<Ui::ElasticScroll>(
++	this,
++	controller->chatStyle()->value(lifetime(), st::historyScroll)))
++, _composeControls(std::make_unique<ComposeControls>(
++	this,
++	ComposeControlsDescriptor{
++		.show = controller->uiShow(),
++		.unavailableEmojiPasted = [=](not_null<DocumentData*> emoji) {
++			listShowPremiumToast(emoji);
++		},
++		.mode = ComposeControls::Mode::TeleDrafts,
++		.sendMenuDetails = [] { return SendMenu::Details(); },
++		.regularWindow = controller,
++		.customPlaceholder = rpl::single(
++			Lower(u"Write a draft, Enter saves it"_q)),
++		.features = {
++			.sendAs = false,
++			.ttlInfo = false,
++			.botCommandSend = false,
++			.silentBroadcastToggle = false,
++			.attachBotsMenu = false,
++			.inlineBots = false,
++			.megagroupSet = false,
++			.stickersSettings = false,
++			.openStickerSets = false,
++			.autocompleteCommands = false,
++			.suggestStickersByEmoji = false,
++			.commonTabbedPanel = false,
++			.recordMediaMessage = false,
++			.emojiOnlyPanel = true,
++			.richEditor = false,
++		},
++	}))
++, _resolver(std::make_shared<Controls::WebpageResolver>(
++	&history->session())) {
++	controller->chatStyle()->paletteChanged(
++	) | rpl::on_next([=] {
++		_scroll->updateBars();
++	}, _scroll->lifetime());
++
++	Window::ChatThemeValueFromPeer(
++		controller,
++		history->peer
++	) | rpl::on_next([=](std::shared_ptr<Ui::ChatTheme> &&theme) {
++		_theme = std::move(theme);
++		controller->setChatStyleTheme(_theme);
++	}, lifetime());
++
++	setupTopBar();
++
++	_scroll->setHandleTouch(false);
++	_inner = _scroll->setOwnedWidget(object_ptr<ListWidget>(
++		this,
++		&controller->session(),
++		static_cast<ListDelegate*>(this)));
++	_inner->lower();
++	_scroll->move(0, _topBar->height());
++	_scroll->show();
++	_scroll->setOverscrollBg(QColor(0, 0, 0, 0));
++	_scroll->setOverscrollEdges([=] {
++		return _inner->loadedAtTopKnown() && _inner->loadedAtTop();
++	}, [=] {
++		return _inner->loadedAtBottomKnown() && _inner->loadedAtBottom();
++	});
++	_scroll->scrolls(
++	) | rpl::on_next([=] {
++		onScroll();
++	}, lifetime());
++
++	setupComposeControls();
++
++	Drafts(&controller->session()).changes(
++	) | rpl::on_next([=] {
++		scheduleRebuild();
++	}, lifetime());
++	_resolver->resolved(
++	) | rpl::on_next([=] {
++		scheduleRebuild();
++	}, lifetime());
++
++	build();
++
++	Window::SetupSwipeBackSection(this, _scroll.get(), _inner);
++}
++
++DraftsWidget::~DraftsWidget() {
++	destroyItems(base::take(_ids));
++}
++
++void DraftsWidget::setupTopBar() {
++	_topBar->move(0, 0);
++	_topBar->resizeToWidth(width());
++	_topBar->show();
++	_topBar->sendRequests(
++	) | rpl::on_next([=] {
++		sendSelected();
++	}, _topBar->lifetime());
++	_topBar->deleteRequests(
++	) | rpl::on_next([=] {
++		deleteSelected();
++	}, _topBar->lifetime());
++	_topBar->clearRequests(
++	) | rpl::on_next([=] {
++		_inner->cancelSelection();
++	}, _topBar->lifetime());
++
++	_topBarShadow->raise();
++	controller()->adaptive().value(
++	) | rpl::on_next([=] {
++		updateAdaptiveLayout();
++	}, lifetime());
++}
++
++void DraftsWidget::setupComposeControls() {
++	_composeControls->setCurrentDialogsEntryState({
++		.key = _history,
++		.section = Dialogs::EntryState::Section::Profile,
++	});
++	_composeControls->setHistory({
++		.history = _history.get(),
++		.topicRootId = _thread.topicRootId,
++		.monoforumPeerId = _thread.monoforumPeerId,
++		.sendActionFactory = [=] {
++			return Api::SendAction(_history);
++		},
++	});
++
++	_composeControls->height(
++	) | rpl::on_next([=] {
++		const auto wasMax = (_scroll->scrollTop() >= _scroll->scrollTopMax());
++		updateControlsGeometry();
++		if (wasMax) {
++			listScrollTo(_scroll->scrollTopMax());
++		}
++	}, lifetime());
++
++	_composeControls->cancelRequests(
++	) | rpl::on_next([=] {
++		listCancelRequest();
++	}, lifetime());
++
++	_composeControls->sendRequests(
++	) | rpl::on_next([=] {
++		saveFromField();
++	}, lifetime());
++
++	_composeControls->attachRequests(
++	) | rpl::filter([=] {
++		return !_choosingAttach;
++	}) | rpl::on_next([=] {
++		_choosingAttach = true;
++		base::call_delayed(
++			st::historyAttach.ripple.hideDuration,
++			this,
++			[=] { _choosingAttach = false; chooseAttach(); });
++	}, lifetime());
++
++	rpl::merge(
++		_composeControls->scrollKeyEvents(),
++		_inner->scrollKeyEvents()
++	) | rpl::on_next([=](not_null<QKeyEvent*> e) {
++		_scroll->keyPressEvent(e);
++	}, lifetime());
++
++	_composeControls->setPasteToastParent(_scroll.get());
++	_composeControls->setMimeDataHook([=](
++			not_null<const QMimeData*> data,
++			Ui::InputField::MimeAction action) {
++		if (action == Ui::InputField::MimeAction::Check) {
++			return Core::CanSendFiles(data);
++		} else if (action == Ui::InputField::MimeAction::Insert) {
++			return confirmSendingFiles(data);
++		}
++		Unexpected("action in MimeData hook.");
++	});
++
++	_composeControls->viewportEvents(
++	) | rpl::on_next([=](not_null<QEvent*> e) {
++		_scroll->viewportEvent(e);
++	}, lifetime());
++}
++
++void DraftsWidget::saveFromField() {
++	auto text = _composeControls->getTextWithAppliedMarkdown();
++	if (Data::DraftStringIsEmpty(text.text)) {
++		return;
++	}
++	const auto reply = NormalizeDraftReply(
++		_composeControls->replyingToMessage(),
++		_thread);
++	const auto webpage = _composeControls->webPageDraft();
++	_scrollToBottom = true;
++	Drafts(&session()).add({
++		.thread = _thread,
++		.text = std::move(text),
++		.reply = reply,
++		.webpage = webpage,
++	});
++	_composeControls->clear();
++	_composeControls->hidePanelsAnimated();
++	_composeControls->focus();
++}
++
++void DraftsWidget::chooseAttach() {
++	const auto filter = FileDialog::AllOrImagesFilter();
++	FileDialog::GetOpenPaths(
++		this,
++		tr::lng_choose_files(tr::now),
++		filter,
++		crl::guard(this, [=](FileDialog::OpenResult &&result) {
++			if (result.paths.isEmpty() && result.remoteContent.isEmpty()) {
++				return;
++			} else if (!result.remoteContent.isEmpty()) {
++				auto read = Images::Read({ .content = result.remoteContent });
++				if (!read.image.isNull() && !read.animated) {
++					confirmSendingFiles(Storage::PrepareMediaFromImage(
++						std::move(read.image),
++						std::move(result.remoteContent),
++						st::sendMediaPreviewSize));
++				}
++				return;
++			}
++			confirmSendingFiles(Storage::PrepareMediaList(
++				result.paths,
++				st::sendMediaPreviewSize,
++				session().premium()));
++		}),
++		nullptr);
++}
++
++bool DraftsWidget::confirmSendingFiles(const QStringList &files) {
++	return confirmSendingFiles(Storage::PrepareMediaList(
++		files,
++		st::sendMediaPreviewSize,
++		session().premium()));
++}
++
++bool DraftsWidget::confirmSendingFiles(not_null<const QMimeData*> data) {
++	if (const auto urls = Core::ReadMimeUrls(data); !urls.empty()) {
++		auto list = Storage::PrepareMediaList(
++			urls,
++			st::sendMediaPreviewSize,
++			session().premium());
++		if (list.error == Ui::PreparedList::Error::None) {
++			return confirmSendingFiles(std::move(list));
++		}
++	}
++	if (auto read = Core::ReadMimeImage(data)) {
++		return confirmSendingFiles(Storage::PrepareMediaFromImage(
++			std::move(read.image),
++			std::move(read.content),
++			st::sendMediaPreviewSize));
++	}
++	return false;
++}
++
++bool DraftsWidget::confirmSendingFiles(Ui::PreparedList &&list) {
++	if (list.error != Ui::PreparedList::Error::None || list.files.empty()) {
++		controller()->showToast(Lower(u"Couldn't read these files."_q));
++		return false;
++	}
++	auto box = Box<SendFilesBox>(
++		controller(),
++		std::move(list),
++		_composeControls->getTextWithAppliedMarkdown(),
++		_history->peer,
++		Api::SendType::Normal,
++		SendMenu::Details());
++	SetSendFilesBoxSavesDraft(box.data());
++	const auto show = _show;
++	const auto thread = _thread;
++	box->setConfirmedCallback(crl::guard(this, [=](
++			std::shared_ptr<Ui::PreparedBundle> bundle,
++			Api::SendOptions options,
++			FullReplyTo) {
++		if (SaveBundleAsDraft(show, thread, bundle, options.invertCaption)) {
++			_scrollToBottom = true;
++			_composeControls->clear();
++		}
++	}));
++	box->setCancelledCallback(_composeControls->restoreTextCallback(
++		QString()));
++	box->takeTextWithTagsRequests(
++	) | rpl::on_next([=](TextWithTags &&text) {
++		_composeControls->setText(std::move(text));
++	}, box->lifetime());
++	_composeControls->setText({});
++	controller()->show(std::move(box));
++	return true;
++}
++
++HistoryItemCommonFields DraftsWidget::fields(
++		const SavedDraft &draft,
++		uint64 groupedId) {
++	auto flags = MessageFlag::FakeHistoryItem | MessageFlag::Outgoing;
++	auto reply = FullReplyTo();
++	if (draft.reply.replying()) {
++		flags |= MessageFlag::HasReplyInfo;
++		reply = draft.reply;
++	}
++	return {
++		.id = _history->nextNonHistoryEntryId(),
++		.flags = flags,
++		.from = session().userPeerId(),
++		.replyTo = reply,
++		.date = draft.edited,
++		.groupedId = groupedId,
++	};
++}
++
++void DraftsWidget::push(
++		not_null<HistoryItem*> item,
++		const SavedDraft &draft) {
++	const auto id = item->fullId();
++	_ids.push_back(id);
++	_drafts.emplace(id, draft.id);
++	_draftItems[draft.id].push_back(id);
++	if (draft.discarded) {
++		FadedItems().emplace(id);
++	}
++}
++
++void DraftsWidget::addService(
++		const QString &text,
++		TimeId date,
++		uint64 draftId) {
++	const auto item = _history->makeMessage({
++		.id = _history->nextNonHistoryEntryId(),
++		.flags = MessageFlag::FakeHistoryItem,
++		.date = date,
++	}, PreparedServiceText{ { .text = text } });
++	const auto id = item->fullId();
++	_ids.push_back(id);
++	_services.emplace(id);
++	if (draftId) {
++		_drafts.emplace(id, draftId);
++	}
++}
++
++WebPageData *DraftsWidget::resolvePage(const Data::WebPageDraft &page) {
++	if (page.removed || page.url.isEmpty()) {
++		return nullptr;
++	}
++	const auto ready = [](WebPageData *data) {
++		return data
++			&& !data->url.isEmpty()
++			&& !data->failed
++			&& !data->pendingTill;
++	};
++	if (page.id) {
++		const auto data = session().data().webpage(page.id).get();
++		if (ready(data)) {
++			return data;
++		}
++	}
++	if (const auto found = _resolver->lookup(page.url)) {
++		return ready(*found) ? *found : nullptr;
++	} else if (_resolving.isEmpty()) {
++		_resolving = page.url;
++		_resolver->request(page.url);
++	}
++	return nullptr;
++}
++
++void DraftsWidget::addText(
++		const SavedDraft &draft,
++		const TextWithEntities &text,
++		bool webpage) {
++	using PageFlag = MTPDmessageMediaWebPage::Flag;
++	using PendingFlag = MTPDwebPagePending::Flag;
++	auto media = MTPMessageMedia(MTP_messageMediaEmpty());
++	auto itemFields = fields(draft, 0);
++	if (const auto page = webpage ? resolvePage(draft.webpage) : nullptr) {
++		const auto &fields = draft.webpage;
++		media = MTP_messageMediaWebPage(
++			MTP_flags(PageFlag()
++				| (fields.manual ? PageFlag::f_manual : PageFlag())
++				| (fields.forceLargeMedia
++					? PageFlag::f_force_large_media
++					: PageFlag())
++				| (fields.forceSmallMedia
++					? PageFlag::f_force_small_media
++					: PageFlag())),
++			MTP_webPagePending(
++				MTP_flags(PendingFlag::f_url),
++				MTP_long(page->id),
++				MTP_string(page->url),
++				MTP_int(0)));
++		if (fields.invert) {
++			itemFields.flags |= MessageFlag::InvertMedia;
++		}
++	}
++	push(_history->makeMessage(std::move(itemFields), text, media), draft);
++}
++
++PhotoData *DraftsWidget::photoFor(const SavedDraftFile &file) {
++	auto image = Drafts(&session()).viewPreview(file.stored);
++	const auto full = !image.isNull();
++	if (!full) {
++		image = QImage::fromData(file.thumbnail);
++	}
++	if (image.isNull()) {
++		return nullptr;
++	}
++	auto medium = (image.width() > 320 || image.height() > 320)
++		? image.scaled(320, 320, Qt::KeepAspectRatio, Qt::SmoothTransformation)
++		: image;
++	auto thumbs = PreparedPhotoThumbs();
++	thumbs.emplace('m', PreparedPhotoThumb{ .image = medium });
++	thumbs.emplace('y', PreparedPhotoThumb{ .image = image });
++	auto sizes = QVector<MTPPhotoSize>{
++		MTP_photoSize(
++			MTP_string("m"),
++			MTP_int(medium.width()),
++			MTP_int(medium.height()),
++			MTP_int(0)),
++		MTP_photoSize(
++			MTP_string("y"),
++			MTP_int(image.width()),
++			MTP_int(image.height()),
++			MTP_int(0)),
++	};
++	return session().data().processPhoto(MTP_photo(
++		MTP_flags(0),
++		MTP_long(MediaId(file.stored, full ? 1 : 0)),
++		MTP_long(0),
++		MTP_bytes(),
++		MTP_int(base::unixtime::now()),
++		MTP_vector<MTPPhotoSize>(sizes),
++		MTPVector<MTPVideoSize>(),
++		MTP_int(0)), thumbs);
++}
++
++not_null<DocumentData*> DraftsWidget::documentFor(
++		const SavedDraftFile &file,
++		FileKind kind) {
++	const auto path = Drafts(&session()).viewPath(file.stored);
++	const auto thumb = QImage::fromData(file.thumbnail);
++	auto attributes = QVector<MTPDocumentAttribute>(
++		1,
++		MTP_documentAttributeFilename(MTP_string(file.name)));
++	if (kind == FileKind::Video && !thumb.isNull()) {
++		attributes.push_back(MTP_documentAttributeVideo(
++			MTP_flags(0),
++			MTP_double(0),
++			MTP_int(thumb.width()),
++			MTP_int(thumb.height()),
++			MTPint(),
++			MTPdouble(),
++			MTPstring()));
++	}
++	auto thumbs = QVector<MTPPhotoSize>();
++	if (!thumb.isNull()) {
++		thumbs.push_back(MTP_photoSize(
++			MTP_string("m"),
++			MTP_int(thumb.width()),
++			MTP_int(thumb.height()),
++			MTP_int(0)));
++	}
++	const auto data = MTP_document(
++		MTP_flags(0),
++		MTP_long(MediaId(file.stored, (kind == FileKind::Video) ? 2 : 3)),
++		MTP_long(0),
++		MTP_bytes(),
++		MTP_int(base::unixtime::now()),
++		MTP_string(MimeFor(file.name)),
++		MTP_long(file.size),
++		MTP_vector<MTPPhotoSize>(thumbs),
++		MTPVector<MTPVideoSize>(),
++		MTP_int(0),
++		MTP_vector<MTPDocumentAttribute>(attributes));
++	const auto result = thumb.isNull()
++		? session().data().processDocument(data)
++		: session().data().processDocument(
++			data,
++			Images::FromImageInMemory(thumb, "JPG", file.thumbnail));
++	if (!path.isEmpty()) {
++		result->setLocation(Core::FileLocation(path));
++	}
++	return result;
++}
++
++void DraftsWidget::addMedia(
++		const SavedDraft &draft,
++		const std::vector<const SavedDraftFile*> &files,
++		TextWithEntities caption) {
++	const auto way = Ui::SendFilesWay::FromSerialized(
++		draft.filesWay
++	).value_or(Ui::SendFilesWay());
++	const auto compress = way.sendImagesAsPhotos();
++	auto groups = std::vector<Group>();
++	for (const auto file : files) {
++		auto kind = ComputeKind(*file, compress);
++		if (kind == FileKind::Photo && !photoFor(*file)) {
++			kind = FileKind::File;
++		}
++		const auto visual = (kind != FileKind::File);
++		const auto join = way.groupFiles()
++			&& !groups.empty()
++			&& (groups.back().album == visual)
++			&& (groups.back().files.size() < kMaxAlbum);
++		if (!join) {
++			groups.push_back({ .album = visual });
++		}
++		groups.back().files.emplace_back(file, kind);
++	}
++	for (auto g = 0; g != int(groups.size()); ++g) {
++		const auto &group = groups[g];
++		const auto count = int(group.files.size());
++		const auto groupedId = (count > 1)
++			? base::RandomValue<uint64>()
++			: uint64();
++		const auto captioned = (g + 1 != int(groups.size()))
++			? -1
++			: group.album
++			? 0
++			: (count - 1);
++		for (auto i = 0; i != count; ++i) {
++			const auto &[file, kind] = group.files[i];
++			auto itemFields = fields(draft, groupedId);
++			auto text = TextWithEntities();
++			if (i == captioned) {
++				text = caption;
++				if (draft.invertCaption) {
++					itemFields.flags |= MessageFlag::InvertMedia;
++				}
++			}
++			if (kind != FileKind::File) {
++				itemFields.mediaSpoiler = file->spoiler;
++			}
++			if (kind == FileKind::Photo) {
++				push(_history->makeMessage(
++					std::move(itemFields),
++					not_null<PhotoData*>(photoFor(*file)),
++					text), draft);
++			} else {
++				push(_history->makeMessage(
++					std::move(itemFields),
++					documentFor(*file, kind),
++					text), draft);
++			}
++		}
++	}
++}
++
++void DraftsWidget::addDraft(const SavedDraft &draft) {
++	auto &store = Drafts(&session());
++	auto present = std::vector<const SavedDraftFile*>();
++	auto missing = 0;
++	for (const auto &file : draft.files) {
++		if (store.fileMissing(file)) {
++			++missing;
++		} else {
++			present.push_back(&file);
++			if (store.viewPath(file.stored).isEmpty()) {
++				_viewNeeded.push_back(file);
++			}
++		}
++	}
++	auto labels = QStringList();
++	if (!draft.name.isEmpty()) {
++		labels.push_back(draft.name);
++	}
++	if (!draft.richData.isEmpty() && !draft.rich) {
++		labels.push_back(Lower(u"The rich message can't be read"_q));
++	}
++	if (missing) {
++		labels.push_back((missing == 1)
++			? Lower(u"1 file is missing"_q)
++			: Lower(u"%1 files are missing"_q).arg(missing));
++	}
++	if (!labels.isEmpty()) {
++		addService(labels.join(u" \u00B7 "_q), draft.edited, draft.id);
++	}
++	if (draft.rich) {
++		const auto item = _history->makeMessage(
++			fields(draft, 0),
++			TextWithEntities(),
++			MTP_messageMediaEmpty());
++		item->applyLocalRichPage(draft.rich);
++		push(item, draft);
++		return;
++	}
++	auto text = ToEntities(draft.text);
++	if (present.empty()) {
++		if (text.text.isEmpty()) {
++			text.text = Lower(u"Empty draft"_q);
++		}
++		addText(draft, text, true);
++		return;
++	}
++	const auto limit = Data::PremiumLimits(&session()).captionLengthCurrent();
++	if (text.text.size() > limit) {
++		addText(draft, text, false);
++		text = TextWithEntities();
++	}
++	addMedia(draft, present, std::move(text));
++}
++
++void DraftsWidget::build() {
++	auto &store = Drafts(&session());
++	auto saved = std::vector<const SavedDraft*>();
++	auto discarded = std::vector<const SavedDraft*>();
++	for (const auto &draft : store.list()) {
++		if (draft.thread == _thread) {
++			(draft.discarded ? discarded : saved).push_back(&draft);
++		}
++	}
++	const auto byDate = [](const SavedDraft *a, const SavedDraft *b) {
++		return a->edited < b->edited;
++	};
++	ranges::sort(saved, byDate);
++	ranges::sort(discarded, byDate);
++	_resolving = QString();
++	for (const auto draft : saved) {
++		addDraft(*draft);
++	}
++	if (!discarded.empty()) {
++		addService(
++			Lower(u"Recently discarded, kept for 7 days"_q),
++			discarded.front()->edited,
++			0);
++		for (const auto draft : discarded) {
++			addDraft(*draft);
++		}
++	}
++	if (saved.empty() && discarded.empty()) {
++		addService(
++			Lower(u"No drafts here yet. Type below and press Enter to "
++				"save one."_q),
++			base::unixtime::now(),
++			0);
++	}
++	if (!_viewNeeded.empty()) {
++		store.prepareView(
++			base::take(_viewNeeded),
++			crl::guard(this, [=] { scheduleRebuild(); }));
++	}
++}
++
++void DraftsWidget::destroyItems(std::vector<FullMsgId> ids) {
++	auto &faded = FadedItems();
++	for (const auto &id : ids) {
++		faded.remove(id);
++		if (const auto item = _history->owner().message(id)) {
++			item->destroy();
++		}
++	}
++}
++
++void DraftsWidget::scheduleRebuild() {
++	if (_rebuildScheduled) {
++		return;
++	}
++	_rebuildScheduled = true;
++	crl::on_main(this, [=] {
++		_rebuildScheduled = false;
++		rebuild();
++	});
++}
++
++void DraftsWidget::rebuild() {
++	const auto atBottom = _scrollToBottom
++		|| (_scroll->scrollTop() >= _scroll->scrollTopMax());
++	_scrollToBottom = false;
++	const auto old = base::take(_ids);
++	_drafts.clear();
++	_services.clear();
++	_draftItems.clear();
++	_selecting = true;
++	build();
++	_refreshes.fire({});
++	destroyItems(old);
++	for (auto i = begin(_selectedDrafts); i != end(_selectedDrafts);) {
++		if (_draftItems.contains(*i)) {
++			++i;
++		} else {
++			i = _selectedDrafts.erase(i);
++		}
++	}
++	_selecting = false;
++	applySelection();
++	updateSelectionBar();
++	if (atBottom) {
++		crl::on_main(this, [=] {
++			listScrollTo(_scroll->scrollTopMax());
++		});
++	}
++}
++
++Data::MessagesSlice DraftsWidget::buildSlice() const {
++	auto result = Data::MessagesSlice();
++	result.ids = _ids;
++	result.fullCount = int(_ids.size());
++	result.skippedBefore = result.skippedAfter = 0;
++	if (!_ids.empty()) {
++		result.nearestToAround = _ids.back();
++	}
++	return result;
++}
++
++uint64 DraftsWidget::draftFor(not_null<const HistoryItem*> item) const {
++	const auto i = _drafts.find(item->fullId());
++	return (i != end(_drafts)) ? i->second : 0;
++}
++
++std::vector<uint64> DraftsWidget::selectedDrafts() const {
++	return { begin(_selectedDrafts), end(_selectedDrafts) };
++}
++
++void DraftsWidget::normalizeSelection() {
++	auto selected = base::flat_set<FullMsgId>();
++	for (const auto &item : _inner->getSelectedItems()) {
++		selected.emplace(item.msgId);
++	}
++	auto result = base::flat_set<uint64>();
++	auto changed = false;
++	auto known = 0;
++	for (const auto &[draft, items] : _draftItems) {
++		const auto count = int(ranges::count_if(items, [&](FullMsgId id) {
++			return selected.contains(id);
++		}));
++		known += count;
++		if (!count) {
++			continue;
++		} else if (count == int(items.size())) {
++			result.emplace(draft);
++		} else {
++			changed = true;
++			if (!_selectedDrafts.contains(draft)) {
++				result.emplace(draft);
++			}
++		}
++	}
++	if (known != int(selected.size())) {
++		changed = true;
++	}
++	_selectedDrafts = std::move(result);
++	if (changed) {
++		applySelection();
++	}
++	updateSelectionBar();
++}
++
++void DraftsWidget::applySelection() {
++	if (!_inner) {
++		return;
++	}
++	_selecting = true;
++	_inner->cancelSelection();
++	for (const auto draft : _selectedDrafts) {
++		const auto i = _draftItems.find(draft);
++		if (i == end(_draftItems)) {
++			continue;
++		}
++		for (const auto &id : i->second) {
++			if (const auto item = _history->owner().message(id)) {
++				_inner->selectItem(item);
++			}
++		}
++	}
++	_selecting = false;
++}
++
++void DraftsWidget::updateSelectionBar() {
++	const auto sendable = ranges::any_of(_selectedDrafts, [&](uint64 id) {
++		const auto draft = Drafts(&session()).find(id);
++		return draft && !draft->discarded;
++	});
++	_topBar->setSelected(int(_selectedDrafts.size()), sendable);
++}
++
++void DraftsWidget::clearDraftSelection() {
++	_selectedDrafts.clear();
++	applySelection();
++	updateSelectionBar();
++}
++
++void DraftsWidget::sendSelected() {
++	auto ids = std::vector<uint64>();
++	for (const auto id : selectedDrafts()) {
++		const auto draft = Drafts(&session()).find(id);
++		if (draft && !draft->discarded) {
++			ids.push_back(id);
++		}
++	}
++	if (!ids.empty()) {
++		ShowSendDraftsBox(
++			controller(),
++			std::move(ids),
++			_thread,
++			crl::guard(this, [=] { clearDraftSelection(); }));
++	}
++}
++
++void DraftsWidget::deleteSelected() {
++	if (auto ids = selectedDrafts(); !ids.empty()) {
++		ConfirmDeleteDrafts(
++			controller(),
++			std::move(ids),
++			crl::guard(this, [=] { clearDraftSelection(); }));
++	}
++}
++
++base::unique_qptr<Ui::PopupMenu> DraftsWidget::fillMenu(
++		const ContextMenuRequest &request) {
++	auto result = base::make_unique_q<Ui::PopupMenu>(
++		_inner,
++		st::popupMenuWithIcons);
++	const auto menu = result.get();
++	const auto window = controller();
++	const auto session = &this->session();
++	const auto thread = _thread;
++	if (request.overSelection && !request.selectedItems.empty()) {
++		const auto ids = selectedDrafts();
++		menu->addAction(Lower(u"Send selected"_q), crl::guard(this, [=] {
++			sendSelected();
++		}), &st::menuIconSend);
++		menu->addAction(Lower(u"Delete selected"_q), [=] {
++			ConfirmDeleteDrafts(
++				window,
++				ids,
++				crl::guard(this, [=] { clearDraftSelection(); }));
++		}, &st::menuIconDelete);
++		menu->addAction(
++			tr::lng_context_clear_selection(tr::now),
++			crl::guard(this, [=] { _inner->cancelSelection(); }),
++			&st::menuIconSelect);
++		return result;
++	}
++	const auto item = request.item;
++	const auto id = item ? draftFor(item) : 0;
++	const auto draft = id ? Drafts(session).find(id) : nullptr;
++	if (!draft) {
++		return result;
++	}
++	const auto text = draft->text;
++	const auto list = _inner;
++	const auto itemId = item->fullId();
++	const auto select = [=] {
++		if (const auto item = session->data().message(itemId)) {
++			if (list) {
++				list->selectItemAsGroup(item);
++			}
++		}
++	};
++	if (draft->discarded) {
++		menu->addAction(Lower(u"Restore"_q), [=] {
++			RestoreDraft(window, id);
++		}, &st::menuIconRestore);
++		menu->addAction(Lower(u"Keep as draft"_q), [=] {
++			KeepDraft(session, id);
++		}, &st::menuIconArchive);
++	} else {
++		menu->addAction(Lower(u"Edit"_q), [=] {
++			EditDraft(window, id);
++		}, &st::menuIconEdit);
++		menu->addAction(Lower(u"Send now..."_q), [=] {
++			ShowSendDraftsBox(window, { id }, thread);
++		}, &st::menuIconSend);
++		menu->addAction(Lower(u"Send to another chat..."_q), [=] {
++			ShowSendDraftElsewhere(window, id);
++		}, &st::menuIconForward);
++		menu->addAction(Lower(u"Duplicate"_q), [=] {
++			Drafts(session).duplicate(id);
++		}, &st::menuIconCopy);
++		menu->addAction(Lower(u"Rename"_q), [=] {
++			ShowRenameDraftBox(window, id);
++		}, &st::menuIconManage);
++	}
++	if (!text.text.isEmpty()) {
++		menu->addAction(tr::lng_context_copy_text(tr::now), [=] {
++			TextUtilities::SetClipboardText(
++				TextForMimeData::Rich(ToEntities(text)));
++		}, &st::menuIconCopy);
++	}
++	if (!_services.contains(itemId)) {
++		menu->addAction(
++			tr::lng_context_select_msg(tr::now),
++			select,
++			&st::menuIconSelect);
++	}
++	if (draft->discarded) {
++		menu->addAction(Lower(u"Delete"_q), [=] {
++			Drafts(session).remove(id);
++		}, &st::menuIconDelete);
++	} else {
++		menu->addAction(Lower(u"Delete"_q), [=] {
++			ConfirmDeleteDrafts(window, { id });
++		}, &st::menuIconDelete);
++	}
++	return result;
++}
++
++void DraftsWidget::updateAdaptiveLayout() {
++	_topBarShadow->moveToLeft(
++		controller()->adaptive().isOneColumn() ? 0 : st::lineWidth,
++		_topBar->height());
++}
++
++Dialogs::RowDescriptor DraftsWidget::activeChat() const {
++	return {
++		_history,
++		FullMsgId(_history->peer->id, ShowAtUnreadMsgId)
++	};
++}
++
++QPixmap DraftsWidget::grabForShowAnimation(
++		const Window::SectionSlideParams &params) {
++	if (params.withTopBarShadow) _topBarShadow->hide();
++	_composeControls->showForGrab();
++	auto result = Ui::GrabWidget(this);
++	if (params.withTopBarShadow) _topBarShadow->show();
++	return result;
++}
++
++void DraftsWidget::checkActivation() {
++	_inner->checkActivation();
++}
++
++void DraftsWidget::doSetInnerFocus() {
++	_composeControls->focus();
++}
++
++bool DraftsWidget::showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) {
++	const auto drafts = dynamic_cast<DraftsMemento*>(memento.get());
++	if (drafts && drafts->thread() == _thread) {
++		_inner->restoreState(drafts->list());
++		return true;
++	}
++	return false;
++}
++
++void DraftsWidget::setInternalState(
++		const QRect &geometry,
++		not_null<DraftsMemento*> memento) {
++	setGeometry(geometry);
++	Ui::SendPendingMoveResizeEvents(this);
++	_inner->restoreState(memento->list());
++}
++
++std::shared_ptr<Window::SectionMemento> DraftsWidget::createMemento() {
++	auto result = std::make_shared<DraftsMemento>(_history, _thread);
++	_inner->saveState(result->list());
++	return result;
++}
++
++bool DraftsWidget::preventsClose(Fn<void()> &&continueCallback) const {
++	return _composeControls->preventsClose(std::move(continueCallback));
++}
++
++bool DraftsWidget::pushTabbedSelectorToThirdSection(
++		not_null<Data::Thread*> thread,
++		const Window::SectionShow &params) {
++	return _composeControls->pushTabbedSelectorToThirdSection(
++		thread,
++		params);
++}
++
++bool DraftsWidget::returnTabbedSelector() {
++	return _composeControls->returnTabbedSelector();
++}
++
++void DraftsWidget::resizeEvent(QResizeEvent *e) {
++	if (!width() || !height()) {
++		return;
++	}
++	_composeControls->resizeToWidth(width());
++	recountChatWidth();
++	updateControlsGeometry();
++}
++
++void DraftsWidget::recountChatWidth() {
++	auto layout = (width() < st::adaptiveChatWideWidth)
++		? Window::Adaptive::ChatLayout::Normal
++		: Window::Adaptive::ChatLayout::Wide;
++	controller()->adaptive().setChatLayout(layout);
++}
++
++void DraftsWidget::updateControlsGeometry() {
++	const auto contentWidth = width();
++	const auto newScrollTop = _scroll->isHidden()
++		? std::nullopt
++		: base::make_optional(_scroll->scrollTop() + takeTopDelta());
++	_topBar->resizeToWidth(contentWidth);
++	_topBarShadow->resize(contentWidth, st::lineWidth);
++
++	const auto bottom = height();
++	const auto controlsHeight = _composeControls->heightCurrent();
++	const auto top = _topBar->height();
++	const auto scrollSize = QSize(
++		contentWidth,
++		std::max(bottom - top - controlsHeight, 0));
++	if (_scroll->size() != scrollSize) {
++		_skipScrollEvent = true;
++		_scroll->resize(scrollSize);
++		_inner->resizeToWidth(scrollSize.width(), _scroll->height());
++		_skipScrollEvent = false;
++	}
++	_scroll->move(0, top);
++	if (!_scroll->isHidden()) {
++		if (newScrollTop) {
++			_scroll->scrollToY(*newScrollTop);
++		}
++		updateInnerVisibleArea();
++	}
++	_composeControls->move(0, bottom - controlsHeight);
++	_composeControls->setAutocompleteBoundingRect(_scroll->geometry());
++}
++
++void DraftsWidget::paintEvent(QPaintEvent *e) {
++	if (animatingShow()) {
++		SectionWidget::paintEvent(e);
++		return;
++	} else if (controller()->contentOverlapped(this, e)) {
++		return;
++	}
++	SectionWidget::PaintBackground(controller(), _theme.get(), this, e->rect());
++}
++
++void DraftsWidget::onScroll() {
++	if (_skipScrollEvent) {
++		return;
++	}
++	updateInnerVisibleArea();
++}
++
++void DraftsWidget::updateInnerVisibleArea() {
++	const auto scrollTop = _scroll->scrollTop();
++	_inner->setVisibleTopBottom(scrollTop, scrollTop + _scroll->height());
++}
++
++void DraftsWidget::showAnimatedHook(
++		const Window::SectionSlideParams &params) {
++	if (params.withTopBarShadow) {
++		_topBarShadow->show();
++	}
++	_composeControls->showStarted();
++}
++
++void DraftsWidget::showFinishedHook() {
++	_composeControls->showFinished();
++	_inner->showFinished();
++}
++
++bool DraftsWidget::floatPlayerHandleWheelEvent(QEvent *e) {
++	return _scroll->viewportEvent(e);
++}
++
++QRect DraftsWidget::floatPlayerAvailableRect() {
++	return mapToGlobal(_scroll->geometry());
++}
++
++Context DraftsWidget::listContext() {
++	return Context::ChatPreview;
++}
++
++bool DraftsWidget::listScrollTo(int top, bool syntetic) {
++	top = std::clamp(top, 0, _scroll->scrollTopMax());
++	if (_scroll->scrollTop() == top) {
++		updateInnerVisibleArea();
++		return false;
++	}
++	_scroll->scrollToY(top);
++	return true;
++}
++
++void DraftsWidget::listCancelRequest() {
++	if (_inner && !_inner->getSelectedItems().empty()) {
++		_inner->cancelSelection();
++		return;
++	} else if (_composeControls->handleCancelRequest()) {
++		return;
++	}
++	controller()->showBackFromStack();
++}
++
++void DraftsWidget::listDeleteRequest() {
++	deleteSelected();
++}
++
++void DraftsWidget::listTryProcessKeyInput(not_null<QKeyEvent*> e) {
++	_composeControls->tryProcessKeyInput(e);
++}
++
++rpl::producer<Data::MessagesSlice> DraftsWidget::listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		_refreshes.events()
++	) | rpl::map([=] {
++		return buildSlice();
++	});
++}
++
++bool DraftsWidget::listAllowsMultiSelect() {
++	return true;
++}
++
++bool DraftsWidget::listIsItemGoodForSelection(not_null<HistoryItem*> item) {
++	const auto id = item->fullId();
++	return _drafts.contains(id) && !_services.contains(id);
++}
++
++bool DraftsWidget::listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) {
++	return first->id < second->id;
++}
++
++void DraftsWidget::listSelectionChanged(SelectedItems &&items) {
++	if (_selecting || _normalizeQueued) {
++		return;
++	}
++	_normalizeQueued = true;
++	crl::on_main(this, [=] {
++		_normalizeQueued = false;
++		normalizeSelection();
++	});
++}
++
++void DraftsWidget::listMarkReadTill(not_null<HistoryItem*> item) {
++}
++
++void DraftsWidget::listMarkContentsRead(
++	const base::flat_set<not_null<HistoryItem*>> &items) {
++}
++
++MessagesBarData DraftsWidget::listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) {
++	return {};
++}
++
++void DraftsWidget::listContentRefreshed() {
++}
++
++void DraftsWidget::listUpdateDateLink(
++	ClickHandlerPtr &link,
++	not_null<Element*> view) {
++}
++
++bool DraftsWidget::listElementHideReply(not_null<const Element*> view) {
++	return false;
++}
++
++bool DraftsWidget::listElementShownUnread(not_null<const Element*> view) {
++	return false;
++}
++
++bool DraftsWidget::listIsGoodForAroundPosition(
++		not_null<const Element*> view) {
++	return true;
++}
++
++void DraftsWidget::listSendBotCommand(
++	const QString &command,
++	const FullMsgId &context) {
++}
++
++void DraftsWidget::listSearch(
++	const QString &query,
++	const FullMsgId &context) {
++}
++
++void DraftsWidget::listHandleViaClick(not_null<UserData*> bot) {
++}
++
++not_null<Ui::ChatTheme*> DraftsWidget::listChatTheme() {
++	return _theme.get();
++}
++
++CopyRestrictionType DraftsWidget::listCopyRestrictionType(
++		HistoryItem *item) {
++	return CopyRestrictionType::None;
++}
++
++CopyRestrictionType DraftsWidget::listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) {
++	return CopyRestrictionType::None;
++}
++
++CopyRestrictionType DraftsWidget::listSelectRestrictionType() {
++	return CopyRestrictionType::None;
++}
++
++auto DraftsWidget::listAllowedReactionsValue()
++-> rpl::producer<Data::AllowedReactions> {
++	return rpl::single(Data::AllowedReactions());
++}
++
++void DraftsWidget::listShowPremiumToast(not_null<DocumentData*> document) {
++}
++
++void DraftsWidget::listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) {
++	controller()->openPhoto(photo, { .id = context });
++}
++
++void DraftsWidget::listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) {
++	if (!document->location(true).isEmpty()) {
++		controller()->openDocument(
++			document,
++			showInMediaView,
++			{ .id = context });
++	}
++}
++
++void DraftsWidget::listPaintEmpty(
++	Painter &p,
++	const Ui::ChatPaintContext &context) {
++}
++
++QString DraftsWidget::listElementAuthorRank(not_null<const Element*> view) {
++	return {};
++}
++
++bool DraftsWidget::listElementHideTopicButton(not_null<const Element*> view) {
++	return true;
++}
++
++History *DraftsWidget::listTranslateHistory() {
++	return nullptr;
++}
++
++void DraftsWidget::listAddTranslatedItems(
++	not_null<TranslateTracker*> tracker) {
++}
++
++bool DraftsWidget::listAllowsDragForward() {
++	return false;
++}
++
++Ui::ElasticScroll *DraftsWidget::listScrollArea() const {
++	return _scroll.get();
++}
++
++bool DraftsWidget::listThanosEffectEnabled() const {
++	return false;
++}
++
++} // namespace
++
++DraftsMemento::DraftsMemento(not_null<History*> history, DraftsThread thread)
++: _history(history)
++, _thread(thread) {
++}
++
++object_ptr<Window::SectionWidget> DraftsMemento::createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) {
++	if (column == Window::Column::Third) {
++		return nullptr;
++	}
++	auto result = object_ptr<DraftsWidget>(
++		parent,
++		controller,
++		_history,
++		_thread);
++	result->setInternalState(geometry, this);
++	return result;
++}
++
++void ShowDraftsSection(
++		not_null<Window::SessionController*> controller,
++		DraftsThread thread) {
++	const auto session = &controller->session();
++	const auto resolved = ResolveDraftsThread(session, thread);
++	if (!resolved) {
++		controller->showToast(Lower(u"This chat is unavailable."_q));
++		return;
++	}
++	controller->showSection(std::make_shared<DraftsMemento>(
++		resolved->owningHistory(),
++		thread));
++}
++
++base::unique_qptr<Ui::PopupMenu> DraftsContextMenu(
++		not_null<ListWidget*> list,
++		const ContextMenuRequest &request) {
++	const auto widget = dynamic_cast<DraftsWidget*>(list->delegate().get());
++	return widget ? widget->fillMenu(request) : nullptr;
++}
++
++bool IsFadedDraftItem(not_null<const HistoryItem*> item) {
++	const auto &faded = FadedItems();
++	return !faded.empty() && faded.contains(item->fullId());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_drafts_section.h b/Telegram/SourceFiles/tele/tele_drafts_section.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..b7765a78642ac17b4ef889a500a511082bfbe6cd
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_drafts_section.h
+@@ -0,0 +1,58 @@
++#pragma once
++
++#include "history/view/history_view_list_widget.h"
++#include "tele/tele_drafts.h"
++#include "window/section_memento.h"
++#include "window/section_widget.h"
++
++namespace HistoryView {
++struct ContextMenuRequest;
++} // namespace HistoryView
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++class DraftsMemento final : public Window::SectionMemento {
++public:
++	DraftsMemento(not_null<History*> history, DraftsThread thread);
++
++	object_ptr<Window::SectionWidget> createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) override;
++
++	[[nodiscard]] not_null<History*> history() const {
++		return _history;
++	}
++	[[nodiscard]] DraftsThread thread() const {
++		return _thread;
++	}
++	[[nodiscard]] not_null<HistoryView::ListMemento*> list() {
++		return &_list;
++	}
++
++private:
++	const not_null<History*> _history;
++	const DraftsThread _thread;
++	HistoryView::ListMemento _list;
++
++};
++
++void ShowDraftsSection(
++	not_null<Window::SessionController*> controller,
++	DraftsThread thread);
++
++[[nodiscard]] base::unique_qptr<Ui::PopupMenu> DraftsContextMenu(
++	not_null<HistoryView::ListWidget*> list,
++	const HistoryView::ContextMenuRequest &request);
++[[nodiscard]] bool IsFadedDraftItem(not_null<const HistoryItem*> item);
++
++} // namespace Tele

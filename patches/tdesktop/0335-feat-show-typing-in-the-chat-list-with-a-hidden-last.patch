@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 25 Oct 2026 02:55:57 +0300
+Subject: [PATCH] feat: show typing in the chat list with a hidden last seen
+
+---
+ Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp |  4 +++-
+ Telegram/SourceFiles/settings/settings_tele.cpp    |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp         | 10 ++++++++++
+ Telegram/SourceFiles/tele/tele_options.h           |  2 ++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ 5 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
+index 90e8ac8f533b085bcc1e2d11f98fbe34fcaf189f..2ed8b562658709d628e9e32cfe765322e2bcaf96 100644
+--- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
++++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
+@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_kept_chats.h"
+ #include "tele/tele_list_previews.h"
+ #include "tele/tele_local_pins.h"
++#include "tele/tele_options.h"
+ #include "ui/empty_userpic.h"
+ #include "ui/painter.h"
+ #include "ui/rect.h"
+@@ -88,7 +89,8 @@ const auto kPsaBadgePrefix = "cloud_lng_badge_psa_";
+ 	if (!history || thread->asSublist()) {
+ 		return false;
+ 	} else if (const auto user = history->peer->asUser()) {
+-		return !user->lastseen().isHidden();
++		return !user->lastseen().isHidden()
++			|| (::Tele::TypingHiddenLastSeen() && !user->isBot());
+ 	}
+ 	return !history->peer->displayAsForum()
+ 		&& !history->amMonoforumAdmin();
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 2d1ab549007fde48aba8353936fcbdcadfce7e92..c2f84991ecf957ec53c67676e2c4fe6a2b639279 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3772,6 +3772,10 @@ void FillProfiles(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionObservedActivity,
+ 		{ u"last seen"_q, u"online"_q, u"status"_q, u"activity"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionTypingHiddenLastSeen,
++		{ u"typing"_q, u"last seen"_q, u"chat list"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionNftPurchasePrice);
+ 	AddLocalNames(builder);
+ 	AddOptionToggle(
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 1f9c80e6a3034e5448688098cae63787ed7ef6e1..f2c5acf80b3746facf8bc840e369b0d441890d27 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -175,6 +175,7 @@ const char kOptionSilentPerChat[] = "tele-silent-per-chat";
+ const char kOptionOnlineNotify[] = "tele-online-notify";
+ const char kOptionPeekLastSeen[] = "tele-peek-last-seen";
+ const char kOptionObservedActivity[] = "tele-observed-activity";
++const char kOptionTypingHiddenLastSeen[] = "tele-typing-hidden-last-seen";
+ const char kOptionNotices[] = "tele-notices";
+ const char kOptionNoticesLimits[] = "tele-notices-limits";
+ const char kOptionNoticesLogLimits[] = "tele-notices-log-limits";
+@@ -1308,6 +1309,11 @@ base::options::toggle ObservedActivityOption({
+ 		"reactions tele sees.",
+ });
+ 
++base::options::toggle TypingHiddenLastSeenOption({
++	.id = kOptionTypingHiddenLastSeen,
++	.name = "Typing in the chat list with a hidden last seen",
++});
++
+ base::options::toggle NoticesOption({
+ 	.id = kOptionNotices,
+ 	.name = "Notification centre",
+@@ -3200,6 +3206,10 @@ rpl::producer<bool> ObservedActivityValue() {
+ 	});
+ }
+ 
++bool TypingHiddenLastSeen() {
++	return TypingHiddenLastSeenOption.value();
++}
++
+ bool NoticesCentre() {
+ 	return NoticesOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 0caf4e81ee32cfea450a8aac97197da1d61292d9..be2def0d53de46f6c49b7d0a10dec52de879598f 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -170,6 +170,7 @@ extern const char kOptionSilentPerChat[];
+ extern const char kOptionOnlineNotify[];
+ extern const char kOptionPeekLastSeen[];
+ extern const char kOptionObservedActivity[];
++extern const char kOptionTypingHiddenLastSeen[];
+ extern const char kOptionNotices[];
+ extern const char kOptionNoticesLimits[];
+ extern const char kOptionNoticesLogLimits[];
+@@ -521,6 +522,7 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool PeekLastSeen();
+ [[nodiscard]] bool ObservedActivity();
+ [[nodiscard]] rpl::producer<bool> ObservedActivityValue();
++[[nodiscard]] bool TypingHiddenLastSeen();
+ [[nodiscard]] bool NoticesCentre();
+ [[nodiscard]] rpl::producer<bool> NoticesCentreValue();
+ [[nodiscard]] bool NoticesLimits();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index b21478920e69dc5c6d7dc36fd133e91e011453d8..db083aed834d7ca8ebcc5c3acfb7cf39d662bb08 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -253,6 +253,7 @@ struct Spec {
+ 		Toggle(kOptionOnlineNotify),
+ 		Toggle(kOptionPeekLastSeen),
+ 		Toggle(kOptionObservedActivity),
++		Toggle(kOptionTypingHiddenLastSeen),
+ 		Toggle(kOptionNotices),
+ 		Toggle(kOptionNoticesLimits),
+ 		Toggle(kOptionNoticesLogLimits),

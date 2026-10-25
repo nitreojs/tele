@@ -18,10 +18,10 @@ Subject: [PATCH] feat: update from the tele github releases
  create mode 100644 Telegram/SourceFiles/tele/tele_updater.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c2919e9192de64a200dbd762875a9308f4c00e62..cbc869e4d46dccabd6ef361bfa4bde49af7472d8 100644
+index 1610d46ae49e71def0332a0af9a4606628c58e91..c1c8b2c2707838e5ddc677452905170f365d040e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2381,6 +2381,8 @@ PRIVATE
+@@ -2489,6 +2489,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -31,10 +31,10 @@ index c2919e9192de64a200dbd762875a9308f4c00e62..cbc869e4d46dccabd6ef361bfa4bde49
  set_source_files_properties(${src_loc}/tele/tele_build.cpp
  PROPERTIES
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 7a309ac8431993314ee022ab02551935b061f7b5..2a62f837399db86a06c1d62960e8d7b7b81a3911 100644
+index 7172206f5c1e540e19c90798e9a9e5721276cc53..ff05cac63e53e34b33492c07c77e8e6520e17784 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/boxes/confirm_box.h"
  #include "core/cached_webview_availability.h"
  #include "test/test_agent.h"
@@ -42,16 +42,16 @@ index 7a309ac8431993314ee022ab02551935b061f7b5..2a62f837399db86a06c1d62960e8d7b7
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -351,6 +352,7 @@ void Application::run() {
- 	Media::Player::start(_audio.get());
+@@ -355,6 +356,7 @@ void Application::run() {
  	Media::Encode::ClearStaleTempFiles();
  	Storage::ClearStaleArchiveFiles();
+ 	Webview::ClearStaleTemporaryStorage();
 +	Tele::StartUpdater();
  
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 3f79e398a811831a60d0b7f8a4f7a7251e315465..453ae48e2daddcd01376ee409dabf937cf7a344b 100644
+index 786c3859322b78d417535afdf1afdcc2cdace172..4e716d2abd26b89b0b9c328518a45f0ff8d3c176 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -95,6 +95,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -74,7 +74,7 @@ index 3f79e398a811831a60d0b7f8a4f7a7251e315465..453ae48e2daddcd01376ee409dabf937
  	}
  
  	_cancelSearch->setClickedCallback([=] {
-@@ -2623,14 +2629,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
+@@ -2627,14 +2633,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
  }
  
  void Widget::checkUpdateStatus() {
@@ -92,7 +92,7 @@ index 3f79e398a811831a60d0b7f8a4f7a7251e315465..453ae48e2daddcd01376ee409dabf937
  		if (_updateTelegram) {
  			return;
  		}
-@@ -2643,6 +2649,10 @@ void Widget::checkUpdateStatus() {
+@@ -2647,6 +2653,10 @@ void Widget::checkUpdateStatus() {
  			true);
  		_updateTelegram->show();
  		_updateTelegram->setClickedCallback([] {
@@ -268,7 +268,7 @@ index 48e433dccd1abcf6643ec48f1032afd604eef806..8701f56e74f11b4dc252508b38b54608
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..a3fc9feb6f5a9fc983152c70803da0c979cc7b8d
+index 0000000000000000000000000000000000000000..cfd5973173fa6874fc424992085ae0f9e50c1669
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_updater.cpp
 @@ -0,0 +1,807 @@
@@ -732,7 +732,7 @@ index 0000000000000000000000000000000000000000..a3fc9feb6f5a9fc983152c70803da0c9
 +	request.setAttribute(
 +		QNetworkRequest::RedirectPolicyAttribute,
 +		QNetworkRequest::NoLessSafeRedirectPolicy);
-+	request.setTransferTimeout(kTransferTimeout);
++	request.setTransferTimeout(std::chrono::milliseconds(kTransferTimeout));
 +	const auto reply = _manager.get(request);
 +	const auto tooLarge = std::make_shared<bool>(false);
 +	connect(reply, &QNetworkReply::downloadProgress, this, [=](
@@ -851,7 +851,7 @@ index 0000000000000000000000000000000000000000..a3fc9feb6f5a9fc983152c70803da0c9
 +	request.setAttribute(
 +		QNetworkRequest::RedirectPolicyAttribute,
 +		QNetworkRequest::NoLessSafeRedirectPolicy);
-+	request.setTransferTimeout(kTransferTimeout);
++	request.setTransferTimeout(std::chrono::milliseconds(kTransferTimeout));
 +	if (state->offset > 0) {
 +		request.setRawHeader(
 +			"Range",

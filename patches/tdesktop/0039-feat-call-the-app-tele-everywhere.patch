@@ -1,0 +1,411 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 07:56:07 +0300
+Subject: [PATCH] feat: call the app tele everywhere
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../SourceFiles/core/crash_report_window.cpp  | 19 ++---
+ .../SourceFiles/core/external_control.cpp     |  4 +-
+ .../export/output/export_output_html.cpp      |  2 +-
+ Telegram/SourceFiles/lang/lang_instance.cpp   |  3 +-
+ .../mtproto/web_proxy/web_proxy_transport.cpp |  8 +-
+ .../platform/linux/main_window_linux.cpp      |  4 +-
+ .../platform/mac/global_menu_mac.mm           |  6 +-
+ .../SourceFiles/platform/mac/specific_mac.mm  |  4 +-
+ .../platform/mac/window_title_mac.mm          |  4 +-
+ .../SourceFiles/platform/win/specific_win.cpp |  8 +-
+ Telegram/SourceFiles/tele/tele_app_name.cpp   | 79 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_app_name.h     |  7 ++
+ 13 files changed, 120 insertions(+), 30 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_app_name.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_app_name.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 9a52ead59318157219c137c724049efc797e32b2..320de97f89eb19450494e5e5895eb765a414a60f 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2485,6 +2485,8 @@ PRIVATE
+     settings/settings_tele.h
+     tele/tele_account_badges.cpp
+     tele/tele_account_badges.h
++    tele/tele_app_name.cpp
++    tele/tele_app_name.h
+     tele/tele_badges.cpp
+     tele/tele_badges.h
+     tele/tele_build.cpp
+diff --git a/Telegram/SourceFiles/core/crash_report_window.cpp b/Telegram/SourceFiles/core/crash_report_window.cpp
+index 13bb6dbb47c6a4de4aef8551d8625a7d68d6b7b9..2c8f97b42226866491a654ee60538a3116248e6b 100644
+--- a/Telegram/SourceFiles/core/crash_report_window.cpp
++++ b/Telegram/SourceFiles/core/crash_report_window.cpp
+@@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "platform/platform_specific.h"
+ #include "base/zlib_help.h"
+ #include "tele/tele_crash.h"
++#include "tele/tele_lowercase.h"
+ 
+ #include <QtWidgets/QFileDialog>
+ #include <QtWidgets/QMenu>
+@@ -41,7 +42,7 @@ PreLaunchWindow::PreLaunchWindow(QString title) {
+ 	setWindowIcon(Window::CreateIcon());
+ 	setWindowFlags(Qt::Dialog | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+ 
+-	setWindowTitle(title.isEmpty() ? u"Telegram"_q : title);
++	setWindowTitle(title.isEmpty() ? u"tele"_q : title);
+ 
+ 	QPalette p(palette());
+ 	p.setColor(QPalette::Window, QColor(255, 255, 255));
+@@ -246,7 +247,7 @@ NotStartedWindow::NotStartedWindow()
+ : _label(this)
+ , _log(this)
+ , _close(this) {
+-	_label.setText(u"Could not start Telegram Desktop!\nYou can see complete log below:"_q);
++	_label.setText(Tele::Lower(u"Could not start tele!\nYou can see complete log below:"_q));
+ 
+ 	_log.setPlainText(Logs::full());
+ 
+@@ -394,9 +395,9 @@ LastCrashedWindow::LastCrashedWindow(
+ 		[=] { networkSettings(); });
+ 
+ 	if (_sendingState == SendingNoReport) {
+-		_label.setText(u"Last time Telegram Desktop was not closed properly."_q);
++		_label.setText(Tele::Lower(u"Last time tele was not closed properly."_q));
+ 	} else {
+-		_label.setText(u"Last time Telegram Desktop crashed :("_q);
++		_label.setText(Tele::Lower(u"Last time tele crashed :("_q));
+ 	}
+ 
+ 	if (_updaterData) {
+@@ -487,9 +488,9 @@ LastCrashedWindow::LastCrashedWindow(
+ 	});
+ 	_saveReport.setText(u"SAVE TO FILE"_q);
+ 	connect(&_saveReport, &QPushButton::clicked, [=] { saveReport(); });
+-	_getApp.setText(u"GET THE LATEST OFFICIAL VERSION OF TELEGRAM DESKTOP"_q);
++	_getApp.setText(Tele::Lower(u"GET THE LATEST VERSION OF TELE"_q));
+ 	connect(&_getApp, &QPushButton::clicked, [=] {
+-		QDesktopServices::openUrl(u"https://desktop.telegram.org"_q);
++		QDesktopServices::openUrl(u"https://github.com/nitreojs/tele/releases/latest"_q);
+ 	});
+ 
+ 	_send.setText(u"SEND CRASH REPORT"_q);
+@@ -507,7 +508,7 @@ LastCrashedWindow::LastCrashedWindow(
+ }
+ 
+ void LastCrashedWindow::saveReport() {
+-	QString to = QFileDialog::getSaveFileName(0, u"Telegram Crash Report"_q, QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + u"/report.telegramcrash"_q, u"Telegram crash report (*.telegramcrash)"_q);
++	QString to = QFileDialog::getSaveFileName(0, u"tele crash report"_q, QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation) + u"/report.telegramcrash"_q, u"tele crash report (*.telegramcrash)"_q);
+ 	if (!to.isEmpty()) {
+ 		QFile file(to);
+ 		if (file.open(QIODevice::WriteOnly)) {
+@@ -629,12 +630,12 @@ void LastCrashedWindow::checkingFinished() {
+ 	LOG(("Crash report check for sending done, result: %1").arg(QString::fromUtf8(result)));
+ 
+ 	if (result == "Old") {
+-		_pleaseSendReport.setText(u"This report is about some old version of Telegram Desktop."_q);
++		_pleaseSendReport.setText(Tele::Lower(u"This report is about some old version of tele."_q));
+ 		_sendingState = SendingTooOld;
+ 		updateControls();
+ 		return;
+ 	} else if (result == "Unofficial") {
+-		_pleaseSendReport.setText(u"You use some custom version of Telegram Desktop."_q);
++		_pleaseSendReport.setText(Tele::Lower(u"You use some custom version of tele."_q));
+ 		_sendingState = SendingUnofficial;
+ 		updateControls();
+ 		return;
+diff --git a/Telegram/SourceFiles/core/external_control.cpp b/Telegram/SourceFiles/core/external_control.cpp
+index 43327bc03c528b65b41ce72add5e7cca584ea371..3f04dc7072a9302068cc7fe5d7c0e6b5daf495d0 100644
+--- a/Telegram/SourceFiles/core/external_control.cpp
++++ b/Telegram/SourceFiles/core/external_control.cpp
+@@ -120,7 +120,7 @@ void RequestEnableAutomation() {
+ 		FillAutomationConfirmBox(
+ 			box,
+ 			u"An external program is trying to control "
+-			u"Telegram Desktop over the local socket — read open "
++			u"tele over the local socket — read open "
+ 			u"windows and activate them, change the proxy, the theme "
+ 			u"and lock the app.\n\nEnable local "
+ 			u"automation? While it is on, anything running under your "
+@@ -594,7 +594,7 @@ QByteArray HandleExternalControl(const QString &command) {
+ 	} else if (!AutomationEnabled()) {
+ 		RequestEnableAutomation();
+ 		return Error(u"local automation is disabled — confirm in the "
+-			u"Telegram window to enable"_q);
++			u"tele window to enable"_q);
+ 	} else if (command == u"automation-off"_q) { // TEMP test helper.
+ 		Core::App().settings().writePref<bool>(kAutomationKey, false);
+ 		auto object = QJsonObject();
+diff --git a/Telegram/SourceFiles/export/output/export_output_html.cpp b/Telegram/SourceFiles/export/output/export_output_html.cpp
+index 7247d7c6c1d977ac4d04c9a6c39f3c165e4a8c14..601acf7ac08a4d30e1cc250cb06eea5bd85c98f7 100644
+--- a/Telegram/SourceFiles/export/output/export_output_html.cpp
++++ b/Telegram/SourceFiles/export/output/export_output_html.cpp
+@@ -3930,7 +3930,7 @@ auto HtmlWriter::Wrap::pushMessage(
+ 			dialog,
+ 			basePath,
+ 			"This message is not supported by this version "
+-			"of Telegram Desktop. Please update the application.") };
++			"of tele. Please update the application.") };
+ 	}
+ 
+ 	const auto wrapReplyToLink = [&](const QByteArray &text) {
+diff --git a/Telegram/SourceFiles/lang/lang_instance.cpp b/Telegram/SourceFiles/lang/lang_instance.cpp
+index 208e3502f460d9773bc82a36274f7aebf8f5b589..9de52ee1a37e686528037df0af90c80a07f1caf2 100644
+--- a/Telegram/SourceFiles/lang/lang_instance.cpp
++++ b/Telegram/SourceFiles/lang/lang_instance.cpp
+@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/boxes/confirm_box.h"
+ #include "lang/lang_file_parser.h"
+ #include "lang/lang_tag.h" // kTextCommandLangTag.
++#include "tele/tele_app_name.h"
+ #include "tele/tele_lowercase.h"
+ #include "base/platform/base_platform_info.h"
+ #include "base/qthelp_regex.h"
+@@ -806,7 +807,7 @@ QString GetNonDefaultValue(const QByteArray &key) {
+ namespace details {
+ 
+ QString Current(ushort key) {
+-	return Tele::Lower(GetInstance().getValue(key));
++	return Tele::Lower(Tele::AppName(key, GetInstance().getValue(key)));
+ }
+ 
+ rpl::producer<QString> Value(ushort key) {
+diff --git a/Telegram/SourceFiles/mtproto/web_proxy/web_proxy_transport.cpp b/Telegram/SourceFiles/mtproto/web_proxy/web_proxy_transport.cpp
+index e25ad970e84686e9aca061d02c274048793b5ad4..8c73ef820d75a3047c566da96fdb60e02473ec21 100644
+--- a/Telegram/SourceFiles/mtproto/web_proxy/web_proxy_transport.cpp
++++ b/Telegram/SourceFiles/mtproto/web_proxy/web_proxy_transport.cpp
+@@ -1617,7 +1617,7 @@ QByteArray Transport::Private::page(const QString &nonce) const {
+ body{font:16px system-ui,sans-serif;margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f6f8;color:#17212b}
+ main{width:min(34rem,calc(100% - 4rem));padding:2rem;text-align:center}h1{font-size:1.5rem}#state{color:#5288c1}.traffic{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin:1.5rem 0;text-align:left}.traffic div{padding:1rem;border:1px solid #dce3e9;border-radius:.75rem;background:#fff}.traffic dt{font-size:.8rem;color:#6c7883}.traffic dd{margin:.35rem 0 0;font-size:1.1rem;font-weight:600}.traffic small{display:block;margin-top:.25rem;color:#5288c1;font-size:.8rem;font-weight:400}.note{font-size:.8rem;color:#6c7883}iframe{display:none}
+ </style>
+-<main><h1>Telegram Web Proxy</h1><p id="state">Connecting to Telegram Desktop…</p><dl class="traffic"><div><dt>Sent through HTTPS</dt><dd><span id="up-total">0 B</span><small id="up-rate">0 B/s</small></dd></div><div><dt>Received through HTTPS</dt><dd><span id="down-total">0 B</span><small id="down-rate">0 B/s</small></dd></div></dl><p>Keep this tab open while using Telegram.</p><p class="note">Counts obfuscated carrier payload after successful requests; HTTPS overhead is not included.</p></main>
++<main><h1>Telegram Web Proxy</h1><p id="state">Connecting to tele…</p><dl class="traffic"><div><dt>Sent through HTTPS</dt><dd><span id="up-total">0 B</span><small id="up-rate">0 B/s</small></dd></div><div><dt>Received through HTTPS</dt><dd><span id="down-total">0 B</span><small id="down-rate">0 B/s</small></dd></div></dl><p>Keep this tab open while using tele.</p><p class="note">Counts obfuscated carrier payload after successful requests; HTTPS overhead is not included.</p></main>
+ <script nonce="%2">
+ (()=>{
+ const relayOrigin=%1,relayBase=%3,state=document.getElementById('state');
+@@ -1665,15 +1665,15 @@ uR"HTML(
+   guard.channel.addEventListener('close',check,{once:true});guard.first.addEventListener('connectionstatechange',check);guard.second.addEventListener('connectionstatechange',check);
+  }catch(error){restartRtc(guard)}};
+ local.onopen=()=>{local.send(JSON.stringify({t:'auth',token,browser}));startRtc()};
+-local.onclose=()=>{stopRtc();localClosed=true;state.textContent='Telegram Desktop disconnected. Reopen the browser from Proxy Settings.';if(initialized)port.postMessage({t:'close'})};
+-local.onerror=()=>{state.textContent='Could not connect to Telegram Desktop.'};
++local.onclose=()=>{stopRtc();localClosed=true;state.textContent='tele disconnected. Reopen the browser from Proxy Settings.';if(initialized)port.postMessage({t:'close'})};
++local.onerror=()=>{state.textContent='Could not connect to tele.'};
+ const openBridge=url=>{if(iframe||localClosed)return;iframe=document.createElement('iframe');iframe.sandbox='allow-scripts allow-same-origin';iframe.referrerPolicy='no-referrer';
+  iframe.onload=()=>{if(localClosed)return;if(initialized){state.textContent='The proxy page reloaded. Reopen the browser from Proxy Settings.';local.close();return}iframe.contentWindow.postMessage({t:'tproxy-init',v:1},relayOrigin,[channel.port2]);initialized=true;while(pending.length){const data=pending.shift();port.postMessage(data,[data])}};
+  iframe.src=url;document.body.appendChild(iframe)};
+ local.onmessage=e=>{if(e.data instanceof ArrayBuffer){if(initialized)port.postMessage(e.data,[e.data]);else pending.push(e.data);return}
+  if(typeof e.data!=='string')return;let control=null;try{control=JSON.parse(e.data)}catch(error){return}
+  if(!control||typeof control!=='object'||control.t!=='bridge'||typeof control.url!=='string'||!control.url.startsWith(relayBase+'?bridge='))return;openBridge(control.url)};
+-port.onmessage=e=>{if(e.data instanceof ArrayBuffer){if(local.readyState===WebSocket.OPEN){if(local.bufferedAmount>localQueueLimit-e.data.byteLength){state.textContent='Telegram Desktop is not consuming proxy data.';local.close();return}try{local.send(e.data)}catch(error){local.close()}}return}
++port.onmessage=e=>{if(e.data instanceof ArrayBuffer){if(local.readyState===WebSocket.OPEN){if(local.bufferedAmount>localQueueLimit-e.data.byteLength){state.textContent='tele is not consuming proxy data.';local.close();return}try{local.send(e.data)}catch(error){local.close()}}return}
+  if(e.data&&e.data.t==='status'){const s=e.data.state;state.textContent=s==='connected'?'Connected. Keep this tab open.':s==='failed'?'The proxy site is unavailable.':'Connecting to the proxy site…';if(local.readyState===WebSocket.OPEN)local.send(JSON.stringify(e.data));return}
+  if(e.data&&e.data.t==='traffic'){const up=e.data.up,down=e.data.down;if(Number.isSafeInteger(up)&&up>=0&&Number.isSafeInteger(down)&&down>=0){traffic.up+=up;traffic.down+=down}return}
+  if(e.data&&e.data.t==='close'){state.textContent='The proxy site closed the connection.';local.close()}}
+diff --git a/Telegram/SourceFiles/platform/linux/main_window_linux.cpp b/Telegram/SourceFiles/platform/linux/main_window_linux.cpp
+index 5c09c6b57acbec40159b84d1bd52380c002a6db6..b62fcf66f2ccf692644d16d2f2cd9d86977d75f1 100644
+--- a/Telegram/SourceFiles/platform/linux/main_window_linux.cpp
++++ b/Telegram/SourceFiles/platform/linux/main_window_linux.cpp
+@@ -221,7 +221,7 @@ void MainWindow::createGlobalMenu() {
+ 		});
+ 
+ 	auto quit = file->addAction(
+-		tr::lng_mac_menu_quit_telegram(tr::now, lt_telegram, u"Telegram"_q),
++		tr::lng_mac_menu_quit_telegram(tr::now, lt_telegram, u"tele"_q),
+ 		this,
+ 		[=] { quitFromTray(); },
+ 		QKeySequence::Quit);
+@@ -420,7 +420,7 @@ void MainWindow::createGlobalMenu() {
+ 		tr::lng_mac_menu_about_telegram(
+ 			tr::now,
+ 			lt_telegram,
+-			u"Telegram"_q),
++			u"tele"_q),
+ 		[=] {
+ 			ensureWindowShown();
+ 			controller().show(Box(AboutBox));
+diff --git a/Telegram/SourceFiles/platform/mac/global_menu_mac.mm b/Telegram/SourceFiles/platform/mac/global_menu_mac.mm
+index 74058212746fbb2adb4ea23464439c46227b3e5b..165ba001e25a0cc0bbba05f73c985cb9e0520597 100644
+--- a/Telegram/SourceFiles/platform/mac/global_menu_mac.mm
++++ b/Telegram/SourceFiles/platform/mac/global_menu_mac.mm
+@@ -414,7 +414,7 @@ void Manager::buildAppleMenu(QMenu *main) {
+ 			});
+ 		};
+ 		_about = main->addAction(
+-			u"About Telegram"_q,
++			u"About tele"_q,
+ 			std::move(callback));
+ 		_about->setMenuRole(QAction::AboutQtRole);
+ 	}
+@@ -648,7 +648,7 @@ void Manager::buildWindowMenu(QMenu *window) {
+ 	}
+ 	window->addSeparator();
+ 	_showTelegram = window->addAction(
+-		u"Show Telegram"_q,
++		u"Show tele"_q,
+ 		receiver,
+ 		[this] {
+ 			if (const auto w = resolveActiveWindow()) {
+@@ -660,7 +660,7 @@ void Manager::buildWindowMenu(QMenu *window) {
+ }
+ 
+ void Manager::buildMenu() {
+-	buildAppleMenu(_menuBar->addMenu(u"Telegram"_q));
++	buildAppleMenu(_menuBar->addMenu(u"tele"_q));
+ 	_file = _menuBar->addMenu(u"File"_q);
+ 	buildFileMenu(_file);
+ 	_edit = _menuBar->addMenu(u"Edit"_q);
+diff --git a/Telegram/SourceFiles/platform/mac/specific_mac.mm b/Telegram/SourceFiles/platform/mac/specific_mac.mm
+index ef84893a89d4a82925da504739765e7de6992289..5ba9be68d5af5b4e664c1b5c5a3ba83590249898 100644
+--- a/Telegram/SourceFiles/platform/mac/specific_mac.mm
++++ b/Telegram/SourceFiles/platform/mac/specific_mac.mm
+@@ -247,8 +247,8 @@ void ShowTranslocationError() {
+ 
+ 	NSAlert *alert = [[NSAlert alloc] init];
+ 	alert.alertStyle = NSAlertStyleCritical;
+-	alert.messageText = @"Telegram Desktop can't start from here";
+-	alert.informativeText = @"macOS started this copy of Telegram Desktop "
++	alert.messageText = @"tele can't start from here";
++	alert.informativeText = @"macOS started this copy of tele "
+ 		@"from a read-only temporary location (App Translocation), so it "
+ 		@"can't use its own folder. Please reinstall the app and launch it "
+ 		@"again.";
+diff --git a/Telegram/SourceFiles/platform/mac/window_title_mac.mm b/Telegram/SourceFiles/platform/mac/window_title_mac.mm
+index 0a3044718e0851ac6d9d4518bc312b378d124aae..5a8342e6f73e7f58ccb184bfad571af492067cc8 100644
+--- a/Telegram/SourceFiles/platform/mac/window_title_mac.mm
++++ b/Telegram/SourceFiles/platform/mac/window_title_mac.mm
+@@ -83,10 +83,10 @@ void PreviewWindowTitle(Painter &p, const style::palette &palette, QRect body, i
+ 		constexpr auto kTrafficLightsWidth = 8 + 3 * (12 + 8);
+ 		p.drawText(
+ 			titleRect.adjusted(kTrafficLightsWidth, 0, 0, 0),
+-			u"Telegram"_q,
++			u"tele"_q,
+ 			style::al_left);
+ 	} else {
+-		p.drawText(titleRect, u"Telegram"_q, style::al_center);
++		p.drawText(titleRect, u"tele"_q, style::al_center);
+ 	}
+ 
+ 	auto isGraphite = ([NSColor currentControlTint] == NSGraphiteControlTint);
+diff --git a/Telegram/SourceFiles/platform/win/specific_win.cpp b/Telegram/SourceFiles/platform/win/specific_win.cpp
+index ba7f267b6d8c1c0f600d82d9a9226bfbc323da42..3ba85430d3b170009cfe6d68ea739b61ccbed7af 100644
+--- a/Telegram/SourceFiles/platform/win/specific_win.cpp
++++ b/Telegram/SourceFiles/platform/win/specific_win.cpp
+@@ -483,8 +483,8 @@ void AutostartToggle(bool enabled, Fn<void(bool)> done) {
+ 		silent,
+ 		FOLDERID_Startup,
+ 		L"-autostart",
+-		L"Telegram autorun link.\n"
+-		"You can disable autorun in Telegram settings.");
++		L"tele autorun link.\n"
++		"You can disable autorun in tele settings.");
+ 	if (done) {
+ 		done(enabled && success);
+ 	}
+@@ -798,8 +798,8 @@ void psSendToMenu(bool send, bool silent) {
+ 		silent,
+ 		FOLDERID_SendTo,
+ 		L"--",
+-		L"Telegram send to link.\n"
+-		"You can disable send to menu item in Telegram settings.");
++		L"tele send to link.\n"
++		"You can disable send to menu item in tele settings.");
+ }
+ 
+ // Stub while we still support Windows 7.
+diff --git a/Telegram/SourceFiles/tele/tele_app_name.cpp b/Telegram/SourceFiles/tele/tele_app_name.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..c9ca7e9880e9eb54623da9441a75fa65e3e4e3fd
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_app_name.cpp
+@@ -0,0 +1,79 @@
++#include "tele/tele_app_name.h"
++
++#include "lang/lang_keys.h"
++
++namespace Tele {
++namespace {
++
++[[nodiscard]] bool NamesApp(ushort key) {
++	static const auto keys = base::flat_set<ushort>{
++		tr::lng_open_from_tray.base,
++		tr::lng_quit_from_tray.base,
++		tr::lng_tray_icon_text.base,
++		tr::lng_error_start_minimized_passcoded.base,
++		tr::lng_proxy_unsupported.base,
++		tr::lng_bad_photo.base,
++		tr::lng_bad_video.base,
++		tr::lng_update_telegram.base,
++		tr::lng_sure_save_language.base,
++		tr::lng_settings_auto_start.base,
++		tr::lng_settings_auto_start_disabled_uwp.base,
++		tr::lng_settings_add_sendto.base,
++		tr::lng_settings_use_winhello_about.base,
++		tr::lng_settings_use_touchid_about.base,
++		tr::lng_settings_use_applewatch_about.base,
++		tr::lng_settings_use_systempwd_about.base,
++		tr::lng_download_path_default_radio.base,
++		tr::lng_local_storage_device_telegram.base,
++		tr::lng_local_storage_device_usage.base,
++		tr::lng_passcode_about.base,
++		tr::lng_passcode_about2.base,
++		tr::lng_passcode_about3.base,
++		tr::lng_passcode_winhello_unlock.base,
++		tr::lng_passcode_unlock_about.base,
++		tr::lng_proxy_web_fallback.base,
++		tr::lng_proxy_sponsor_about.base,
++		tr::lng_message_unsupported.base,
++		tr::lng_unsupported_message_text.base,
++		tr::lng_unsupported_block_text.base,
++		tr::lng_bot_share_location_unavailable.base,
++		tr::lng_gift_transfer_unlocks_update_about.base,
++		tr::lng_new_version_wrap.base,
++		tr::lng_theme_editor_need_unlock.base,
++		tr::lng_group_call_mac_access.base,
++		tr::lng_group_call_mac_input.base,
++		tr::lng_group_call_mac_accessibility.base,
++		tr::lng_group_call_mac_screencast_access.base,
++		tr::lng_group_call_mac_recording.base,
++		tr::lng_no_mic_permission.base,
++		tr::lng_passport_app_out_of_date.base,
++		tr::lng_export_progress.base,
++		tr::lng_outdated_soon.base,
++		tr::lng_outdated_now.base,
++		tr::lng_screen_reader_bar_text.base,
++		tr::lng_screen_reader_confirm_text.base,
++		tr::lng_stories_unsupported.base,
++		tr::lng_mac_menu_show.base,
++		tr::lng_terms_delete_warning.base,
++	};
++	return keys.contains(key);
++}
++
++[[nodiscard]] bool NamesServiceToo(ushort key) {
++	return (key == tr::lng_terms_delete_warning.base);
++}
++
++} // namespace
++
++QString AppName(ushort key, QString value) {
++	if (!NamesApp(key)) {
++		return value;
++	}
++	value.replace(u"Telegram Desktop"_q, u"tele"_q);
++	if (!NamesServiceToo(key)) {
++		value.replace(u"Telegram"_q, u"tele"_q);
++	}
++	return value;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_app_name.h b/Telegram/SourceFiles/tele/tele_app_name.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..837d7d3dd01a1cefe8f5fdfebf4eb0b83236e9a9
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_app_name.h
+@@ -0,0 +1,7 @@
++#pragma once
++
++namespace Tele {
++
++[[nodiscard]] QString AppName(ushort key, QString value);
++
++} // namespace Tele

@@ -14,7 +14,7 @@ Subject: [PATCH] feat: allow screenshots of disappearing media
  7 files changed, 30 insertions(+), 2 deletions(-)
 
 diff --git a/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp b/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp
-index d62657a8b5d0ef06fea36cf6b9f82b80f8687a5d..2bd8a56b58a10320c091d493ac1d29ff0fa02c44 100644
+index 9ae19aeab654e9d86500926c0c7bc3107efb6ffb..1de9ece71df4cfce7fb1fe18bc84c5a349a0c7c4 100644
 --- a/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp
 @@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -25,20 +25,20 @@ index d62657a8b5d0ef06fea36cf6b9f82b80f8687a5d..2bd8a56b58a10320c091d493ac1d29ff
  #include "ui/chat/chat_style.h"
  #include "ui/chat/chat_theme.h"
  #include "ui/effects/path_shift_gradient.h"
-@@ -381,7 +382,7 @@ void ShowTTLMediaLayerWidget(
- 		std::move(preview));
+@@ -382,7 +383,7 @@ void ShowTTLMediaLayerWidget(
  	layer->lifetime().add([] { ::Media::Player::instance()->stop(); });
  	Core::App().screenshotProtection().addContentReason(
+ 		controller->widget(),
 -		rpl::single(true),
 +		rpl::single(!Tele::ScreenshotSecretMedia()),
  		layer->lifetime());
  	base::install_event_filter(layer.get(), [=](not_null<QEvent*> e) {
  		if (e->type() == QEvent::KeyPress) {
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index bc50a18533d4e25a0986cd077642ba3669b09b15..9facc4f57b8e9c3e477aa3fc084732ac1eeaa75e 100644
+index d284b011980e068a3b16d84974d237132f36632a..ef50a1622ed38baf0d11ce7fc030862935d98451 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -6088,7 +6088,7 @@ bool OverlayWidget::contentNeedsScreenshotProtection() const {
+@@ -6112,7 +6112,7 @@ bool OverlayWidget::contentNeedsScreenshotProtection() const {
  		return story->forbidsForward();
  	}
  	return (_history && !_history->peer->allowsForwarding())

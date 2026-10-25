@@ -1,0 +1,436 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 04:33:38 +0300
+Subject: [PATCH] fix: open custom emoji in rich and emoji-only messages
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../view/history_view_context_menu.cpp        |   2 +
+ .../view/media/history_view_custom_emoji.cpp  |  73 ++++++-----
+ .../view/media/history_view_custom_emoji.h    |   8 +-
+ .../media/history_view_media_unwrapped.cpp    |  10 +-
+ .../view/media/history_view_media_unwrapped.h |   3 +
+ .../iv/markdown/iv_markdown_article.cpp       |   9 ++
+ .../iv/markdown/iv_markdown_article_text.cpp  |  22 +++-
+ .../SourceFiles/tele/tele_custom_emoji.cpp    | 116 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_custom_emoji.h |  15 +++
+ 10 files changed, 215 insertions(+), 45 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_custom_emoji.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_custom_emoji.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index f22d86fbda6a03f08c09ff6fa4569b4fae1e378a..a15b9873d5c2221ddac96f9966db117ebe183ec1 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2519,6 +2519,8 @@ PRIVATE
+     tele/tele_corner_buttons.h
+     tele/tele_crash.cpp
+     tele/tele_crash.h
++    tele/tele_custom_emoji.cpp
++    tele/tele_custom_emoji.h
+     tele/tele_debug_logs.cpp
+     tele/tele_debug_logs.h
+     tele/tele_deleted.cpp
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 4597e81904e55ab7c1481bf7758628042951b35a..fabdee813ebd97bf0d5ee6ab6c777774172c116f 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "spellcheck/spellcheck_types.h"
+ #include "apiwrap.h"
+ #include "tele/tele_button_payload.h"
++#include "tele/tele_custom_emoji.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_secret_media.h"
+@@ -2870,6 +2871,7 @@ std::vector<StickerSetIdentifier> CollectEmojiPacks(
+ 				push(data);
+ 			}
+ 		}
++		Tele::ForEachRichPageCustomEmoji(item, push);
+ 		break;
+ 	case EmojiPacksSource::Reactions:
+ 		for (const auto &reaction : item->reactions()) {
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.cpp b/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.cpp
+index b65b4aa4c7444da465922ca5157f28e1257ff28d..7ca2fface767823687b988c2637fb8a353f8c7d6 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.cpp
+@@ -15,12 +15,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_document.h"
+ #include "data/stickers/data_custom_emoji.h"
+ #include "main/main_session.h"
+-#include "chat_helpers/stickers_emoji_pack.h"
+ #include "chat_helpers/stickers_lottie.h"
+ #include "ui/chat/chat_style.h"
+ #include "ui/text/text_isolated_emoji.h"
+ #include "ui/painter.h"
+ #include "ui/power_saving.h"
++#include "tele/tele_custom_emoji.h"
+ 
+ namespace HistoryView {
+ namespace {
+@@ -55,6 +55,18 @@ struct CustomEmojiSizeInfo {
+ 		: SizeTag::Normal;
+ }
+ 
++[[nodiscard]] DocumentId LargeCustomEmojiId(const LargeCustomEmoji &element) {
++	if (const auto id = std::get_if<DocumentId>(&element)) {
++		return *id;
++	} else if (const auto sticker = std::get_if<StickerPtr>(&element)) {
++		const auto document = (*sticker)->document();
++		return document ? document->id : DocumentId();
++	} else if (const auto custom = std::get_if<CustomPtr>(&element)) {
++		return Data::ParseCustomEmojiData((*custom)->entityData());
++	}
++	return DocumentId();
++}
++
+ } //namespace
+ 
+ CustomEmoji::CustomEmoji(
+@@ -136,40 +148,39 @@ std::unique_ptr<Sticker> CustomEmoji::createStickerPart(
+ 	return result;
+ }
+ 
+-void CustomEmoji::refreshInteractionLink() {
+-	if (_lines.size() != 1 || _lines.front().size() != 1) {
+-		return;
++ClickHandlerPtr CustomEmoji::linkAt(QPoint point, int width) {
++	if (point.x() < 0 || point.y() < 0) {
++		return nullptr;
+ 	}
+-	const auto &pack = _parent->history()->session().emojiStickersPack();
+-	const auto version = pack.animationsVersion();
+-	if (_animationsCheckVersion == version) {
+-		return;
+-	}
+-	_animationsCheckVersion = version;
+-	if (pack.hasAnimationsFor(_parent->data())) {
+-		const auto weak = base::make_weak(this);
+-		_interactionLink = std::make_shared<LambdaClickHandler>([weak] {
+-			if (const auto that = weak.get()) {
+-				that->interactionLinkClicked();
+-			}
+-		});
+-	} else {
+-		_interactionLink = nullptr;
++	const auto perRow = std::max(width / _singleSize, 1);
++	const auto column = point.x() / _singleSize;
++	if (column >= perRow) {
++		return nullptr;
+ 	}
+-}
+-
+-ClickHandlerPtr CustomEmoji::link() {
+-	refreshInteractionLink();
+-	return _interactionLink;
+-}
+-
+-void CustomEmoji::interactionLinkClicked() {
+-	const auto &entry = _lines.front().front();
+-	if (const auto sticker = std::get_if<StickerPtr>(&entry)) {
+-		if ((*sticker)->ready()) {
+-			_parent->delegate()->elementStartInteraction(_parent);
++	auto top = 0;
++	for (const auto &line : _lines) {
++		const auto count = int(line.size());
++		const auto rows = std::max((count + perRow - 1) / perRow, 1);
++		const auto bottom = top + rows * _singleSize;
++		if (point.y() >= bottom) {
++			top = bottom;
++			continue;
++		}
++		const auto index = ((point.y() - top) / _singleSize) * perRow
++			+ column;
++		const auto id = (index < count)
++			? LargeCustomEmojiId(line[index])
++			: DocumentId();
++		if (!id) {
++			return nullptr;
++		}
++		auto &link = _links[id];
++		if (!link) {
++			link = Tele::MakeCustomEmojiLink(id);
+ 		}
++		return link;
+ 	}
++	return nullptr;
+ }
+ 
+ CustomEmoji::~CustomEmoji() {
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.h b/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.h
+index 33fce87e9afabf2d22e4d1a8f29d8073918d0a12..563a56df16fd4d398961fa3eea202250df7bf996 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.h
++++ b/Telegram/SourceFiles/history/view/media/history_view_custom_emoji.h
+@@ -48,7 +48,7 @@ public:
+ 		Painter &p,
+ 		const PaintContext &context,
+ 		const QRect &r) override;
+-	ClickHandlerPtr link() override;
++	ClickHandlerPtr linkAt(QPoint point, int width) override;
+ 
+ 	bool alwaysShowOutTimestamp() override;
+ 	bool hasTextForCopy() const override {
+@@ -86,15 +86,11 @@ private:
+ 	[[nodiscard]] std::unique_ptr<Sticker> createStickerPart(
+ 		not_null<DocumentData*> document) const;
+ 
+-	void refreshInteractionLink();
+-	void interactionLinkClicked();
+-
+ 	const not_null<Element*> _parent;
+ 	std::vector<std::vector<LargeCustomEmoji>> _lines;
+-	ClickHandlerPtr _interactionLink;
++	base::flat_map<DocumentId, ClickHandlerPtr> _links;
+ 	QImage _selectedFrame;
+ 	int _singleSize = 0;
+-	int _animationsCheckVersion = -1;
+ 	ChatHelpers::StickerLottieSize _cachingTag = {};
+ 	bool _hasHeavyPart = false;
+ 	bool _resolving = false;
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.cpp b/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.cpp
+index 269853a89e3dfb6404362ecf6797a7a165d14707..fbe38fbc6ab42560f9f4a3822a25f0b760a55db8 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.cpp
+@@ -607,9 +607,13 @@ TextState UnwrappedMedia::textState(QPoint point, StateRequest request) const {
+ 
+ 	// Link of content can be nullptr (e.g. sticker without stickerpack).
+ 	// So we have to process it to avoid overriding the previous result.
+-	if (_content->link() && inner.contains(point)) {
+-		result.link = _content->link();
+-		return result;
++	if (inner.contains(point)) {
++		if (const auto link = _content->linkAt(
++				point - inner.topLeft(),
++				inner.width())) {
++			result.link = link;
++			return result;
++		}
+ 	}
+ 	return result;
+ }
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.h b/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.h
+index c2d1b020086b1be91693a86c754190bcc89cb8b2..94f446e5d5d4fe0e9cd935216866af14fc581392 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.h
++++ b/Telegram/SourceFiles/history/view/media/history_view_media_unwrapped.h
+@@ -36,6 +36,9 @@ public:
+ 		[[nodiscard]] virtual ClickHandlerPtr link() {
+ 			return nullptr;
+ 		}
++		[[nodiscard]] virtual ClickHandlerPtr linkAt(QPoint point, int width) {
++			return link();
++		}
+ 
+ 		[[nodiscard]] virtual DocumentData *document() {
+ 			return nullptr;
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
+index 1177128464762f8631216db92b5d715bc5e16148..2648a13ebf13c36e15df4a24162f9c25754284a8 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
+@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "iv/markdown/iv_markdown_media_reuse.h"
+ #include "iv/markdown/iv_markdown_prepare_links.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_custom_emoji.h"
+ #include "ui/style/style_core_color.h"
+ #include "ui/style/style_core_scale.h"
+ #include "ui/text/text_extended_data.h"
+@@ -4744,6 +4745,14 @@ MarkdownArticleHitTestResult MarkdownArticle::Impl::hitTest(
+ 		QPoint point,
+ 		Ui::Text::StateRequest::Flags flags) const {
+ 	auto result = hitTestSegments(point, flags);
++	if (result.inlineButton) {
++		const auto custom = dynamic_cast<Ui::Text::CustomEmojiClickHandler*>(
++			result.state.link.get());
++		if (custom && Tele::CustomEmojiClickable(custom->entityData())) {
++			result.inlineButton = std::nullopt;
++			result.buttonUrl = QString();
++		}
++	}
+ 	if ((flags & Ui::Text::StateRequest::Flag::LookupLink)
+ 		&& !result.state.link
+ 		&& !result.preparedLink
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
+index 7ab247c60ee6175abbc803142324da0cfcc3a971..2e33df6a7f501383eae75b047ed1918417a47202 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/emoji_config.h"
+ #include "ui/integration.h"
+ #include "ui/painter.h"
++#include "tele/tele_custom_emoji.h"
+ #include "tele/tele_spoilers.h"
+ 
+ #include "styles/palette.h"
+@@ -2473,12 +2474,23 @@ void SetTextLeaf(
+ 		&& !inlineButtonPaintState->editMode
+ 		&& ranges::any_of(text.entities, [](const EntityInText &entity) {
+ 			return (entity.type() == EntityType::CustomEmoji)
+-				&& InlineButtonActionable(entity.data());
++				&& (InlineButtonActionable(entity.data())
++					|| Tele::CustomEmojiClickable(entity.data()));
+ 		})) {
+-		leaf->setCustomEmojiClickHandler(
+-			InlineButtonActionable,
+-			ActivateInlineButton,
+-			InlineButtonLinkTexts);
++		leaf->setCustomEmojiClickHandler([](QStringView data) {
++			return Tele::CustomEmojiClickable(data)
++				|| InlineButtonActionable(data);
++		}, [](QStringView data, ClickContext context) {
++			if (Tele::CustomEmojiClickable(data)) {
++				Tele::OpenCustomEmoji(data, std::move(context));
++			} else {
++				ActivateInlineButton(data, std::move(context));
++			}
++		}, [](QStringView data) {
++			return Tele::CustomEmojiClickable(data)
++				? Ui::Text::CustomEmojiLinkTexts()
++				: InlineButtonLinkTexts(data);
++		});
+ 	}
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_custom_emoji.cpp b/Telegram/SourceFiles/tele/tele_custom_emoji.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..89fa37ffbaec55408ee801bdd70b5dbb8d429769
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_custom_emoji.cpp
+@@ -0,0 +1,116 @@
++#include "tele/tele_custom_emoji.h"
++
++#include "core/click_handler_types.h"
++#include "data/data_document.h"
++#include "data/data_message_reaction_id.h"
++#include "data/data_session.h"
++#include "data/stickers/data_custom_emoji.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/view/history_view_reaction_preview.h"
++#include "iv/iv_rich_page.h"
++#include "iv/markdown/iv_markdown_prepare.h"
++#include "iv/markdown/iv_markdown_prepare_serialize.h"
++#include "mainwindow.h"
++#include "window/window_controller.h"
++#include "window/window_session_controller.h"
++
++namespace Tele {
++namespace {
++
++class ResolveListener final : public Data::CustomEmojiManager::Listener {
++public:
++	void customEmojiResolveDone(not_null<DocumentData*> document) override {
++	}
++
++};
++
++void CollectText(
++		const TextWithEntities &text,
++		const Fn<void(DocumentId)> &callback) {
++	for (const auto &entity : text.entities) {
++		if (entity.type() != EntityType::CustomEmoji) {
++			continue;
++		}
++		const auto data = QStringView(entity.data());
++		if (const auto object = Iv::Markdown::ParseInlineTextObjectEntity(
++				data)) {
++			using Button = Iv::Markdown::InlineTextObjectButtonData;
++			if (const auto button = std::get_if<Button>(&object->data)) {
++				CollectText(button->label, callback);
++			}
++		} else if (const auto id = Data::ParseCustomEmojiData(data)) {
++			callback(id);
++		}
++	}
++}
++
++void CollectBlocks(
++		const std::vector<Iv::RichPage::Block> &blocks,
++		const Fn<void(DocumentId)> &callback) {
++	for (const auto &block : blocks) {
++		CollectText(block.text.text, callback);
++		CollectText(block.caption.text, callback);
++		for (const auto &item : block.listItems) {
++			CollectText(item.text.text, callback);
++			CollectBlocks(item.blocks, callback);
++		}
++		for (const auto &row : block.tableRows) {
++			for (const auto &cell : row.cells) {
++				CollectText(cell.text.text, callback);
++			}
++		}
++		for (const auto &button : block.buttons) {
++			CollectText(button.text.text, callback);
++		}
++		CollectBlocks(block.blocks, callback);
++	}
++}
++
++} // namespace
++
++bool CustomEmojiClickable(QStringView data) {
++	return Data::ParseCustomEmojiData(data) != 0;
++}
++
++void OpenCustomEmoji(QStringView data, ClickContext context) {
++	const auto id = Data::ParseCustomEmojiData(data);
++	const auto my = context.other.value<ClickHandlerContext>();
++	const auto controller = my.sessionWindow.get();
++	if (!id || !controller) {
++		return;
++	}
++	if (!controller->widget()->isActiveWindow()) {
++		controller->window().activate();
++	}
++	HistoryView::ShowReactionPreview(
++		controller,
++		my.itemId,
++		Data::ReactionId{ id },
++		true);
++}
++
++ClickHandlerPtr MakeCustomEmojiLink(DocumentId id) {
++	const auto data = Data::SerializeCustomEmojiId(id);
++	return std::make_shared<LambdaClickHandler>([=](ClickContext context) {
++		OpenCustomEmoji(data, std::move(context));
++	});
++}
++
++void ForEachRichPageCustomEmoji(
++		not_null<HistoryItem*> item,
++		Fn<void(DocumentId)> callback) {
++	static auto listener = ResolveListener();
++	const auto manager = &item->history()->owner().customEmojiManager();
++	const auto push = Fn<void(DocumentId)>([&](DocumentId id) {
++		manager->resolve(id, &listener);
++		callback(id);
++	});
++	for (const auto &page : { item->richPage(), item->fullRichPage() }) {
++		if (page) {
++			CollectBlocks(page->blocks, push);
++		}
++	}
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_custom_emoji.h b/Telegram/SourceFiles/tele/tele_custom_emoji.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..86d62c6171f0aed483bd8db6191cc92c7fac9297
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_custom_emoji.h
+@@ -0,0 +1,15 @@
++#pragma once
++
++class HistoryItem;
++struct ClickContext;
++
++namespace Tele {
++
++[[nodiscard]] bool CustomEmojiClickable(QStringView data);
++void OpenCustomEmoji(QStringView data, ClickContext context);
++[[nodiscard]] ClickHandlerPtr MakeCustomEmojiLink(DocumentId id);
++void ForEachRichPageCustomEmoji(
++	not_null<HistoryItem*> item,
++	Fn<void(DocumentId)> callback);
++
++} // namespace Tele

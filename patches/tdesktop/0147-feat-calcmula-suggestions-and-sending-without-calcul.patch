@@ -1,0 +1,1009 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 04:19:09 +0300
+Subject: [PATCH] feat: calcmula suggestions and sending without calculating
+
+---
+ .../SourceFiles/history/history_widget.cpp    |   1 +
+ .../history_view_compose_controls.cpp         |   1 +
+ Telegram/SourceFiles/tele/tele_calcmula.cpp   | 176 ++++----
+ Telegram/SourceFiles/tele/tele_calcmula.h     |  17 +-
+ .../tele/tele_calcmula_preview.cpp            | 417 +++++++++++++++---
+ .../SourceFiles/tele/tele_calcmula_preview.h  |   7 +
+ 6 files changed, 480 insertions(+), 139 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 7dddea8d9323c5131a2293fd4427fc82aa73858e..8cd976e457ee6527e915929e39d843c87d51dd44 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -6276,6 +6276,7 @@ SendMenu::Details HistoryWidget::sendButtonMenuDetails() const {
+ 	auto result = sendButtonDefaultDetails();
+ 	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
+ 	Tele::ComposeDockedMenu(_teleDocked.get(), result);
++	Tele::CalcmulaMenu(_field.data(), result);
+ 	return result;
+ }
+ 
+diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+index 6068a1dd6abe25dd2e8e6802df180e6b1042cfd3..82fea1f75d3bbf81c2f27eefd8f4208145ef9fa7 100644
+--- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
++++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
+@@ -5080,6 +5080,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+ 	}
+ 	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
+ 	Tele::ComposeDockedMenu(_teleDocked.get(), result);
++	Tele::CalcmulaMenu(_field, result);
+ 	return result;
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula.cpp b/Telegram/SourceFiles/tele/tele_calcmula.cpp
+index 22a33384786fefd4a25b12dfca81905ccc3e197c..b6f428ae4459cf9c525001464c09198aabd086a1 100644
+--- a/Telegram/SourceFiles/tele/tele_calcmula.cpp
++++ b/Telegram/SourceFiles/tele/tele_calcmula.cpp
+@@ -2,11 +2,7 @@
+ 
+ #include "api/api_common.h"
+ #include "apiwrap.h"
+-#include "core/application.h"
+ #include "data/components/ephemeral_messages.h"
+-#include "data/data_changes.h"
+-#include "data/data_drafts.h"
+-#include "data/data_thread.h"
+ #include "history/history.h"
+ #include "main/main_session.h"
+ #include "storage/localimageloader.h"
+@@ -14,11 +10,11 @@
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/chat/attach/attach_prepare.h"
+-#include "ui/text/text.h"
+ #include "ui/text/text_entity.h"
+ #include "window/window_session_controller.h"
+ 
+ #include <QtCore/QCoreApplication>
++#include <QtCore/QJsonArray>
+ #include <QtCore/QJsonDocument>
+ #include <QtCore/QJsonObject>
+ #include <QtNetwork/QNetworkAccessManager>
+@@ -34,19 +30,24 @@ constexpr auto kUrl = "https://calcmula.app/api/calc?q=";
+ constexpr auto kOffError = "calcmula is off for this launch";
+ constexpr auto kCacheSize = 32;
+ constexpr auto kCacheLifetime = 5 * 60 * crl::time(1000);
++constexpr auto kPendingLifetime = 60 * crl::time(1000);
+ 
+-struct Result {
+-	QString value;
+-	QString error;
+-};
++using Result = CalcmulaResult;
+ 
+ struct Cached {
+ 	QString query;
+-	QString value;
++	Result result;
++	crl::time when = 0;
++};
++
++struct Pending {
++	QString query;
++	QString replacement;
+ 	crl::time when = 0;
+ };
+ 
+ bool Resending = false;
++Pending Next;
+ 
+ [[nodiscard]] QString Query(const QString &text) {
+ 	return text.startsWith(u"= "_q) ? text.mid(2).trimmed() : QString();
+@@ -76,9 +77,28 @@ bool Resending = false;
+ 			u"doc"_q
+ 		).toObject().value(u"summary"_q).toString().trimmed();
+ 	}
+-	return value.isEmpty()
+-		? Result{ .error = u"empty result"_q }
+-		: Result{ .value = value };
++	if (value.isEmpty()) {
++		return { .error = u"empty result"_q };
++	}
++	auto parsed = Result{ .value = value };
++	const auto warnings = object.value(u"warnings"_q).toArray();
++	for (const auto &entry : warnings) {
++		const auto warning = entry.toObject();
++		const auto suggestion = warning.value(u"suggestion"_q).toObject();
++		const auto expression = suggestion.value(
++			u"expression"_q
++		).toString().trimmed();
++		if (!expression.isEmpty()) {
++			parsed.suggestion = expression;
++			parsed.suggestionValue = suggestion.value(
++				u"display"_q
++			).toString().trimmed();
++			break;
++		} else if (parsed.warning.isEmpty()) {
++			parsed.warning = warning.value(u"message"_q).toString().trimmed();
++		}
++	}
++	return parsed;
+ }
+ 
+ void Compute(
+@@ -149,49 +169,6 @@ void ShowError(not_null<History*> history, const QString &error) {
+ 	}
+ }
+ 
+-void RestoreDraft(const Api::MessageToSend &message) {
+-	Core::App().materializeLocalDrafts();
+-	const auto history = message.action.history;
+-	const auto topicRootId = message.action.replyTo.topicRootId;
+-	const auto monoforumPeerId = message.action.replyTo.monoforumPeerId;
+-	auto text = message.textWithTags;
+-	auto reply = message.action.replyTo;
+-	auto suggest = SuggestOptions();
+-	auto webpage = message.webPage;
+-	if (const auto existing = history->localDraft(
+-			topicRootId,
+-			monoforumPeerId)) {
+-		if (!Data::DraftStringIsEmpty(existing->textWithTags.text)) {
+-			const auto shift = int(text.text.size()) + 1;
+-			text.text += '\n' + existing->textWithTags.text;
+-			for (auto tag : existing->textWithTags.tags) {
+-				tag.offset += shift;
+-				text.tags.push_back(std::move(tag));
+-			}
+-			webpage = existing->webpage;
+-		}
+-		if (existing->reply.messageId) {
+-			reply = existing->reply;
+-		}
+-		suggest = existing->suggest;
+-	}
+-	const auto size = int(text.text.size());
+-	history->setLocalDraft(std::make_unique<Data::Draft>(
+-		text,
+-		reply,
+-		suggest,
+-		MessageCursor{ size, size, Ui::kQFixedMax },
+-		webpage));
+-	if (const auto thread = history->threadFor(
+-			topicRootId,
+-			monoforumPeerId)) {
+-		history->session().api().saveDraftToCloudDelayed(thread);
+-		history->session().changes().entryUpdated(
+-			thread,
+-			Data::EntryUpdate::Flag::LocalDraftSet);
+-	}
+-}
+-
+ void Resend(FnMut<void()> callback) {
+ 	Resending = true;
+ 	callback();
+@@ -203,20 +180,35 @@ void Resend(FnMut<void()> callback) {
+ 	return result;
+ }
+ 
+-[[nodiscard]] QString CachedValue(const QString &query) {
++[[nodiscard]] Pending TakePending() {
++	auto result = std::exchange(Next, Pending());
++	return (crl::now() - result.when <= kPendingLifetime)
++		? result
++		: Pending();
++}
++
++[[nodiscard]] std::optional<QString> Replacement(
++		const Pending &pending,
++		const QString &query) {
++	return (!query.isEmpty() && (pending.query == query))
++		? std::make_optional(pending.replacement)
++		: std::nullopt;
++}
++
++[[nodiscard]] Result CachedResult(const QString &query) {
+ 	auto &cache = Cache();
+ 	const auto now = crl::now();
+ 	cache.erase(ranges::remove_if(cache, [&](const Cached &entry) {
+ 		return (now - entry.when) > kCacheLifetime;
+ 	}), end(cache));
+ 	const auto i = ranges::find(cache, query, &Cached::query);
+-	return (i != end(cache)) ? i->value : QString();
++	return (i != end(cache)) ? i->result : Result();
+ }
+ 
+-void Remember(const QString &query, const QString &value) {
++void Remember(const QString &query, const Result &result) {
+ 	auto &cache = Cache();
+ 	cache.erase(ranges::remove(cache, query, &Cached::query), end(cache));
+-	cache.push_back({ .query = query, .value = value, .when = crl::now() });
++	cache.push_back({ .query = query, .result = result, .when = crl::now() });
+ 	if (int(cache.size()) > kCacheSize) {
+ 		cache.erase(begin(cache));
+ 	}
+@@ -226,16 +218,16 @@ void ComputeCached(
+ 		not_null<Main::Session*> session,
+ 		const QString &query,
+ 		Fn<void(Result)> done) {
+-	const auto value = CachedValue(query);
+-	if (!value.isEmpty()) {
++	const auto cached = CachedResult(query);
++	if (!cached.value.isEmpty()) {
+ 		crl::on_main(session.get(), [=] {
+-			done(Result{ .value = value });
++			done(cached);
+ 		});
+ 		return;
+ 	}
+ 	Compute(session, query, [=](Result result) {
+ 		if (!result.value.isEmpty()) {
+-			Remember(query, result.value);
++			Remember(query, result);
+ 		}
+ 		done(std::move(result));
+ 	});
+@@ -244,14 +236,17 @@ void ComputeCached(
+ } // namespace
+ 
+ bool CalcmulaMessage(const Api::MessageToSend &message) {
+-	const auto query = Query(message.textWithTags.text);
++	const auto typed = Query(message.textWithTags.text);
++	const auto replacement = Replacement(TakePending(), typed);
+ 	if (Resending
++		|| (replacement && replacement->isEmpty())
+ 		|| !Calcmula()
+-		|| query.isEmpty()
++		|| typed.isEmpty()
+ 		|| message.action.options.suggest.exists
+ 		|| message.action.replaceMediaOf) {
+ 		return false;
+ 	}
++	const auto query = replacement.value_or(typed);
+ 	const auto history = message.action.history;
+ 	const auto session = &history->session();
+ 	if (session->ephemeralMessages().wouldSend(message)) {
+@@ -259,13 +254,12 @@ bool CalcmulaMessage(const Api::MessageToSend &message) {
+ 	}
+ 	const auto original = std::make_shared<Api::MessageToSend>(message);
+ 	ComputeCached(session, query, [=](Result result) {
++		auto copy = *original;
+ 		if (!result.error.isEmpty()) {
+ 			ShowError(history, result.error);
+-			RestoreDraft(*original);
+-			return;
++		} else {
++			copy.textWithTags = Compose(query, result.value);
+ 		}
+-		auto copy = *original;
+-		copy.textWithTags = Compose(query, result.value);
+ 		Resend([&] {
+ 			session->api().sendMessage(std::move(copy));
+ 		});
+@@ -276,13 +270,16 @@ bool CalcmulaMessage(const Api::MessageToSend &message) {
+ bool CalcmulaCaption(
+ 		const Api::MessageToSend &message,
+ 		Fn<void(Api::MessageToSend&&)> send) {
+-	const auto query = Query(message.textWithTags.text);
++	const auto typed = Query(message.textWithTags.text);
++	const auto replacement = Replacement(TakePending(), typed);
+ 	if (Resending
++		|| (replacement && replacement->isEmpty())
+ 		|| !Calcmula()
+-		|| query.isEmpty()
++		|| typed.isEmpty()
+ 		|| message.action.replaceMediaOf) {
+ 		return false;
+ 	}
++	const auto query = replacement.value_or(typed);
+ 	const auto history = message.action.history;
+ 	const auto original = std::make_shared<Api::MessageToSend>(message);
+ 	ComputeCached(&history->session(), query, [=](Result result) {
+@@ -304,14 +301,16 @@ bool CalcmulaFiles(
+ 		SendMediaType type,
+ 		const std::shared_ptr<SendingAlbum> &album,
+ 		const Api::SendAction &action) {
++	const auto pending = TakePending();
+ 	if (Resending || !Calcmula() || action.replaceMediaOf) {
+ 		return false;
+ 	}
+ 	auto queries = std::vector<std::pair<int, QString>>();
+ 	for (auto i = 0, count = int(list.files.size()); i != count; ++i) {
+-		auto query = Query(list.files[i].caption.text);
+-		if (!query.isEmpty()) {
+-			queries.emplace_back(i, std::move(query));
++		const auto typed = Query(list.files[i].caption.text);
++		const auto replacement = Replacement(pending, typed);
++		if (!typed.isEmpty() && !(replacement && replacement->isEmpty())) {
++			queries.emplace_back(i, replacement.value_or(typed));
+ 		}
+ 	}
+ 	if (queries.empty()) {
+@@ -359,17 +358,34 @@ QString CalcmulaQuery(const QString &text) {
+ 	return Query(text);
+ }
+ 
+-QString CalcmulaCached(const QString &query) {
+-	return CachedValue(query);
++CalcmulaResult CalcmulaCached(const QString &query) {
++	return CachedResult(query);
+ }
+ 
+ void CalcmulaCompute(
+ 		not_null<Main::Session*> session,
+ 		const QString &query,
+-		Fn<void(QString value, QString error)> done) {
+-	ComputeCached(session, query, [=](Result result) {
+-		done(result.value, result.error);
++		Fn<void(CalcmulaResult)> done) {
++	ComputeCached(session, query, std::move(done));
++}
++
++void CalcmulaSendRaw(const QString &text, Fn<void()> send) {
++	Next = Pending{ .query = Query(text), .when = crl::now() };
++	Resend([&] {
++		send();
+ 	});
+ }
+ 
++void CalcmulaSendSuggestion(
++		const QString &text,
++		const QString &expression,
++		Fn<void()> send) {
++	Next = Pending{
++		.query = Query(text),
++		.replacement = expression,
++		.when = crl::now(),
++	};
++	send();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula.h b/Telegram/SourceFiles/tele/tele_calcmula.h
+index 3bf482845bfffccbead51dc91139a575b213f65c..5f972bace75653f376e5f58d0ab0f20acc879885 100644
+--- a/Telegram/SourceFiles/tele/tele_calcmula.h
++++ b/Telegram/SourceFiles/tele/tele_calcmula.h
+@@ -18,6 +18,14 @@ struct PreparedList;
+ 
+ namespace Tele {
+ 
++struct CalcmulaResult {
++	QString value;
++	QString error;
++	QString warning;
++	QString suggestion;
++	QString suggestionValue;
++};
++
+ [[nodiscard]] bool CalcmulaMessage(const Api::MessageToSend &message);
+ [[nodiscard]] bool CalcmulaCaption(
+ 	const Api::MessageToSend &message,
+@@ -29,10 +37,15 @@ namespace Tele {
+ 	const Api::SendAction &action);
+ 
+ [[nodiscard]] QString CalcmulaQuery(const QString &text);
+-[[nodiscard]] QString CalcmulaCached(const QString &query);
++[[nodiscard]] CalcmulaResult CalcmulaCached(const QString &query);
+ void CalcmulaCompute(
+ 	not_null<Main::Session*> session,
+ 	const QString &query,
+-	Fn<void(QString value, QString error)> done);
++	Fn<void(CalcmulaResult)> done);
++void CalcmulaSendRaw(const QString &text, Fn<void()> send);
++void CalcmulaSendSuggestion(
++	const QString &text,
++	const QString &expression,
++	Fn<void()> send);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_preview.cpp b/Telegram/SourceFiles/tele/tele_calcmula_preview.cpp
+index 55ff95be1d78c7cd7355e9545b3bb6229892165a..d26dc5b706b2ee4b9929624c02285e352a2dc721 100644
+--- a/Telegram/SourceFiles/tele/tele_calcmula_preview.cpp
++++ b/Telegram/SourceFiles/tele/tele_calcmula_preview.cpp
+@@ -4,6 +4,7 @@
+ #include "base/invoke_queued.h"
+ #include "base/timer.h"
+ #include "base/unique_qptr.h"
++#include "menu/menu_send_details.h"
+ #include "tele/tele_calcmula.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+@@ -12,10 +13,14 @@
+ #include "ui/text/text.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/popup_menu.h"
+ #include "ui/widgets/shadow.h"
+ #include "styles/style_chat_helpers.h"
++#include "styles/style_menu_icons.h"
+ #include "styles/style_overview.h"
+ 
++#include <QtGui/QKeyEvent>
++#include <QtGui/QPainterPath>
+ #include <QtWidgets/QTextEdit>
+ 
+ namespace Tele {
+@@ -23,6 +28,77 @@ namespace {
+ 
+ constexpr auto kDelay = crl::time(350);
+ 
++[[nodiscard]] QString Separator() {
++	return QString::fromUtf8(" \xC2\xB7 ");
++}
++
++class Sender final : public QObject {
++public:
++	Sender(
++		not_null<Ui::InputField*> field,
++		Fn<bool()> blocked,
++		Fn<void()> send)
++	: QObject(field)
++	, _field(field)
++	, _blocked(std::move(blocked))
++	, _send(std::move(send)) {
++	}
++
++	[[nodiscard]] bool active() const {
++		return Calcmula()
++			&& !_blocked()
++			&& !CalcmulaQuery(_field->getLastText()).isEmpty();
++	}
++	void send() const {
++		CalcmulaSendRaw(_field->getTextWithAppliedMarkdown().text, _send);
++	}
++
++private:
++	const not_null<Ui::InputField*> _field;
++	const Fn<bool()> _blocked;
++	const Fn<void()> _send;
++
++};
++
++[[nodiscard]] Sender *FindSender(not_null<Ui::InputField*> field) {
++	for (const auto child : field->children()) {
++		if (const auto sender = dynamic_cast<Sender*>(child)) {
++			return sender;
++		}
++	}
++	return nullptr;
++}
++
++[[nodiscard]] bool IsRawShortcut(not_null<QKeyEvent*> event) {
++	const auto key = event->key();
++	const auto modifiers = event->modifiers()
++		& ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
++	return (key == Qt::Key_Enter || key == Qt::Key_Return)
++		&& (modifiers == Qt::AltModifier);
++}
++
++void SetupSender(
++		not_null<Ui::InputField*> field,
++		Fn<bool()> blocked,
++		Fn<void()> send) {
++	const auto sender = new Sender(
++		field,
++		std::move(blocked),
++		std::move(send));
++	base::install_event_filter(
++		sender,
++		field->rawTextEdit(),
++		[=](not_null<QEvent*> e) {
++			if (e->type() != QEvent::KeyPress
++				|| !IsRawShortcut(static_cast<QKeyEvent*>(e.get()))
++				|| !sender->active()) {
++				return base::EventFilterResult::Continue;
++			}
++			sender->send();
++			return base::EventFilterResult::Cancel;
++		});
++}
++
+ class Preview final : public Ui::RpWidget {
+ public:
+ 	explicit Preview(CalcmulaPreviewDescriptor &&descriptor);
+@@ -41,16 +117,39 @@ private:
+ 		Pending,
+ 		Error,
+ 	};
++	struct Layout {
++		int left = 0;
++		int available = 0;
++		int titleWidth = 0;
++		int hintLeft = 0;
++		int hintWidth = 0;
++	};
+ 
+ 	void setupField();
++	[[nodiscard]] bool handleKey(int key);
+ 	void refresh();
+ 	void request();
++	void applyResult(const CalcmulaResult &result);
+ 	void apply(const QString &text, Title title);
++	void select(int row);
++	void sendRow(int row);
+ 	void cancel();
+ 	void updatePosition();
+-	void setOver(bool over);
++	void paintRow(
++		Painter &p,
++		int row,
++		const Ui::Text::String &title,
++		const style::color &titleFg,
++		const Ui::Text::String &description,
++		const Layout &layout);
+ 	[[nodiscard]] bool allowed() const;
++	[[nodiscard]] bool suggestionActive() const;
++	[[nodiscard]] int rows() const;
++	[[nodiscard]] int rowHeight() const;
++	[[nodiscard]] int rowAt(QPoint point) const;
++	[[nodiscard]] QRect rowRect(int row) const;
+ 	[[nodiscard]] QRect inner() const;
++	[[nodiscard]] Layout layout() const;
+ 
+ 	const not_null<Ui::InputField*> _field;
+ 	const not_null<Main::Session*> _session;
+@@ -60,14 +159,19 @@ private:
+ 	base::Timer _timer;
+ 	Ui::Text::String _title;
+ 	Ui::Text::String _description;
++	Ui::Text::String _hint;
++	Ui::Text::String _suggestionTitle;
++	Ui::Text::String _suggestionDescription;
+ 	Title _titleState = Title::Value;
+ 	QPoint _bottomLeft;
+ 	QString _query;
++	QString _suggestion;
++	QString _suggestionQuery;
+ 	std::optional<QString> _dismissed;
+ 	uint64 _requestId = 0;
+-	bool _over = false;
++	int _selected = -1;
++	int _pressed = -1;
+ 	bool _wanted = false;
+-	bool _pressed = false;
+ 
+ };
+ 
+@@ -115,12 +219,42 @@ void Preview::setupField() {
+ 				_dismissed = _field->getLastText();
+ 				cancel();
+ 				return base::EventFilterResult::Cancel;
++			} else if (!modifiers && handleKey(key->key())) {
++				return base::EventFilterResult::Cancel;
+ 			}
+ 		}
+ 		return base::EventFilterResult::Continue;
+ 	});
+ }
+ 
++bool Preview::handleKey(int key) {
++	if (rows() < 2 || !allowed()) {
++		return false;
++	} else if (key == Qt::Key_Up) {
++		if (_selected < 0) {
++			auto cursor = _field->textCursor();
++			if (cursor.movePosition(QTextCursor::Up)) {
++				return false;
++			}
++			select(rows() - 1);
++		} else {
++			select(std::max(_selected - 1, 0));
++		}
++		return true;
++	} else if (key == Qt::Key_Down) {
++		if (_selected < 0) {
++			return false;
++		}
++		select((_selected + 1 < rows()) ? (_selected + 1) : -1);
++		return true;
++	} else if ((key == Qt::Key_Enter || key == Qt::Key_Return)
++		&& (_selected >= 0)) {
++		sendRow(_selected);
++		return true;
++	}
++	return false;
++}
++
+ bool Preview::allowed() const {
+ 	return Calcmula()
+ 		&& CalcmulaPreview()
+@@ -128,6 +262,12 @@ bool Preview::allowed() const {
+ 		&& !_blocked();
+ }
+ 
++bool Preview::suggestionActive() const {
++	return !_suggestion.isEmpty()
++		&& (_suggestionQuery == _query)
++		&& (_titleState == Title::Value);
++}
++
+ void Preview::refresh() {
+ 	const auto text = _field->getLastText();
+ 	if (_dismissed && *_dismissed != text) {
+@@ -142,13 +282,14 @@ void Preview::refresh() {
+ 	}
+ 	_query = query;
+ 	++_requestId;
++	select(-1);
+ 	_description.setText(
+ 		st::defaultTextStyle,
+ 		TextUtilities::SingleLine(query));
+ 	const auto cached = CalcmulaCached(query);
+-	if (!cached.isEmpty()) {
++	if (!cached.value.isEmpty()) {
+ 		_timer.cancel();
+-		apply(cached, Title::Value);
++		applyResult(cached);
+ 		return;
+ 	}
+ 	_timer.callOnce(kDelay);
+@@ -165,18 +306,40 @@ void Preview::request() {
+ 	}
+ 	const auto id = ++_requestId;
+ 	CalcmulaCompute(_session, _query, crl::guard(this, [=](
+-			QString value,
+-			QString error) {
+-		if (id != _requestId) {
+-			return;
+-		} else if (!error.isEmpty()) {
+-			apply(Lower(error), Title::Error);
+-		} else {
+-			apply(value, Title::Value);
++			CalcmulaResult result) {
++		if (id == _requestId) {
++			applyResult(result);
+ 		}
+ 	}));
+ }
+ 
++void Preview::applyResult(const CalcmulaResult &result) {
++	select(-1);
++	if (!result.error.isEmpty()) {
++		_suggestion = QString();
++		_hint.clear();
++		apply(Lower(result.error), Title::Error);
++		return;
++	}
++	_suggestion = result.suggestion;
++	_suggestionQuery = _query;
++	if (!_suggestion.isEmpty()) {
++		const auto expression = TextUtilities::SingleLine(_suggestion);
++		const auto value = TextUtilities::SingleLine(
++			result.suggestionValue);
++		_suggestionTitle.setText(
++			st::semiboldTextStyle,
++			value.isEmpty() ? expression : value);
++		_suggestionDescription.setText(st::defaultTextStyle, expression);
++		_hint.clear();
++	} else {
++		_hint.setText(
++			st::defaultTextStyle,
++			Lower(TextUtilities::SingleLine(result.warning)));
++	}
++	apply(result.value, Title::Value);
++}
++
+ void Preview::apply(const QString &text, Title title) {
+ 	if (!allowed()) {
+ 		cancel();
+@@ -184,8 +347,8 @@ void Preview::apply(const QString &text, Title title) {
+ 	}
+ 	_title.setText(st::semiboldTextStyle, TextUtilities::SingleLine(text));
+ 	_titleState = title;
++	updatePosition();
+ 	if (isHidden()) {
+-		updatePosition();
+ 		_wanted = true;
+ 		show();
+ 		raise();
+@@ -193,12 +356,34 @@ void Preview::apply(const QString &text, Title title) {
+ 	update();
+ }
+ 
++void Preview::select(int row) {
++	const auto active = (row == 0) || (row > 0 && suggestionActive());
++	setCursor(active ? style::cur_pointer : style::cur_default);
++	if (_selected != row) {
++		_selected = row;
++		update();
++	}
++}
++
++void Preview::sendRow(int row) {
++	if (!allowed()) {
++		return;
++	} else if (row == 0) {
++		_send();
++	} else if (row == 1 && suggestionActive()) {
++		CalcmulaSendSuggestion(
++			_field->getTextWithAppliedMarkdown().text,
++			_suggestion,
++			_send);
++	}
++}
++
+ void Preview::cancel() {
+ 	_timer.cancel();
+ 	++_requestId;
+ 	_query = QString();
+-	_pressed = false;
+-	setOver(false);
++	_pressed = -1;
++	select(-1);
+ 	_wanted = false;
+ 	hide();
+ }
+@@ -207,11 +392,18 @@ void Preview::setVisibleHook(bool visible) {
+ 	RpWidget::setVisibleHook(visible && _wanted);
+ }
+ 
++int Preview::rows() const {
++	return _suggestion.isEmpty() ? 1 : 2;
++}
++
++int Preview::rowHeight() const {
++	return st::stickerPanPadding * 2 + st::inlineFileSize;
++}
++
+ void Preview::updatePosition() {
+ 	const auto &margins = st::emojiPanMargins;
+ 	const auto height = margins.top()
+-		+ st::stickerPanPadding * 2
+-		+ st::inlineFileSize
++		+ rows() * rowHeight()
+ 		+ margins.bottom();
+ 	const auto width = std::min(
+ 		margins.left() + st::emojiPanWidth + margins.right(),
+@@ -227,83 +419,194 @@ QRect Preview::inner() const {
+ 	return rect().marginsRemoved(st::emojiPanMargins);
+ }
+ 
+-void Preview::setOver(bool over) {
+-	if (_over == over) {
+-		return;
++QRect Preview::rowRect(int row) const {
++	const auto inner = this->inner();
++	return QRect(
++		inner.x(),
++		inner.y() + row * rowHeight(),
++		inner.width(),
++		rowHeight());
++}
++
++int Preview::rowAt(QPoint point) const {
++	for (auto row = 0; row != rows(); ++row) {
++		if (rowRect(row).contains(point)) {
++			return row;
++		}
+ 	}
+-	_over = over;
+-	setCursor(over ? style::cur_pointer : style::cur_default);
++	return -1;
+ }
+ 
+-void Preview::paintEvent(QPaintEvent *e) {
+-	auto p = Painter(this);
++Preview::Layout Preview::layout() const {
+ 	const auto inner = this->inner();
+-	_shadow.paint(p, inner, st::roundRadiusSmall);
+-	{
+-		auto hq = PainterHighQualityEnabler(p);
+-		p.setPen(Qt::NoPen);
+-		p.setBrush(st::emojiPanBg);
+-		p.drawRoundedRect(inner, st::roundRadiusSmall, st::roundRadiusSmall);
++	const auto skip = st::stickerPanPadding;
++	auto result = Layout();
++	result.left = inner.x()
++		+ skip
++		+ st::inlineFileSize
++		+ st::inlineThumbSkip;
++	result.available = inner.x() + inner.width() - skip - result.left;
++	result.titleWidth = std::clamp(_title.maxWidth(), 0, result.available);
++	if (_titleState != Title::Value || _hint.isEmpty()) {
++		return result;
++	}
++	const auto separator = st::defaultTextStyle.font->width(Separator());
++	const auto width = std::min(
++		_hint.maxWidth(),
++		result.available - result.titleWidth - separator);
++	if (width >= std::min(_hint.maxWidth(), st::inlineFileSize)) {
++		result.hintLeft = result.left + result.titleWidth + separator;
++		result.hintWidth = width;
+ 	}
++	return result;
++}
++
++void Preview::paintRow(
++		Painter &p,
++		int row,
++		const Ui::Text::String &title,
++		const style::color &titleFg,
++		const Ui::Text::String &description,
++		const Layout &layout) {
++	const auto rect = rowRect(row);
+ 	const auto skip = st::stickerPanPadding;
+ 	const auto size = st::inlineFileSize;
+-	const auto thumb = QRect(inner.x() + skip, inner.y() + skip, size, size);
++	const auto thumb = QRect(rect.x() + skip, rect.y() + skip, size, size);
+ 	p.fillRect(thumb, st::msgFile1Bg);
+ 	p.setFont(st::linksLetterFont);
+ 	p.setPen(st::linksLetterFg);
+ 	p.drawText(thumb, u"="_q, style::al_center);
+ 
+-	const auto left = thumb.x() + size + st::inlineThumbSkip;
+-	const auto available = inner.x() + inner.width() - skip - left;
+-	p.setPen((_titleState == Title::Error)
+-		? st::attentionButtonFg
+-		: (_titleState == Title::Pending)
+-		? st::inlineDescriptionFg
+-		: st::inlineTitleFg);
+-	_title.drawLeftElided(
+-		p,
+-		left,
+-		thumb.y() + st::inlineRowFileNameTop,
+-		available,
+-		width());
++	const auto titleTop = thumb.y() + st::inlineRowFileNameTop;
++	const auto titleWidth = row ? layout.available : layout.titleWidth;
++	p.setPen(titleFg);
++	title.drawLeftElided(p, layout.left, titleTop, titleWidth, width());
++	if (!row && layout.hintWidth) {
++		const auto &font = st::defaultTextStyle.font;
++		p.setFont(font);
++		p.setPen(st::inlineDescriptionFg);
++		p.drawText(
++			layout.left + layout.titleWidth,
++			titleTop + font->ascent,
++			Separator());
++		_hint.drawLeftElided(
++			p,
++			layout.hintLeft,
++			titleTop,
++			layout.hintWidth,
++			width());
++	}
+ 	p.setPen(st::inlineDescriptionFg);
+-	_description.drawLeftElided(
++	description.drawLeftElided(
+ 		p,
+-		left,
++		layout.left,
+ 		thumb.y() + st::inlineRowFileDescriptionTop,
+-		available,
++		layout.available,
+ 		width());
+ }
+ 
++void Preview::paintEvent(QPaintEvent *e) {
++	auto p = Painter(this);
++	const auto inner = this->inner();
++	_shadow.paint(p, inner, st::roundRadiusSmall);
++	auto path = QPainterPath();
++	path.addRoundedRect(inner, st::roundRadiusSmall, st::roundRadiusSmall);
++	{
++		auto hq = PainterHighQualityEnabler(p);
++		p.setPen(Qt::NoPen);
++		p.setBrush(st::emojiPanBg);
++		p.drawPath(path);
++	}
++	if (_selected >= 0 && _selected < rows()) {
++		p.setClipPath(path);
++		p.fillRect(rowRect(_selected), st::emojiPanHover);
++		p.setClipping(false);
++	}
++	const auto layout = this->layout();
++	paintRow(
++		p,
++		0,
++		_title,
++		((_titleState == Title::Error)
++			? st::attentionButtonFg
++			: (_titleState == Title::Pending)
++			? st::inlineDescriptionFg
++			: st::inlineTitleFg),
++		_description,
++		layout);
++	if (rows() > 1) {
++		p.fillRect(
++			layout.left,
++			rowRect(1).y(),
++			layout.available,
++			st::inlineRowBorder,
++			st::inlineRowBorderFg);
++		paintRow(
++			p,
++			1,
++			_suggestionTitle,
++			(suggestionActive()
++				? st::inlineTitleFg
++				: st::inlineDescriptionFg),
++			_suggestionDescription,
++			layout);
++	}
++}
++
+ void Preview::mouseMoveEvent(QMouseEvent *e) {
+-	setOver(inner().contains(e->pos()));
++	select(rowAt(e->pos()));
+ }
+ 
+ void Preview::mousePressEvent(QMouseEvent *e) {
+-	_pressed = _over && (e->button() == Qt::LeftButton);
++	_pressed = (e->button() == Qt::LeftButton) ? rowAt(e->pos()) : -1;
+ }
+ 
+ void Preview::mouseReleaseEvent(QMouseEvent *e) {
+-	const auto pressed = _pressed;
+-	_pressed = false;
+-	if (pressed
+-		&& _over
++	const auto pressed = std::exchange(_pressed, -1);
++	if (pressed >= 0
+ 		&& (e->button() == Qt::LeftButton)
+-		&& allowed()) {
+-		_send();
++		&& (rowAt(e->pos()) == pressed)) {
++		sendRow(pressed);
+ 	}
+ }
+ 
+ void Preview::leaveEventHook(QEvent *e) {
+-	setOver(false);
++	select(-1);
+ }
+ 
+ } // namespace
+ 
+ void SetupCalcmulaPreview(CalcmulaPreviewDescriptor &&descriptor) {
+ 	const auto field = descriptor.field;
++	SetupSender(field, descriptor.blocked, descriptor.send);
+ 	field->lifetime().make_state<base::unique_qptr<Preview>>(
+ 		base::make_unique_q<Preview>(std::move(descriptor)));
+ }
+ 
++void CalcmulaMenu(
++		not_null<Ui::InputField*> field,
++		SendMenu::Details &details) {
++	const auto sender = FindSender(field);
++	if (!sender || !sender->active()) {
++		return;
++	}
++	const auto weak = QPointer<Sender>(sender);
++	const auto previous = details.teleMenu;
++	details.teleMenu = [=](not_null<Ui::PopupMenu*> menu) {
++		if (weak) {
++			menu->addAction(
++				Lower(u"Send without calculating"_q),
++				crl::guard(weak.data(), [=] {
++					if (weak->active()) {
++						weak->send();
++					}
++				}),
++				&st::menuIconSend);
++		}
++		if (previous) {
++			previous(menu);
++		}
++	};
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_calcmula_preview.h b/Telegram/SourceFiles/tele/tele_calcmula_preview.h
+index 40d36a36ec1ee485dc102ca971e3c2c6f621a2f4..21286f3032cc014136bc00d676279c36c27b75e0 100644
+--- a/Telegram/SourceFiles/tele/tele_calcmula_preview.h
++++ b/Telegram/SourceFiles/tele/tele_calcmula_preview.h
+@@ -8,6 +8,10 @@ namespace Ui {
+ class InputField;
+ } // namespace Ui
+ 
++namespace SendMenu {
++struct Details;
++} // namespace SendMenu
++
+ namespace Tele {
+ 
+ struct CalcmulaPreviewDescriptor {
+@@ -20,5 +24,8 @@ struct CalcmulaPreviewDescriptor {
+ };
+ 
+ void SetupCalcmulaPreview(CalcmulaPreviewDescriptor &&descriptor);
++void CalcmulaMenu(
++	not_null<Ui::InputField*> field,
++	SendMenu::Details &details);
+ 
+ } // namespace Tele

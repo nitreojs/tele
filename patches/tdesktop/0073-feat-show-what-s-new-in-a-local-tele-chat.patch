@@ -1,0 +1,2370 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 00:14:27 +0300
+Subject: [PATCH] feat: show what's new in a local tele chat
+
+---
+ Telegram/CMakeLists.txt                       |   4 +
+ Telegram/Resources/art/tele_userpic.jpg       | Bin 0 -> 16108 bytes
+ Telegram/Resources/qrc/telegram/telegram.qrc  |   1 +
+ Telegram/SourceFiles/apiwrap.cpp              |   6 +-
+ .../boxes/filters/edit_filter_chats_list.cpp  |   3 +
+ .../data/data_chat_participant_status.cpp     |   4 +-
+ Telegram/SourceFiles/data/data_histories.cpp  |   4 +
+ Telegram/SourceFiles/data/data_peer.cpp       |   3 +
+ .../SourceFiles/data/data_peer_values.cpp     |   5 +-
+ .../dialogs/dialogs_quick_action.cpp          |   4 +
+ Telegram/SourceFiles/mainwidget.cpp           |   6 +
+ Telegram/SourceFiles/tele/tele_badges.cpp     |   4 +
+ Telegram/SourceFiles/tele/tele_changelog.cpp  | 409 ++++++++--
+ .../SourceFiles/tele/tele_changelog_chat.cpp  | 347 +++++++++
+ .../SourceFiles/tele/tele_changelog_chat.h    |  74 ++
+ .../tele/tele_changelog_section.cpp           | 732 ++++++++++++++++++
+ .../SourceFiles/tele/tele_changelog_section.h |  38 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  22 +-
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +-
+ .../window/window_chat_preview.cpp            |   3 +-
+ .../SourceFiles/window/window_peer_menu.cpp   |   4 +
+ .../window/window_session_controller.cpp      |   5 +-
+ 22 files changed, 1604 insertions(+), 78 deletions(-)
+ create mode 100644 Telegram/Resources/art/tele_userpic.jpg
+ create mode 100644 Telegram/SourceFiles/tele/tele_changelog_chat.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_changelog_chat.h
+ create mode 100644 Telegram/SourceFiles/tele/tele_changelog_section.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_changelog_section.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 8b2cd3cf5246f9b06bad0e112f2d3ad7a856bedd..cbe63bb9930cef01e45790df8fd9d385ce0d47e4 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2503,6 +2503,10 @@ PRIVATE
+     tele/tele_calls.h
+     tele/tele_changelog.cpp
+     tele/tele_changelog.h
++    tele/tele_changelog_chat.cpp
++    tele/tele_changelog_chat.h
++    tele/tele_changelog_section.cpp
++    tele/tele_changelog_section.h
+     tele/tele_chat_backgrounds.cpp
+     tele/tele_chat_backgrounds.h
+     tele/tele_corner_buttons.cpp
+diff --git a/Telegram/Resources/art/tele_userpic.jpg b/Telegram/Resources/art/tele_userpic.jpg
+new file mode 100644
+index 0000000000000000000000000000000000000000..41296e1450d12c53ebbf81c6a8c9677a2d060dfd
+GIT binary patch
+literal 16108
+zcmd^m30PCfw(dq$oB$`V6@hLiCV@sK1p@5=C>Rh!K!JdYG9(NQgeefPZATE(iVy)I
+z4M;)~6IvM}i6l;dii{yd5(16PfiNdPLg0mS?z^||Ip@B6hQ9B6{k=-Q+N-MeP`lQu
+zRcrmV_VVZDUxCdoPN$pzB_$=`g5n1(^MT{Qs+FX)k|`_x%4=6EE0W5ZHLKUIQ(3=m
+zoyxj(>o=%wT)$z{hIQ*Us&Cw+s-~u{wtnO0Et}Q0C}_2nn<yzRT)ArXY8AEh>((o3
+z|G~8U3fQu4)zwv3m6i4YtF|a9Z&6x)2WYQ!RS8(7tOWe;v`R^Nt;(8p>sKq9JvIZ1
+zqO#H&<+U4Bl-I9UoTId5mGairYdqGfd}DU>;<{~7+xHy$;eMgUUh`vTFGXK__F8ja
+z?1Q4`t=5MtzOp!e0umVWX7chC<d2yTi_6;-x7@9GoYERa_8)1j^6E7z>sGDw$99XN
+zRWVBI)+j5jRr%9NiZ|b~dd)XxYquWtxES@r{cVQ|pSA9J-Fr-B`(ASk%i}9geK0k-
+z%mX$l-eT1j<t=~%Ai27=dTX`qH?J<N9D&u;6V&gNjP4u#1i19O^aFp;$|G0*W6*vV
+z>hYrw4}hnC{A`7(gTRP_!I_VgpD38^c0uidg7HVL+Wi051Sq(gwPsax;DJAOw)%%Z
+z{Dl2WZ8P}0%-Y}FMD2pw)j?qR|AoVEdiA@IcP^d3s+zt35zzU^Ay)0bbK%^cbJ=UI
+z{b7i;e<!oL41#TGlyhxetQ3*vL0<^0A<HnNB$_{da>0B{UBIOS#CJBztpX2`YG?du
+z7~^7OR_xlUdqadyk!%*HHWa&26kHhJgAlY0K=~sD_u7Vs7y0}G5}C93eetf8X<K4X
+zT;skkjQi$--6>sL8+Dy%6r`iq*eB=YNle*J^ytHv&X`+?3qMxNPQ}%{;CM5HMz-K8
+zMrlj9q!iOl^lVmdm(=j?QL9;889%aKFbZQ$zt*m1tFCs_FAC;4AfI!;v$iR=Hi5Xm
+zTx#x^4|4H0QGaif1QzM!-7DeN9JgoG3^G4qvfJX=JZ2gRc8@9ON`x_~%Rv62EYP90
+zV6iWGWZ_0_K&OPhceWd!{3UQ&9;7mu%@G~tRdtQ{)I<oFzWx@YR=iN+l9=WSVz8IE
+zbS<ntjRVq6IwjD6TT#w3-0KBhr{q~XleG1DWp0L~kQq$f#UI*dO_SMmp?D*VG+0t#
+zN(aQaQxaAu_dM5;f+fy2z`SqX^0h%M18cxh4)o5ks@`gFvWHQ5X?bZe1zt+B{Stj0
+zZb8p5M!U9y%>`y=b0NTs^H={5ywy8!=<-$B9k0`uKLGE@D}_tY%$<k6Gc){fH|OiG
+zvM$%1{%MoT^S}cq*X}=Wmbp)P>x!MA^iN*!=6SHT6TS)Sm;@oQBEk6b<5Us9lB8dh
+zH3W69HuXv{4bgsrtPj@Kn|Cd>48YKHTSE?3h<A~&SqAfv#>m047mEWTqbhrf$TW)D
+z-CLRz@fsXM=$xhPdj5jcH^uO#z`FK1TEk?nRnCyXGP*<J7`V#qE+YQU=wh}EUeKd2
+z!t$ssHN+~_Yz9B_cxZ?aU5Cr_V$L8#C@jt-X$*C##vPv@z;p14?Whz8BYtil9lK%?
+zs!tY#iWZF_Gbx=ZgzFBPs@7%Qm9iU<DWh74>H2j`FqJA~QW&okbIS=nQD8ptIVCI+
+zSU2tY=b=xDj%=tw*}F#}9U^K9XU)qA><DpWlB0HWxWF(zysy@hmahxJIH8a`;w*g>
+z>`Q_+n)e#1dZoKkXp<AI8qUbN)Oor6*eFlANGc&~p=CX-)FKKg<tX(<){X!<r)LA}
+zO0EChxhEC88GpSmk?}c_$meAt^0_C}&?>iIsB<33k7>q2Lo&!e4X2(5Su9zf5)NB*
+z*c&2(8KvQk5rMj5XVY_`=!wE@C%|%gjP7)^!zocpdVk&Nc{Dbehr-}3@;d6vDyv1P
+z+(Qb9^JIG)Or4!XGR1?*&niNwc@Jwn-7fj~Fyf857SOLA4Q*@EP)O2IQQyBLGXF^^
+z_x;JH1JVC4T5~2ILbVPCjA#4phzramqk&k7ba>5&Q}r6UyY5ND3F3Ac)~KHW5g8%I
+zn#&Q4sxob-k(BUo)DBM&`18z{v}AbdYDVWmcsuAQL+pMIK@-iL_h%qET}@&h16yKI
+z)>vZFkBvUD?TJ=@i2l50u(jTZ_EL%}wlyNdZ6rokS7ZjySq6AXFJHoJFvR#Kicsz)
+zYuCEbSRd1VgfxKucw@kE`@Dw>>|<6J<{Hq-HSvxklBz#7A3@$Ad!8@SFEZQmX3vrD
+z00Yu*H310Mc?+I@v=ie^@#=y32(smf$(x+$DoRg4iTkjh>zk6vXbhYBKqyM5(6yY~
+zL7=AuD6QuVd%QZRa+bn%A8dcg?O<T)13Tqe5*$Mk$XlazGn-UtYl0_*2#`CEvBDin
+z+#giCXP64npYp?OMUBk<^EF3k4(?wqTGCF@%@Hv)n+&_y$P=leUVBiR{9@MotPhiX
+zow=%5-BaPR!A3FxR)si7rYE&8MW=uhJs;y==7ual5?f)`25H2{@2a2Ejc9&sze|DF
+z>ydw!3UzqI?`HA?>lI4y%o&A_yzu*E9#f1e5iJaDR@NO41KWUUjs(&YUhKc!!v(vW
+zweKb0`TgbQCn@dnB2LWtCu2hhmZr$i(wALSwhM<Qo3^5@s*#fytzl@bh<jvC%)pi&
+z^M>i4!uVGj`2kJ^1zYUk1;h7ZWXDG_q4}vVBp6;nc}mAX;3?O*Dv=h+EBj5V6)s&0
+zb+D3e8J$#%V4((!MBXNDa8k^nQM6^ckMH)*%CGQ`-Z@_fRtcj2a@mksjt%fiV0zr`
+z$eVMdd%1$L{g)V7$pTG0RS2KO)3$R))iY<El6vRtcg_<>d&M|{_79SDZ<xe1sIE7)
+zJ67}4NE>20)kb7CPi~eF&nyEz*bg+69=*}S#;Cj@!yfi*UZF_B?mK$C_<V2Mn=<<k
+z;sI0CiVqVW_wb)&!O7p<%dcBPOep^<%}Z@XmIce2J;sfVbp%h!Jff_3USbgCLmNjO
+zzL}%+z*yqAA!bB8OjI90Eb|~z7C4Xy`;D(nw%Sk1yklWLYK;>6`_H0HBj{Knrwu1p
+z#jTl)-?h{`d$0{;!Uc=2*r0-MY^iTbRl7ZGBG9zZfD194=qMeJx1(PJT;pH<l0N{T
+z^Xr&3rRTWpXt+)KTun!7wP%IaT~=->rNl8(f~aj)okk_cbaUgecj8Oh{n~{3HO@9c
+z`!7Ci<9Cc8p2cK&nAx*#iB233Ek(T0sTjkMgrmB_)SPZ=SF`VQWG2FI8DRS?WU;6k
+z0WXtGy!Fn6PI#0)1M?E0Tg*ml>vxegMq)KSm*tzA*=Jr|?{~)!YjkGiaCMdU9`COK
+z#q@p;?2q0b4g5EiF@ODP|6Y@hHRe^q8Y;<gBM@lp;ZxC{?XNKVdTC%;I1gUbjhB)k
+zzAoJbJ?M}8?-?(d2Pf4EM|pyHi=-Wmgc|Rs#Q3EzOJS3gn`vS}VYp`xm0Zas<4L2G
+z29nO%Wq^J$GGcq}ds^h(=1r1RgEbk?t7+De-`~F5N1I1y=xlJtBz(-ZM@Q~5m>^DK
+zlgzgrCLG-41b;i@z%x%JCrR+#$XRYSF0>L6S&{iL-(nzUF_!hq?D-jxb2ay+<OVBZ
+zZhu$Dxb;M}9Fb)?r@JXy!kiVxVojREArAh!&R4?e32h<9=P)Dqz1-a?KLhoLt^$C{
+z{n?uzoX^IQ*=P_fB0VX4DA*NtYL0}U7&1o;`9<W)+U+wr?@*<JYA_k<SC(aFZhuB%
+z8mxU&oEpMF2@XPo13zoK<yxzTTRNn0G4#Ut4lJmlT~aVHmRU1W1)m7Z4=m~uBiTmo
+zq*e|A%G7|99?VzVpG$QvY73Wn<sJQ*-CEKzB7(qc^N_Vx!zGRuC6f;1w>1fQ4d7N#
+zRfYv5?f^pc_*2y6?cVVrRd+BAC5AwA(n6XyL~VOp7i2!R7};F~;}TFf@A62L79(P)
+zq->)!slC>dr6<ItA*ykj=ut`8NQOptbCph6QKQwIwn=q}sh^7>13q90bxH1nsvQOw
+z4;Plsg)`#>;a=tn8>82F=-GG_L(~qBy7Ty5J+j^|!Tno+hsQ!DUC!UQcj%{~%`*kp
+z$0mrf6G9)!czzoMrg@g^{gmaUY0=J7f%&lvJ*&`nmw^X5ee*`9Bi-16sRf7ESu$eZ
+z!RcjSy~N>JH@0<_P+oRA)S{}C;6ZNn<swW<dQc)EGy*T*=1JWOD%`O5y&x&rvBE)M
+zK!$9CLY;!|zH>_2`&IuCr3deeof8hXLASS_{^Yza=W$$9VC8}V7o9J52u8a)3EF*J
+zLW_ivr=C9ZLZQJ%wXNPpO;}Z(O(~?f+BT^@SrRME&>?Xw;TE|@xgrfA7M)iW8cV{~
+z>bVY>Pg5+Rh9zCOnf?<psI3=CpLV3E^i%NT`1<0I*<e%|sudg`sL^`(adg25=3BrK
+zaz-(aR0KVjGnUACdfu}&9|z7c5Z|-gdahAy<M)o@Z;5eH&5g}LFpg-cT?#tj5gEm=
+z+y%!PpQS?PT6ND$oscSyWsM?yZm={ca1QgN`bRt}gguc3-A%qtmf)TOt3tT1{(Z9k
+z2eGo0e!bzJ&-83*;hpR*M%;iE#lw|E7k*E4{iJJdX~WnBS|jixiL8*4k&lY%2cRA8
+z0&ilErAFwOO@$0*nauZB8yfXqDmW4A4)O1a-x1V6>ga@*)%wm*ma+mqB<dVEQAzKt
+zHjn6Om|NPG!HP)t*b(6@l%*Pfn8X+lqqLjaDvXJq9?`7l*{qx|dO64)vXjr2fw!=w
+zb@ideHfeUfk2>5eDi_>4C+_A<qTQdObQ)3VzK3NQWggK9=}_}QjH*b3<6gcD_;Flv
+zvtK_|xNwCY7VR91&{2}@o|MM;;@f4=h#V1VuW%7lY#I}3GItHz9Cd7K$^Kqo0L2WA
+z%W^mfC^xhKK+?wN0dvJ;GqP0hQVf^y3uFH>fU<9Ppw0FSnN~QAhNlX26E4k}N@P8f
+z=1wV-^nJ#M2QN3<WEY(2J2fcn6}b&{UaOZZVHdIPO?|V@ygd2mFjM(5P_hi{XV1K7
+zksB`qamzrRwsA|O#C?$<Qrh9LH%1aLc`zM!zglKGzxmvdD#qa;>w=AO<>#K0sTYTr
+zf!<*|?16-Or_^WNKP|m&RSZr`q5;Pza&|V+xwDqe5<?f71%3G;{IN*#GVqHSHz~$p
+zB+J0wNQw8PLjb*5eove#(J5cjDWBeedC!yISX6aoJBT%t2@|RUIc^ysu!c4OyQ-_N
+zDr8EhVJy<y>lP39vv~cN0+A!V1_~$bU33;ckJz$c&`Cz{v<eMfhf+^k;Fg3Q(vGD}
+zYv<#JxN)q(IC*08(1d8!ql{P*W2C-f88BXv$<B=L{&D<!RrKsml+t&PYu5T-J)>uO
+z6#Mh`^$jgoh81}0KiZ&EG|DU@N$?cRshBCN9x**r8k^`b>7PP)9P2b&<&Ui?EnEhC
+ztLJM#4iss?YR1yHXml(Ts`$H+NYTQ`8s^ERK4NZQFQh4PVV}(Fff2dS`{R+sIjLgS
+zvroTDOg-jB6d9ewAF7Pb>XDW&Vm8~SmXsMggycDXWMr~_Os&XwXxy<YQP_h|4jixG
+zIQzQ$CAfD=_DwOLvq8a^wY{GZM*KU)o~G1B=lfTNV;Jy!x9suU${Eu$B95Ksv($I_
+z{>5L;lM3eF`hG6!?I~i8+>xZ1wG1|@CfGm%E;>shY;5yV&mbhSiryGkV)Z3bs$;7!
+z-o9_X$&-2@cTn#cFHV>?j4vJd8ki(0nEZOIfD|fuJSHXO;;rS@NvTxS{1Rm?4N^6M
+z0@XXlbd6fjhFO<bt<<zEPgdm)8^rw}`3^m4kRC6(g5#4XMP&Eodwxo)(|t}JE_U~e
+zi{yFL^PHW|aYb{YPQh@Y@!N0`t8QdG@y!(Jri|nIYj5%A_y`Y#JB-hPz#BIps-sAu
+zE8vzZC;w<5<dXb0BjPFBuB1+yVNwh(B{hBwGQ9Kd9kW^nfx0i|SO`69mI2odsb@zP
+zx);w&0(g3rU=^QOHHC_dKU0~c$&Dk^DjyyxhL$39^BT7kPc2mST-WtcUEc<SQv64t
+zUIeq#CxThK1(vPG8gk7>#~p!WD8&5E&=$M$;cb3N>6udX`R(f-y6G9bs|!@;Qqzdg
+z&)kzXK12}4xtleqZ}&(_8=K<QaT$_S8q!MqwAh&?s**R|=y^f(;cpx!`7TPm<LpBZ
+zylk#WwXshxFbf8Y=ncDSG<Fy_B{(JPRqe0mGjDkmcA5Av-1N-N`gZo3^_uP)^&!GC
+z#7W`%=he@DSq8?99KIf2%qaUD@Jc2VsVkmW5tsU6*6PDk+S8snqm&`PF)xyjk@|>X
+z?xGYMXMd_{5%cp+!blvoQGP{J)D-mS@j`PjUW@TF-AEd)8Xr-&r}}Pi)t(~@Cjm=7
+zd}Yx9-RQK+5z6sWwKs15;!CV?yJcV+NA3m<4W^b;yXMppI=JdIQif{26O}o!DcmMB
+zwVPu4RBqDHBB)WLSqvLdli;!wM|ud{OOz(T7P*Cd;7>F4W<5OiAD^GUz2f9b|Nc6u
+zyo+RDer0BIM}v%Lp=6IC$T(plIG2=WkV|-I=!-{C4erIf7OGVW{0BO`5Aw^5O&)~%
+zipeu1SrW7O-Kp4iVFV!y+z{EAlW8gDXU6q&L6p28j#aoLJ@MG<oo1N^Mo&eA8n3*l
+zXQhNX&PPN5#C<`xF>`0kuPA(!SAgN|+$htE3U6?OXIEjPMhVpPp{(^R7d7Rtk};c2
+z8xSbb{30TJi@UhPBjZb(6TkT-oU6gVbFYKSIL&83%{vdLz$CrTYHsl`WaKP=4u$q2
+zBA&*_+eDrvr+$gu+dkCALg?fW{YO%sm50-{EyH;qi{I7_;Fp2LbfGi*_~ZDRgCo|i
+z*|GyMI*|JLSgdpGeQM`emnaQYKD1k}XD6^aQGaFNQk}5gq*g>JC#2FEiORLVF}ee$
+z!JZ7oC)W*d@*yvWy|D2@7#GPl-Dp$uM#QuKND7&ngyO}#(A-Nwdy=*rJqx0Lp%d>s
+z8aVs~*x>Rjpb93j!T87c#}>`|mvY6}UvaOOfi}TVzZvF(!iwvji+XoO<?c1gjtKrI
+z5A&VlXQ+*N<=bFphbQi4&>-Pe{A_;qXMm7X0B_y0<u;&FuUKf61cNI4W#Dp6Mwc*!
+zD)bp%prb7*s=388ROo~eMo@&SkkL`zzo_Mu;cIfLyi?ef6oDZ*s$GA=r9Y`+X}e(x
+zTi|?h%;$Vtc-(M7%ubxY!^vO!nGZ(yo_{H*cGrLG{P26}dthJ4qra9WKzaZA6UrTH
+zK5o6OylP<m38f#RuNMKYs*ia97yJtKuYPNC=HYi=?a+7mdeg>-`!}!s?THwlI1B|D
+zCQG??OGi4&@R=o4qeTVpLHoH<44QlIV|0ZSWgzWpUk1|5d^1wj!S;4LGpJpDoVp})
+z({;dR{M&Z`a0vj+)Pp5aFG#Vuaw?sfZ@<)*OcgSRQ$0j?AL4xC^6P5IrL!oht(@~t
+zNSGx~644LPKhfd@B1=XU8Ooz(K{ZU9z%G|rVGM3%djV4Z6O8wc&zjns6_Ah+5DMBK
+zNln_`BaPnL-oqX$rYwa^?PF<@(s}dgn*)sOvaZUwTW}FQU!(QxE%2$g9>X$BXMl>)
+zyTw__Ps2OdAc_gT<y`%h9ujFFp%mXijPD}M5iF<3*S59E=@Gt!^CzMRH~b+V(OT+1
+z=RNVM@w(PONzSm3Y61oLU0s_S`RcC+ea5ZX#%01+QvVDo*iaG(DTTsEU5C#V5BZVV
+zgLtN~jwX6W5;$yF74c)cnAsPo`Zl3hFsy-Kc4uQ}St%tB8@%_WUv7cE7#*fz*t_A=
+zn2$zn+D-Z7FzR@!=OpIHqJ5hW4PKWkNVnpUt%f~)i?TN4p1qEJz4u9xQd^YU-p&2Q
+z98!#tf}`p$lK(qC{|$ivE*I+0TI|$!Q9k<M`p<tCAr*71VdJgVDEwLGNC5r8lJn;i
+z?Zu-h(jlrfDsLH}b_IO7oEnRpBx1JbUAaBaalbV_|4Q+kJNU-6E?cj*C`eV%+ZNl8
+zoG^~anw+9o0(*i2&|W=Qg@oN1>2z)w+m-Kzqr~xZoj5}&xjW+1h;Q9ni)5!zVF7pU
+zb#Dry*ILhVPR!gh8<y=(xCNU{5pdDiakO={WkiPK&QS3dQ+HH>)Wr11soC(v0+^9r
+z{ZCTpzL&n&!ciPX2dSt(D7Sc<&Q@-RsUN!=KTuuk`RTMf^6k_dx-(uae^k36P!P6=
+zi*6AbJ}WJ{a``2D27KJT(IVMnu;xjGdaP&}pjgfrj?a|VGn0svHm1;h!;wG_N6iVY
+z<L;uMy$yESIVIGAMoap5GW+!Dg-=nyn&*>$AwCPt$0GthNy<L@OIU6&xhpo_jOHS>
+zFm0j|7Ao2p{1ivmI3XiizsTJD%{MLs9}n_#M<1Vv$|>+rKRlLRp6?zaAboD}E23Lz
+z?+Xx=u?3n#bY5zS?*e%=#aXx}T@y(+vI(~&A*D%H9EMk^2Y7p1;aTkZV^Ylev5B80
+z)Fy^i+n8;NwOBWci}*IJ(mQv8GKsxm^Z^~5?_#5SfftBqTVl-^_Bm9bjv$`!yC!z^
+zv@XGR@3EB)HTi6MxPNQ={+~Y_JF`ncD*e60=D!$)e=DMqLPHpnAy7C5ywOwyZV;Ug
+zTHlckst?slM@&ER3xFBPH?19Y3uD_G=rntoa@><sCZ{eaZ3Ta)xP$UXsUCQ`pk>zW
+zK;8y22X*YmTzRcJToP4?9HFV!(e3lR!fAupCi29!Wxz2a0&Z|`q`6$Xta`Gd(mgq_
+z=f}>W`f>gZEq9lQJW9Bsg^w-$mg%g1Z0g>A_0w^3=F%z&OsEm@g;v`2J%4QOZOU{R
+zPPZC-g5`^{;Mrn>pXcC;G-#ni-qgxV4x~~HdB#U16x-zG=9L-I$ni$W9LNW`=<%x~
+zKEaeDaaYW?v$p`i{Oo@kio}VdlBjlhp;-5Qm9dtOYwUh<mnp#wce(~XLr(KfGCBB}
+zQOeL1K`fzmMVh<}$9!WV167KDG-Upv&sOa%Lu~CeECFGT$9&%<hW5cZmA#EnhYg|r
+zCWNm0QrAxBE4~3i`TN*$V!1P^FlBR>+0@LO*HDeG`zUdarN3a(#5gq4-6%!$GoY-j
+zaV#;wq-)|#mgqQalI3)L(I8;QL5cMeBctyZBr1b$4_dO;<JrAT>KbWtd*~+!LQ0d_
+zaL|FWos;8N0e9Y~|MYIZDXakYpOo4Z=$_uUDyI}k-{V)>D*#^%fc%G>P(N0Ln`n*q
+zP+US8SNO!qk!Yq66JDUpwb?-#w&jMNhqZN-=}%!cFo)*862-Fa;7PVGWQUT_%{NH+
+zVA?H4YuoiArPX0j#hMAM=uQ<M<F1+%L7pcAYeex-Kr2<frWG>Xa#4FY$g;TQ0ExuW
+zwSQ6sM~fXQ#P!FJVkn&0Ev^z+4Uf0BddImpv93*nsIGC1cKo6UXj5Whs=mL7l%7>f
+z3cg{txD4Dn<%e^YljwN^+E>_u{Xs)tW_{u*oU^!$2A0(gv4?BwOLU{a8l=|1&Xx0H
+zSZ>(J*3YD+B9Z_0Ru}9N?)(CXgFgOL*wi{#P|U3o+sL8bQN(5j;Z53(5(|=dyOT`-
+zHGP*p8{$B!mOAS`#e>%J2_7$?B$5O8MemTq?Sy%tm71<FRXjbQ4ILsro{TjjLcrS%
+zNchDEFj2wMuzT>m=fYgks5Q@UL_7a2R48)8Ps?2)Mtyz>^XA_?X@yr-iVu2Ny59<Z
+zJblyL_r-9PEOi?s+5n>yGq8I=yr>&xgXwe`uz<!tk&^N<Oc$yqf;D?e8sPRk_mdO(
+zcj9or(1q<tJOOqICk?M6#d=nLIx{W1dy{ZkV3E1BpIDz9g-N(Hi~gol{A@{E7$dOL
+z<0aOdRUhSuWH)<K$SC<*!trQai5tGwD|czyd1~Nzgi*=T)U{kAeAKu1+0kjm7EKp_
+z2Aj=dc|o36cCzg*WAc3%1@!iM#L*e8c=t$I?LZ{_Gfn$r)uIK@2x~u!L5%q~g9sDQ
+zR;aw7={12|H$Fnd^IatdAIqwDbXe?aJpF}3Cw$bK_;9y9!bf#qkixPQ-<8FnzFPnh
+zf(7v+VF&-Yh?l_)h^n=+sLGF(hbEYMccD2WsaL3vTR4#(oV;!Vy5_WXNo!f=XPkGB
+zZ-BtQJ`8l^msw`BTMt|2gbi-n-{X|sR>B#DOcAA3ADFj_b~Ugy;P5nq@gaw|{^KB<
+zmUDLqr%rRd{~X)kI<^dSrimM}<Lz52{lD<wCFR3ZFcbx&zjO$?w+wVRcWIO1d@Jye
+z;7ZXhEv*OvfuLoB230z4H@!A9z+46(vZIv}IoY|YmGjI^uPXR%b6IZ*4Ky0S@Ee62
+zeR4JoyzcxkW%|zna^@#x|3e{iz(2QP=Fuc(#8=P`3J6BfmJy=;uA5$`KLqBDqskwl
+z!vq!@BJ@!*f7~=bsISDK&EG)&Q|fw=TT5JO;-xxq5GFs|$mh{i{R~`+i|@cdbC&^V
+zP?&#ilC53d-cu+`%{|oao^OHkWp6)7A%Vq7!qcYB@5dnd{V(AY<Al*vWWl#dspVuO
+zgzY11n9hQqMRyyVEuJs`rl=Aua<t$y<Y|@FKr<|%kY+67^FuaRbEGH@y8UcXZs?f@
+z{wELDHr!}ld%5{5p)B8%uH}s=J{XD+Zfx%*)I4oBimPDv#lP<7X4$=)OK7BePf{8a
+za_TQT1tk{(m63h0v;&vS?FOT^^qF@_t3{?fFu5Jl+0mM0L+Qp##BpgdBB?-Xu?%dV
+zqLvAq+2tZ_od$VgS(k}$E&|WfXQlK}#UH8utY}gm7Lu@!ADQ{lO5wQ3*0a4vI_8XK
+zki%8&OzCLqt5&JJELl*Q6+mjQOFZ$(Y47vH&5WWdK~Hhsft&f3)<sXFa&G4+c8+^>
+zn(+luYhAzxdReO%n_FrKorH4ODkvhPYmSlM6zek-ft6Kp9Fjo9=ScMvv;CmVlDI}@
+zrEW&CE7;rir9B$r-R<?PMSyOyCZ`2<1W$?2w9n3k)3#}b<PNp%?a7-#5Ns_*nNO*h
+zS7<Y8`#JJbIg0z@c})y;N2lIrwQPx3m#J;Mw4pS7I3$PcTv?U`b7j;GoOw7mf1sKE
+zKvqK2S=;~NW@eFX>|JnY?oj>pB<BHTF0v2V{*E2Arz;@}mzbb?QWDszy~UAUrJ7b-
+z6K=!`DD{^qc6k=E;>&Ir=p@S)la}`Nzo&|<L=3DUJ{?IUksj}>4tsq5Ss>WiOJD{z
+z>)di1!H{M+QTw@ZL@H5~^GOanHXhBu>CbDy+<)or@V?YNN{Bc3o&&v<Hyc@vvjl&P
+zI76aAtqoE%&J3VS=fH8J17?O$Uq<BM9n2vy*(W^#ZtPK7v{$Rbko&oRUe(=s_TF=X
+zS6N9F+BGHKs=;&_Fz7#GmT3<SYHZGZggcy6B$oy3S2)$T?wB;A)<Yi*=ijjRVh1k+
+z{R?1IFmmt)p=d-@ev*5unlFOrUeWuch}s~y<+-02)W1D@<5UNnd>0x`oXLSY9O4yW
+za*j>n3kD=>1igYu#Z<lW>4fwCr=OZF6P<rj6oa{0zhBVkzZ$&Rmr_e{OOq7Hb*3A6
+z+8S+(Y<p&;B3LW0)HGxqFKY6NaE?VftVQ2`h)SxktrokbHOsTJ113C|ftJ_fal@o$
+z|HL=PD_~TGBcpcYG`e6F@Xbia*PuI{k|A(D7g_})X%-q~6J|%wa64E(j6N52RU<qc
+z`A|l@J`oD`d=Xl<*6%aJ%B1%Fn2#_FQd$nJ7NPT1D3S;!+mFo-M7h<@K3H(1A1Y#b
+zVOvw-cFcmp&*Wmmc(jQ<?LlhdVH&AC?s4rIZafl|ZW#;5qYu9wJlaRIDI-wI^68!7
+ziD&ZN$DQlDN0~U9^QW2=*_RC4fI9VZBAeaxVlJ6*ib&4dCNe#wLNS$KF1mlHVqg!)
+zM;bz8`{s=U0w%24K1n`kZF{%e81f>lCo0sxucY|l(8nDW;VAk78*?P7Fn&H>irZKw
+z)W(LFERw&kAiGY-37cr*y{)-5LvdVuWm1N$owW;AN0jY|n!?4us_POEmbC4cfty|(
+zANX-)k)LXC)p55B_&g-|$fClZIm^nkQ~6#n2Wk_R1w5@Ty=BqT1#y3E(x3eOx3o&{
+ziDb_A<72^NAr%sPpM*KdErd;mQ|_P-+ED=V<G&bLQrYb52zB1y->TuXf2IRfTpD()
+zIF1E1`q&3mD7jQLD5~AFUQC8Ab?0U${A5&DB)22u5`Cdh*qo-@l3S0K0XJ#-5+AJa
+zE=<LH3Vso0c#*mb>Zn<911`Dxl?1$RioeS30{(EpW0b4K#4e#(dlx}kqh2R4oxzc1
+z_frXE@6zh+wUB$=hw6o;ts~)J$cf<RX1lKp$|7)3d}o+%hY-#YPUUe8?@4iK9{n%X
+z$ITfnoqm~yf#fagR25dc`PVCP1t7btzweg>|7B<}N{=jdFc7H(sD)OHRIn8LK}o?c
+z$Nlh}bSz@LC=C|t;Mk20=LC?w>B3m3+=vT*u~gNmD?rrJLna=}_Q@<?c9WRH^^B`P
+z`lW4W05bsi3IP5M=uyyDflc2jhZHerrL>4Nsvo7+g6$eXc;j4Y6IsMbE9FjXH=NKX
+zb!5%4-6?*oW5T-J!6GKbY_#iHyYT5q=_u4b|M`;1gAo@h2N5eUt}U5SpiEeF0L7cI
+z@sosromziv8Q>-ys5<D&<_p;hbEZZCc)}xMM`!Q-3cwD&`i)odx5#ZPQHd)7W&cE`
+zW8C3;>pe;f0yfp+Wj}2d%k?A&P`0MW8&N~Cs3wBX#`r_*;SLi!?fO|}(}1L4^Rf7i
+zJv%%O5A4=b4|_I=Y&CD9I$(+waVQte5`%m*cbcmVefPfW(FdG>CPK-%=bjEDIXy8m
+zqyQ&ehX1;0Sq*L+89vKJoF~+z*vAqSd*$R$)wE0UkEnKt`9@cI4Tw~fE4-bPpn3Xo
+zb9P6VZPPUp6GHRHXD!S^@*UurUv{Mx&e`k67(l_uCd0c%t<i$_jpmOgBNTy})03$e
+znf^EINY)1q1)-M#B?oWi11p`9AsIn^R0`xtOHaG?kRw4i@`nMG+BHF}DwM(qK8k3(
+zlAn5MT-J~mXWF%3kaJ$Z2^A%aPo&DKdv_iVz8|h_MxW4tz!(7s+7^T+c<gwYX43Jn
+z5!JkKBzN5Yd<t%3E+$`h&94|e7X#Nfn*<run7r~4-G@mYFP$5LK*5vq+E{{>{J{-a
+zE=cmMR1p!AJaJ8~F;{Rrb5^!~by}J}&E4zvyFFM%gc`FlCTAt;bd96sN{s26-#Jqt
+zQ-5{>SAfw!d4vBgQT(e-dSY?V2%q*mz_8jPlsJfgnX>WSLhk4r4zw3q_mC6<f%@MT
+z+fP-*y2+VPQVoq^HL{Rx%tfW41-ldG7s_?X3>YJUw#^*W`XRIRd}Z`_1a!;km`{E7
+z>Z?g4(hDJ#00TD=tHT$byIYpGByrx)(UA1ijCzRd{xmP8*;au>jpKHObxz29mrk6`
+z*Ceq<=D_eS3&nmc33OOqP+^z`ua5GFz(&)0!G^vvbz~???;^Wmv^?JX?9?3B&w+T%
+zF4MKJb(lgz=KA`e&SGj?GG(r#Nzjpn!M(z|uI{JoC78K`Gu{I94HH2ssj+@9vR@RN
+z>N4KVWY7w&8qJ~OJK$X=34LGry7zu*KC<>whk#I77f7)`s4Zec<FC7W**P364{E}J
+z!Fig)<w3Y&$L&wB?f3G#uPYn5tDUyvSjHe9O-4;RJXpGQlo-%q5ofw2Af4~hJ&+q@
+zwhsz5fAs6TYrYwqs}&pWWe_>LjWBP%(Bq8cll;2~%YY6`Y<E|4hVaa87!%^>MDW<H
+zQ2xoP+6L^3gzz|$oK7Oom-mN-+j`{?0wdTyh}Z0(9GSaFg&xK$9>DKy{X(7_T_ER(
+zvr0Xm6z>1^r2-Z3esE0zqAL%t;O8rNIq-WDe@k8cD|KoYlshy4;1!?<%KsKnQfOvC
+z@e!f&pA`1*U8xqmuyp~Xc6G?~zUfak%8!{RnBNWmsZ#mpBMtqo{r^8T{VPoSTh}VS
+z0|^4G&ShUvzVe45fOQ}4KGOW-XJ7pzF!n!$dH>Iy{9mBye@nFfuDVr+6b1|Eg2HC_
+zq^!JRynLmluo8e*3d7~m+O-NF@zu90CWO)t)n=LBZc<eQ!d(4>ovdK;X7ytV)efxe
+Xhpudt{s9Q!?xPPsT=?T>%bouV<DmQA
+
+literal 0
+HcmV?d00001
+
+diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
+index 5799e6664e34ec0be787819fd3acc9264a0a4fa5..f310e5b5c2fe9371e48a6ec6c4c0fb0ffad2f442 100644
+--- a/Telegram/Resources/qrc/telegram/telegram.qrc
++++ b/Telegram/Resources/qrc/telegram/telegram.qrc
+@@ -9,6 +9,7 @@
+     <file alias="art/logo_256_no_margin.png">../../art/logo_256_no_margin.png</file>
+     <file alias="art/themeimage.jpg">../../art/themeimage.jpg</file>
+     <file alias="art/round_placeholder.jpg">../../art/round_placeholder.jpg</file>
++    <file alias="art/tele_userpic.jpg">../../art/tele_userpic.jpg</file>
+     <file alias="art/cocoon.webp">../../art/cocoon.webp</file>
+     <file alias="art/premium/flecks.png">../../art/premium/flecks.png</file>
+     <file alias="art/premium/star_texture.svg">../../art/premium/star_texture.svg</file>
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index 730625065a013fa1f6c912fb40d8bb3f28ab4018..4586118cf1f142de285081bf80d7dc7e798c2c1b 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -112,6 +112,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_inline_via.h"
+ #include "tele/tele_calcmula.h"
++#include "tele/tele_changelog_chat.h"
+ #include "tele/tele_links.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_username_aliases.h"
+@@ -491,6 +492,9 @@ void ApiWrap::toggleHistoryArchived(
+ 		not_null<History*> history,
+ 		bool archived,
+ 		Fn<void()> callback) {
++	if (Tele::IsChangelogPeer(history->peer)) {
++		return;
++	}
+ 	if (const auto already = _historyArchivedRequests.take(history)) {
+ 		request(already->first).cancel();
+ 	}
+@@ -1213,7 +1217,7 @@ void ApiWrap::requestWallPaper(
+ }
+ 
+ void ApiWrap::requestFullPeer(not_null<PeerData*> peer) {
+-	if (_fullPeerRequests.contains(peer)) {
++	if (_fullPeerRequests.contains(peer) || Tele::IsChangelogPeer(peer)) {
+ 		return;
+ 	} else if (!peer->isUser() && !peer->barSettings().has_value()) {
+ 		requestPeerSettings(peer);
+diff --git a/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp b/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp
+index 0b3c2fe73cf264cf28455caa6fef336d05d85b48..1488aac33e7aa57081e1ac85235ac3d176cecee8 100644
+--- a/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp
++++ b/Telegram/SourceFiles/boxes/filters/edit_filter_chats_list.cpp
+@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "base/object_ptr.h"
+ #include "data/data_user.h"
++#include "tele/tele_changelog_chat.h"
+ #include "styles/style_window.h"
+ #include "styles/style_boxes.h"
+ 
+@@ -560,6 +561,8 @@ auto EditFilterChatsListController::createRow(not_null<History*> history)
+ 		|| (!_options && !_chatlist);
+ 	if (business && (history->peer->isSelf() || !history->peer->isUser())) {
+ 		return nullptr;
++	} else if (Tele::IsChangelogPeer(history->peer)) {
++		return nullptr;
+ 	}
+ 	return history->inChatList()
+ 		? std::make_unique<ExceptionRow>(history, delegate())
+diff --git a/Telegram/SourceFiles/data/data_chat_participant_status.cpp b/Telegram/SourceFiles/data/data_chat_participant_status.cpp
+index 83a6fe123f2a8f956ff3c56b4a22fd22855b05a6..a16f929efd83963de7e5a75e1971a39988081401 100644
+--- a/Telegram/SourceFiles/data/data_chat_participant_status.cpp
++++ b/Telegram/SourceFiles/data/data_chat_participant_status.cpp
+@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/layers/generic_box.h"
+ #include "ui/text/format_values.h" // FormatDurationWordsSlowmode.
+ #include "ui/text/text_utilities.h"
++#include "tele/tele_changelog_chat.h"
+ #include "ui/toast/toast.h"
+ #include "window/window_session_controller.h"
+ 
+@@ -241,7 +242,8 @@ bool CanSendAnyOf(
+ 	} else if (const auto user = peer->asUser()) {
+ 		if (user->isInaccessible()
+ 			|| user->isRepliesChat()
+-			|| user->isVerifyCodes()) {
++			|| user->isVerifyCodes()
++			|| Tele::IsChangelogPeer(user)) {
+ 			return false;
+ 		} else if (user->requiresPremiumToWrite()
+ 			&& !user->session().premium()) {
+diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
+index 0a54edd4a7bc14863a64e944e12e2a7509f8ed70..475e800aae01717c8e328259dcfa17ce74d55530 100644
+--- a/Telegram/SourceFiles/data/data_histories.cpp
++++ b/Telegram/SourceFiles/data/data_histories.cpp
+@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "iv/iv_rich_page.h"
+ #include "core/application.h"
+ #include "apiwrap.h"
++#include "tele/tele_changelog_chat.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_send_order.h"
+@@ -420,6 +421,9 @@ void Histories::requestDialogEntry(
+ 			return;
+ 		}
+ 	}
++	if (Tele::SkipChangelogDialogEntry(history, callback)) {
++		return;
++	}
+ 	const auto i = _dialogRequests.find(history);
+ 	if (i != end(_dialogRequests)) {
+ 		if (callback) {
+diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
+index 120e93aba5654310067102b5e4287a7e0cde63e6..28f5e424575509a3a0735150ad3bcf97f3a4d501 100644
+--- a/Telegram/SourceFiles/data/data_peer.cpp
++++ b/Telegram/SourceFiles/data/data_peer.cpp
+@@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_account.h"
+ #include "storage/storage_facade.h"
+ #include "storage/storage_shared_media.h"
++#include "tele/tele_changelog_chat.h"
+ 
+ namespace {
+ 
+@@ -426,6 +427,8 @@ QImage *PeerData::userpicCloudImage(Ui::PeerUserpicView &view) const {
+ 	if (const auto image = view.cloud.get(); image && !image->isNull()) {
+ 		_userpicEmpty = nullptr;
+ 		return image;
++	} else if (const auto tele = Tele::ChangelogUserpic(this)) {
++		return tele;
+ 	} else if (isNotificationsUser()) {
+ 		static auto result = Window::LogoNoMargin().scaledToWidth(
+ 			kUserpicSize,
+diff --git a/Telegram/SourceFiles/data/data_peer_values.cpp b/Telegram/SourceFiles/data/data_peer_values.cpp
+index ede3e14049321fb5bd9a40342fed8b74b6c82942..0eef0a7f5812be55199d1253c221ef643ede6993 100644
+--- a/Telegram/SourceFiles/data/data_peer_values.cpp
++++ b/Telegram/SourceFiles/data/data_peer_values.cpp
+@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/image/image_prepare.h"
+ #include "base/unixtime.h"
+ #include "tele/tele_badges.h"
++#include "tele/tele_changelog_chat.h"
+ 
+ namespace Data {
+ namespace {
+@@ -219,7 +220,9 @@ inline auto DefaultRestrictionValue(
+ 		ChatRestrictions rights,
+ 		bool forbidInForums) {
+ 	if (const auto user = peer->asUser()) {
+-		if (user->isRepliesChat() || user->isVerifyCodes()) {
++		if (user->isRepliesChat()
++			|| user->isVerifyCodes()
++			|| Tele::IsChangelogPeer(user)) {
+ 			return rpl::single(false);
+ 		}
+ 		using namespace rpl::mappers;
+diff --git a/Telegram/SourceFiles/dialogs/dialogs_quick_action.cpp b/Telegram/SourceFiles/dialogs/dialogs_quick_action.cpp
+index 2b3608261e5110f0fc56ab048a4d02ecd40ddbb0..7605d08388ee7b62f1e1a02f1bb2a3e10c518f3f 100644
+--- a/Telegram/SourceFiles/dialogs/dialogs_quick_action.cpp
++++ b/Telegram/SourceFiles/dialogs/dialogs_quick_action.cpp
+@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "menu/menu_mark_as_read.h"
+ #include "menu/menu_mute.h"
++#include "tele/tele_changelog_chat.h"
+ #include "ui/toast/toast.h"
+ #include "window/window_peer_menu.h"
+ #include "window/window_session_controller.h"
+@@ -98,6 +99,9 @@ void PerformQuickDialogAction(
+ 		not_null<PeerData*> peer,
+ 		Ui::QuickDialogAction action,
+ 		FilterId filterId) {
++	if (Tele::PerformChangelogQuickAction(controller, peer, action)) {
++		return;
++	}
+ 	const auto history = peer->owner().history(peer);
+ 	if (const auto community = QuickActionUngroupCommunity(history, action)) {
+ 		Window::PeerMenuUngroupCommunity(controller, community);
+diff --git a/Telegram/SourceFiles/mainwidget.cpp b/Telegram/SourceFiles/mainwidget.cpp
+index 8c724aeee9fac5ccaf0d9d7331565d248b6b2b43..37e24a20dfb7a932d95aec50ed0eaf6b51258909 100644
+--- a/Telegram/SourceFiles/mainwidget.cpp
++++ b/Telegram/SourceFiles/mainwidget.cpp
+@@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_app_config.h"
+ #include "settings/sections/settings_premium.h"
+ #include "storage/storage_user_photos.h"
++#include "tele/tele_changelog_chat.h"
+ #include "styles/style_dialogs.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_window.h"
+@@ -1470,6 +1471,8 @@ void MainWidget::showHistory(
+ 		return;
+ 	} else if (showHistoryInDifferentWindow(peerId, params, showAtMsgId)) {
+ 		return;
++	} else if (Tele::ShowChangelogChat(_controller, peerId, params)) {
++		return;
+ 	}
+ 
+ 	if (peerId && params.activation != anim::activation::background) {
+@@ -2972,6 +2975,9 @@ auto MainWidget::thirdSectionForCurrentMainSection(
+ void MainWidget::updateThirdColumnToCurrentChat(
+ 		Dialogs::Key key,
+ 		bool canWrite) {
++	if (Tele::IsChangelogPeer(key.peer())) {
++		key = Dialogs::Key();
++	}
+ 	auto saveOldThirdSection = [&] {
+ 		if (saveThirdSectionToStackBack()) {
+ 			_stack.back()->setThirdSectionMemento(
+diff --git a/Telegram/SourceFiles/tele/tele_badges.cpp b/Telegram/SourceFiles/tele/tele_badges.cpp
+index 786019023ebd52825a9d4b257ce88c70aa7e575c..36598e95f23c41c107d90f03217cba0d2ce6cd1a 100644
+--- a/Telegram/SourceFiles/tele/tele_badges.cpp
++++ b/Telegram/SourceFiles/tele/tele_badges.cpp
+@@ -15,6 +15,7 @@
+ #include "main/main_session.h"
+ #include "settings.h"
+ #include "tele/tele_build.h"
++#include "tele/tele_changelog_chat.h"
+ #include "tele/tele_options.h"
+ #include "ui/text/text_entity.h"
+ #include "ui/unread_badge.h"
+@@ -825,6 +826,9 @@ bool Fake(not_null<PeerData*> peer) {
+ }
+ 
+ std::optional<QString> SupportText(not_null<UserData*> user) {
++	if (const auto text = ChangelogStatus(user)) {
++		return text;
++	}
+ 	const auto entry = user->isNotificationsUser() ? nullptr : Lookup(user);
+ 	if (!entry) {
+ 		return std::nullopt;
+diff --git a/Telegram/SourceFiles/tele/tele_changelog.cpp b/Telegram/SourceFiles/tele/tele_changelog.cpp
+index f5ff4a56afd34ad1cc4e7d56ae3f44155fabd618..509a3840d6c563658314135410a262e0fd46350a 100644
+--- a/Telegram/SourceFiles/tele/tele_changelog.cpp
++++ b/Telegram/SourceFiles/tele/tele_changelog.cpp
+@@ -1,15 +1,19 @@
+ #include "tele/tele_changelog.h"
+ 
++#include "base/weak_ptr.h"
+ #include "core/application.h"
+ #include "core/version.h"
+ #include "data/data_session.h"
++#include "iv/iv_rich_page.h"
+ #include "main/main_account.h"
+ #include "main/main_domain.h"
+ #include "main/main_session.h"
+ #include "tele/tele_build.h"
++#include "tele/tele_changelog_chat.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/text/text.h"
++#include "ui/text/text_entity.h"
+ #include "ui/text/text_utilities.h"
+ 
+ #include <QtCore/QCoreApplication>
+@@ -27,22 +31,54 @@ namespace {
+ constexpr auto kTransferTimeout = 60 * 1000;
+ constexpr auto kMaxSize = qint64(256 * 1024);
+ constexpr auto kMaxItems = 100;
++constexpr auto kMaxCategories = 16;
+ constexpr auto kMaxTitleLength = 64;
+ constexpr auto kMaxItemLength = 1024;
++constexpr auto kMaxMessageLength = 4096;
++constexpr auto kMaxSplitLength = 4000;
++constexpr auto kTestBit = BareId(1) << 63;
+ constexpr auto kReleasesPrefix = "https://github.com/nitreojs/tele/releases/";
+ 
++struct Entry {
++	QString text;
++	QString where;
++};
++
++struct Group {
++	QString name;
++	std::vector<Entry> entries;
++};
++
++struct Notes {
++	QString title;
++	QString url;
++	std::vector<Group> groups;
++};
++
++using Key = BareId;
++
+ class Changelog final : public QObject {
+ public:
+ 	Changelog();
+ 
+ private:
+-	[[nodiscard]] std::vector<not_null<Main::Session*>> sessions() const;
++	void start();
++	void activated(not_null<Main::Session*> session);
++	void request(not_null<Main::Session*> session);
+ 	void fetch();
+ 	void fetched(const QByteArray &data);
+-	void show(const TextWithEntities &text);
+ 	void fail(const QString &error);
++	void flush();
++	void post(not_null<Main::Session*> session);
+ 
+ 	QNetworkAccessManager _manager;
++	base::flat_set<Key> _started;
++	base::flat_set<not_null<Main::Account*>> _existing;
++	base::flat_set<Key> _pending;
++	std::vector<base::weak_ptr<Main::Session>> _waiting;
++	std::optional<Notes> _notes;
++	bool _fetching = false;
++	bool _failed = false;
+ 	rpl::lifetime _lifetime;
+ 
+ };
+@@ -62,7 +98,12 @@ QPointer<Changelog> Instance;
+ 		+ u"/tele-changelog.json"_q;
+ }
+ 
+-[[nodiscard]] std::optional<TextWithEntities> Parse(const QByteArray &data) {
++[[nodiscard]] QString Category(const QJsonValue &value) {
++	const auto result = value.toString().trimmed();
++	return (result.size() > kMaxTitleLength) ? QString() : result;
++}
++
++[[nodiscard]] std::optional<Notes> Parse(const QByteArray &data) {
+ 	auto error = QJsonParseError();
+ 	const auto document = QJsonDocument::fromJson(data, &error);
+ 	if (error.error != QJsonParseError::NoError || !document.isObject()) {
+@@ -73,16 +114,32 @@ QPointer<Changelog> Instance;
+ 	if (object.value(u"tag"_q).toString() != Tag() || !items.isArray()) {
+ 		return std::nullopt;
+ 	}
+-	auto title = object.value(u"title"_q).toString().trimmed();
+-	if (title.isEmpty() || title.size() > kMaxTitleLength) {
+-		title = u"tele %1"_q.arg(BuildNumber());
++	auto result = Notes();
++	result.title = object.value(u"title"_q).toString().trimmed();
++	if (result.title.isEmpty() || result.title.size() > kMaxTitleLength) {
++		result.title = u"tele %1"_q.arg(BuildNumber());
++	}
++	result.url = object.value(u"url"_q).toString();
++	if (!result.url.startsWith(QString::fromLatin1(kReleasesPrefix))) {
++		result.url = QString::fromLatin1(kReleasesPrefix)
++			+ u"tag/"_q
++			+ Tag();
+ 	}
+-	auto url = object.value(u"url"_q).toString();
+-	if (!url.startsWith(QString::fromLatin1(kReleasesPrefix))) {
+-		url = QString::fromLatin1(kReleasesPrefix) + u"tag/"_q + Tag();
++	const auto group = [&](const QString &name) -> Group& {
++		const auto i = ranges::find(result.groups, name, &Group::name);
++		if (i != end(result.groups)) {
++			return *i;
++		}
++		result.groups.push_back({ .name = name });
++		return result.groups.back();
++	};
++	for (const auto &value : object.value(u"categories"_q).toArray()) {
++		if (int(result.groups.size()) >= kMaxCategories) {
++			break;
++		} else if (const auto name = Category(value); !name.isEmpty()) {
++			group(name);
++		}
+ 	}
+-	auto result = Ui::Text::Bold(Lower(title + u" is here"_q));
+-	result.append(u"\n\n"_q);
+ 	auto count = 0;
+ 	for (const auto &value : items.toArray()) {
+ 		const auto item = value.toObject();
+@@ -92,21 +149,186 @@ QPointer<Changelog> Instance;
+ 		} else if (++count > kMaxItems) {
+ 			break;
+ 		}
+-		const auto where = item.value(u"where"_q).toString().trimmed();
+-		result.append(Ui::kQBullet + ' ' + Lower(text.left(kMaxItemLength)));
+-		if (!where.isEmpty()) {
+-			result.append(' ').append(Ui::Text::Italic(
+-				'(' + Lower(where.left(kMaxItemLength)) + ')'));
++		group(Category(item.value(u"category"_q))).entries.push_back({
++			.text = text.left(kMaxItemLength),
++			.where = item.value(
++				u"where"_q).toString().trimmed().left(kMaxItemLength),
++		});
++	}
++	result.groups.erase(ranges::remove_if(result.groups, [](
++			const Group &group) {
++		return group.entries.empty();
++	}), end(result.groups));
++	return result;
++}
++
++[[nodiscard]] TextWithEntities Title(const Notes &notes) {
++	return { Lower(notes.title + u" is here"_q) };
++}
++
++void AddFullLink(ChangelogMessage &message, const Notes &notes) {
++	if (notes.url.isEmpty()) {
++		return;
++	}
++	message.buttonText = Lower(u"Full changelog"_q);
++	message.buttonUrl = notes.url;
++}
++
++[[nodiscard]] TextWithEntities EntryText(const Entry &entry) {
++	auto result = TextWithEntities{ Lower(entry.text) };
++	if (!entry.where.isEmpty()) {
++		result.append('\n').append(Ui::Text::Italic(Lower(entry.where)));
++	}
++	return result;
++}
++
++[[nodiscard]] Iv::RichPage::Block TextBlock(
++		Iv::RichPage::BlockKind kind,
++		TextWithEntities text,
++		int headingLevel = 0) {
++	auto result = Iv::RichPage::Block();
++	result.kind = kind;
++	result.headingLevel = headingLevel;
++	result.text.text = std::move(text);
++	return result;
++}
++
++[[nodiscard]] std::shared_ptr<const Iv::RichPage> RichNotes(
++		not_null<Main::Session*> session,
++		const Notes &notes) {
++	using Kind = Iv::RichPage::BlockKind;
++	auto result = std::make_shared<Iv::RichPage>();
++	auto &blocks = result->blocks;
++	blocks.push_back(TextBlock(Kind::Heading, Title(notes), 2));
++	for (const auto &group : notes.groups) {
++		if (!group.name.isEmpty()) {
++			blocks.push_back(TextBlock(
++				Kind::Heading,
++				{ Lower(group.name) },
++				3));
++		}
++		auto list = Iv::RichPage::Block();
++		list.kind = Kind::List;
++		list.listKind = Iv::RichPage::ListKind::Bullet;
++		list.listItems.reserve(group.entries.size());
++		for (const auto &entry : group.entries) {
++			auto item = Iv::RichPage::ListItem();
++			item.text.text = EntryText(entry);
++			list.listItems.push_back(std::move(item));
+ 		}
+-		result.append('\n');
++		blocks.push_back(std::move(list));
+ 	}
+-	if (count) {
++	const auto limits = Iv::ResolveRichMessageLimits(session);
++	if (Iv::ValidateRichMessage(*result, limits)) {
++		return nullptr;
++	}
++	return result;
++}
++
++[[nodiscard]] TextWithEntities GroupText(const Group &group) {
++	auto result = TextWithEntities();
++	if (!group.name.isEmpty()) {
++		result.append(Ui::Text::Bold(Lower(group.name))).append('\n');
++	}
++	for (const auto &entry : group.entries) {
++		result.append(Ui::kQBullet + ' ').append(EntryText(entry));
+ 		result.append('\n');
+ 	}
+-	result.append(Ui::Text::Link(Lower(u"Full changelog"_q), url));
+ 	return result;
+ }
+ 
++void AppendMessages(
++		std::vector<ChangelogMessage> &messages,
++		TextWithEntities text) {
++	auto part = TextWithEntities();
++	while (TextUtilities::CutPart(part, text, kMaxMessageLength)) {
++		messages.push_back({ .text = std::move(part) });
++		part = TextWithEntities();
++	}
++}
++
++[[nodiscard]] std::vector<ChangelogMessage> PlainNotes(const Notes &notes) {
++	auto whole = Ui::Text::Bold(Title(notes).text);
++	for (const auto &group : notes.groups) {
++		whole.append('\n').append(GroupText(group));
++	}
++	auto result = std::vector<ChangelogMessage>();
++	if (whole.text.size() <= kMaxSplitLength) {
++		AppendMessages(result, std::move(whole));
++		return result;
++	}
++	for (auto i = 0, count = int(notes.groups.size()); i != count; ++i) {
++		auto text = i
++			? TextWithEntities()
++			: Ui::Text::Bold(Title(notes).text).append(u"\n\n"_q);
++		text.append(GroupText(notes.groups[i]));
++		AppendMessages(result, std::move(text));
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<ChangelogMessage> Messages(
++		not_null<Main::Session*> session,
++		const Notes &notes) {
++	auto result = std::vector<ChangelogMessage>();
++	if (auto rich = RichNotes(session, notes)) {
++		result.push_back({ .rich = std::move(rich) });
++	} else {
++		result = PlainNotes(notes);
++	}
++	if (!result.empty()) {
++		AddFullLink(result.back(), notes);
++	}
++	return result;
++}
++
++[[nodiscard]] Key SessionKey(not_null<Main::Session*> session) {
++	return session->userId().bare
++		| (session->isTestMode() ? kTestBit : Key());
++}
++
++[[nodiscard]] base::flat_map<Key, int> ParseAccounts(const QString &value) {
++	auto result = base::flat_map<Key, int>();
++	for (const auto &part : value.split(QChar(','), Qt::SkipEmptyParts)) {
++		auto entry = part.trimmed();
++		const auto test = entry.startsWith(u"test:"_q);
++		if (test) {
++			entry = entry.mid(5);
++		}
++		const auto pair = entry.split(QChar('='));
++		if (pair.size() != 2) {
++			continue;
++		}
++		auto idOk = false;
++		auto buildOk = false;
++		const auto id = pair[0].trimmed().toULongLong(&idOk);
++		const auto build = pair[1].trimmed().toInt(&buildOk);
++		if (idOk && buildOk && id && !(id & kTestBit) && build > 0) {
++			result[id | (test ? kTestBit : Key())] = build;
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] QString SerializeAccounts(
++		const base::flat_map<Key, int> &accounts) {
++	auto list = QStringList();
++	list.reserve(int(accounts.size()));
++	for (const auto &[key, build] : accounts) {
++		list.push_back(((key & kTestBit) ? u"test:"_q : QString())
++			+ QString::number(key & ~kTestBit)
++			+ '='
++			+ QString::number(build));
++	}
++	return list.join(QChar(','));
++}
++
++void Store(Key key) {
++	auto accounts = ParseAccounts(ChangelogAccounts());
++	accounts[key] = BuildNumber();
++	SetChangelogAccounts(SerializeAccounts(accounts));
++}
++
+ Changelog::Changelog()
+ : QObject(QCoreApplication::instance()) {
+ 	const auto domain = &Core::App().domain();
+@@ -114,26 +336,84 @@ Changelog::Changelog()
+ 	) | rpl::to_empty | rpl::filter([=] {
+ 		return domain->started();
+ 	}) | rpl::take(1) | rpl::on_next([=] {
+-		if (sessions().empty()) {
+-			SetChangelogShown(BuildNumber());
+-			deleteLater();
++		start();
++	}, _lifetime);
++}
++
++void Changelog::start() {
++	const auto build = BuildNumber();
++	const auto show = ShowChangelog();
++	const auto old = ChangelogShown();
++	auto accounts = ParseAccounts(ChangelogAccounts());
++	auto changed = false;
++	for (const auto &[index, account] : Core::App().domain().accounts()) {
++		_existing.emplace(account.get());
++		const auto session = account->maybeSession();
++		if (!session) {
++			continue;
++		}
++		const auto key = SessionKey(session);
++		_started.emplace(key);
++		const auto i = accounts.find(key);
++		const auto stored = (i != end(accounts)) ? i->second : old;
++		if (stored >= build) {
++			continue;
++		} else if (show) {
++			_pending.emplace(key);
+ 		} else {
+-			fetch();
++			accounts[key] = build;
++			changed = true;
++		}
++	}
++	if (changed) {
++		SetChangelogAccounts(SerializeAccounts(accounts));
++	}
++	Core::App().domain().activeSessionValue(
++	) | rpl::on_next([=](Main::Session *session) {
++		if (session) {
++			activated(session);
+ 		}
+ 	}, _lifetime);
+ }
+ 
+-std::vector<not_null<Main::Session*>> Changelog::sessions() const {
+-	auto result = std::vector<not_null<Main::Session*>>();
+-	for (const auto &[index, account] : Core::App().domain().accounts()) {
+-		if (const auto session = account->maybeSession()) {
+-			result.push_back(session);
++void Changelog::activated(not_null<Main::Session*> session) {
++	const auto key = SessionKey(session);
++	if (_pending.remove(key)) {
++		request(session);
++		return;
++	} else if (!_started.emplace(key).second) {
++		return;
++	}
++	const auto accounts = ParseAccounts(ChangelogAccounts());
++	const auto i = accounts.find(key);
++	const auto existed = _existing.contains(&session->account());
++	const auto stored = (i != end(accounts))
++		? i->second
++		: existed
++		? ChangelogShown()
++		: BuildNumber();
++	if (stored >= BuildNumber()) {
++		if (i == end(accounts)) {
++			Store(key);
+ 		}
++	} else if (!ShowChangelog()) {
++		Store(key);
++	} else {
++		request(session);
++	}
++}
++
++void Changelog::request(not_null<Main::Session*> session) {
++	_waiting.push_back(base::make_weak(session));
++	if (_notes) {
++		flush();
++	} else if (!_fetching && !_failed) {
++		fetch();
+ 	}
+-	return result;
+ }
+ 
+ void Changelog::fetch() {
++	_fetching = true;
+ 	auto request = QNetworkRequest(QUrl(Url()));
+ 	request.setAttribute(
+ 		QNetworkRequest::RedirectPolicyAttribute,
+@@ -166,58 +446,53 @@ void Changelog::fetch() {
+ }
+ 
+ void Changelog::fetched(const QByteArray &data) {
+-	const auto text = Parse(data);
+-	if (!text) {
++	_fetching = false;
++	auto notes = Parse(data);
++	if (!notes) {
+ 		fail(u"malformed changelog"_q);
+ 		return;
+ 	}
+-	show(*text);
++	_notes = std::move(notes);
++	flush();
+ }
+ 
+-void Changelog::show(const TextWithEntities &text) {
+-	const auto build = BuildNumber();
+-	const auto sessions = this->sessions();
+-	if (sessions.empty()) {
+-		SetChangelogShown(build);
+-	}
+-	const auto left = std::make_shared<int>(int(sessions.size()));
+-	for (const auto &session : sessions) {
+-		const auto data = &session->data();
+-		const auto add = [=] {
+-			data->serviceNotification(text);
+-			if (!--*left) {
+-				SetChangelogShown(build);
+-			}
+-		};
+-		if (data->chatsListLoaded()) {
+-			add();
+-		} else {
+-			data->chatsListLoadedEvents(
+-			) | rpl::filter([](Data::Folder *folder) {
+-				return !folder;
+-			}) | rpl::take(1) | rpl::on_next(add, session->lifetime());
++void Changelog::fail(const QString &error) {
++	LOG(("Tele Changelog Error: %1").arg(error));
++	_fetching = false;
++	_failed = true;
++	_waiting.clear();
++}
++
++void Changelog::flush() {
++	for (const auto &weak : base::take(_waiting)) {
++		if (const auto session = weak.get()) {
++			post(session);
+ 		}
+ 	}
+-	deleteLater();
+ }
+ 
+-void Changelog::fail(const QString &error) {
+-	LOG(("Tele Changelog Error: %1").arg(error));
+-	deleteLater();
++void Changelog::post(not_null<Main::Session*> session) {
++	const auto data = &session->data();
++	const auto key = SessionKey(session);
++	const auto messages = Messages(session, *_notes);
++	const auto add = [=] {
++		PostChangelog(session, messages);
++		Store(key);
++	};
++	if (data->chatsListLoaded()) {
++		add();
++	} else {
++		data->chatsListLoadedEvents(
++		) | rpl::filter([](Data::Folder *folder) {
++			return !folder;
++		}) | rpl::take(1) | rpl::on_next(add, session->lifetime());
++	}
+ }
+ 
+ } // namespace
+ 
+ void StartChangelog() {
+-	const auto build = BuildNumber();
+-	if (build <= 0 || Instance) {
+-		return;
+-	}
+-	const auto shown = ChangelogShown();
+-	if (shown >= build) {
+-		return;
+-	} else if (!ShowChangelog()) {
+-		SetChangelogShown(build);
++	if (BuildNumber() <= 0 || Instance) {
+ 		return;
+ 	}
+ 	Instance = new Changelog();
+diff --git a/Telegram/SourceFiles/tele/tele_changelog_chat.cpp b/Telegram/SourceFiles/tele/tele_changelog_chat.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..bcd1d75dcad46bc038759f57143ae858e68ced54
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_changelog_chat.cpp
+@@ -0,0 +1,347 @@
++#include "tele/tele_changelog_chat.h"
++
++#include "base/unixtime.h"
++#include "data/data_histories.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "data/notify/data_peer_notify_settings.h"
++#include "dialogs/dialogs_key.h"
++#include "dialogs/ui/dialogs_quick_action.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_reply_markup.h"
++#include "info/info_content_widget.h"
++#include "info/info_memento.h"
++#include "iv/iv_rich_page.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "tele/tele_changelog_section.h"
++#include "tele/tele_lowercase.h"
++#include "ui/boxes/confirm_box.h"
++#include "ui/layers/generic_box.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/wrap/padding_wrap.h"
++#include "window/window_session_controller.h"
++#include "settings/settings_common.h"
++#include "ui/basic_click_handlers.h"
++#include "ui/vertical_list.h"
++#include "ui/widgets/buttons.h"
++#include "styles/style_info.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kMaxUserId = BareId(0xFFFFFFFFFFFFULL);
++constexpr auto kUserId = UserId(kMaxUserId - (kMaxUserId % 1000));
++constexpr auto kUserpicSize = 320;
++
++[[nodiscard]] PeerId ChangelogPeerId() {
++	return peerFromUser(kUserId);
++}
++
++[[nodiscard]] QString StatusText() {
++	return Lower(u"What's new in tele"_q);
++}
++
++[[nodiscard]] not_null<UserData*> EnsureUser(
++		not_null<Main::Session*> session) {
++	using Flag = MTPDuser::Flag;
++	const auto owner = &session->data();
++	const auto user = owner->processUser(MTP_user(
++		MTP_flags(Flag::f_first_name | Flag::f_photo | Flag::f_verified),
++		MTP_long(kUserId.bare),
++		MTPlong(),
++		MTP_string(u"tele"_q),
++		MTPstring(),
++		MTPstring(),
++		MTPstring(),
++		MTP_userProfilePhotoEmpty(),
++		MTPUserStatus(),
++		MTPint(),
++		MTPVector<MTPRestrictionReason>(),
++		MTPstring(),
++		MTPstring(),
++		MTPEmojiStatus(),
++		MTPVector<MTPUsername>(),
++		MTPRecentStory(),
++		MTPPeerColor(),
++		MTPPeerColor(),
++		MTPint(),
++		MTPlong(),
++		MTPlong(),
++		MTPlong()));
++	if (user->notify().settingsUnknown()) {
++		user->notify().resetToDefault();
++	}
++	return user;
++}
++
++[[nodiscard]] not_null<History*> EnsureHistory(not_null<UserData*> user) {
++	const auto history = user->owner().history(user);
++	if (!history->folderKnown()) {
++		history->applyDialogFields(nullptr, 0, 0, 0);
++		history->dialogEntryApplied();
++	}
++	return history;
++}
++
++void MarkRead(not_null<History*> history) {
++	history->owner().histories().readInbox(history);
++}
++
++void ConfirmDelete(
++		not_null<Window::SessionController*> controller,
++		not_null<History*> history) {
++	const auto weak = base::make_weak(history.get());
++	controller->show(Ui::MakeConfirmBox({
++		.text = Lower(u"Delete the tele chat? It exists only on this "
++			"device."_q),
++		.confirmed = [=](Fn<void()> &&close) {
++			close();
++			if (const auto strong = weak.get()) {
++				strong->owner().deleteConversationLocally(strong->peer);
++			}
++		},
++		.confirmText = Lower(u"Delete"_q),
++		.confirmStyle = &st::attentionBoxButton,
++	}));
++}
++
++void ProfileBox(not_null<Ui::GenericBox*> box, not_null<UserData*> user) {
++	const auto &st = st::infoProfileCover;
++	const auto cover = box->addRow(
++		object_ptr<Ui::FixedHeightWidget>(box, st.height),
++		style::margins());
++	const auto view = cover->lifetime().make_state<Ui::PeerUserpicView>();
++	cover->paintRequest(
++	) | rpl::on_next([=] {
++		auto p = QPainter(cover);
++		const auto skip = (st.photo.size.width() - st.photo.photoSize) / 2;
++		user->paintUserpic(p, *view, {
++			.position = QPoint(st.photoLeft + skip, st.photoTop + skip),
++			.size = st.photo.photoSize,
++		});
++	}, cover->lifetime());
++	const auto name = Ui::CreateChild<Ui::FlatLabel>(
++		cover,
++		user->name(),
++		st.name);
++	name->moveToLeft(st.nameLeft, st.nameTop);
++	const auto verified = Ui::CreateChild<Ui::RpWidget>(cover);
++	verified->resize(st::infoVerifiedStar.size());
++	verified->setAttribute(Qt::WA_TransparentForMouseEvents);
++	verified->paintRequest(
++	) | rpl::on_next([=] {
++		auto p = QPainter(verified);
++		st::infoVerifiedStar.paint(p, 0, 0, verified->width());
++		st::infoVerifiedCheck.paint(p, 0, 0, verified->width());
++	}, verified->lifetime());
++	name->geometryValue(
++	) | rpl::on_next([=](QRect geometry) {
++		verified->moveToLeft(
++			geometry.x() + geometry.width() + st::normalFont->spacew,
++			geometry.y() + (geometry.height() - verified->height()) / 2);
++	}, verified->lifetime());
++	const auto status = Ui::CreateChild<Ui::FlatLabel>(
++		cover,
++		StatusText(),
++		st.status);
++	status->moveToLeft(st.statusLeft, st.statusTop);
++	box->addRow(object_ptr<Ui::FlatLabel>(
++		box,
++		Lower(u"Release notes of tele, only on this device."_q),
++		st::boxDividerLabel));
++	Ui::AddSkip(box->verticalLayout());
++	const auto link = [=](
++			const QString &text,
++			const style::icon &icon,
++			const QString &url) {
++		Settings::AddButtonWithIcon(
++			box->verticalLayout(),
++			rpl::single(Lower(text)),
++			st::settingsButton,
++			{ &icon }
++		)->addClickHandler([=] {
++			box->closeBox();
++			UrlClickHandler::Open(url);
++		});
++	};
++	link(
++		u"tele on GitHub"_q,
++		st::menuIconLink,
++		u"https://github.com/nitreojs/tele"_q);
++	link(
++		u"Updates channel"_q,
++		st::menuIconChannel,
++		u"https://t.me/teleAppUpdates"_q);
++	box->addButton(tr::lng_close(), [=] {
++		box->closeBox();
++	});
++}
++
++void ShowProfile(
++		not_null<Window::SessionController*> controller,
++		not_null<UserData*> user) {
++	controller->show(Box(ProfileBox, user));
++}
++
++} // namespace
++
++bool IsChangelogPeer(const PeerData *peer) {
++	return peer && (peer->id == ChangelogPeerId());
++}
++
++QImage *ChangelogUserpic(not_null<const PeerData*> peer) {
++	if (!IsChangelogPeer(peer)) {
++		return nullptr;
++	}
++	static auto result = QImage(u":/gui/art/tele_userpic.jpg"_q).scaled(
++		kUserpicSize,
++		kUserpicSize,
++		Qt::IgnoreAspectRatio,
++		Qt::SmoothTransformation
++	).convertToFormat(QImage::Format_ARGB32_Premultiplied);
++	return &result;
++}
++
++std::optional<QString> ChangelogStatus(not_null<const UserData*> user) {
++	return IsChangelogPeer(user) ? StatusText() : std::optional<QString>();
++}
++
++[[nodiscard]] HistoryMessageMarkupData UrlButton(
++		const ChangelogMessage &message) {
++	auto result = HistoryMessageMarkupData();
++	if (message.buttonUrl.isEmpty()) {
++		return result;
++	}
++	using Button = HistoryMessageMarkupButton;
++	result.rows.push_back({ Button(
++		Button::Type::Url,
++		message.buttonText,
++		Button::Visual(),
++		message.buttonUrl.toUtf8()) });
++	result.flags = ReplyMarkupFlag::Inline;
++	return result;
++}
++
++void PostChangelog(
++		not_null<Main::Session*> session,
++		const std::vector<ChangelogMessage> &messages) {
++	const auto user = EnsureUser(session);
++	const auto history = EnsureHistory(user);
++	const auto owner = &session->data();
++	const auto date = base::unixtime::now();
++	for (const auto &message : messages) {
++		const auto item = history->makeMessage({
++			.id = owner->nextLocalMessageId(),
++			.flags = MessageFlag::ClientSideUnread | MessageFlag::Local,
++			.from = user->id,
++			.date = date,
++			.markup = UrlButton(message),
++		}, message.text, MTP_messageMediaEmpty());
++		if (message.rich) {
++			item->applyLocalRichPage(message.rich);
++		}
++		history->addNewLocalMessage(item);
++	}
++	owner->sendHistoryChangeNotifications();
++}
++
++bool ShowChangelogChat(
++		not_null<Window::SessionController*> controller,
++		PeerId peerId,
++		const Window::SectionShow &params) {
++	if (peerId != ChangelogPeerId()) {
++		return false;
++	}
++	const auto history = controller->session().data().historyLoaded(peerId);
++	if (history && !history->clientSideMessages().empty()) {
++		controller->showSection(
++			std::make_shared<ChangelogMemento>(history),
++			params);
++	}
++	return true;
++}
++
++bool ShowChangelogProfile(
++		not_null<Window::SessionController*> controller,
++		not_null<Window::SectionMemento*> memento) {
++	const auto info = dynamic_cast<Info::Memento*>(memento.get());
++	if (!info || !info->stackSize()) {
++		return false;
++	}
++	const auto peer = info->content()->peer();
++	if (!IsChangelogPeer(peer)) {
++		return false;
++	}
++	ShowProfile(controller, peer->asUser());
++	return true;
++}
++
++bool FillChangelogMenu(
++		not_null<Window::SessionController*> controller,
++		const Dialogs::EntryState &request,
++		const Ui::Menu::MenuCallback &addAction) {
++	const auto history = request.key.history();
++	if (!history || !IsChangelogPeer(history->peer)) {
++		return false;
++	}
++	if (history->unreadCount() > 0) {
++		addAction(tr::lng_context_mark_read(tr::now), [=] {
++			MarkRead(history);
++		}, &st::menuIconMarkRead);
++	}
++	if (request.section != Dialogs::EntryState::Section::Profile) {
++		const auto user = history->peer->asUser();
++		addAction(tr::lng_context_view_profile(tr::now), [=] {
++			ShowProfile(controller, user);
++		}, &st::menuIconProfile);
++	}
++	addAction({
++		.text = tr::lng_profile_delete_conversation(tr::now),
++		.handler = [=] { ConfirmDelete(controller, history); },
++		.icon = &st::menuIconDeleteAttention,
++		.isAttention = true,
++	});
++	return true;
++}
++
++bool PerformChangelogQuickAction(
++		not_null<Window::SessionController*> controller,
++		not_null<PeerData*> peer,
++		Dialogs::Ui::QuickDialogAction action) {
++	if (!IsChangelogPeer(peer)) {
++		return false;
++	}
++	using Action = Dialogs::Ui::QuickDialogAction;
++	const auto history = peer->owner().history(peer);
++	if (action == Action::Read) {
++		MarkRead(history);
++	} else if (action == Action::Delete) {
++		ConfirmDelete(controller, history);
++	}
++	return true;
++}
++
++bool SkipChangelogDialogEntry(
++		not_null<History*> history,
++		Fn<void()> callback) {
++	if (!IsChangelogPeer(history->peer)) {
++		return false;
++	}
++	if (!history->folderKnown()) {
++		history->clearFolder();
++	}
++	history->dialogEntryApplied();
++	if (callback) {
++		crl::on_main(&history->session(), std::move(callback));
++	}
++	return true;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_changelog_chat.h b/Telegram/SourceFiles/tele/tele_changelog_chat.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..30fd40b936a1449a1bf37a55ee72f76652a47b85
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_changelog_chat.h
+@@ -0,0 +1,74 @@
++#pragma once
++
++class History;
++class PeerData;
++class UserData;
++
++namespace Iv {
++struct RichPage;
++} // namespace Iv
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Dialogs {
++struct EntryState;
++} // namespace Dialogs
++
++namespace Ui {
++} // namespace Ui
++
++namespace Dialogs::Ui {
++using namespace ::Ui;
++enum class QuickDialogAction;
++} // namespace Dialogs::Ui
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++class SectionMemento;
++struct SectionShow;
++} // namespace Window
++
++namespace Tele {
++
++struct ChangelogMessage {
++	TextWithEntities text;
++	std::shared_ptr<const Iv::RichPage> rich;
++	QString buttonText;
++	QString buttonUrl;
++};
++
++[[nodiscard]] bool IsChangelogPeer(const PeerData *peer);
++[[nodiscard]] QImage *ChangelogUserpic(not_null<const PeerData*> peer);
++[[nodiscard]] std::optional<QString> ChangelogStatus(
++	not_null<const UserData*> user);
++
++void PostChangelog(
++	not_null<Main::Session*> session,
++	const std::vector<ChangelogMessage> &messages);
++
++[[nodiscard]] bool ShowChangelogChat(
++	not_null<Window::SessionController*> controller,
++	PeerId peerId,
++	const Window::SectionShow &params);
++[[nodiscard]] bool ShowChangelogProfile(
++	not_null<Window::SessionController*> controller,
++	not_null<Window::SectionMemento*> memento);
++[[nodiscard]] bool FillChangelogMenu(
++	not_null<Window::SessionController*> controller,
++	const Dialogs::EntryState &request,
++	const Ui::Menu::MenuCallback &addAction);
++[[nodiscard]] bool PerformChangelogQuickAction(
++	not_null<Window::SessionController*> controller,
++	not_null<PeerData*> peer,
++	Dialogs::Ui::QuickDialogAction action);
++[[nodiscard]] bool SkipChangelogDialogEntry(
++	not_null<History*> history,
++	Fn<void()> callback);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_changelog_section.cpp b/Telegram/SourceFiles/tele/tele_changelog_section.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..547cc1465b6a6bb4d3d4628793cfcff5ef151b83
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_changelog_section.cpp
+@@ -0,0 +1,732 @@
++#include "tele/tele_changelog_section.h"
++
++#include "data/data_peer_values.h"
++#include "data/data_session.h"
++#include "data/data_histories.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_view_swipe_back_session.h"
++#include "history/view/history_view_top_bar_widget.h"
++#include "main/main_session.h"
++#include "ui/chat/chat_style.h"
++#include "ui/widgets/elastic_scroll.h"
++#include "ui/widgets/shadow.h"
++#include "ui/ui_utility.h"
++#include "window/window_adaptive.h"
++#include "window/window_session_controller.h"
++#include "styles/style_chat.h"
++#include "styles/style_window.h"
++
++namespace Tele {
++namespace {
++
++using namespace HistoryView;
++
++class ChangelogWidget final
++	: public Window::SectionWidget
++	, private HistoryView::WindowListDelegate {
++public:
++	ChangelogWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		not_null<History*> history);
++
++	Dialogs::RowDescriptor activeChat() const override;
++
++	bool hasTopBarShadow() const override {
++		return true;
++	}
++
++	QPixmap grabForShowAnimation(
++		const Window::SectionSlideParams &params) override;
++
++	bool showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) override;
++	std::shared_ptr<Window::SectionMemento> createMemento() override;
++
++	void setInternalState(
++		const QRect &geometry,
++		not_null<ChangelogMemento*> memento);
++
++	bool floatPlayerHandleWheelEvent(QEvent *e) override;
++	QRect floatPlayerAvailableRect() override;
++
++	Context listContext() override;
++	bool listScrollTo(int top, bool syntetic = true) override;
++	void listCancelRequest() override;
++	void listDeleteRequest() override;
++	void listTryProcessKeyInput(not_null<QKeyEvent*> e) override;
++	rpl::producer<Data::MessagesSlice> listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) override;
++	bool listAllowsMultiSelect() override;
++	bool listIsItemGoodForSelection(not_null<HistoryItem*> item) override;
++	bool listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) override;
++	void listSelectionChanged(SelectedItems &&items) override;
++	void listMarkReadTill(not_null<HistoryItem*> item) override;
++	void listMarkContentsRead(
++		const base::flat_set<not_null<HistoryItem*>> &items) override;
++	MessagesBarData listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) override;
++	void listContentRefreshed() override;
++	void listUpdateDateLink(
++		ClickHandlerPtr &link,
++		not_null<Element*> view) override;
++	bool listElementHideReply(not_null<const Element*> view) override;
++	bool listElementShownUnread(not_null<const Element*> view) override;
++	bool listIsGoodForAroundPosition(
++		not_null<const Element*> view) override;
++	void listSendBotCommand(
++		const QString &command,
++		const FullMsgId &context) override;
++	void listSearch(
++		const QString &query,
++		const FullMsgId &context) override;
++	void listHandleViaClick(not_null<UserData*> bot) override;
++	not_null<Ui::ChatTheme*> listChatTheme() override;
++	CopyRestrictionType listCopyRestrictionType(HistoryItem *item) override;
++	CopyRestrictionType listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) override;
++	CopyRestrictionType listSelectRestrictionType() override;
++	auto listAllowedReactionsValue()
++		-> rpl::producer<Data::AllowedReactions> override;
++	void listShowPremiumToast(not_null<DocumentData*> document) override;
++	void listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) override;
++	void listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) override;
++	void listPaintEmpty(
++		Painter &p,
++		const Ui::ChatPaintContext &context) override;
++	QString listElementAuthorRank(not_null<const Element*> view) override;
++	bool listElementHideTopicButton(not_null<const Element*> view) override;
++	History *listTranslateHistory() override;
++	void listAddTranslatedItems(
++		not_null<TranslateTracker*> tracker) override;
++	Ui::ElasticScroll *listScrollArea() const override;
++	bool listThanosEffectEnabled() const override;
++
++private:
++	void resizeEvent(QResizeEvent *e) override;
++	void paintEvent(QPaintEvent *e) override;
++
++	void showAnimatedHook(
++		const Window::SectionSlideParams &params) override;
++	void showFinishedHook() override;
++	void doSetInnerFocus() override;
++	void checkActivation() override;
++
++	void onScroll();
++	void updateInnerVisibleArea();
++	void updateControlsGeometry();
++	void updateAdaptiveLayout();
++	void saveState(not_null<ChangelogMemento*> memento);
++	void restoreState(not_null<ChangelogMemento*> memento);
++
++	void setupSearch();
++	void cancelSearch();
++	void scheduleRefresh();
++	void markRead();
++	[[nodiscard]] std::vector<not_null<HistoryItem*>> items() const;
++	[[nodiscard]] Data::MessagesSlice buildSlice(
++		Data::MessagePosition aroundId) const;
++
++	void confirmDeleteSelected();
++	void clearSelected();
++	void recountChatWidth();
++
++	const not_null<History*> _history;
++	std::shared_ptr<Ui::ChatTheme> _theme;
++	QPointer<ListWidget> _inner;
++	object_ptr<TopBarWidget> _topBar;
++	object_ptr<Ui::PlainShadow> _topBarShadow;
++
++	bool _skipScrollEvent = false;
++	std::unique_ptr<Ui::ElasticScroll> _scroll;
++
++	rpl::event_stream<> _refreshes;
++	QString _query;
++	bool _refreshScheduled = false;
++
++};
++
++ChangelogWidget::ChangelogWidget(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller,
++	not_null<History*> history)
++: Window::SectionWidget(parent, controller, history->peer)
++, HistoryView::WindowListDelegate(controller)
++, _history(history)
++, _topBar(this, controller)
++, _topBarShadow(this)
++, _scroll(std::make_unique<Ui::ElasticScroll>(
++	this,
++	controller->chatStyle()->value(lifetime(), st::historyScroll))) {
++	controller->chatStyle()->paletteChanged(
++	) | rpl::on_next([=] {
++		_scroll->updateBars();
++	}, _scroll->lifetime());
++
++	Window::ChatThemeValueFromPeer(
++		controller,
++		history->peer
++	) | rpl::on_next([=](std::shared_ptr<Ui::ChatTheme> &&theme) {
++		_theme = std::move(theme);
++		controller->setChatStyleTheme(_theme);
++	}, lifetime());
++
++	_topBar->setActiveChat(
++		TopBarWidget::ActiveChat{
++			.key = _history,
++			.section = Dialogs::EntryState::Section::History,
++		},
++		nullptr);
++
++	_topBar->move(0, 0);
++	_topBar->resizeToWidth(width());
++	_topBar->show();
++
++	_topBar->deleteSelectionRequest(
++	) | rpl::on_next([=] {
++		confirmDeleteSelected();
++	}, _topBar->lifetime());
++	_topBar->clearSelectionRequest(
++	) | rpl::on_next([=] {
++		clearSelected();
++	}, _topBar->lifetime());
++	setupSearch();
++
++	_topBarShadow->raise();
++	controller->adaptive().value(
++	) | rpl::on_next([=] {
++		updateAdaptiveLayout();
++	}, lifetime());
++
++	_scroll->setHandleTouch(false);
++	_inner = _scroll->setOwnedWidget(object_ptr<ListWidget>(
++		this,
++		&controller->session(),
++		static_cast<ListDelegate*>(this)));
++	_inner->lower();
++	_scroll->move(0, _topBar->height());
++	_scroll->show();
++	_scroll->setOverscrollBg(QColor(0, 0, 0, 0));
++	_scroll->setOverscrollEdges([=] {
++		return _inner->loadedAtTopKnown() && _inner->loadedAtTop();
++	}, [=] {
++		return _inner->loadedAtBottomKnown() && _inner->loadedAtBottom();
++	});
++	_scroll->scrolls(
++	) | rpl::on_next([=] {
++		onScroll();
++	}, lifetime());
++
++	_inner->scrollKeyEvents(
++	) | rpl::on_next([=](not_null<QKeyEvent*> e) {
++		_scroll->keyPressEvent(e);
++	}, lifetime());
++
++	const auto owner = &_history->owner();
++	owner->newItemAdded(
++	) | rpl::filter([=](not_null<HistoryItem*> item) {
++		return (item->history() == _history);
++	}) | rpl::on_next([=] {
++		scheduleRefresh();
++		markRead();
++	}, lifetime());
++	owner->itemRemoved(
++	) | rpl::filter([=](not_null<const HistoryItem*> item) {
++		return (item->history() == _history);
++	}) | rpl::on_next([=] {
++		scheduleRefresh();
++	}, lifetime());
++	owner->historyCleared(
++	) | rpl::filter([=](not_null<const History*> history) {
++		return (history == _history);
++	}) | rpl::on_next([=] {
++		scheduleRefresh();
++	}, lifetime());
++
++	Window::SetupSwipeBackSection(this, _scroll.get(), _inner);
++
++	crl::on_main(this, [=] {
++		markRead();
++	});
++}
++
++void ChangelogWidget::setupSearch() {
++	_topBar->searchRequest(
++	) | rpl::on_next([=] {
++		_topBar->toggleSearch(true, anim::type::normal);
++	}, _topBar->lifetime());
++	_topBar->searchCancelled(
++	) | rpl::on_next([=] {
++		cancelSearch();
++	}, _topBar->lifetime());
++	_topBar->searchQuery(
++	) | rpl::on_next([=](const QString &query) {
++		const auto now = query.trimmed();
++		if (_query != now) {
++			_query = now;
++			_refreshes.fire({});
++		}
++	}, _topBar->lifetime());
++}
++
++void ChangelogWidget::cancelSearch() {
++	_topBar->searchClear();
++	_topBar->toggleSearch(false, anim::type::normal);
++	doSetInnerFocus();
++}
++
++void ChangelogWidget::scheduleRefresh() {
++	if (_refreshScheduled) {
++		return;
++	}
++	_refreshScheduled = true;
++	crl::on_main(this, [=] {
++		_refreshScheduled = false;
++		if (items().empty()) {
++			controller()->showBackFromStack();
++			return;
++		}
++		_refreshes.fire({});
++	});
++}
++
++void ChangelogWidget::markRead() {
++	if (_history->unreadCount() > 0) {
++		_history->owner().histories().readInbox(_history);
++	}
++}
++
++std::vector<not_null<HistoryItem*>> ChangelogWidget::items() const {
++	auto result = std::vector<not_null<HistoryItem*>>();
++	for (const auto &item : _history->clientSideMessages()) {
++		if (item->isHistoryEntry()) {
++			result.push_back(item);
++		}
++	}
++	ranges::sort(result, [](
++			not_null<HistoryItem*> a,
++			not_null<HistoryItem*> b) {
++		return a->id < b->id;
++	});
++	return result;
++}
++
++Data::MessagesSlice ChangelogWidget::buildSlice(
++		Data::MessagePosition aroundId) const {
++	auto items = this->items();
++	if (!_query.isEmpty()) {
++		const auto skip = [&](not_null<HistoryItem*> item) {
++			return !item->originalText().text.contains(
++				_query,
++				Qt::CaseInsensitive);
++		};
++		items.erase(ranges::remove_if(items, skip), end(items));
++	}
++	auto result = Data::MessagesSlice();
++	const auto size = int(items.size());
++	result.fullCount = size;
++	result.skippedBefore = result.skippedAfter = 0;
++	if (!size) {
++		return result;
++	}
++	const auto i = ranges::find(
++		items,
++		aroundId.fullId,
++		&HistoryItem::fullId);
++	result.nearestToAround = ((i != end(items)) ? *i : items.front())
++		->fullId();
++	result.ids.reserve(size);
++	for (const auto &item : items) {
++		result.ids.push_back(item->fullId());
++	}
++	return result;
++}
++
++void ChangelogWidget::updateAdaptiveLayout() {
++	_topBarShadow->moveToLeft(
++		controller()->adaptive().isOneColumn() ? 0 : st::lineWidth,
++		_topBar->height());
++}
++
++Dialogs::RowDescriptor ChangelogWidget::activeChat() const {
++	return {
++		_history,
++		FullMsgId(_history->peer->id, ShowAtUnreadMsgId)
++	};
++}
++
++QPixmap ChangelogWidget::grabForShowAnimation(
++		const Window::SectionSlideParams &params) {
++	_topBar->updateControlsVisibility();
++	if (params.withTopBarShadow) _topBarShadow->hide();
++	auto result = Ui::GrabWidget(this);
++	if (params.withTopBarShadow) _topBarShadow->show();
++	return result;
++}
++
++void ChangelogWidget::checkActivation() {
++	_inner->checkActivation();
++	markRead();
++}
++
++void ChangelogWidget::doSetInnerFocus() {
++	if (!_topBar->searchSetFocus()) {
++		_inner->setFocus();
++	}
++}
++
++bool ChangelogWidget::showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) {
++	if (const auto changelog = dynamic_cast<ChangelogMemento*>(
++			memento.get())) {
++		if (changelog->history() == _history) {
++			restoreState(changelog);
++			return true;
++		}
++	}
++	return false;
++}
++
++void ChangelogWidget::setInternalState(
++		const QRect &geometry,
++		not_null<ChangelogMemento*> memento) {
++	setGeometry(geometry);
++	Ui::SendPendingMoveResizeEvents(this);
++	restoreState(memento);
++}
++
++std::shared_ptr<Window::SectionMemento> ChangelogWidget::createMemento() {
++	auto result = std::make_shared<ChangelogMemento>(_history);
++	saveState(result.get());
++	return result;
++}
++
++void ChangelogWidget::saveState(not_null<ChangelogMemento*> memento) {
++	_inner->saveState(memento->list());
++}
++
++void ChangelogWidget::restoreState(not_null<ChangelogMemento*> memento) {
++	_inner->restoreState(memento->list());
++}
++
++void ChangelogWidget::resizeEvent(QResizeEvent *e) {
++	if (!width() || !height()) {
++		return;
++	}
++	recountChatWidth();
++	updateControlsGeometry();
++}
++
++void ChangelogWidget::recountChatWidth() {
++	auto layout = (width() < st::adaptiveChatWideWidth)
++		? Window::Adaptive::ChatLayout::Normal
++		: Window::Adaptive::ChatLayout::Wide;
++	controller()->adaptive().setChatLayout(layout);
++}
++
++void ChangelogWidget::updateControlsGeometry() {
++	const auto contentWidth = width();
++
++	const auto newScrollTop = _scroll->isHidden()
++		? std::nullopt
++		: base::make_optional(_scroll->scrollTop() + takeTopDelta());
++	_topBar->resizeToWidth(contentWidth);
++	_topBarShadow->resize(contentWidth, st::lineWidth);
++
++	const auto top = _topBar->height();
++	const auto scrollSize = QSize(contentWidth, height() - top);
++	if (_scroll->size() != scrollSize) {
++		_skipScrollEvent = true;
++		_scroll->resize(scrollSize);
++		_inner->resizeToWidth(scrollSize.width(), _scroll->height());
++		_skipScrollEvent = false;
++	}
++	_scroll->move(0, top);
++	if (!_scroll->isHidden()) {
++		if (newScrollTop) {
++			_scroll->scrollToY(*newScrollTop);
++		}
++		updateInnerVisibleArea();
++	}
++}
++
++void ChangelogWidget::paintEvent(QPaintEvent *e) {
++	if (animatingShow()) {
++		SectionWidget::paintEvent(e);
++		return;
++	} else if (controller()->contentOverlapped(this, e)) {
++		return;
++	}
++
++	const auto aboveHeight = _topBar->height();
++	const auto bg = e->rect().intersected(
++		QRect(0, aboveHeight, width(), height() - aboveHeight));
++	SectionWidget::PaintBackground(controller(), _theme.get(), this, bg);
++}
++
++void ChangelogWidget::onScroll() {
++	if (_skipScrollEvent) {
++		return;
++	}
++	updateInnerVisibleArea();
++}
++
++void ChangelogWidget::updateInnerVisibleArea() {
++	const auto scrollTop = _scroll->scrollTop();
++	_inner->setVisibleTopBottom(scrollTop, scrollTop + _scroll->height());
++}
++
++void ChangelogWidget::showAnimatedHook(
++		const Window::SectionSlideParams &params) {
++	_topBar->setAnimatingMode(true);
++	if (params.withTopBarShadow) {
++		_topBarShadow->show();
++	}
++}
++
++void ChangelogWidget::showFinishedHook() {
++	_topBar->setAnimatingMode(false);
++	_inner->showFinished();
++	markRead();
++}
++
++bool ChangelogWidget::floatPlayerHandleWheelEvent(QEvent *e) {
++	return _scroll->viewportEvent(e);
++}
++
++QRect ChangelogWidget::floatPlayerAvailableRect() {
++	return mapToGlobal(_scroll->geometry());
++}
++
++Context ChangelogWidget::listContext() {
++	return Context::ChatPreview;
++}
++
++bool ChangelogWidget::listScrollTo(int top, bool syntetic) {
++	top = std::clamp(top, 0, _scroll->scrollTopMax());
++	if (_scroll->scrollTop() == top) {
++		updateInnerVisibleArea();
++		return false;
++	}
++	_scroll->scrollToY(top);
++	return true;
++}
++
++void ChangelogWidget::listCancelRequest() {
++	if (_inner && !_inner->getSelectedIds().empty()) {
++		clearSelected();
++		return;
++	} else if (_topBar->searchMode()) {
++		cancelSearch();
++		return;
++	}
++	controller()->showBackFromStack();
++}
++
++void ChangelogWidget::listDeleteRequest() {
++	confirmDeleteSelected();
++}
++
++void ChangelogWidget::listTryProcessKeyInput(not_null<QKeyEvent*> e) {
++}
++
++rpl::producer<Data::MessagesSlice> ChangelogWidget::listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		_refreshes.events()
++	) | rpl::map([=] {
++		return buildSlice(aroundId);
++	});
++}
++
++bool ChangelogWidget::listAllowsMultiSelect() {
++	return true;
++}
++
++bool ChangelogWidget::listIsItemGoodForSelection(
++		not_null<HistoryItem*> item) {
++	return !item->isService();
++}
++
++bool ChangelogWidget::listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) {
++	return first->id < second->id;
++}
++
++void ChangelogWidget::listSelectionChanged(SelectedItems &&items) {
++	auto state = TopBarWidget::SelectedState();
++	state.count = items.size();
++	for (const auto &item : items) {
++		if (item.canDelete) {
++			++state.canDeleteCount;
++		}
++	}
++	_topBar->showSelected(state);
++}
++
++void ChangelogWidget::listMarkReadTill(not_null<HistoryItem*> item) {
++	markRead();
++}
++
++void ChangelogWidget::listMarkContentsRead(
++	const base::flat_set<not_null<HistoryItem*>> &items) {
++}
++
++MessagesBarData ChangelogWidget::listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) {
++	return {};
++}
++
++void ChangelogWidget::listContentRefreshed() {
++}
++
++void ChangelogWidget::listUpdateDateLink(
++	ClickHandlerPtr &link,
++	not_null<Element*> view) {
++}
++
++bool ChangelogWidget::listElementHideReply(not_null<const Element*> view) {
++	return false;
++}
++
++bool ChangelogWidget::listElementShownUnread(not_null<const Element*> view) {
++	return false;
++}
++
++bool ChangelogWidget::listIsGoodForAroundPosition(
++		not_null<const Element*> view) {
++	return true;
++}
++
++void ChangelogWidget::listSendBotCommand(
++	const QString &command,
++	const FullMsgId &context) {
++}
++
++void ChangelogWidget::listSearch(
++		const QString &query,
++		const FullMsgId &context) {
++	controller()->searchMessages(query, Dialogs::Key());
++}
++
++void ChangelogWidget::listHandleViaClick(not_null<UserData*> bot) {
++}
++
++not_null<Ui::ChatTheme*> ChangelogWidget::listChatTheme() {
++	return _theme.get();
++}
++
++CopyRestrictionType ChangelogWidget::listCopyRestrictionType(
++		HistoryItem *item) {
++	return CopyRestrictionType::None;
++}
++
++CopyRestrictionType ChangelogWidget::listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) {
++	return CopyRestrictionType::None;
++}
++
++CopyRestrictionType ChangelogWidget::listSelectRestrictionType() {
++	return CopyRestrictionType::None;
++}
++
++auto ChangelogWidget::listAllowedReactionsValue()
++-> rpl::producer<Data::AllowedReactions> {
++	return rpl::single(Data::AllowedReactions());
++}
++
++void ChangelogWidget::listShowPremiumToast(
++	not_null<DocumentData*> document) {
++}
++
++void ChangelogWidget::listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) {
++	controller()->openPhoto(photo, { .id = context });
++}
++
++void ChangelogWidget::listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) {
++	controller()->openDocument(document, showInMediaView, { .id = context });
++}
++
++void ChangelogWidget::listPaintEmpty(
++	Painter &p,
++	const Ui::ChatPaintContext &context) {
++}
++
++QString ChangelogWidget::listElementAuthorRank(
++		not_null<const Element*> view) {
++	return {};
++}
++
++bool ChangelogWidget::listElementHideTopicButton(
++		not_null<const Element*> view) {
++	return true;
++}
++
++History *ChangelogWidget::listTranslateHistory() {
++	return nullptr;
++}
++
++void ChangelogWidget::listAddTranslatedItems(
++	not_null<TranslateTracker*> tracker) {
++}
++
++Ui::ElasticScroll *ChangelogWidget::listScrollArea() const {
++	return _scroll.get();
++}
++
++bool ChangelogWidget::listThanosEffectEnabled() const {
++	return false;
++}
++
++void ChangelogWidget::confirmDeleteSelected() {
++	ConfirmDeleteSelectedItems(_inner);
++}
++
++void ChangelogWidget::clearSelected() {
++	_inner->cancelSelection();
++}
++
++} // namespace
++
++ChangelogMemento::ChangelogMemento(not_null<History*> history)
++: _history(history) {
++}
++
++object_ptr<Window::SectionWidget> ChangelogMemento::createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) {
++	if (column == Window::Column::Third) {
++		return nullptr;
++	}
++	auto result = object_ptr<ChangelogWidget>(parent, controller, _history);
++	result->setInternalState(geometry, this);
++	return result;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_changelog_section.h b/Telegram/SourceFiles/tele/tele_changelog_section.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..160db2a1f1d6fc27221c96046572a7b1430351f3
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_changelog_section.h
+@@ -0,0 +1,38 @@
++#pragma once
++
++#include "window/section_widget.h"
++#include "window/section_memento.h"
++#include "history/view/history_view_list_widget.h"
++
++class History;
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++class ChangelogMemento final : public Window::SectionMemento {
++public:
++	explicit ChangelogMemento(not_null<History*> history);
++
++	object_ptr<Window::SectionWidget> createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) override;
++
++	[[nodiscard]] not_null<History*> history() const {
++		return _history;
++	}
++	[[nodiscard]] not_null<HistoryView::ListMemento*> list() {
++		return &_list;
++	}
++
++private:
++	const not_null<History*> _history;
++	HistoryView::ListMemento _list;
++
++};
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index b5d53195d6a959dce878bc03a5249f33cc8d46f7..ac6e3f310ccc7375f58dc9658d06d0f4bf668ee6 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -19,6 +19,7 @@ const char kOptionButtonPayloads[] = "tele-button-payloads";
+ const char kOptionAutoUpdate[] = "tele-auto-update";
+ const char kOptionShowChangelog[] = "tele-show-changelog";
+ const char kOptionChangelogShown[] = "tele-changelog-shown";
++const char kOptionChangelogAccounts[] = "tele-changelog-accounts";
+ const char kOptionGroupQuickReplies[] = "tele-group-quick-replies";
+ const char kOptionBubbleBadges[] = "tele-bubble-badges";
+ const char kOptionHideCalls[] = "tele-hide-calls";
+@@ -162,15 +163,22 @@ base::options::toggle AutoUpdateOption({
+ base::options::toggle ShowChangelogOption({
+ 	.id = kOptionShowChangelog,
+ 	.name = "Show what's new after updates",
+-	.description = "Posted to the Telegram service chat, gone after a "
+-		"restart.",
++	.description = "Posted to a local tele chat when you open each "
++		"account, gone after a restart.",
+ 	.defaultValue = true,
+ });
+ 
+ base::options::option<int> ChangelogShownOption({
+ 	.id = kOptionChangelogShown,
+ 	.name = "Last shown changelog",
+-	.description = "The tele build whose changes were shown last.",
++	.description = "The tele build whose changes were shown last, before "
++		"they were tracked per account.",
++});
++
++base::options::option<QString> ChangelogAccountsOption({
++	.id = kOptionChangelogAccounts,
++	.name = "Changelog per account",
++	.description = "The tele build whose changes each account was shown.",
+ });
+ 
+ base::options::toggle GroupQuickRepliesOption({
+@@ -582,8 +590,12 @@ int ChangelogShown() {
+ 	return ChangelogShownOption.value();
+ }
+ 
+-void SetChangelogShown(int build) {
+-	ChangelogShownOption.set(build);
++QString ChangelogAccounts() {
++	return ChangelogAccountsOption.value();
++}
++
++void SetChangelogAccounts(const QString &value) {
++	ChangelogAccountsOption.set(value);
+ }
+ 
+ bool GroupQuickReplies() {
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index e53fd2bb265dc137e0a83cfff4d8cb598f63fc62..9321ac99d182095664db4ae7788a205173dadbcf 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -16,6 +16,7 @@ extern const char kOptionButtonPayloads[];
+ extern const char kOptionAutoUpdate[];
+ extern const char kOptionShowChangelog[];
+ extern const char kOptionChangelogShown[];
++extern const char kOptionChangelogAccounts[];
+ extern const char kOptionGroupQuickReplies[];
+ extern const char kOptionBubbleBadges[];
+ extern const char kOptionCallButton[];
+@@ -84,7 +85,8 @@ void SetGhostChats(const QString &value);
+ [[nodiscard]] rpl::producer<bool> AutoUpdateValue();
+ [[nodiscard]] bool ShowChangelog();
+ [[nodiscard]] int ChangelogShown();
+-void SetChangelogShown(int build);
++[[nodiscard]] QString ChangelogAccounts();
++void SetChangelogAccounts(const QString &value);
+ [[nodiscard]] bool GroupQuickReplies();
+ [[nodiscard]] bool BubbleBadges();
+ [[nodiscard]] bool LowercaseStrings();
+diff --git a/Telegram/SourceFiles/window/window_chat_preview.cpp b/Telegram/SourceFiles/window/window_chat_preview.cpp
+index 05eb80212f795139ae3f0dd583c558a03a3fdbb6..7dfb0c3428ffd0103466a82f7b719f56d06f57c8 100644
+--- a/Telegram/SourceFiles/window/window_chat_preview.cpp
++++ b/Telegram/SourceFiles/window/window_chat_preview.cpp
+@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history.h"
+ #include "history/view/history_view_chat_preview.h"
+ #include "mainwidget.h"
++#include "tele/tele_changelog_chat.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "window/window_peer_menu.h"
+ #include "window/window_session_controller.h"
+@@ -28,7 +29,7 @@ constexpr auto kChatPreviewDelay = crl::time(1000);
+ [[nodiscard]] bool SkipChatPreviewFor(Dialogs::Key key) {
+ 	const auto peer = key.peer();
+ 	const auto channel = peer ? peer->asChannel() : nullptr;
+-	return channel && channel->isCommunity();
++	return (channel && channel->isCommunity()) || Tele::IsChangelogPeer(peer);
+ }
+ 
+ } // namespace
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index d6622bd043d8be28e5fafbc59b494eb007dde986..5281a4470007d5df8798b499e66d0d72dfcf1c97 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/peers/edit_peer_info_box.h"
+ #include "boxes/peers/manage_community_box.h"
+ #include "boxes/premium_preview_box.h"
++#include "tele/tele_changelog_chat.h"
+ #include "tele/tele_chat_backgrounds.h"
+ #include "tele/tele_deleted_section.h"
+ #include "tele/tele_ghost.h"
+@@ -4389,6 +4390,9 @@ void FillDialogsEntryMenu(
+ 		not_null<SessionController*> controller,
+ 		Dialogs::EntryState request,
+ 		const PeerMenuCallback &callback) {
++	if (Tele::FillChangelogMenu(controller, request, callback)) {
++		return;
++	}
+ 	Filler(controller, request, callback).fill();
+ 	Tele::AddViewTlAction(callback, controller->uiShow(), request);
+ }
+diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
+index 9d9fdc7dab9f525a979500fceb1384502f7a07f3..d1dd648483d715b8b34e232584b2667c72ee2040 100644
+--- a/Telegram/SourceFiles/window/window_session_controller.cpp
++++ b/Telegram/SourceFiles/window/window_session_controller.cpp
+@@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_main.h"
+ #include "settings/sections/settings_premium.h"
+ #include "settings/sections/settings_privacy_security.h"
++#include "tele/tele_changelog_chat.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_username_aliases.h"
+ #include "styles/style_chat_helpers.h"
+@@ -3241,7 +3242,9 @@ void SessionController::cancelUploadLayer(not_null<HistoryItem*> item) {
+ void SessionController::showSection(
+ 		std::shared_ptr<SectionMemento> memento,
+ 		const SectionShow &params) {
+-	if (!params.thirdColumn
++	if (Tele::ShowChangelogProfile(this, memento.get())) {
++		return;
++	} else if (!params.thirdColumn
+ 		&& widget()->showSectionInExistingLayer(memento.get(), params)) {
+ 		return;
+ 	}

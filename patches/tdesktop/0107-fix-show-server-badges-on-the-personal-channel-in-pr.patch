@@ -1,0 +1,346 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 19:32:07 +0300
+Subject: [PATCH] fix: show server badges on the personal channel in profiles
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../info/profile/info_profile_actions.cpp     |  13 +-
+ .../SourceFiles/tele/tele_name_badges.cpp     | 231 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_name_badges.h  |  27 ++
+ 4 files changed, 271 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_name_badges.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_name_badges.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index d1dc1728ad3ae60784d46271efd42d3bef635720..276eb71f9376212107bdfca7e858f69782f7e669 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2593,6 +2593,8 @@ PRIVATE
+     tele/tele_launch_flags.h
+     tele/tele_links.cpp
+     tele/tele_links.h
++    tele/tele_name_badges.cpp
++    tele/tele_name_badges.h
+     tele/tele_options.cpp
+     tele/tele_options.h
+     tele/tele_peer_id.cpp
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+index 7f53fb060667f51bce19ff1d96d22da3d0d74241..f011695009b0eb3f824fc649432888fbda28b05e 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+@@ -78,6 +78,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "support/support_helper.h"
+ #include "tele/tele_local_names.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_name_badges.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_peer_id.h"
+ #include "tele/tele_username_aliases.h"
+@@ -1977,6 +1978,11 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
+ 			st::infoLabel,
+ 			st::infoLabeled,
+ 			st::infoProfilePersonalChannelPadding);
++		Tele::SetupLabelBadges(
++			line.wrap.data(),
++			line.text,
++			rpl::duplicate(channel),
++			window);
+ 		onlyChannelWrap->entity()->add(std::move(line.wrap));
+ 
+ 		line.text->setClickHandlerFilter([=](
+@@ -2052,6 +2058,10 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
+ 				line,
+ 				NameValue(item->history()->peer),
+ 				st::infoPersonalChannelNameLabel);
++			const auto placeName = Tele::SetupNameBadges(
++				name,
++				item->history()->peer,
++				window);
+ 
+ 			const auto preview = Ui::CreateChild<Ui::RpWidget>(line);
+ 			auto &lifetime = preview->lifetime();
+@@ -2110,12 +2120,11 @@ Section DetailsFiller::makePersonalChannel(not_null<UserData*> user) {
+ 				const auto top = stLabeled.top();
+ 				date->moveToRight(right, top, size.width());
+ 
+-				name->resizeToWidth(size.width()
++				placeName(left, top, size.width()
+ 					- left
+ 					- date->width()
+ 					- st::defaultVerticalListSkip
+ 					- right);
+-				name->moveToLeft(left, top);
+ 
+ 				preview->resize(
+ 					size.width() - left - right,
+diff --git a/Telegram/SourceFiles/tele/tele_name_badges.cpp b/Telegram/SourceFiles/tele/tele_name_badges.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..aaa9860c541f3aab02517c6c3e65f85fa69f7a7e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_name_badges.cpp
+@@ -0,0 +1,231 @@
++#include "tele/tele_name_badges.h"
++
++#include "data/data_channel.h"
++#include "data/data_peer.h"
++#include "info/profile/info_profile_badge.h"
++#include "info/profile/info_profile_values.h"
++#include "main/main_session.h"
++#include "ui/text/text.h"
++#include "ui/text/text_options.h"
++#include "ui/widgets/labels.h"
++#include "window/window_session_controller.h"
++#include "styles/style_basic.h"
++#include "styles/style_settings.h"
++
++namespace Tele {
++namespace {
++
++using Info::Profile::Badge;
++using Info::Profile::BadgeType;
++
++[[nodiscard]] int BadgeWidth(const Badge &badge) {
++	const auto widget = badge.widget();
++	return widget ? widget->width() : 0;
++}
++
++class NameBadges final {
++public:
++	NameBadges(
++		not_null<QWidget*> parent,
++		not_null<PeerData*> peer,
++		Fn<bool()> paused);
++
++	[[nodiscard]] rpl::producer<> updated() const;
++	[[nodiscard]] int leftSkip() const;
++	[[nodiscard]] int rightWidth() const;
++	void moveLeft(int nameLeft, int top, int bottom);
++	void moveRight(int nameRight, int top, int bottom);
++
++private:
++	Badge _botVerify;
++	Badge _badge;
++	Badge _verified;
++
++};
++
++NameBadges::NameBadges(
++	not_null<QWidget*> parent,
++	not_null<PeerData*> peer,
++	Fn<bool()> paused)
++: _botVerify(
++	parent,
++	st::settingsInfoPeerBadge,
++	&peer->session(),
++	Info::Profile::BotVerifyBadgeForPeer(peer),
++	nullptr,
++	paused,
++	0,
++	BadgeType::BotVerified)
++, _badge(
++	parent,
++	st::settingsInfoPeerBadge,
++	&peer->session(),
++	Info::Profile::BadgeContentForPeer(peer),
++	nullptr,
++	paused)
++, _verified(
++	parent,
++	st::settingsInfoPeerBadge,
++	&peer->session(),
++	Info::Profile::VerifiedContentForPeer(peer),
++	nullptr,
++	paused,
++	0,
++	BadgeType::Verified) {
++}
++
++rpl::producer<> NameBadges::updated() const {
++	return rpl::merge(
++		_botVerify.updated(),
++		_badge.updated(),
++		_verified.updated());
++}
++
++int NameBadges::leftSkip() const {
++	const auto width = BadgeWidth(_botVerify);
++	return width ? (width + st::semiboldFont->spacew) : 0;
++}
++
++int NameBadges::rightWidth() const {
++	const auto width = BadgeWidth(_badge) + BadgeWidth(_verified);
++	return width ? (width + st::semiboldFont->spacew) : 0;
++}
++
++void NameBadges::moveLeft(int nameLeft, int top, int bottom) {
++	_botVerify.move(nameLeft - leftSkip(), top, bottom);
++}
++
++void NameBadges::moveRight(int nameRight, int top, int bottom) {
++	const auto left = nameRight + st::semiboldFont->spacew;
++	_badge.move(left, top, bottom);
++	_verified.move(left + BadgeWidth(_badge), top, bottom);
++}
++
++[[nodiscard]] Fn<bool()> Paused(not_null<Window::SessionController*> window) {
++	return [=] {
++		return window->isGifPausedAtLeastFor(Window::GifPauseReason::Layer);
++	};
++}
++
++struct NameState {
++	NameState(
++		not_null<QWidget*> parent,
++		not_null<PeerData*> peer,
++		Fn<bool()> paused)
++	: badges(parent, peer, std::move(paused)) {
++	}
++
++	NameBadges badges;
++	int left = 0;
++	int top = 0;
++	int available = -1;
++};
++
++struct LabelState {
++	std::unique_ptr<NameBadges> badges;
++	Ui::Text::String measure;
++	rpl::lifetime lifetime;
++};
++
++} // namespace
++
++Fn<void(int left, int top, int available)> SetupNameBadges(
++		not_null<Ui::RpWidget*> name,
++		not_null<PeerData*> peer,
++		not_null<Window::SessionController*> window) {
++	const auto state = name->lifetime().make_state<NameState>(
++		name->parentWidget(),
++		peer,
++		Paused(window));
++	const auto place = [=] {
++		if (state->available < 0) {
++			return;
++		}
++		const auto skip = state->badges.leftSkip();
++		name->resizeToNaturalWidth(std::max(
++			state->available - skip - state->badges.rightWidth(),
++			0));
++		const auto left = state->left + skip;
++		const auto top = state->top;
++		name->moveToLeft(left, top);
++		const auto bottom = top + name->heightNoMargins();
++		state->badges.moveLeft(left, top, bottom);
++		state->badges.moveRight(left + name->widthNoMargins(), top, bottom);
++	};
++	rpl::merge(
++		state->badges.updated(),
++		name->naturalWidthValue() | rpl::to_empty
++	) | rpl::on_next(place, name->lifetime());
++	return [=](int left, int top, int available) {
++		state->left = left;
++		state->top = top;
++		state->available = available;
++		place();
++	};
++}
++
++void SetupLabelBadges(
++		not_null<Ui::RpWidget*> parent,
++		not_null<Ui::FlatLabel*> label,
++		rpl::producer<ChannelData*> channel,
++		not_null<Window::SessionController*> window) {
++	const auto state = label->lifetime().make_state<LabelState>();
++	const auto paused = Paused(window);
++	const auto place = [=] {
++		const auto badges = state->badges.get();
++		const auto right = badges ? badges->rightWidth() : 0;
++		const auto &style = label->st().style;
++		const auto lineHeight = std::max(style.lineHeight, style.font->height);
++		label->setSkipBlock(right, right ? lineHeight : 0);
++		if (!badges) {
++			return;
++		}
++		if (right) {
++			state->measure.updateSkipBlock(right, lineHeight);
++		} else {
++			state->measure.removeSkipBlock();
++		}
++		const auto width = label->widthNoMargins();
++		if (width <= 0) {
++			return;
++		}
++		const auto lines = state->measure.countLineWidths(width);
++		const auto margins = label->getMargins();
++		const auto origin = label->mapTo(
++			parent.get(),
++			QPoint(margins.left(), margins.top()));
++		badges->moveLeft(origin.x(), origin.y(), origin.y() + lineHeight);
++		const auto last = lines.empty() ? right : lines.back();
++		const auto top = origin.y()
++			+ std::max(int(lines.size()) - 1, 0) * lineHeight;
++		badges->moveRight(origin.x() + last - right, top, top + lineHeight);
++	};
++	std::move(
++		channel
++	) | rpl::on_next([=](ChannelData *channel) {
++		state->lifetime.destroy();
++		state->badges = nullptr;
++		if (channel) {
++			state->badges = std::make_unique<NameBadges>(
++				parent,
++				channel,
++				paused);
++			Info::Profile::NameValue(
++				channel
++			) | rpl::on_next([=](const QString &name) {
++				state->measure.setText(
++					label->st().style,
++					name,
++					Ui::NameTextOptions());
++				place();
++			}, state->lifetime);
++			state->badges->updated(
++			) | rpl::on_next(place, state->lifetime);
++		}
++		place();
++	}, label->lifetime());
++	label->geometryValue(
++	) | rpl::on_next(place, label->lifetime());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_name_badges.h b/Telegram/SourceFiles/tele/tele_name_badges.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..f730fe7fcd24da0a3468175e02995e8217943e3c
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_name_badges.h
+@@ -0,0 +1,27 @@
++#pragma once
++
++class PeerData;
++class ChannelData;
++
++namespace Ui {
++class RpWidget;
++class FlatLabel;
++} // namespace Ui
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] Fn<void(int left, int top, int available)> SetupNameBadges(
++	not_null<Ui::RpWidget*> name,
++	not_null<PeerData*> peer,
++	not_null<Window::SessionController*> window);
++void SetupLabelBadges(
++	not_null<Ui::RpWidget*> parent,
++	not_null<Ui::FlatLabel*> label,
++	rpl::producer<ChannelData*> channel,
++	not_null<Window::SessionController*> window);
++
++} // namespace Tele

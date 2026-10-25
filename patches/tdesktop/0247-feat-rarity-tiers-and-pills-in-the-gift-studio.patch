@@ -1,0 +1,476 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 20:39:08 +0300
+Subject: [PATCH] feat: rarity tiers and pills in the gift studio
+
+---
+ .../tele/tele_gift_grid_editor.cpp            |   3 +-
+ .../SourceFiles/tele/tele_gift_studio.cpp     |  35 +++---
+ .../tele/tele_gift_studio_data.cpp            |  22 ++++
+ .../SourceFiles/tele/tele_gift_studio_data.h  |   7 ++
+ .../tele/tele_gift_studio_render.cpp          |   7 +-
+ .../tele/tele_gift_studio_roll.cpp            |   8 +-
+ .../tele/tele_gift_studio_sweep.cpp           |   6 +-
+ .../tele/tele_gift_studio_widgets.cpp         | 102 +++++++++++++++++-
+ .../tele/tele_gift_studio_widgets.h           |  30 ++++++
+ 9 files changed, 197 insertions(+), 23 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp b/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+index 2e0ab9de03496f06b74503a429a8ad6ff23d4cff..48b8112b5a37fe73f970cc35cb857ef830cd9bcb 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_grid_editor.cpp
+@@ -674,6 +674,7 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 				rows.push_back({
+ 					.name = name,
+ 					.rarity = permille ? RarityText(*permille) : QString(),
++					.rarityColor = permille ? RarityColor(*permille) : QColor(),
+ 					.index = index,
+ 				});
+ 			}
+@@ -700,7 +701,7 @@ void EditCellBox(not_null<Ui::GenericBox*> box, EditorArgs &&args) {
+ 						model.name,
+ 						(model.custom
+ 							? std::nullopt
+-							: std::make_optional(model.permille)),
++							: std::make_optional(RarityValue(model))),
+ 						i);
+ 				}
+ 				selected = FindModel(parts.models, draft.model);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio.cpp b/Telegram/SourceFiles/tele/tele_gift_studio.cpp
+index f33129996f91eec367397231dd67132e0af6cd8f..81d60f1b632dbd12ba3d17ab71869b2bf1edd1ad 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio.cpp
+@@ -1244,10 +1244,7 @@ void GiftStudioBox(
+ 			return odds.isEmpty() ? Lower(u"unknown rarity"_q) : odds;
+ 		});
+ 	const auto rarityLabel = combination->add(
+-		object_ptr<Ui::FlatLabel>(
+-			combination,
+-			QString(),
+-			st::boxDividerLabel),
++		object_ptr<RarityLabel>(combination),
+ 		style::margins(0, 0, 0, line));
+ 	const auto ownedLabel = combination->add(
+ 		object_ptr<Ui::FlatLabel>(
+@@ -1346,7 +1343,7 @@ void GiftStudioBox(
+ 		auto permilles = std::array<int, 3>{};
+ 		if (state->model >= 0) {
+ 			result.model = result.subtitle = parts.models[state->model].name;
+-			permilles[0] = parts.models[state->model].permille;
++			permilles[0] = RarityValue(parts.models[state->model]);
+ 		}
+ 		if (state->backdrop >= 0) {
+ 			result.backdrop = parts.backdrops[state->backdrop].name;
+@@ -1362,17 +1359,28 @@ void GiftStudioBox(
+ 	const auto updateRarity = [=] {
+ 		const auto &parts = state->parts;
+ 		if (state->model < 0 || state->backdrop < 0) {
+-			rarityLabel->setText(QString());
++			rarityLabel->setRarity(QString(), {});
+ 			return;
+ 		}
+-		const auto model = parts.models[state->model].permille;
++		const auto model = RarityValue(parts.models[state->model]);
+ 		const auto backdrop = parts.backdrops[state->backdrop].permille;
+ 		const auto odds = RarityOdds(model, backdrop);
+-		rarityLabel->setText(odds.isEmpty()
+-			? Lower(u"Model + backdrop rarity: unknown"_q)
+-			: Lower(u"Model + backdrop rarity: %1 (%2)"_q)
+-				.arg(odds)
+-				.arg(RarityChance(model, backdrop)));
++		if (odds.isEmpty()) {
++			rarityLabel->setRarity(
++				Lower(u"Model + backdrop rarity: unknown"_q),
++				{});
++			return;
++		}
++		auto pills = std::vector<RarityPill>{
++			{ .text = odds, .color = RarityColor(model) },
++		};
++		if (const auto chance = RarityChance(model, backdrop)
++			; !chance.isEmpty()) {
++			pills.push_back({ .text = chance });
++		}
++		rarityLabel->setRarity(
++			Lower(u"Model + backdrop rarity:"_q),
++			std::move(pills));
+ 	};
+ 	state->updateTexts = [=] {
+ 		const auto texts = currentTexts();
+@@ -1962,6 +1970,7 @@ void GiftStudioBox(
+ 				rows.push_back({
+ 					.name = name,
+ 					.rarity = permille ? RarityText(*permille) : QString(),
++					.rarityColor = permille ? RarityColor(*permille) : QColor(),
+ 					.index = index,
+ 				});
+ 			}
+@@ -1980,7 +1989,7 @@ void GiftStudioBox(
+ 		case Tab::Model: {
+ 			for (auto i = 0; i != int(parts.models.size()); ++i) {
+ 				if (!parts.models[i].custom) {
+-					add(parts.models[i].name, parts.models[i].permille, i);
++					add(parts.models[i].name, RarityValue(parts.models[i]), i);
+ 				}
+ 			}
+ 			if (!state->partsReady) {
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp
+index ab212b96dbccdae144a8c3977bb697d90f090174..13446333b172f1e811bf71cc7a0bdc16257de660 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_data.cpp
+@@ -1,5 +1,6 @@
+ #include "tele/tele_gift_studio_data.h"
+ 
++#include "data/data_star_gift.h"
+ #include "lottie/details/lottie_instance.h"
+ #include "lottie/lottie_common.h"
+ #include "settings.h"
+@@ -362,6 +363,20 @@ void Fetch(
+ 		: QJsonArray();
+ }
+ 
++[[nodiscard]] Data::UniqueGiftRarity ParseTier(const QString &text) {
++	using Rarity = Data::UniqueGiftRarity;
++	const auto lower = text.trimmed().toLower();
++	return (lower == u"uncommon"_q)
++		? Rarity::Uncommon
++		: (lower == u"rare"_q)
++		? Rarity::Rare
++		: (lower == u"epic"_q)
++		? Rarity::Epic
++		: (lower == u"legendary"_q)
++		? Rarity::Legendary
++		: Rarity::Default;
++}
++
+ [[nodiscard]] std::vector<Attribute> ParseAttributes(
+ 		const QByteArray &bytes) {
+ 	auto result = std::vector<Attribute>();
+@@ -372,6 +387,7 @@ void Fetch(
+ 			result.push_back({
+ 				.name = name,
+ 				.permille = object.value(u"rarityPermille"_q).toInt(),
++				.tier = ParseTier(object.value(u"rarityTier"_q).toString()),
+ 			});
+ 		}
+ 	}
+@@ -752,6 +768,12 @@ void RequestRegularParts(
+ 
+ } // namespace
+ 
++int RarityValue(const Attribute &attribute) {
++	return (attribute.tier != Data::UniqueGiftRarity::Default)
++		? int(attribute.tier)
++		: attribute.permille;
++}
++
+ bool IsRegularGift(const QString &collection) {
+ 	const auto base = CollectionBase(collection);
+ 	if (base.isEmpty()) {
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_data.h b/Telegram/SourceFiles/tele/tele_gift_studio_data.h
+index afe8d5f8a8f05da2c0bcf18e6d33dd401eed3cf4..d11b8918981015c6a4b0aac340aed4adeba6845f 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_data.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_data.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++namespace Data {
++enum class UniqueGiftRarity : int;
++} // namespace Data
++
+ namespace Tele::GiftStudio {
+ 
+ struct Attribute {
+@@ -8,6 +12,7 @@ struct Attribute {
+ 	QString id;
+ 	QString source;
+ 	bool custom = false;
++	Data::UniqueGiftRarity tier = {};
+ 
+ 	[[nodiscard]] const QString &key() const {
+ 		return id.isEmpty() ? name : id;
+@@ -45,6 +50,8 @@ enum class PreviewKind {
+ 	Symbol,
+ };
+ 
++[[nodiscard]] int RarityValue(const Attribute &attribute);
++
+ [[nodiscard]] bool IsRegularGift(const QString &collection);
+ [[nodiscard]] bool IsFakeCollection(const QString &collection);
+ [[nodiscard]] bool IsVirtualCollection(const QString &collection);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp
+index 2cf5c5dbbf3b04ebb4b9214c89f158fde9168f47..d27b6d9b21f3062543355378b7eef2902ce97a63 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_render.cpp
+@@ -1,5 +1,6 @@
+ #include "tele/tele_gift_studio_render.h"
+ 
++#include "data/data_star_gift.h"
+ #include "lang/lang_keys.h"
+ #include "lang/lang_tag.h"
+ #include "lottie/details/lottie_instance.h"
+@@ -778,7 +779,11 @@ QSize DefaultCanvas(
+ }
+ 
+ QString RarityOdds(int modelPermille, int backdropPermille) {
+-	if (modelPermille <= 0 || backdropPermille <= 0) {
++	using Rarity = Data::UniqueGiftRarity;
++	if (modelPermille < int(Rarity::Default)
++		&& modelPermille >= int(Rarity::Legendary)) {
++		return Data::UniqueGiftRarityText(Rarity(modelPermille));
++	} else if (modelPermille <= 0 || backdropPermille <= 0) {
+ 		return QString();
+ 	}
+ 	const auto odds = int64(base::SafeRound(
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp
+index 474e72e63b91a90d64ba7903227a888e3e5e0a2e..b73573b38a724ec5a677573835a0ae2e2a0328da 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_roll.cpp
+@@ -126,7 +126,7 @@ void RefreshHistory(not_null<RollState*> state) {
+ 			+ u" \u00B7 "_q
+ 			+ gift->model.name;
+ 		const auto odds = RarityOdds(
+-			gift->model.rarityPermille(),
++			gift->model.rarityValue,
+ 			gift->backdrop.rarityPermille());
+ 		AddHistoryButton(state, title, odds, Combo{
+ 			.collection = gift->title,
+@@ -181,7 +181,9 @@ void ShowFakeResult(
+ 		.model = chosenModel.name,
+ 		.backdrop = chosenBackdrop.name,
+ 		.symbol = chosenSymbol.name,
+-		.rarity = RarityOdds(chosenModel.permille, chosenBackdrop.permille),
++		.rarity = RarityOdds(
++			RarityValue(chosenModel),
++			chosenBackdrop.permille),
+ 	});
+ 	state->resultWrap->show(anim::type::instant);
+ 	state->result->update();
+@@ -231,7 +233,7 @@ void RollFake(not_null<RollState*> state, const QString &collection) {
+ 				.number = QString::number(number),
+ 			},
+ 			.odds = RarityOdds(
+-				parts.models[model].permille,
++				RarityValue(parts.models[model]),
+ 				parts.backdrops[backdrop].permille),
+ 		});
+ 		if (int(rolls.list.size()) > kFakeHistoryLimit) {
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp
+index a7fbd0f51039b16873ec961bc367624149f97696..f2e9289e602510629314339969ab9e62587edc69 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_sweep.cpp
+@@ -70,7 +70,9 @@ Sweep::Sweep(
+ 		for (const auto &model : parts.models) {
+ 			push(
+ 				model.name,
+-				model.custom ? std::nullopt : std::make_optional(model.permille));
++				(model.custom
++					? std::nullopt
++					: std::make_optional(RarityValue(model))));
+ 		}
+ 		break;
+ 	}
+@@ -201,7 +203,7 @@ void Sweep::render(int index, QByteArray json) {
+ 		&& backdrop >= 0
+ 		&& backdrop < int(parts.backdrops.size())) {
+ 		texts.rarity = RarityOdds(
+-			parts.models[model].permille,
++			RarityValue(parts.models[model]),
+ 			parts.backdrops[backdrop].permille);
+ 	}
+ 	_renderer.setTexts(texts);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+index 8637543a1c0952ab35c8b6fbae7ad655b4e6fbd2..c7f3834697f541d125c20880cb131913d330faca 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.cpp
+@@ -14,6 +14,7 @@
+ #include "ui/widgets/labels.h"
+ #include "ui/wrap/vertical_layout.h"
+ #include "styles/style_boxes.h"
++#include "styles/style_chat.h"
+ #include "styles/style_layers.h"
+ #include "styles/style_settings.h"
+ #include "styles/style_widgets.h"
+@@ -38,6 +39,56 @@ QString RarityText(int permille) {
+ 	return Data::UniqueGiftAttributeText(attribute);
+ }
+ 
++QColor RarityColor(int rarity) {
++	using Rarity = Data::UniqueGiftRarity;
++	return (rarity < int(Rarity::Default) && rarity >= int(Rarity::Legendary))
++		? Data::UniqueGiftRarityBadgeColors(Rarity(rarity)).fg
++		: QColor();
++}
++
++int RarityPillWidth(const QString &text) {
++	const auto &padding = st::msgTagBadgePadding;
++	return std::max(
++		padding.left() + st::normalFont->width(text) + padding.right(),
++		RarityPillHeight());
++}
++
++int RarityPillHeight() {
++	const auto &padding = st::msgTagBadgePadding;
++	return padding.top() + st::normalFont->height + padding.bottom();
++}
++
++void PaintRarityPill(
++		QPainter &p,
++		QPoint position,
++		const QString &text,
++		QColor color) {
++	if (!color.isValid()) {
++		color = st::windowSubTextFg->c;
++	}
++	const auto &font = st::normalFont;
++	const auto &padding = st::msgTagBadgePadding;
++	const auto width = RarityPillWidth(text);
++	const auto height = RarityPillHeight();
++	auto bg = color;
++	bg.setAlphaF(0.15);
++	p.setPen(Qt::NoPen);
++	p.setBrush(bg);
++	{
++		auto hq = PainterHighQualityEnabler(p);
++		p.drawRoundedRect(
++			QRect(position, QSize(width, height)),
++			height / 2.,
++			height / 2.);
++	}
++	p.setFont(font->f);
++	p.setPen(color);
++	p.drawText(
++		position.x() + (width - font->width(text)) / 2,
++		position.y() + padding.top() + font->ascent,
++		text);
++}
++
+ QString NumberText(QString text) {
+ 	text = text.trimmed();
+ 	while (text.startsWith('#')) {
+@@ -131,6 +182,44 @@ void PaintImagePreview(
+ 	p.drawImage(rect, image);
+ }
+ 
++RarityLabel::RarityLabel(QWidget *parent) : RpWidget(parent) {
++}
++
++void RarityLabel::setRarity(QString text, std::vector<RarityPill> pills) {
++	_text = std::move(text);
++	_pills = std::move(pills);
++	update();
++}
++
++int RarityLabel::resizeGetHeight(int newWidth) {
++	return std::max(st::normalFont->height, RarityPillHeight());
++}
++
++void RarityLabel::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	const auto &font = st::normalFont;
++	const auto skip = font->spacew;
++	auto pills = 0;
++	for (const auto &pill : _pills) {
++		pills += skip + RarityPillWidth(pill.text);
++	}
++	const auto available = std::max(width() - pills, 0);
++	const auto text = font->elided(_text, available);
++	p.setFont(font->f);
++	p.setPen(st::windowSubTextFg);
++	p.drawText(
++		0,
++		(height() - font->height) / 2 + font->ascent,
++		text);
++	auto left = font->width(text);
++	const auto top = (height() - RarityPillHeight()) / 2;
++	for (const auto &pill : _pills) {
++		left += skip;
++		PaintRarityPill(p, QPoint(left, top), pill.text, pill.color);
++		left += RarityPillWidth(pill.text);
++	}
++}
++
+ PickerList::PickerList(QWidget *parent) : RpWidget(parent) {
+ 	setMouseTracking(true);
+ }
+@@ -237,7 +326,9 @@ void PickerList::paintEvent(QPaintEvent *e) {
+ 		}
+ 		const auto left = image.x() + image.width() + padding;
+ 		const auto right = width() - padding;
+-		const auto rarity = row.rarity.isEmpty() ? 0 : font->width(row.rarity);
++		const auto rarity = row.rarity.isEmpty()
++			? 0
++			: RarityPillWidth(row.rarity);
+ 		const auto baseline = top + (height - font->height) / 2 + font->ascent;
+ 		p.setFont(font->f);
+ 		p.setPen(selected ? st::lightButtonFg : st::windowFg);
+@@ -246,8 +337,13 @@ void PickerList::paintEvent(QPaintEvent *e) {
+ 			- (rarity ? (rarity + padding) : 0);
+ 		p.drawText(left, baseline, font->elided(row.name, available));
+ 		if (rarity) {
+-			p.setPen(st::windowSubTextFg);
+-			p.drawText(right - rarity, baseline, row.rarity);
++			PaintRarityPill(
++				p,
++				QPoint(
++					right - rarity,
++					top + (height - RarityPillHeight()) / 2),
++				row.rarity,
++				row.rarityColor);
+ 		}
+ 	}
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+index a9f3e79010efe2739bf497662beaf0d76e1d5a9d..7b4b47ab1b87b7992a24941cf74fb0df0685ecc4 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
++++ b/Telegram/SourceFiles/tele/tele_gift_studio_widgets.h
+@@ -15,12 +15,21 @@ struct Combo;
+ struct PickerRow {
+ 	QString name;
+ 	QString rarity;
++	QColor rarityColor;
+ 	int index = 0;
+ 	bool header = false;
+ };
+ 
+ [[nodiscard]] int RowHeight();
+ [[nodiscard]] QString RarityText(int permille);
++[[nodiscard]] QColor RarityColor(int rarity);
++[[nodiscard]] int RarityPillWidth(const QString &text);
++[[nodiscard]] int RarityPillHeight();
++void PaintRarityPill(
++	QPainter &p,
++	QPoint position,
++	const QString &text,
++	QColor color);
+ [[nodiscard]] QString NumberText(QString text);
+ [[nodiscard]] std::vector<PickerRow> CollectionRows(
+ 	const std::vector<QString> &collections,
+@@ -70,6 +79,27 @@ private:
+ 
+ };
+ 
++struct RarityPill {
++	QString text;
++	QColor color;
++};
++
++class RarityLabel final : public Ui::RpWidget {
++public:
++	explicit RarityLabel(QWidget *parent);
++
++	void setRarity(QString text, std::vector<RarityPill> pills);
++
++protected:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++
++private:
++	QString _text;
++	std::vector<RarityPill> _pills;
++
++};
++
+ class ColorSwatch final : public Ui::AbstractButton {
+ public:
+ 	ColorSwatch(QWidget *parent, QString label);

@@ -1,0 +1,384 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 07:53:19 +0300
+Subject: [PATCH] feat: show what's new in tele after an update
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/core/application.cpp     |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_changelog.cpp  | 226 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_changelog.h    |   7 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  29 +++
+ Telegram/SourceFiles/tele/tele_options.h      |   5 +
+ 7 files changed, 272 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_changelog.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_changelog.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index ffdef37705f2532320834c70dc92b9c8fea041fe..9a52ead59318157219c137c724049efc797e32b2 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2493,6 +2493,8 @@ PRIVATE
+     tele/tele_bubble_badges.h
+     tele/tele_button_payload.cpp
+     tele/tele_button_payload.h
++    tele/tele_changelog.cpp
++    tele/tele_changelog.h
+     tele/tele_crash.cpp
+     tele/tele_crash.h
+     tele/tele_deleted.cpp
+diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
+index d0e16887481935f716942c409d2271e48fc96b0c..1eb501ab873361ca2ea1adb4fdd5c40fa5f4077b 100644
+--- a/Telegram/SourceFiles/core/application.cpp
++++ b/Telegram/SourceFiles/core/application.cpp
+@@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/cached_webview_availability.h"
+ #include "test/test_agent.h"
+ #include "tele/tele_updater.h"
++#include "tele/tele_changelog.h"
+ #include "tele/tele_badges.h"
+ 
+ #include <QtCore/QStandardPaths>
+@@ -358,6 +359,7 @@ void Application::run() {
+ 	Storage::ClearStaleArchiveFiles();
+ 	Webview::ClearStaleTemporaryStorage();
+ 	Tele::StartUpdater();
++	Tele::StartChangelog();
+ 	Tele::StartBadges();
+ 
+ 	if (MediaControlsManager::Supported()) {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index fd16672872cda51f4aeb2f42397923388bb254a5..b7a715850b278878e7e50200a6c1c255c1908375 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -827,6 +827,7 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Updates"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionAutoUpdate);
++	AddOptionToggle(content, controller(), ::Tele::kOptionShowChangelog);
+ 	AddUpdates(content);
+ 	Ui::AddSkip(content);
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_changelog.cpp b/Telegram/SourceFiles/tele/tele_changelog.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..f5ff4a56afd34ad1cc4e7d56ae3f44155fabd618
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_changelog.cpp
+@@ -0,0 +1,226 @@
++#include "tele/tele_changelog.h"
++
++#include "core/application.h"
++#include "core/version.h"
++#include "data/data_session.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++#include "tele/tele_build.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/text/text.h"
++#include "ui/text/text_utilities.h"
++
++#include <QtCore/QCoreApplication>
++#include <QtCore/QJsonArray>
++#include <QtCore/QJsonDocument>
++#include <QtCore/QJsonObject>
++#include <QtCore/QPointer>
++#include <QtNetwork/QNetworkAccessManager>
++#include <QtNetwork/QNetworkReply>
++#include <QtNetwork/QNetworkRequest>
++
++namespace Tele {
++namespace {
++
++constexpr auto kTransferTimeout = 60 * 1000;
++constexpr auto kMaxSize = qint64(256 * 1024);
++constexpr auto kMaxItems = 100;
++constexpr auto kMaxTitleLength = 64;
++constexpr auto kMaxItemLength = 1024;
++constexpr auto kReleasesPrefix = "https://github.com/nitreojs/tele/releases/";
++
++class Changelog final : public QObject {
++public:
++	Changelog();
++
++private:
++	[[nodiscard]] std::vector<not_null<Main::Session*>> sessions() const;
++	void fetch();
++	void fetched(const QByteArray &data);
++	void show(const TextWithEntities &text);
++	void fail(const QString &error);
++
++	QNetworkAccessManager _manager;
++	rpl::lifetime _lifetime;
++
++};
++
++QPointer<Changelog> Instance;
++
++[[nodiscard]] QString Tag() {
++	return u"v%1-tele.%2"_q.arg(
++		QString::fromLatin1(AppVersionStr),
++		QString::number(BuildNumber()));
++}
++
++[[nodiscard]] QString Url() {
++	return QString::fromLatin1(kReleasesPrefix)
++		+ u"download/"_q
++		+ Tag()
++		+ u"/tele-changelog.json"_q;
++}
++
++[[nodiscard]] std::optional<TextWithEntities> Parse(const QByteArray &data) {
++	auto error = QJsonParseError();
++	const auto document = QJsonDocument::fromJson(data, &error);
++	if (error.error != QJsonParseError::NoError || !document.isObject()) {
++		return std::nullopt;
++	}
++	const auto object = document.object();
++	const auto items = object.value(u"items"_q);
++	if (object.value(u"tag"_q).toString() != Tag() || !items.isArray()) {
++		return std::nullopt;
++	}
++	auto title = object.value(u"title"_q).toString().trimmed();
++	if (title.isEmpty() || title.size() > kMaxTitleLength) {
++		title = u"tele %1"_q.arg(BuildNumber());
++	}
++	auto url = object.value(u"url"_q).toString();
++	if (!url.startsWith(QString::fromLatin1(kReleasesPrefix))) {
++		url = QString::fromLatin1(kReleasesPrefix) + u"tag/"_q + Tag();
++	}
++	auto result = Ui::Text::Bold(Lower(title + u" is here"_q));
++	result.append(u"\n\n"_q);
++	auto count = 0;
++	for (const auto &value : items.toArray()) {
++		const auto item = value.toObject();
++		const auto text = item.value(u"text"_q).toString().trimmed();
++		if (text.isEmpty()) {
++			continue;
++		} else if (++count > kMaxItems) {
++			break;
++		}
++		const auto where = item.value(u"where"_q).toString().trimmed();
++		result.append(Ui::kQBullet + ' ' + Lower(text.left(kMaxItemLength)));
++		if (!where.isEmpty()) {
++			result.append(' ').append(Ui::Text::Italic(
++				'(' + Lower(where.left(kMaxItemLength)) + ')'));
++		}
++		result.append('\n');
++	}
++	if (count) {
++		result.append('\n');
++	}
++	result.append(Ui::Text::Link(Lower(u"Full changelog"_q), url));
++	return result;
++}
++
++Changelog::Changelog()
++: QObject(QCoreApplication::instance()) {
++	const auto domain = &Core::App().domain();
++	domain->activeValue(
++	) | rpl::to_empty | rpl::filter([=] {
++		return domain->started();
++	}) | rpl::take(1) | rpl::on_next([=] {
++		if (sessions().empty()) {
++			SetChangelogShown(BuildNumber());
++			deleteLater();
++		} else {
++			fetch();
++		}
++	}, _lifetime);
++}
++
++std::vector<not_null<Main::Session*>> Changelog::sessions() const {
++	auto result = std::vector<not_null<Main::Session*>>();
++	for (const auto &[index, account] : Core::App().domain().accounts()) {
++		if (const auto session = account->maybeSession()) {
++			result.push_back(session);
++		}
++	}
++	return result;
++}
++
++void Changelog::fetch() {
++	auto request = QNetworkRequest(QUrl(Url()));
++	request.setAttribute(
++		QNetworkRequest::RedirectPolicyAttribute,
++		QNetworkRequest::NoLessSafeRedirectPolicy);
++	request.setTransferTimeout(std::chrono::milliseconds(kTransferTimeout));
++	const auto reply = _manager.get(request);
++	const auto tooLarge = std::make_shared<bool>(false);
++	connect(reply, &QNetworkReply::downloadProgress, this, [=](
++			qint64 ready,
++			qint64 total) {
++		if (ready > kMaxSize || total > kMaxSize) {
++			*tooLarge = true;
++			reply->abort();
++		}
++	});
++	connect(reply, &QNetworkReply::finished, this, [=] {
++		reply->deleteLater();
++		const auto code = reply->attribute(
++			QNetworkRequest::HttpStatusCodeAttribute).toInt();
++		if (*tooLarge) {
++			fail(u"response is too large"_q);
++		} else if (reply->error() != QNetworkReply::NoError) {
++			fail(u"network error: %1"_q.arg(reply->errorString()));
++		} else if (code != 200) {
++			fail(u"unexpected http status %1"_q.arg(code));
++		} else {
++			fetched(reply->readAll());
++		}
++	});
++}
++
++void Changelog::fetched(const QByteArray &data) {
++	const auto text = Parse(data);
++	if (!text) {
++		fail(u"malformed changelog"_q);
++		return;
++	}
++	show(*text);
++}
++
++void Changelog::show(const TextWithEntities &text) {
++	const auto build = BuildNumber();
++	const auto sessions = this->sessions();
++	if (sessions.empty()) {
++		SetChangelogShown(build);
++	}
++	const auto left = std::make_shared<int>(int(sessions.size()));
++	for (const auto &session : sessions) {
++		const auto data = &session->data();
++		const auto add = [=] {
++			data->serviceNotification(text);
++			if (!--*left) {
++				SetChangelogShown(build);
++			}
++		};
++		if (data->chatsListLoaded()) {
++			add();
++		} else {
++			data->chatsListLoadedEvents(
++			) | rpl::filter([](Data::Folder *folder) {
++				return !folder;
++			}) | rpl::take(1) | rpl::on_next(add, session->lifetime());
++		}
++	}
++	deleteLater();
++}
++
++void Changelog::fail(const QString &error) {
++	LOG(("Tele Changelog Error: %1").arg(error));
++	deleteLater();
++}
++
++} // namespace
++
++void StartChangelog() {
++	const auto build = BuildNumber();
++	if (build <= 0 || Instance) {
++		return;
++	}
++	const auto shown = ChangelogShown();
++	if (shown >= build) {
++		return;
++	} else if (!ShowChangelog()) {
++		SetChangelogShown(build);
++		return;
++	}
++	Instance = new Changelog();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_changelog.h b/Telegram/SourceFiles/tele/tele_changelog.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..2ef453e1e7f91e889d7e1899f8a12ac890cab6cb
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_changelog.h
+@@ -0,0 +1,7 @@
++#pragma once
++
++namespace Tele {
++
++void StartChangelog();
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index e5468c25b9ac16e91c59790f5ef48dd09d13a29f..a96110cdd4dc5db2fc16931d3a1e154396b0c9bb 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -16,6 +16,8 @@ const char kOptionGhostStories[] = "tele-ghost-stories";
+ const char kOptionGhostChats[] = "tele-ghost-chats";
+ const char kOptionButtonPayloads[] = "tele-button-payloads";
+ const char kOptionAutoUpdate[] = "tele-auto-update";
++const char kOptionShowChangelog[] = "tele-show-changelog";
++const char kOptionChangelogShown[] = "tele-changelog-shown";
+ const char kOptionGroupQuickReplies[] = "tele-group-quick-replies";
+ const char kOptionBubbleBadges[] = "tele-bubble-badges";
+ const char kOptionHideCalls[] = "tele-hide-calls";
+@@ -148,6 +150,21 @@ base::options::toggle AutoUpdateOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle ShowChangelogOption({
++	.id = kOptionShowChangelog,
++	.name = "Show what's new after updates",
++	.description = "After tele updates, the Telegram service chat gets "
++		"a message with what's new in the build. It lives only in this "
++		"app and is gone after a restart.",
++	.defaultValue = true,
++});
++
++base::options::option<int> ChangelogShownOption({
++	.id = kOptionChangelogShown,
++	.name = "Last shown changelog",
++	.description = "The tele build whose changes were shown last.",
++});
++
+ base::options::toggle GroupQuickRepliesOption({
+ 	.id = kOptionGroupQuickReplies,
+ 	.name = "Quick replies in groups and channels",
+@@ -442,6 +459,18 @@ rpl::producer<bool> AutoUpdateValue() {
+ 	});
+ }
+ 
++bool ShowChangelog() {
++	return ShowChangelogOption.value();
++}
++
++int ChangelogShown() {
++	return ChangelogShownOption.value();
++}
++
++void SetChangelogShown(int build) {
++	ChangelogShownOption.set(build);
++}
++
+ bool GroupQuickReplies() {
+ 	return GroupQuickRepliesOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index ef996ff5bde12f6bf9a11857779a8c35d0910ae4..56d6c5d3d280071971058d83e5b7089f06137d05 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -14,6 +14,8 @@ extern const char kOptionGhostStories[];
+ extern const char kOptionGhostChats[];
+ extern const char kOptionButtonPayloads[];
+ extern const char kOptionAutoUpdate[];
++extern const char kOptionShowChangelog[];
++extern const char kOptionChangelogShown[];
+ extern const char kOptionGroupQuickReplies[];
+ extern const char kOptionBubbleBadges[];
+ extern const char kOptionHideCalls[];
+@@ -58,6 +60,9 @@ void SetGhostChats(const QString &value);
+ [[nodiscard]] bool ButtonPayloads();
+ [[nodiscard]] bool AutoUpdate();
+ [[nodiscard]] rpl::producer<bool> AutoUpdateValue();
++[[nodiscard]] bool ShowChangelog();
++[[nodiscard]] int ChangelogShown();
++void SetChangelogShown(int build);
+ [[nodiscard]] bool GroupQuickReplies();
+ [[nodiscard]] bool BubbleBadges();
+ [[nodiscard]] bool HideCalls();

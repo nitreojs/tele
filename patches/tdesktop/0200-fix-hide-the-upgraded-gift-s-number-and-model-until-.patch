@@ -1,0 +1,321 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 3 Oct 2026 13:17:54 +0300
+Subject: [PATCH] fix: hide the upgraded gift's number and model until the spin
+ ends
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/boxes/gift_premium_box.cpp    |   3 +-
+ Telegram/SourceFiles/boxes/star_gift_box.cpp  |   6 +-
+ .../SourceFiles/boxes/star_gift_cover_box.cpp |  20 ++-
+ .../tele/tele_gift_roll_number.cpp            | 146 ++++++++++++++++++
+ .../SourceFiles/tele/tele_gift_roll_number.h  |  29 ++++
+ 6 files changed, 202 insertions(+), 4 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_roll_number.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_roll_number.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 8fc793fb650d5f4cbe765e092fc8fcd42e5def70..41f9ca95abac3b80bca4b2ef9d4a2238760c9f7f 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2587,6 +2587,8 @@ PRIVATE
+     tele/tele_gift_fake_upgrade.h
+     tele/tele_gift_quantity.cpp
+     tele/tele_gift_quantity.h
++    tele/tele_gift_roll_number.cpp
++    tele/tele_gift_roll_number.h
+     tele/tele_gift_studio.cpp
+     tele/tele_gift_studio.h
+     tele/tele_gift_studio_data.cpp
+diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
+index f605241e0e0db9aab094434f93ec3661f22ec415..eb27060b41af687bbd4e38614e1541be5d6eee39 100644
+--- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
++++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
+@@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "payments/payments_form.h"
+ #include "settings/settings_credits_graphics.h"
+ #include "settings/sections/settings_premium.h"
++#include "tele/tele_gift_roll_number.h"
+ #include "tele/tele_gifts.h"
+ #include "ui/basic_click_handlers.h" // UrlClickHandler::Open.
+ #include "ui/boxes/boost_box.h" // StartFireworks.
+@@ -1717,7 +1718,7 @@ void AddStarGiftTable(
+ 					? tr::lng_gift_unique_availability
+ 					: tr::lng_gift_availability_left)(
+ 						lt_count_decimal,
+-						rpl::single(count * 1.),
++						::Tele::RollGiftCount(count, spinner),
+ 						lt_amount,
+ 						std::move(amount),
+ 						tr::marked)));
+diff --git a/Telegram/SourceFiles/boxes/star_gift_box.cpp b/Telegram/SourceFiles/boxes/star_gift_box.cpp
+index 1ef2073c6acbdb32fcdded72dc23592e589863bf..5beff9ab7aab10e96aec946e664eb0810c1514d3 100644
+--- a/Telegram/SourceFiles/boxes/star_gift_box.cpp
++++ b/Telegram/SourceFiles/boxes/star_gift_box.cpp
+@@ -82,6 +82,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_premium.h"
+ #include "tele/tele_gift_fake_upgrade.h"
+ #include "tele/tele_gift_quantity.h"
++#include "tele/tele_gift_roll_number.h"
+ #include "tele/tele_local_password.h"
+ #include "ui/boxes/about_cocoon_box.h" // Ui::AddUniqueCloseButton
+ #include "ui/boxes/boost_box.h"
+@@ -3622,7 +3623,10 @@ void AddUpgradeGiftCover(
+ 			: QString();
+ 	});
+ 	AddUniqueGiftCover(container, std::move(gifts), {
+-		.numberText = std::move(numberText),
++		.numberText = ::Tele::RollGiftNumber(
++			std::move(numberText),
++			upgradeSpinner,
++			container->lifetime()),
+ 		.subtitle = std::move(subtitle),
+ 		.subtitleClick = hasAll ? showAll : Fn<void()>(),
+ 		.subtitleLinkColored = hasAll,
+diff --git a/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp b/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
+index 5c2a1c9804faeb213cda63e1fadb042a41809068..0d352dd1b86688076503a1c3ad2788e6f0aae558 100644
+--- a/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
++++ b/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
+@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lottie/lottie_common.h"
+ #include "lottie/lottie_single_player.h"
+ #include "main/main_session.h"
++#include "tele/tele_gift_roll_number.h"
+ #include "ui/effects/premium_stars_colored.h"
+ #include "ui/effects/ripple_animation.h"
+ #include "ui/effects/unique_gift_message_bubble.h"
+@@ -467,6 +468,7 @@ struct UniqueGiftCoverWidget::State {
+ 	AttributeSpin patternSpin = kPatternSpinDuration;
+ 	AttributeSpin modelSpin = kModelSpinDuration;
+ 	crl::time spinStarted = 0;
++	rpl::variable<DocumentData*> spinModel;
+ 	uint64 modelSetupId = 0;
+ 	int heightFinal = 0;
+ 	bool crossfading = false;
+@@ -867,7 +869,9 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
+ 		std::move(
+ 			numberTextDup
+ 		) | rpl::on_next([this](const QString &text) {
+-			_state->numberTextWidth = text.isEmpty() ? 0 : 1;
++			_state->numberTextWidth = text.isEmpty()
++				? 0
++				: _state->number->textMaxWidth();
+ 		}, lifetime());
+ 	}
+ 
+@@ -879,7 +883,10 @@ UniqueGiftCoverWidget::UniqueGiftCoverWidget(
+ 	_state->released.subtitleText = rpl::combine(
+ 		std::move(subtitleCustomText),
+ 		_state->resaleAmount.value(),
+-		rpl::duplicate(data)
++		::Tele::RollGiftModel(
++			rpl::duplicate(data),
++			_state->spinner,
++			_state->spinModel.value())
+ 	) | rpl::map([](
+ 			TextWithEntities custom,
+ 			CreditsAmount resalePrice,
+@@ -1683,6 +1690,15 @@ void UniqueGiftCoverWidget::paintSpinnerAnimation(
+ 	}
+ 	paintOneModel(modelNow, nowProgress);
+ 	paintOneModel(modelWill, willProgress);
++	const auto &shown = (std::abs(willProgress) < std::abs(nowProgress))
++		? modelWill
++		: modelNow;
++	const auto document = shown.media ? shown.media->owner().get() : nullptr;
++	if (_state->spinModel.current() != document) {
++		crl::on_main(this, [=] {
++			_state->spinModel = document;
++		});
++	}
+ 
+ 	if (anim::Disabled()
+ 		|| (ending
+diff --git a/Telegram/SourceFiles/tele/tele_gift_roll_number.cpp b/Telegram/SourceFiles/tele/tele_gift_roll_number.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..9cdc4fcf1508866c4605497ea3374f5b7e320239
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_roll_number.cpp
+@@ -0,0 +1,146 @@
++#include "tele/tele_gift_roll_number.h"
++
++#include "base/random.h"
++#include "base/timer.h"
++#include "boxes/star_gift_cover_box.h"
++#include "data/data_star_gift.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kRollInterval = crl::time(60);
++
++using SpinnerState = Data::GiftUpgradeSpinner::State;
++
++[[nodiscard]] bool Spinning(SpinnerState state) {
++	return (state >= SpinnerState::Preparing)
++		&& (state < SpinnerState::Finished);
++}
++
++[[nodiscard]] QString Scramble(QString text) {
++	auto first = true;
++	for (auto &ch : text) {
++		if (ch < QChar('0') || ch > QChar('9')) {
++			continue;
++		}
++		ch = QChar('0' + (first
++			? (1 + base::RandomIndex(9))
++			: base::RandomIndex(10)));
++		first = false;
++	}
++	return text;
++}
++
++} // namespace
++
++rpl::producer<QString> RollGiftNumber(
++		rpl::producer<QString> text,
++		std::shared_ptr<Data::GiftUpgradeSpinner> spinner,
++		rpl::lifetime &lifetime) {
++	if (!spinner) {
++		return text;
++	}
++	struct State {
++		QString real;
++		rpl::variable<QString> shown;
++		base::Timer timer;
++		bool spinning = false;
++	};
++	const auto state = lifetime.make_state<State>();
++	const auto refresh = [=] {
++		if (state->spinning && !state->real.isEmpty()) {
++			state->shown = Scramble(state->real);
++			if (!state->timer.isActive()) {
++				state->timer.callEach(kRollInterval);
++			}
++		} else {
++			state->timer.cancel();
++			state->shown = state->real;
++		}
++	};
++	state->timer.setCallback([=] {
++		state->shown = Scramble(state->real);
++	});
++	std::move(text) | rpl::on_next([=](const QString &value) {
++		state->real = value;
++		refresh();
++	}, lifetime);
++	spinner->state.value() | rpl::on_next([=](SpinnerState now) {
++		const auto spinning = Spinning(now);
++		if (state->spinning != spinning) {
++			state->spinning = spinning;
++			refresh();
++		}
++	}, lifetime);
++	return state->shown.value();
++}
++
++rpl::producer<float64> RollGiftCount(
++		int count,
++		std::shared_ptr<Data::GiftUpgradeSpinner> spinner) {
++	if (!spinner) {
++		return rpl::single(count * 1.);
++	}
++	return [=](auto consumer) {
++		auto lifetime = rpl::lifetime();
++		const auto real = QString::number(count);
++		const auto timer = lifetime.make_state<base::Timer>([=] {
++			consumer.put_next(Scramble(real).toInt() * 1.);
++		});
++		spinner->state.value(
++		) | rpl::map(
++			Spinning
++		) | rpl::distinct_until_changed(
++		) | rpl::on_next([=](bool spinning) {
++			if (spinning) {
++				consumer.put_next(Scramble(real).toInt() * 1.);
++				timer->callEach(kRollInterval);
++			} else {
++				timer->cancel();
++				consumer.put_next(count * 1.);
++			}
++		}, lifetime);
++		return lifetime;
++	};
++}
++
++rpl::producer<Ui::UniqueGiftCover> RollGiftModel(
++		rpl::producer<Ui::UniqueGiftCover> data,
++		std::shared_ptr<Data::GiftUpgradeSpinner> spinner,
++		rpl::producer<DocumentData*> shown) {
++	if (!spinner) {
++		return data;
++	}
++	return rpl::combine(
++		std::move(data),
++		spinner->state.value(),
++		std::move(shown)
++	) | rpl::map([=](
++			Ui::UniqueGiftCover cover,
++			SpinnerState state,
++			DocumentData *document) {
++		if (!cover.spinner || !Spinning(state)) {
++			return cover;
++		}
++		const auto &models = spinner->attributes.models;
++		const auto target = cover.values.model.document;
++		const auto byDocument = [&](not_null<DocumentData*> value) {
++			return ranges::find(
++				models,
++				value,
++				&Data::UniqueGiftModel::document);
++		};
++		auto i = document ? byDocument(document) : end(models);
++		if (i == end(models) && document != target.get()) {
++			i = ranges::find_if(models, [&](const auto &model) {
++				return model.document != target;
++			});
++		}
++		if (i != end(models)) {
++			cover.values.model = *i;
++		}
++		return cover;
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_roll_number.h b/Telegram/SourceFiles/tele/tele_gift_roll_number.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..ca08df9cec05184d47cad1df4d092d9c811e7097
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_roll_number.h
+@@ -0,0 +1,29 @@
++#pragma once
++
++class DocumentData;
++
++namespace Data {
++struct GiftUpgradeSpinner;
++} // namespace Data
++
++namespace Ui {
++struct UniqueGiftCover;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] rpl::producer<QString> RollGiftNumber(
++	rpl::producer<QString> text,
++	std::shared_ptr<Data::GiftUpgradeSpinner> spinner,
++	rpl::lifetime &lifetime);
++
++[[nodiscard]] rpl::producer<float64> RollGiftCount(
++	int count,
++	std::shared_ptr<Data::GiftUpgradeSpinner> spinner);
++
++[[nodiscard]] rpl::producer<Ui::UniqueGiftCover> RollGiftModel(
++	rpl::producer<Ui::UniqueGiftCover> data,
++	std::shared_ptr<Data::GiftUpgradeSpinner> spinner,
++	rpl::producer<DocumentData*> shown);
++
++} // namespace Tele

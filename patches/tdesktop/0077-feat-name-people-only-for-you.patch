@@ -1,0 +1,1124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 01:13:07 +0300
+Subject: [PATCH] feat: name people only for you
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/api/api_chat_invite.cpp  |   4 +-
+ .../SourceFiles/boxes/delete_messages_box.cpp |   4 +-
+ .../boxes/moderate_messages_box.cpp           |   2 +-
+ .../boxes/peers/edit_participant_box.cpp      |   4 +-
+ .../boxes/peers/edit_participants_box.cpp     |   4 +-
+ Telegram/SourceFiles/boxes/url_auth_box.cpp   |   2 +-
+ Telegram/SourceFiles/calls/calls_top_bar.cpp  |   2 +-
+ .../group/calls_group_invite_controller.cpp   |   2 +-
+ .../calls/group/calls_group_panel.cpp         |   2 +-
+ Telegram/SourceFiles/data/data_peer.cpp       |   7 +-
+ Telegram/SourceFiles/data/data_user.cpp       |   5 +-
+ Telegram/SourceFiles/history/history_item.cpp |  12 +-
+ .../history/history_item_components.cpp       |   4 +-
+ .../history/view/history_view_reply.cpp       |   2 +-
+ .../history/view/history_view_send_action.cpp |  14 +-
+ .../media/history_view_userpic_suggestion.cpp |   4 +-
+ .../info/profile/info_profile_actions.cpp     |   5 +
+ .../profile/info_profile_inner_widget.cpp     |   2 +-
+ .../info/profile/info_profile_top_bar.cpp     |   4 +-
+ .../SourceFiles/settings/settings_tele.cpp    | 152 ++++++++
+ .../SourceFiles/tele/tele_local_names.cpp     | 325 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_local_names.h  |  43 +++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  22 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../ui/controls/userpic_button.cpp            |   4 +-
+ .../SourceFiles/window/window_peer_menu.cpp   |   5 +-
+ 27 files changed, 602 insertions(+), 39 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_local_names.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_local_names.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index faac5242cbd7cc944fbbe205ebb267b19ce84d41..3ffea811153c852c20cd5f45e92af504fb8214f5 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2537,6 +2537,8 @@ PRIVATE
+     tele/tele_ignored.h
+     tele/tele_inline_via.cpp
+     tele/tele_inline_via.h
++    tele/tele_local_names.cpp
++    tele/tele_local_names.h
+     tele/tele_lowercase.cpp
+     tele/tele_lowercase.h
+     tele/tele_menu_order.cpp
+diff --git a/Telegram/SourceFiles/api/api_chat_invite.cpp b/Telegram/SourceFiles/api/api_chat_invite.cpp
+index 95bd8d7687e1fb6e061e9c2f817afd6378e30604..0f05a81bdf500c075ac030f1deec006f1b7fec8a 100644
+--- a/Telegram/SourceFiles/api/api_chat_invite.cpp
++++ b/Telegram/SourceFiles/api/api_chat_invite.cpp
+@@ -595,9 +595,9 @@ void ConfirmInviteBox(
+ 				st::confirmInviteUserName);
+ 			name->resizeToWidth(
+ 				st::confirmInviteUserPhotoSize + padding);
+-			name->setText(participant.user->firstName.isEmpty()
++			name->setText(participant.user->shortName().isEmpty()
+ 				? participant.user->name()
+-				: participant.user->firstName);
++				: participant.user->shortName());
+ 			name->moveToLeft(
+ 				baseLeft + i * userWidth + (padding / 2),
+ 				st::confirmInviteUserNameTop - st::confirmInviteUserPhotoTop);
+diff --git a/Telegram/SourceFiles/boxes/delete_messages_box.cpp b/Telegram/SourceFiles/boxes/delete_messages_box.cpp
+index ea7b142c02495b80b649630d4fba9d9a01f69b33..5450e2adb1a4e0234e40c1a7feaa3db5dcb0d11a 100644
+--- a/Telegram/SourceFiles/boxes/delete_messages_box.cpp
++++ b/Telegram/SourceFiles/boxes/delete_messages_box.cpp
+@@ -352,7 +352,7 @@ auto DeleteMessagesBox::revokeText(not_null<PeerData*> peer) const
+ 			result.checkbox = tr::lng_delete_for_other_check(
+ 				tr::now,
+ 				lt_user,
+-				{ user->firstName },
++				{ user->shortName() },
+ 				tr::rich);
+ 		} else {
+ 			result.checkbox.text = tr::lng_delete_for_everyone_check(tr::now);
+@@ -393,7 +393,7 @@ auto DeleteMessagesBox::revokeText(not_null<PeerData*> peer) const
+ 			result.checkbox = tr::lng_delete_for_other_check(
+ 				tr::now,
+ 				lt_user,
+-				{ user->firstName },
++				{ user->shortName() },
+ 				tr::rich);
+ 		} else {
+ 			result.checkbox.text = tr::lng_delete_for_everyone_check(tr::now);
+diff --git a/Telegram/SourceFiles/boxes/moderate_messages_box.cpp b/Telegram/SourceFiles/boxes/moderate_messages_box.cpp
+index a0ca8086118d6cfc500633cb539228977796253f..a8914726825181554e0759974cc5069d093f99df 100644
+--- a/Telegram/SourceFiles/boxes/moderate_messages_box.cpp
++++ b/Telegram/SourceFiles/boxes/moderate_messages_box.cpp
+@@ -1677,7 +1677,7 @@ void DeleteChatBox(
+ 					? tr::lng_delete_for_other_check(
+ 						tr::now,
+ 						lt_user,
+-						TextWithEntities{ maybeUser->firstName },
++						TextWithEntities{ maybeUser->shortName() },
+ 						tr::rich)
+ 					: tr::lng_delete_for_everyone_check(
+ 						tr::now,
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_participant_box.cpp b/Telegram/SourceFiles/boxes/peers/edit_participant_box.cpp
+index 67cb87ac3a7d513fbd39b093b06c6a02cfe44985..8a0a0e4f8c9842ac5ef6dc1f618058560c5bcdc5 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_participant_box.cpp
++++ b/Telegram/SourceFiles/boxes/peers/edit_participant_box.cpp
+@@ -729,7 +729,7 @@ void EditAdminBox::prepare() {
+ 								.text = tr::lng_profile_sure_remove_admin(
+ 									tr::now,
+ 									lt_user,
+-									user()->firstName),
++									user()->shortName()),
+ 								.confirmed = confirmed,
+ 								.confirmText = tr::lng_box_remove(),
+ 							}));
+@@ -1119,7 +1119,7 @@ void EditRestrictedBox::prepare() {
+ 						.text = tr::lng_profile_sure_kick(
+ 							tr::now,
+ 							lt_user,
+-							user()->firstName),
++							user()->shortName()),
+ 						.confirmed = confirmed,
+ 						.confirmText = tr::lng_box_remove(),
+ 					}));
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp b/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp
+index 8daacf9c6729f47f9fce74458b622a8d1d89c1af..6c87cb3f05aa2486c287d96d05e82c316686f681 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp
++++ b/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp
+@@ -2311,7 +2311,7 @@ void ParticipantsBoxController::kickParticipant(not_null<PeerData*> participant)
+ 		: tr::lng_profile_sure_kick_channel)(
+ 			tr::now,
+ 			lt_user,
+-			user ? user->firstName : participant->name());
++			user ? user->shortName() : participant->name());
+ 	showBox(
+ 		Ui::MakeConfirmBox({
+ 			.text = text,
+@@ -2336,7 +2336,7 @@ void ParticipantsBoxController::removeAdmin(not_null<UserData*> user) {
+ 			.text = tr::lng_profile_sure_remove_admin(
+ 				tr::now,
+ 				lt_user,
+-				user->firstName),
++				user->shortName()),
+ 			.confirmed = crl::guard(this, [=] { removeAdminSure(user); }),
+ 			.confirmText = tr::lng_box_remove(),
+ 		}));
+diff --git a/Telegram/SourceFiles/boxes/url_auth_box.cpp b/Telegram/SourceFiles/boxes/url_auth_box.cpp
+index 1fa4309f2091cf148b0b6f249efa029bdc171c53..0015a0b9674d1d49a8cb0c890283acdc26251bd0 100644
+--- a/Telegram/SourceFiles/boxes/url_auth_box.cpp
++++ b/Telegram/SourceFiles/boxes/url_auth_box.cpp
+@@ -441,7 +441,7 @@ void RequestButton(
+ 			url,
+ 			displayName,
+ 			session->user()->name(),
+-			bot ? bot->firstName : QString(),
++			bot ? bot->shortName() : QString(),
+ 			callback),
+ 		Ui::LayerOption::KeepOther);
+ }
+diff --git a/Telegram/SourceFiles/calls/calls_top_bar.cpp b/Telegram/SourceFiles/calls/calls_top_bar.cpp
+index 5d7346df049a67db50f012f8fdab50f78a3658e5..3f3d2dd7aa80de450793261e23657894af80ae11 100644
+--- a/Telegram/SourceFiles/calls/calls_top_bar.cpp
++++ b/Telegram/SourceFiles/calls/calls_top_bar.cpp
+@@ -659,7 +659,7 @@ void TopBar::setInfoLabels() {
+ 	if (const auto call = _call.get()) {
+ 		const auto user = call->user();
+ 		const auto fullName = user->name();
+-		const auto shortName = user->firstName;
++		const auto shortName = user->shortName();
+ 		_fullInfoLabel->setText(fullName);
+ 		_shortInfoLabel->setText(shortName);
+ 	} else if (const auto group = _groupCall.get()) {
+diff --git a/Telegram/SourceFiles/calls/group/calls_group_invite_controller.cpp b/Telegram/SourceFiles/calls/group/calls_group_invite_controller.cpp
+index 537e7d3ed9196a1934df5a9a8c52b2f0e453ec9b..e44937d3e8ac88ca02bd7ea940c96947f93157ec 100644
+--- a/Telegram/SourceFiles/calls/group/calls_group_invite_controller.cpp
++++ b/Telegram/SourceFiles/calls/group/calls_group_invite_controller.cpp
+@@ -901,7 +901,7 @@ object_ptr<Ui::BoxContent> PrepareInviteBox(
+ 				showToast(tr::lng_group_call_invite_done_user(
+ 					tr::now,
+ 					lt_user,
+-					tr::bold(result.invited.front()->firstName),
++					tr::bold(result.invited.front()->shortName()),
+ 					tr::marked));
+ 			} else if (result.invited.size() > 1) {
+ 				showToast(tr::lng_group_call_invite_done_many(
+diff --git a/Telegram/SourceFiles/calls/group/calls_group_panel.cpp b/Telegram/SourceFiles/calls/group/calls_group_panel.cpp
+index bb51956175d7feafece52dea67d6a4335f5d29ed..5ebe3c9f0538cdfc672c6f9907d85c994d16ff60 100644
+--- a/Telegram/SourceFiles/calls/group/calls_group_panel.cpp
++++ b/Telegram/SourceFiles/calls/group/calls_group_panel.cpp
+@@ -1863,7 +1863,7 @@ void Panel::kickParticipant(not_null<PeerData*> participantPeer) {
+ 						: tr::lng_profile_sure_kick)(
+ 							tr::now,
+ 							lt_user,
+-							participantPeer->asUser()->firstName)),
++							participantPeer->asUser()->shortName())),
+ 				st::groupCallBoxLabel),
+ 			style::margins(
+ 				st::boxRowPadding.left(),
+diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
+index 28f5e424575509a3a0735150ad3bcf97f3a4d501..10025d6db800bd5e444eca87e6d480368ed7db02 100644
+--- a/Telegram/SourceFiles/data/data_peer.cpp
++++ b/Telegram/SourceFiles/data/data_peer.cpp
+@@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_facade.h"
+ #include "storage/storage_shared_media.h"
+ #include "tele/tele_changelog_chat.h"
++#include "tele/tele_local_names.h"
+ 
+ namespace {
+ 
+@@ -1087,6 +1088,7 @@ void PeerData::fillNames() {
+ 		if (user->nameOrPhone != name()) {
+ 			appendToIndex(user->nameOrPhone);
+ 		}
++		appendToIndex(Tele::LocalRealName(user));
+ 		appendToIndex(user->username());
+ 		if (isSelf()) {
+ 			const auto english = u"Saved messages"_q;
+@@ -1308,7 +1310,7 @@ const QString &PeerData::topBarNameText() const {
+ 	if (const auto to = migrateTo()) {
+ 		return to->topBarNameText();
+ 	} else if (const auto user = asUser()) {
+-		if (!user->nameOrPhone.isEmpty()) {
++		if (!user->nameOrPhone.isEmpty() && !Tele::HasLocalName(user)) {
+ 			return user->nameOrPhone;
+ 		}
+ 	}
+@@ -1330,6 +1332,9 @@ const QString &PeerData::name() const {
+ 
+ const QString &PeerData::shortName() const {
+ 	if (const auto user = asUser()) {
++		if (Tele::HasLocalName(user)) {
++			return _name;
++		}
+ 		return user->firstName.isEmpty() ? user->lastName : user->firstName;
+ 	} else if (const auto to = migrateTo()) {
+ 		return to->shortName();
+diff --git a/Telegram/SourceFiles/data/data_user.cpp b/Telegram/SourceFiles/data/data_user.cpp
+index 00f224d6e000d5a3897172bf0689e75b70920515..88ab9af1f4ea425165b5257cef1210d264e45447 100644
+--- a/Telegram/SourceFiles/data/data_user.cpp
++++ b/Telegram/SourceFiles/data/data_user.cpp
+@@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "lang/lang_keys.h"
+ #include "tele/tele_badges.h"
++#include "tele/tele_local_names.h"
+ #include "wallet/wallet_own_card.h"
+ #include "wallet/wallet_session.h"
+ #include "window/notifications_manager.h"
+@@ -413,7 +414,9 @@ void UserData::setName(
+ 			lastName = newLastName;
+ 		}
+ 	}
+-	const auto newFullName = langFullName(firstName, lastName);
++	const auto newFullName = Tele::ApplyLocalName(
++		this,
++		langFullName(firstName, lastName));
+ 	updateNameDelayed(newFullName, newPhoneName, newUsername);
+ }
+ 
+diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
+index 1c615988e75c442f2c55f436bbcd77927f9e7369..372e8018bb05fcf33ecfc036e85435931418f246 100644
+--- a/Telegram/SourceFiles/history/history_item.cpp
++++ b/Telegram/SourceFiles/history/history_item.cpp
+@@ -6978,8 +6978,8 @@ void HistoryItem::setServiceMessageByAction(const MTPmessageAction &action) {
+ 		});
+ 		const auto peer = isSelf ? history()->peer : _from;
+ 		const auto user = peer->asUser();
+-		const auto name = (user && !user->firstName.isEmpty())
+-			? user->firstName
++		const auto name = (user && !user->shortName().isEmpty())
++			? user->shortName()
+ 			: peer->name();
+ 		result.links.push_back(peer->createOpenLink());
+ 		result.text = (isSelf
+@@ -7047,8 +7047,8 @@ void HistoryItem::setServiceMessageByAction(const MTPmessageAction &action) {
+ 		const auto both = action.is_for_both();
+ 		const auto peer = isSelf ? history()->peer : _from;
+ 		const auto user = peer->asUser();
+-		const auto name = (user && !user->firstName.isEmpty())
+-			? user->firstName
++		const auto name = (user && !user->shortName().isEmpty())
++			? user->shortName()
+ 			: peer->name();
+ 		auto result = PreparedServiceText{};
+ 		if (!isSelf) {
+@@ -7747,8 +7747,8 @@ void HistoryItem::setServiceMessageByAction(const MTPmessageAction &action) {
+ 		const auto isSelf = (_from->id == _from->session().userPeerId());
+ 		const auto peer = isSelf ? history()->peer : _from;
+ 		const auto user = peer->asUser();
+-		const auto name = (user && !user->firstName.isEmpty())
+-			? user->firstName
++		const auto name = (user && !user->shortName().isEmpty())
++			? user->shortName()
+ 			: peer->name();
+ 		result.links.push_back(peer->createOpenLink());
+ 		result.text = (isSelf
+diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
+index 077860b09c2fffe7a18fa806b803579560b4c0af..fcfb750c29b76f664e992a818cf1a9ed61af0ca6 100644
+--- a/Telegram/SourceFiles/history/history_item_components.cpp
++++ b/Telegram/SourceFiles/history/history_item_components.cpp
+@@ -188,7 +188,7 @@ void HistoryMessageGuestChat::create(
+ 		PeerId visitorId) {
+ 	visitor = owner->peer(visitorId);
+ 	const auto firstName = visitor->isUser()
+-		? visitor->asUser()->firstName
++		? visitor->asUser()->shortName()
+ 		: visitor->name();
+ 	maxWidth = st::msgServiceNameFont->width(
+ 		tr::lng_guest_chat_for(tr::now, lt_user, firstName));
+@@ -207,7 +207,7 @@ void HistoryMessageGuestChat::resize(int32 availw) const {
+ 		width = 0;
+ 	} else {
+ 		const auto firstName = visitor->isUser()
+-			? visitor->asUser()->firstName
++			? visitor->asUser()->shortName()
+ 			: visitor->name();
+ 		text = tr::lng_guest_chat_for(tr::now, lt_user, firstName);
+ 		if (availw < maxWidth) {
+diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
+index 950eae0e2469f440ab5492e99363ee26ac78054a..9f7a57843ddc916df4e73aa9d6af3bb6ad167d5c 100644
+--- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
+@@ -610,7 +610,7 @@ QString Reply::senderName(
+ 		not_null<PeerData*> peer,
+ 		bool shorten) const {
+ 	const auto user = shorten ? peer->asUser() : nullptr;
+-	return user ? user->firstName : peer->name();
++	return user ? user->shortName() : peer->name();
+ }
+ 
+ bool Reply::isNameUpdated(
+diff --git a/Telegram/SourceFiles/history/view/history_view_send_action.cpp b/Telegram/SourceFiles/history/view/history_view_send_action.cpp
+index 045c27257fb0bd41a947bb44c3f4987352871b35..536ca3794625ac60f83bb8d37771450cfbcdb413 100644
+--- a/Telegram/SourceFiles/history/view/history_view_send_action.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_send_action.cpp
+@@ -245,16 +245,16 @@ bool SendActionPainter::updateNeedsAnimating(crl::time now, bool force) {
+ 			newTypingString = tr::lng_users_typing(
+ 				tr::now,
+ 				lt_user,
+-				begin(_typing)->first->firstName,
++				begin(_typing)->first->shortName(),
+ 				lt_second_user,
+-				(end(_typing) - 1)->first->firstName);
++				(end(_typing) - 1)->first->shortName());
+ 		} else if (typingCount) {
+ 			newTypingString = _history->peer->isUser()
+ 				? tr::lng_typing(tr::now)
+ 				: tr::lng_user_typing(
+ 					tr::now,
+ 					lt_user,
+-					begin(_typing)->first->firstName);
++					begin(_typing)->first->shortName());
+ 		} else if (!_sendActions.empty()) {
+ 			// Handles all actions except game playing.
+ 			using Type = Api::SendProgressType;
+@@ -301,7 +301,7 @@ bool SendActionPainter::updateNeedsAnimating(crl::time now, bool force) {
+ 				const auto isNamed = !_history->peer->isUser();
+ 				newTypingString = sendActionString(
+ 					action.type,
+-					isNamed ? user->firstName : QString());
++					isNamed ? user->shortName() : QString());
+ 				if (!newTypingString.isEmpty()) {
+ 					_sendActionAnimation.start(action.type);
+ 
+@@ -347,16 +347,16 @@ bool SendActionPainter::updateNeedsAnimating(crl::time now, bool force) {
+ 					newTypingString = tr::lng_users_playing_game(
+ 						tr::now,
+ 						lt_user,
+-						begin(_sendActions)->first->firstName,
++						begin(_sendActions)->first->shortName(),
+ 						lt_second_user,
+-						(end(_sendActions) - 1)->first->firstName);
++						(end(_sendActions) - 1)->first->shortName());
+ 				} else {
+ 					newTypingString = _history->peer->isUser()
+ 						? tr::lng_playing_game(tr::now)
+ 						: tr::lng_user_playing_game(
+ 							tr::now,
+ 							lt_user,
+-							begin(_sendActions)->first->firstName);
++							begin(_sendActions)->first->shortName());
+ 				}
+ 				_sendActionAnimation.start(Type::PlayGame);
+ 			}
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_userpic_suggestion.cpp b/Telegram/SourceFiles/history/view/media/history_view_userpic_suggestion.cpp
+index 7eb6dd055ccdd574d17a38b86979971f48db0ad7..1887cd321abc9e87d136f1ebd72864b7cf112da4 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_userpic_suggestion.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_userpic_suggestion.cpp
+@@ -46,8 +46,8 @@ void ShowUserpicSuggestion(
+ 		Fn<void()> setDone) {
+ 	const auto photo = media->owner();
+ 	const auto from = peer->asUser();
+-	const auto name = (from && !from->firstName.isEmpty())
+-		? from->firstName
++	const auto name = (from && !from->shortName().isEmpty())
++		? from->shortName()
+ 		: peer->name();
+ 	if (photo->hasVideo()) {
+ 		const auto done = [=](Fn<void()> close) {
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+index dfb81777ed3ebe39e849c80f722d4973991e72db..315ac52e792ace5b3a7936c9dd145fc4670b5bfe 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+@@ -76,6 +76,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_mute.h"
+ #include "settings/settings_common.h"
+ #include "support/support_helper.h"
++#include "tele/tele_local_names.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_peer_id.h"
+@@ -1862,6 +1863,10 @@ Section DetailsFiller::makeInfo() {
+ 			controller);
+ 	}
+ 	if (!_topic) {
++		addInfoOneLine(
++			Tele::Lower(u"Real name"_q),
++			Tele::LocalRealNameValue(_peer),
++			Tele::Lower(u"Copy real name"_q));
+ 		Tele::SetupPeerAliasesLabel(
+ 			addInfoOneLine(
+ 				Tele::Lower(u"Aliases"_q),
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
+index 4b167bea2beb2a1e1ec5cbb4eae9b72765f13e7c..b54f6a66d9b4b21e7550f4fbe095d303cf3e4c6a 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
+@@ -121,7 +121,7 @@ void AddUnofficialSecurityRiskWarning(
+ 					lt_icon,
+ 					rpl::single(std::move(icon)),
+ 					lt_name,
+-					rpl::single(TextWithEntities{ user->firstName }),
++					rpl::single(TextWithEntities{ user->shortName() }),
+ 					tr::marked),
+ 				st::defaultDividerLabel.label,
+ 				st::defaultPopupMenu,
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
+index 9fb079f6318b0a7819d27fdce53d96ab8ea59e8e..c70df1177f01d27e1c2545a8abbe45c255ad103d 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
+@@ -1451,8 +1451,8 @@ void TopBar::setupUserpicButton(
+ 
+ 	const auto editorData = [=](ChosenType type) {
+ 		const auto user = _peer->asUser();
+-		const auto name = (user && !user->firstName.isEmpty())
+-			? user->firstName
++		const auto name = (user && !user->shortName().isEmpty())
++			? user->shortName()
+ 			: _peer->name();
+ 		const auto phrase = (type == ChosenType::Suggest)
+ 			? &tr::lng_profile_suggest_sure
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d072c676a17457741f60e357236ff64a408e322a..7f2223974cd0c97e15b1e984679ead094c0fa5e7 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -25,6 +25,7 @@
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_link_rewrites.h"
+ #include "tele/tele_link_rewrites_box.h"
++#include "tele/tele_local_names.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_menu_order.h"
+ #include "tele/tele_options.h"
+@@ -1274,6 +1275,156 @@ void AddLinkRewrites(SectionBuilder &builder) {
+ 	AddAbout(builder, description);
+ }
+ 
++class LocalNameRow final : public PeerListRowWithLink {
++public:
++	LocalNameRow(not_null<PeerData*> peer, const QString &name)
++	: PeerListRowWithLink(peer)
++	, _name(name) {
++	}
++
++	QString generateName() override {
++		return _name;
++	}
++
++	QString generateShortName() override {
++		return _name;
++	}
++
++	[[nodiscard]] const QString &name() const {
++		return _name;
++	}
++
++private:
++	const QString _name;
++
++};
++
++class LocalNamesController final : public PeerListController {
++public:
++	explicit LocalNamesController(
++		not_null<Window::SessionController*> window);
++
++	Main::Session &session() const override;
++	void prepare() override;
++	void rowClicked(not_null<PeerListRow*> row) override;
++	void rowRightActionClicked(not_null<PeerListRow*> row) override;
++
++private:
++	void refreshRows();
++
++	const not_null<Window::SessionController*> _window;
++
++};
++
++LocalNamesController::LocalNamesController(
++	not_null<Window::SessionController*> window)
++: _window(window) {
++}
++
++Main::Session &LocalNamesController::session() const {
++	return _window->session();
++}
++
++void LocalNamesController::prepare() {
++	delegate()->peerListSetTitle(
++		rpl::single(::Tele::Lower(u"Custom names"_q)));
++	::Tele::LocalNamesChanges(
++	) | rpl::on_next([=] {
++		refreshRows();
++	}, lifetime());
++	refreshRows();
++}
++
++void LocalNamesController::refreshRows() {
++	const auto names = ::Tele::LocalNames(&session());
++	auto keep = base::flat_map<PeerListRowId, QString>();
++	for (const auto &entry : names) {
++		keep.emplace(entry.id.value, entry.name);
++	}
++	for (auto i = delegate()->peerListFullRowsCount(); i != 0;) {
++		const auto row = delegate()->peerListRowAt(--i);
++		const auto j = keep.find(row->id());
++		if (j == end(keep)
++			|| static_cast<LocalNameRow*>(row.get())->name() != j->second) {
++			delegate()->peerListRemoveRow(row);
++		}
++	}
++	for (const auto &entry : names) {
++		if (delegate()->peerListFindRow(entry.id.value)) {
++			continue;
++		}
++		const auto peer = session().data().peer(entry.id);
++		const auto user = peer->asUser();
++		auto row = std::make_unique<LocalNameRow>(peer, entry.name);
++		row->setActionLink(::Tele::Lower(u"Remove"_q));
++		row->setCustomStatus((user && user->isMinimalLoaded())
++			? ::Tele::LocalRealName(user)
++			: ::Tele::Lower(u"Unknown user"_q));
++		delegate()->peerListAppendRow(std::move(row));
++	}
++	setDescriptionText(names.empty()
++		? ::Tele::Lower(u"No custom names yet. Pick Set a name for me in "
++			"a user's menu."_q)
++		: QString());
++	delegate()->peerListRefreshRows();
++}
++
++void LocalNamesController::rowClicked(not_null<PeerListRow*> row) {
++	const auto peer = row->peer();
++	if (!peer->isMinimalLoaded()) {
++		return;
++	}
++	const auto window = _window;
++	crl::on_main(window, [=] {
++		window->showPeerInfo(peer);
++	});
++}
++
++void LocalNamesController::rowRightActionClicked(
++		not_null<PeerListRow*> row) {
++	const auto id = row->peer()->id;
++	const auto session = &this->session();
++	crl::on_main(_window, [=] {
++		::Tele::RemoveLocalName(session, id);
++	});
++}
++
++void ShowLocalNamesBox(not_null<Window::SessionController*> window) {
++	auto initBox = [=](not_null<PeerListBox*> box) {
++		box->addButton(tr::lng_close(), [=] {
++			box->closeBox();
++		});
++	};
++	window->show(Box<PeerListBox>(
++		std::make_unique<LocalNamesController>(window),
++		std::move(initBox)));
++}
++
++void AddLocalNames(SectionBuilder &builder) {
++	const auto &option = base::options::lookup<QString>(
++		::Tele::kOptionLocalNames);
++	const auto controller = builder.controller();
++	const auto description = ::Tele::Lower(option.description());
++	const auto button = builder.addButton({
++		.id = option.id(),
++		.title = rpl::single(::Tele::Lower(option.name())),
++		.st = &st::settingsButtonNoIcon,
++		.label = ::Tele::LocalNamesCountValue(
++			builder.session()
++		) | rpl::map([](int count) {
++			return count ? QString::number(count) : u"none"_q;
++		}),
++		.onClick = [=] {
++			ShowLocalNamesBox(controller);
++		},
++		.keywords = { description },
++	});
++	if (button) {
++		SetupLink(button, option.id());
++	}
++	AddAbout(builder, description);
++}
++
+ void FillInterface(SectionBuilder &builder) {
+ 	builder.addSkip();
+ 	AddGroupTitle(builder, u"Title bar"_q);
+@@ -1384,6 +1535,7 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddGroupTitle(builder, u"Profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowDc);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoPhoneInHeader);
++	AddLocalNames(builder);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Gifts"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
+diff --git a/Telegram/SourceFiles/tele/tele_local_names.cpp b/Telegram/SourceFiles/tele/tele_local_names.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..81aa43713cf94edaf89b64a67431adfdbc29d37c
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_local_names.cpp
+@@ -0,0 +1,325 @@
++#include "tele/tele_local_names.h"
++
++#include "core/application.h"
++#include "data/data_changes.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "lang/lang_keys.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/layers/generic_box.h"
++#include "ui/text/text_entity.h"
++#include "ui/widgets/fields/input_field.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "window/window_session_controller.h"
++#include "styles/style_boxes.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtCore/QUrl>
++
++namespace Tele {
++namespace {
++
++constexpr auto kTestBit = BareId(1) << 63;
++constexpr auto kMaxNameLength = 64;
++
++using Key = BareId;
++using Map = base::flat_map<Key, QString>;
++
++struct State {
++	State();
++
++	Map names;
++	bool loaded = false;
++	rpl::event_stream<> changes;
++	rpl::lifetime lifetime;
++};
++
++template <typename Callback>
++void EnumerateSessions(Callback &&callback) {
++	if (!Core::IsAppLaunched()) {
++		return;
++	}
++	for (const auto &[index, account] : Core::App().domain().accounts()) {
++		if (const auto session = account->maybeSession()) {
++			callback(not_null<Main::Session*>(session));
++		}
++	}
++}
++
++[[nodiscard]] Key MakeKey(PeerId id, bool test) {
++	return id.value | (test ? kTestBit : Key());
++}
++
++[[nodiscard]] PeerId KeyPeer(Key key) {
++	return PeerId(key & ~kTestBit);
++}
++
++[[nodiscard]] QString NormalizeName(const QString &name) {
++	return TextUtilities::SingleLine(name).trimmed();
++}
++
++[[nodiscard]] bool IsValidName(const QString &name) {
++	return !name.isEmpty() && name.size() <= kMaxNameLength;
++}
++
++[[nodiscard]] Map Parse(const QString &value) {
++	auto result = Map();
++	for (const auto &part : value.split(QChar(','), Qt::SkipEmptyParts)) {
++		auto entry = part.trimmed();
++		const auto test = entry.startsWith(u"test:"_q);
++		if (test) {
++			entry = entry.mid(5);
++		}
++		const auto pair = entry.split(QChar('='));
++		if (pair.size() != 2) {
++			continue;
++		}
++		auto ok = false;
++		const auto id = pair[0].trimmed().toLongLong(&ok);
++		const auto name = NormalizeName(QString::fromUtf8(
++			QByteArray::fromPercentEncoding(pair[1].trimmed().toLatin1())));
++		if (ok && id > 0 && IsValidName(name)) {
++			result[MakeKey(peerFromUser(UserId(uint64(id))), test)] = name;
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] QString Serialize(const Map &names) {
++	auto list = QStringList();
++	list.reserve(int(names.size()));
++	for (const auto &[key, name] : names) {
++		list.push_back(((key & kTestBit) ? u"test:"_q : QString())
++			+ QString::number(peerToUser(KeyPeer(key)).bare)
++			+ '='
++			+ QString::fromLatin1(QUrl::toPercentEncoding(name)));
++	}
++	return list.join(QChar(','));
++}
++
++void Refresh(not_null<UserData*> user) {
++	user->setName(
++		user->firstName,
++		user->lastName,
++		user->nameOrPhone,
++		user->editableUsername());
++}
++
++void RefreshChanged(const Map &was, const Map &now) {
++	auto keys = base::flat_set<Key>();
++	for (const auto &[key, name] : was) {
++		const auto i = now.find(key);
++		if (i == end(now) || i->second != name) {
++			keys.emplace(key);
++		}
++	}
++	for (const auto &[key, name] : now) {
++		if (!was.contains(key)) {
++			keys.emplace(key);
++		}
++	}
++	if (keys.empty()) {
++		return;
++	}
++	EnumerateSessions([&](not_null<Main::Session*> session) {
++		const auto test = session->isTestMode();
++		for (const auto key : keys) {
++			if (bool(key & kTestBit) != test) {
++				continue;
++			}
++			const auto id = peerToUser(KeyPeer(key));
++			if (const auto user = session->data().userLoaded(id)) {
++				Refresh(user);
++			}
++		}
++	});
++}
++
++State::State() {
++	LocalNamesValue(
++	) | rpl::on_next([=](const QString &value) {
++		auto now = Parse(value);
++		const auto was = std::exchange(names, std::move(now));
++		if (loaded) {
++			RefreshChanged(was, names);
++		}
++		loaded = true;
++		changes.fire({});
++	}, lifetime);
++}
++
++State &Get() {
++	static State state;
++	return state;
++}
++
++[[nodiscard]] const QString *Lookup(not_null<const UserData*> user) {
++	const auto &names = Get().names;
++	if (names.empty()) {
++		return nullptr;
++	}
++	const auto &session = user->session();
++	if (user->id == session.userPeerId()) {
++		return nullptr;
++	}
++	const auto i = names.find(MakeKey(user->id, session.isTestMode()));
++	return (i != end(names)) ? &i->second : nullptr;
++}
++
++[[nodiscard]] QString RealName(not_null<const UserData*> user) {
++	return langFullName(user->firstName, user->lastName);
++}
++
++void Save(Map names) {
++	SetLocalNames(Serialize(names));
++}
++
++void SetLocalName(not_null<UserData*> user, const QString &name) {
++	auto names = Get().names;
++	const auto key = MakeKey(user->id, user->session().isTestMode());
++	if (name.isEmpty() || name == RealName(user)) {
++		if (!names.remove(key)) {
++			return;
++		}
++	} else {
++		names[key] = name;
++	}
++	Save(std::move(names));
++}
++
++void LocalNameBox(not_null<Ui::GenericBox*> box, not_null<UserData*> user) {
++	const auto has = HasLocalName(user);
++	box->setTitle(rpl::single(Lower(u"Name only you see"_q)));
++	const auto field = box->addRow(object_ptr<Ui::InputField>(
++		box,
++		st::defaultInputField,
++		rpl::single(Lower(u"Name"_q)),
++		user->name()));
++	field->setMaxLength(kMaxNameLength);
++	box->addRow(object_ptr<Ui::FlatLabel>(
++		box,
++		Lower(u"Real name: "_q)
++			+ RealName(user)
++			+ u"\n"_q
++			+ Lower(u"Nothing is sent to Telegram, only this app shows "
++				"the name."_q),
++		st::boxDividerLabel));
++	const auto save = [=] {
++		const auto name = NormalizeName(field->getLastText());
++		if (name.isEmpty()) {
++			field->showError();
++			return;
++		}
++		SetLocalName(user, name);
++		box->closeBox();
++	};
++	field->submits(
++	) | rpl::on_next([=](Qt::KeyboardModifiers) {
++		save();
++	}, field->lifetime());
++	box->setFocusCallback([=] {
++		field->setFocusFast();
++		field->selectAll();
++	});
++	box->addButton(tr::lng_settings_save(), save);
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++	if (has) {
++		box->addLeftButton(rpl::single(Lower(u"Reset"_q)), [=] {
++			SetLocalName(user, QString());
++			box->closeBox();
++		});
++	}
++}
++
++} // namespace
++
++QString ApplyLocalName(
++		not_null<const UserData*> user,
++		const QString &name) {
++	const auto local = Lookup(user);
++	return local ? *local : name;
++}
++
++bool HasLocalName(not_null<const UserData*> user) {
++	return Lookup(user) != nullptr;
++}
++
++QString LocalRealName(not_null<const UserData*> user) {
++	return HasLocalName(user) ? RealName(user) : QString();
++}
++
++rpl::producer<TextWithEntities> LocalRealNameValue(
++		not_null<PeerData*> peer) {
++	const auto user = peer->asUser();
++	if (!user) {
++		return rpl::single(TextWithEntities());
++	}
++	return rpl::merge(
++		peer->session().changes().peerFlagsValue(
++			peer,
++			Data::PeerUpdate::Flag::Name
++		) | rpl::to_empty,
++		LocalNamesChanges()
++	) | rpl::map([=] {
++		return TextWithEntities{ LocalRealName(user) };
++	});
++}
++
++std::vector<LocalNameEntry> LocalNames(not_null<Main::Session*> session) {
++	auto result = std::vector<LocalNameEntry>();
++	const auto test = session->isTestMode();
++	for (const auto &[key, name] : Get().names) {
++		if (bool(key & kTestBit) == test) {
++			result.push_back({ KeyPeer(key), name });
++		}
++	}
++	return result;
++}
++
++rpl::producer<> LocalNamesChanges() {
++	return Get().changes.events();
++}
++
++rpl::producer<int> LocalNamesCountValue(not_null<Main::Session*> session) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		LocalNamesChanges()
++	) | rpl::map([=] {
++		return int(LocalNames(session).size());
++	});
++}
++
++void RemoveLocalName(not_null<Main::Session*> session, PeerId id) {
++	auto names = Get().names;
++	if (names.remove(MakeKey(id, session->isTestMode()))) {
++		Save(std::move(names));
++	}
++}
++
++void AddLocalNameAction(
++		not_null<Window::SessionController*> controller,
++		PeerData *peer,
++		const Ui::Menu::MenuCallback &addAction) {
++	const auto user = peer ? peer->asUser() : nullptr;
++	if (!user || user->isSelf()) {
++		return;
++	}
++	const auto weak = base::make_weak(controller);
++	addAction(Lower(u"Set a name for me"_q) + QChar(0x2026), [=] {
++		if (const auto strong = weak.get()) {
++			strong->show(Box(LocalNameBox, not_null(user)));
++		}
++	}, &st::menuIconEdit);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_local_names.h b/Telegram/SourceFiles/tele/tele_local_names.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..365b03019571965fbef00397e655b51eb28ef26a
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_local_names.h
+@@ -0,0 +1,43 @@
++#pragma once
++
++class PeerData;
++class UserData;
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++struct LocalNameEntry {
++	PeerId id;
++	QString name;
++};
++
++[[nodiscard]] QString ApplyLocalName(
++	not_null<const UserData*> user,
++	const QString &name);
++[[nodiscard]] bool HasLocalName(not_null<const UserData*> user);
++[[nodiscard]] QString LocalRealName(not_null<const UserData*> user);
++[[nodiscard]] rpl::producer<TextWithEntities> LocalRealNameValue(
++	not_null<PeerData*> peer);
++[[nodiscard]] std::vector<LocalNameEntry> LocalNames(
++	not_null<Main::Session*> session);
++[[nodiscard]] rpl::producer<> LocalNamesChanges();
++[[nodiscard]] rpl::producer<int> LocalNamesCountValue(
++	not_null<Main::Session*> session);
++void RemoveLocalName(not_null<Main::Session*> session, PeerId id);
++void AddLocalNameAction(
++	not_null<Window::SessionController*> controller,
++	PeerData *peer,
++	const Ui::Menu::MenuCallback &addAction);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index f48b696e5eb39f3295230e2b1f8a6ebd508251e1..660618ec7106df73e142bc5d4ceb5d72969eb51c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -73,6 +73,7 @@ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+ const char kOptionUsernameAliases[] = "tele-username-aliases";
+ const char kOptionNoPhoneInHeader[] = "tele-no-phone-in-header";
+ const char kOptionLinkRewrites[] = "tele-link-rewrites";
++const char kOptionLocalNames[] = "tele-local-names";
+ 
+ namespace {
+ 
+@@ -517,6 +518,13 @@ base::options::option<QString> LinkRewritesOption({
+ 		"message, like x.com to fixupx.com.",
+ });
+ 
++base::options::option<QString> LocalNamesOption({
++	.id = kOptionLocalNames,
++	.name = "Custom names",
++	.description = "Names for people that only you see, set in a user's "
++		"menu. Nothing is sent to Telegram.",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -1084,4 +1092,18 @@ rpl::producer<QString> LinkRewritesValue() {
+ 	});
+ }
+ 
++void SetLocalNames(const QString &value) {
++	LocalNamesOption.set(value);
++}
++
++rpl::producer<QString> LocalNamesValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		LocalNamesOption.changes()
++	) | rpl::map([] {
++		return LocalNamesOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 86b3175a449f33886ac8b9ddb865d8e98f769a1f..43829071f2e4014738d6d86060315ef591b8af69 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -70,6 +70,7 @@ extern const char kOptionChatBackgrounds[];
+ extern const char kOptionUsernameAliases[];
+ extern const char kOptionNoPhoneInHeader[];
+ extern const char kOptionLinkRewrites[];
++extern const char kOptionLocalNames[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -178,5 +179,7 @@ void SetUsernameAliases(const QString &value);
+ [[nodiscard]] QString LinkRewrites();
+ void SetLinkRewrites(const QString &value);
+ [[nodiscard]] rpl::producer<QString> LinkRewritesValue();
++void SetLocalNames(const QString &value);
++[[nodiscard]] rpl::producer<QString> LocalNamesValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/ui/controls/userpic_button.cpp b/Telegram/SourceFiles/ui/controls/userpic_button.cpp
+index ef39e4684c4885b7d8a19a3ec10cefbffcf5d3fb..8bd0fa3dd0212c5a5b6a64cd3035a3c73a228afa 100644
+--- a/Telegram/SourceFiles/ui/controls/userpic_button.cpp
++++ b/Telegram/SourceFiles/ui/controls/userpic_button.cpp
+@@ -329,8 +329,8 @@ void UserpicButton::choosePhotoLocally() {
+ 	};
+ 	const auto editorData = [=](ChosenType type) {
+ 		const auto user = _peer ? _peer->asUser() : nullptr;
+-		const auto name = (user && !user->firstName.isEmpty())
+-			? user->firstName
++		const auto name = (user && !user->shortName().isEmpty())
++			? user->shortName()
+ 			: _peer
+ 			? _peer->name()
+ 			: QString();
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index 5281a4470007d5df8798b499e66d0d72dfcf1c97..e7b340fc4982b3619d08e8de31deccf62d9d06f9 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_jump_to_first.h"
++#include "tele/tele_local_names.h"
+ #include "tele/tele_username_aliases.h"
+ #include "tele/tele_view_tl.h"
+ #include "styles/style_chat.h"
+@@ -1949,6 +1950,7 @@ void Filler::fillHistoryActions() {
+ 	addInfo();
+ 	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
+ 	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
++	Tele::AddLocalNameAction(_controller, _peer, _addAction);
+ 	addViewAsTopics();
+ 	addManageChat();
+ 	addStoryArchive();
+@@ -1977,6 +1979,7 @@ void Filler::fillProfileActions() {
+ 	addShareContact();
+ 	addEditContact();
+ 	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
++	Tele::AddLocalNameAction(_controller, _peer, _addAction);
+ 	addBotToGroup();
+ 	addNewMembers();
+ 	addSendGift();
+@@ -4480,7 +4483,7 @@ void FillSenderUserpicMenu(
+ 				fieldForMention->insertTag('@' + username);
+ 			} else {
+ 				fieldForMention->insertTag(
+-					peer->shortName(),
++					peer->asUser()->firstName,
+ 					PrepareMentionTag(peer->asUser()));
+ 			}
+ 		}), &st::menuIconUsername);

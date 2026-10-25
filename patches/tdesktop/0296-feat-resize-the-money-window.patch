@@ -1,0 +1,153 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 18:12:19 +0300
+Subject: [PATCH] feat: resize the money window
+
+---
+ .../SourceFiles/wallet/wallet_content.cpp     | 74 ++++++++++++++++---
+ Telegram/SourceFiles/wallet/wallet_panel.cpp  |  2 +-
+ 2 files changed, 63 insertions(+), 13 deletions(-)
+
+diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
+index f069df1d57512b408d7a42c9d79eecad2033c8c0..714d254e3d262fb5f872035ab5b81a126b9546bd 100644
+--- a/Telegram/SourceFiles/wallet/wallet_content.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
+@@ -1118,6 +1118,46 @@ QString EncryptedCommentLabel::accessibilityName() {
+ 		- st::walletCardMargin.right();
+ }
+ 
++class PanelColumn final : public Ui::RpWidget {
++public:
++	PanelColumn(QWidget *parent, object_ptr<Ui::RpWidget> child)
++	: RpWidget(parent)
++	, _child(std::move(child)) {
++		_child->setParent(this);
++		_child->show();
++		_child->heightValue(
++		) | rpl::on_next([=](int height) {
++			resize(width(), height);
++		}, lifetime());
++	}
++
++protected:
++	int resizeGetHeight(int newWidth) override {
++		const auto inner = std::min(newWidth, st::walletPanelSize.width());
++		_child->resizeToWidth(inner);
++		_child->moveToLeft((newWidth - inner) / 2, 0, newWidth);
++		return _child->height();
++	}
++	void visibleTopBottomUpdated(
++			int visibleTop,
++			int visibleBottom) override {
++		setChildVisibleTopBottom(_child, visibleTop, visibleBottom);
++	}
++
++private:
++	object_ptr<Ui::RpWidget> _child;
++
++};
++
++template <typename Widget>
++not_null<Widget*> AddPanelColumn(
++		not_null<Ui::VerticalLayout*> container,
++		object_ptr<Widget> widget) {
++	const auto result = widget.data();
++	container->add(object_ptr<PanelColumn>(container, std::move(widget)));
++	return result;
++}
++
+ [[nodiscard]] QRect TransferCardInfoRect(int cardWidth) {
+ 	return QRect(
+ 		cardWidth - st::walletCardContentLeft - st::walletCardQrSize.width(),
+@@ -14379,7 +14419,8 @@ void Content::setupContent() {
+ 	setupProtectRow();
+ 
+ 	const auto media = std::make_shared<CollectibleMedia>(&_show->session());
+-	const auto wrap = column->add(
++	const auto wrap = AddPanelColumn(
++		column,
+ 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+ 			column,
+ 			object_ptr<Ui::VerticalLayout>(column)));
+@@ -14456,7 +14497,8 @@ void Content::setupContent() {
+ 		rpl::mappers::_1 == EmptyFace::About));
+ 	wrap->finishAnimating();
+ 
+-	const auto statementWrap = column->add(
++	const auto statementWrap = AddPanelColumn(
++		column,
+ 		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+ 			column,
+ 			object_ptr<Ui::VerticalLayout>(column)));
+@@ -14896,11 +14938,14 @@ void Content::setupPinned() {
+ 	setupInfoIsland();
+ 
+ 	Ui::AddSkip(_pinnedInner, st::walletCardTopSkip);
++	auto placeholder = object_ptr<Ui::FixedHeightWidget>(
++		_pinnedInner,
++		st::walletCardHeight);
++	placeholder->setNaturalWidth(PanelCardWidth());
+ 	_cardPlaceholder = _pinnedInner->add(
+-		object_ptr<Ui::FixedHeightWidget>(
+-			_pinnedInner,
+-			st::walletCardHeight),
+-		st::walletCardMargin);
++		std::move(placeholder),
++		st::walletCardMargin,
++		style::al_top);
+ 	_card = Ui::CreateChild<Card>(
+ 		this,
+ 		_show,
+@@ -14918,12 +14963,16 @@ void Content::setupPinned() {
+ 	});
+ 	_cardButton->show();
+ 
++	auto ownedButtons = object_ptr<Ui::FixedHeightWidget>(
++		_pinnedInner,
++		st::walletSendButton.height);
++	ownedButtons->setNaturalWidth(st::walletPanelSize.width()
++		- st::walletSendButtonMargin.left()
++		- st::walletSendButtonMargin.right());
+ 	const auto buttons = _pinnedInner->add(
+-		object_ptr<Ui::FixedHeightWidget>(
+-			_pinnedInner,
+-			st::walletSendButton.height),
++		std::move(ownedButtons),
+ 		st::walletSendButtonMargin,
+-		style::al_justify);
++		style::al_top);
+ 	const auto addPill = [&](
+ 			rpl::producer<QString> text,
+ 			Fn<void()> callback) {
+@@ -15050,7 +15099,8 @@ void AddIslandRowLabel(
+ void Content::setupInfoIsland() {
+ 	auto owned = object_ptr<InfoIsland>(_pinnedInner);
+ 	const auto island = owned.data();
+-	const auto wrap = _pinnedInner->add(
++	const auto wrap = AddPanelColumn(
++		_pinnedInner,
+ 		object_ptr<Ui::SlideWrap<InfoIsland>>(
+ 			_pinnedInner,
+ 			std::move(owned),
+@@ -15290,7 +15340,7 @@ void Content::setupBalance() {
+ 	widthValue(
+ 	) | rpl::on_next([=](int width) {
+ 		const auto scope = WindowPaletteScope(this);
+-		_ink->setOuterWidth(width);
++		_ink->setOuterWidth(std::min(width, st::walletPanelSize.width()));
+ 		repaintBalance();
+ 	}, lifetime());
+ 
+diff --git a/Telegram/SourceFiles/wallet/wallet_panel.cpp b/Telegram/SourceFiles/wallet/wallet_panel.cpp
+index 1b692f292c24fe70a1603421633f0fb21ac9f6f2..e84815c2f121f315a1faf674f70ca51491681ef1 100644
+--- a/Telegram/SourceFiles/wallet/wallet_panel.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_panel.cpp
+@@ -82,7 +82,7 @@ not_null<Ui::SeparatePanel*> ShowWallet(not_null<Main::Session*> session) {
+ 	const auto show = Main::MakeSessionShow(panel->uiShow(), session);
+ 	panel->setWindowFlag(Qt::WindowStaysOnTopHint, false);
+ 	Shortcuts::Listen(panel); // Main window may be hidden to tray.
+-	panel->setInnerSize(st::walletPanelSize);
++	panel->setInnerSize(st::walletPanelSize, true);
+ 	rpl::single(rpl::empty) | rpl::then(
+ 		WindowPaletteChanged(panel)
+ 	) | rpl::on_next([=] {

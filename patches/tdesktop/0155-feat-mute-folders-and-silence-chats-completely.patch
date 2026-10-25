@@ -1,0 +1,629 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 06:03:31 +0300
+Subject: [PATCH] feat: mute folders and silence chats completely
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../data/notify/data_notify_settings.cpp      |   7 +
+ Telegram/SourceFiles/main/main_session.cpp    |   2 +
+ Telegram/SourceFiles/menu/menu_mute.cpp       |   3 +
+ Telegram/SourceFiles/menu/menu_mute.h         |   1 +
+ Telegram/SourceFiles/tele/tele_mute.cpp       | 400 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_mute.h         |  32 ++
+ .../ui/widgets/chat_filters_tabs_strip.cpp    |   2 +
+ .../window/notifications_manager.cpp          |   2 +
+ .../window/window_filters_menu.cpp            |   2 +
+ 10 files changed, 453 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_mute.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_mute.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index afbd3205facd733e003705379bb83cd331fe3609..81bea4ec1714496dbd567aca2655f2002859e7b4 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2601,6 +2601,8 @@ PRIVATE
+     tele/tele_mtp_inspector.h
+     tele/tele_mtp_log.cpp
+     tele/tele_mtp_log.h
++    tele/tele_mute.cpp
++    tele/tele_mute.h
+     tele/tele_new_settings.cpp
+     tele/tele_new_settings.h
+     tele/tele_no_ai.cpp
+diff --git a/Telegram/SourceFiles/data/notify/data_notify_settings.cpp b/Telegram/SourceFiles/data/notify/data_notify_settings.cpp
+index 2900ab2c493e6c98436405146ac114d5de71c8ae..c76afc509f481a2781e64c53823499aa379a8f99 100644
+--- a/Telegram/SourceFiles/data/notify/data_notify_settings.cpp
++++ b/Telegram/SourceFiles/data/notify/data_notify_settings.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "history/history.h"
+ #include "main/main_session.h"
++#include "tele/tele_mute.h"
+ #include "window/notifications_manager.h"
+ 
+ namespace Data {
+@@ -513,6 +514,9 @@ void NotifySettings::unmuteByFinished() {
+ bool NotifySettings::isMuted(
+ 		not_null<const Thread*> thread,
+ 		crl::time *changesIn) const {
++	if (Tele::MutedByFolder(thread->peer())) {
++		return MutedFromUntil(std::numeric_limits<TimeId>::max(), changesIn);
++	}
+ 	const auto topic = thread->asTopic();
+ 	const auto until = topic ? topic->notify().muteUntil() : std::nullopt;
+ 	return until
+@@ -547,6 +551,9 @@ bool NotifySettings::soundUnknown(not_null<const Thread*> thread) const {
+ bool NotifySettings::isMuted(
+ 		not_null<const PeerData*> peer,
+ 		crl::time *changesIn) const {
++	if (Tele::MutedByFolder(peer)) {
++		return MutedFromUntil(std::numeric_limits<TimeId>::max(), changesIn);
++	}
+ 	if (const auto until = peer->notify().muteUntil()) {
+ 		return MutedFromUntil(*until, changesIn);
+ 	} else if (const auto community = CommunityFallback(peer)) {
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index 475967df096996e746695bd8fb2aa5856078aa6c..5d56740038492b0026f4e5d3908f28ad2765043a 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_local_pins.h"
++#include "tele/tele_mute.h"
+ #include "tele/tele_no_ai.h"
+ #include "tele/tele_online_notify.h"
+ #include "tele/tele_protected.h"
+@@ -292,6 +293,7 @@ Session::Session(
+ 	Tele::SetupBookmarks(this);
+ 	Tele::SetupNoAi(this);
+ 	Tele::SetupOnlineNotify(this);
++	Tele::SetupMute(this);
+ }
+ 
+ void Session::appConfigRefreshed() {
+diff --git a/Telegram/SourceFiles/menu/menu_mute.cpp b/Telegram/SourceFiles/menu/menu_mute.cpp
+index 95e9a0ba38dd01c6b12c9c6c7f05aa43e5c27aa9..aa8ea637f19c721fb727074dd9ba9656a78b3af8 100644
+--- a/Telegram/SourceFiles/menu/menu_mute.cpp
++++ b/Telegram/SourceFiles/menu/menu_mute.cpp
+@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
+ #include "main/main_session_settings.h"
++#include "tele/tele_mute.h"
+ #include "ui/boxes/choose_time.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/boxes/time_picker_box.h"
+@@ -252,6 +253,7 @@ Descriptor ThreadDescriptor(not_null<Data::Thread*> thread) {
+ 		.updateSound = updateSound,
+ 		.updateMutePeriod = updateMutePeriod,
+ 		.volumeController = Data::ThreadRingtonesVolumeController(thread),
++		.thread = thread,
+ 	};
+ }
+ 
+@@ -372,6 +374,7 @@ void FillMuteMenu(
+ 			menu->menu(),
+ 			menu->st().menu,
+ 			descriptor));
++	Tele::AddSilenceAction(menu, descriptor.thread);
+ }
+ 
+ void SetupMuteMenu(
+diff --git a/Telegram/SourceFiles/menu/menu_mute.h b/Telegram/SourceFiles/menu/menu_mute.h
+index d214af65117aaa89bd822be25b30ac99d547274e..55086cb13dd6e59fefda68d812d98f84d326cb46 100644
+--- a/Telegram/SourceFiles/menu/menu_mute.h
++++ b/Telegram/SourceFiles/menu/menu_mute.h
+@@ -35,6 +35,7 @@ struct Descriptor {
+ 	Fn<void(Data::NotifySound)> updateSound;
+ 	Fn<void(TimeId)> updateMutePeriod;
+ 	Data::VolumeController volumeController;
++	Data::Thread *thread = nullptr;
+ };
+ 
+ [[nodiscard]] Descriptor ThreadDescriptor(not_null<Data::Thread*> thread);
+diff --git a/Telegram/SourceFiles/tele/tele_mute.cpp b/Telegram/SourceFiles/tele/tele_mute.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..6ca6f13dadf0c603ed1ac565256e6bbe27b6c8a9
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_mute.cpp
+@@ -0,0 +1,400 @@
++#include "tele/tele_mute.h"
++
++#include "core/application.h"
++#include "data/data_channel.h"
++#include "data/data_chat_filters.h"
++#include "data/data_forum.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_thread.h"
++#include "data/data_user.h"
++#include "data/notify/data_notify_settings.h"
++#include "dialogs/dialogs_key.h"
++#include "history/history.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/storage_account.h"
++#include "tele/tele_lowercase.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/widgets/menu/menu_toggle.h"
++#include "ui/widgets/popup_menu.h"
++#include "window/notifications_manager.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++using namespace Storage::details;
++
++constexpr auto kMagic = quint32(0x7E1E3C7E);
++constexpr auto kVersion = qint32(1);
++constexpr auto kMaxFolders = 1024;
++constexpr auto kMaxPeers = 65536;
++
++class State final : public base::has_weak_ptr {
++public:
++	explicit State(not_null<Main::Session*> session);
++	~State();
++
++	[[nodiscard]] static State *Find(not_null<Main::Session*> session);
++
++	[[nodiscard]] bool folderMuted(FilterId id) const;
++	void toggleFolder(FilterId id);
++	[[nodiscard]] bool mutedByFolder(not_null<const PeerData*> peer) const;
++	[[nodiscard]] bool silenced(PeerId id) const;
++	void setSilenced(not_null<History*> history, bool silenced);
++
++private:
++	[[nodiscard]] static base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &Registry();
++
++	[[nodiscard]] QString folder() const;
++	void read();
++	void write() const;
++	void rebuild();
++	void forgetRemoved();
++	void schedule(History *history);
++	void flush();
++	void refresh(not_null<History*> history);
++
++	const not_null<Main::Session*> _session;
++	base::flat_set<FilterId> _folders;
++	base::flat_set<PeerId> _silenced;
++	std::vector<Data::ChatFilter> _filters;
++	base::flat_set<not_null<History*>> _pending;
++	bool _refreshAll = false;
++	bool _scheduled = false;
++	bool _cleared = false;
++	rpl::lifetime _lifetime;
++
++};
++
++State::State(not_null<Main::Session*> session)
++: _session(session) {
++	Registry().emplace(session, this);
++	read();
++	rebuild();
++
++	const auto owner = &session->data();
++	owner->chatsFilters().changed(
++	) | rpl::on_next([=] {
++		forgetRemoved();
++		if (!_folders.empty() || !_filters.empty()) {
++			rebuild();
++			schedule(nullptr);
++		}
++	}, _lifetime);
++
++	owner->chatListEntryRefreshes(
++	) | rpl::on_next([=](const Data::Session::ChatListEntryRefresh &event) {
++		if (!_filters.empty() && event.existenceChanged) {
++			if (const auto history = event.key.history()) {
++				schedule(history);
++			}
++		}
++	}, _lifetime);
++
++	owner->sessionDataAboutToBeCleared(
++	) | rpl::on_next([=] {
++		_cleared = true;
++		_filters.clear();
++		_pending.clear();
++	}, _lifetime);
++}
++
++State::~State() {
++	Registry().remove(_session);
++}
++
++base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>> &State::Registry() {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		not_null<State*>>();
++	return result;
++}
++
++State *State::Find(not_null<Main::Session*> session) {
++	const auto &registry = Registry();
++	const auto i = registry.find(session);
++	return (i != end(registry)) ? i->second.get() : nullptr;
++}
++
++bool State::folderMuted(FilterId id) const {
++	return _folders.contains(id);
++}
++
++void State::toggleFolder(FilterId id) {
++	if (!_folders.remove(id)) {
++		_folders.emplace(id);
++	}
++	write();
++	rebuild();
++	schedule(nullptr);
++}
++
++bool State::mutedByFolder(not_null<const PeerData*> peer) const {
++	if (_filters.empty()) {
++		return false;
++	}
++	const auto history = _session->data().historyLoaded(peer->id);
++	if (!history) {
++		return false;
++	}
++	for (const auto &filter : _filters) {
++		if (filter.contains(history)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++bool State::silenced(PeerId id) const {
++	return _silenced.contains(id);
++}
++
++void State::setSilenced(not_null<History*> history, bool silenced) {
++	if (silenced) {
++		_silenced.emplace(history->peer->id);
++		Core::App().notifications().clearIncomingFromHistory(history);
++	} else {
++		_silenced.remove(history->peer->id);
++	}
++	write();
++}
++
++void State::rebuild() {
++	using Flag = Data::ChatFilter::Flag;
++	_filters.clear();
++	if (_cleared || _folders.empty()) {
++		return;
++	}
++	for (const auto &filter : _session->data().chatsFilters().list()) {
++		if (!filter.id() || !_folders.contains(filter.id())) {
++			continue;
++		}
++		_filters.push_back(Data::ChatFilter(
++			filter.id(),
++			filter.title(),
++			filter.iconEmoji(),
++			filter.colorIndex(),
++			filter.flags() & ~Flag::NoMuted,
++			filter.always(),
++			filter.pinned(),
++			filter.never()));
++	}
++}
++
++void State::forgetRemoved() {
++	const auto filters = &_session->data().chatsFilters();
++	if (_folders.empty() || !filters->loaded()) {
++		return;
++	}
++	const auto &list = filters->list();
++	auto removed = false;
++	for (auto i = begin(_folders); i != end(_folders);) {
++		if (ranges::contains(list, *i, &Data::ChatFilter::id)) {
++			++i;
++		} else {
++			i = _folders.erase(i);
++			removed = true;
++		}
++	}
++	if (removed) {
++		write();
++	}
++}
++
++void State::schedule(History *history) {
++	if (_cleared) {
++		return;
++	} else if (history) {
++		_pending.emplace(history);
++	} else {
++		_refreshAll = true;
++	}
++	if (_scheduled) {
++		return;
++	}
++	_scheduled = true;
++	crl::on_main(this, [=] {
++		flush();
++	});
++}
++
++void State::flush() {
++	_scheduled = false;
++	if (_cleared) {
++		return;
++	}
++	auto pending = base::take(_pending);
++	if (base::take(_refreshAll)) {
++		const auto owner = &_session->data();
++		const auto add = [&](auto peer) {
++			if (const auto history = owner->historyLoaded(peer->id)) {
++				pending.emplace(history);
++			}
++		};
++		owner->enumerateUsers(add);
++		owner->enumerateGroups(add);
++		owner->enumerateBroadcasts(add);
++	}
++	for (const auto &history : pending) {
++		refresh(history);
++	}
++}
++
++void State::refresh(not_null<History*> history) {
++	const auto settings = &_session->data().notifySettings();
++	const auto muted = settings->isMuted(history->peer);
++	const auto was = history->muted();
++	history->setMuted(muted);
++	if (was != muted) {
++		if (muted) {
++			Core::App().notifications().clearIncomingFromHistory(history);
++		}
++	} else if (const auto forum = history->peer->forum()) {
++		settings->forumParentMuteUpdated(forum);
++	}
++}
++
++QString State::folder() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + '/';
++}
++
++void State::read() {
++	auto file = FileReadDescriptor();
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || !ReadEncryptedFile(file, u"tele_mute"_q, folder(), key)) {
++		return;
++	}
++	auto magic = quint32();
++	auto version = qint32();
++	auto owner = quint64();
++	auto folders = quint32();
++	file.stream >> magic >> version >> owner >> folders;
++	if (file.stream.status() != QDataStream::Ok
++		|| magic != kMagic
++		|| version != kVersion
++		|| owner != _session->uniqueId()
++		|| folders > kMaxFolders) {
++		return;
++	}
++	auto folderIds = base::flat_set<FilterId>();
++	for (auto i = quint32(); i != folders; ++i) {
++		auto id = qint32();
++		file.stream >> id;
++		if (file.stream.status() != QDataStream::Ok) {
++			return;
++		} else if (id) {
++			folderIds.emplace(FilterId(id));
++		}
++	}
++	auto peers = quint32();
++	file.stream >> peers;
++	if (file.stream.status() != QDataStream::Ok || peers > kMaxPeers) {
++		return;
++	}
++	auto peerIds = base::flat_set<PeerId>();
++	for (auto i = quint32(); i != peers; ++i) {
++		auto id = quint64();
++		file.stream >> id;
++		if (file.stream.status() != QDataStream::Ok) {
++			return;
++		} else if (id) {
++			peerIds.emplace(PeerId(id));
++		}
++	}
++	_folders = std::move(folderIds);
++	_silenced = std::move(peerIds);
++}
++
++void State::write() const {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key) {
++		return;
++	}
++	const auto size = sizeof(quint32) * 4
++		+ sizeof(quint64)
++		+ _folders.size() * sizeof(qint32)
++		+ _silenced.size() * sizeof(quint64);
++	auto data = EncryptedDescriptor(size);
++	data.stream
++		<< kMagic
++		<< kVersion
++		<< quint64(_session->uniqueId())
++		<< quint32(_folders.size());
++	for (const auto id : _folders) {
++		data.stream << qint32(id);
++	}
++	data.stream << quint32(_silenced.size());
++	for (const auto id : _silenced) {
++		data.stream << quint64(id.value);
++	}
++	auto file = FileWriteDescriptor(u"tele_mute"_q, folder());
++	file.writeEncrypted(data, key);
++}
++
++} // namespace
++
++void SetupMute(not_null<Main::Session*> session) {
++	session->lifetime().make_state<State>(session);
++}
++
++bool MutedByFolder(not_null<const PeerData*> peer) {
++	const auto state = State::Find(&peer->session());
++	return state && state->mutedByFolder(peer);
++}
++
++bool SilencedCompletely(not_null<const Data::Thread*> thread) {
++	const auto state = State::Find(&thread->session());
++	return state && state->silenced(thread->peer()->id);
++}
++
++void AddMuteFolderAction(
++		not_null<Main::Session*> session,
++		FilterId id,
++		const Ui::Menu::MenuCallback &addAction) {
++	const auto state = State::Find(session);
++	if (!id || !state) {
++		return;
++	}
++	const auto muted = state->folderMuted(id);
++	addAction(
++		Lower(muted ? u"Unmute folder"_q : u"Mute folder"_q),
++		crl::guard(session, [=] {
++			if (const auto state = State::Find(session)) {
++				state->toggleFolder(id);
++			}
++		}),
++		muted ? &st::menuIconUnmute : &st::menuIconMute);
++}
++
++void AddSilenceAction(not_null<Ui::PopupMenu*> menu, Data::Thread *thread) {
++	const auto history = thread ? thread->asHistory() : nullptr;
++	const auto state = history ? State::Find(&history->session()) : nullptr;
++	if (!state) {
++		return;
++	}
++	const auto session = &history->session();
++	const auto silenced = state->silenced(history->peer->id);
++	auto item = base::make_unique_q<Ui::Menu::Toggle>(
++		menu->menu(),
++		menu->st().menu,
++		Lower(u"Silence completely"_q),
++		crl::guard(session, [=] {
++			if (const auto state = State::Find(session)) {
++				state->setSilenced(history, !silenced);
++			}
++		}),
++		&st::menuIconBlock,
++		&st::menuIconBlock);
++	item->action()->setCheckable(true);
++	item->action()->setChecked(silenced);
++	menu->addAction(std::move(item));
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_mute.h b/Telegram/SourceFiles/tele/tele_mute.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..1906d2e8d4da7df1302536160d230c71ceaa1410
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_mute.h
+@@ -0,0 +1,32 @@
++#pragma once
++
++class PeerData;
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Tele {
++
++void SetupMute(not_null<Main::Session*> session);
++[[nodiscard]] bool MutedByFolder(not_null<const PeerData*> peer);
++[[nodiscard]] bool SilencedCompletely(not_null<const Data::Thread*> thread);
++void AddMuteFolderAction(
++	not_null<Main::Session*> session,
++	FilterId id,
++	const Ui::Menu::MenuCallback &addAction);
++void AddSilenceAction(not_null<Ui::PopupMenu*> menu, Data::Thread *thread);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+index fddbb1b9c8700708276e860272df2a2ed97e3f89..693f67e545ec123d8af236421d789c99a90d0b31 100644
+--- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
++++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_folders.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
++#include "tele/tele_mute.h"
+ #include "tele/tele_view_tl.h"
+ #include "ui/widgets/menu/menu_action.h"
+ #include "ui/filter_icons.h"
+@@ -95,6 +96,7 @@ void ShowMenu(
+ 			MarkAsReadMenu::ChatListKind::Folder,
+ 			[=] { return session->data().chatsFilters().chatsList(id); },
+ 			addAction);
++		Tele::AddMuteFolderAction(session, id, addAction);
+ 
+ 		auto showRemoveBox = [=] {
+ 			state->removeApi.request(base::make_weak(parent), controller, id);
+diff --git a/Telegram/SourceFiles/window/notifications_manager.cpp b/Telegram/SourceFiles/window/notifications_manager.cpp
+index e5b9eb949e180667952172d338cbcf3e552798d8..91200c3fc2f1556892148c192c7020cb7a47090f 100644
+--- a/Telegram/SourceFiles/window/notifications_manager.cpp
++++ b/Telegram/SourceFiles/window/notifications_manager.cpp
+@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_domain.h"
+ #include "main/main_session.h"
+ #include "main/main_session_settings.h"
++#include "tele/tele_mute.h"
+ #include "ui/text/text_utilities.h"
+ #include "platform/platform_specific.h"
+ 
+@@ -317,6 +318,7 @@ System::SkipState System::skipNotification(
+ 	const auto thread = item->maybeNotificationThread();
+ 	if (!thread
+ 		|| !thread->currentNotification()
++		|| Tele::SilencedCompletely(thread)
+ 		|| (messageType && item->skipNotification())
+ 		|| (type == Data::ItemNotificationType::Reaction
+ 			&& skipSentNotification(item, _sentReactionNotifications))
+diff --git a/Telegram/SourceFiles/window/window_filters_menu.cpp b/Telegram/SourceFiles/window/window_filters_menu.cpp
+index 71d0f680afd46b977248621158170923d4d2a65d..104315f7c2cef4c23976b4d0272d0f12f7e0ae66 100644
+--- a/Telegram/SourceFiles/window/window_filters_menu.cpp
++++ b/Telegram/SourceFiles/window/window_filters_menu.cpp
+@@ -44,6 +44,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/storage_media_prepare.h"
+ #include "tele/tele_folders.h"
+ #include "tele/tele_local_folders.h"
++#include "tele/tele_mute.h"
+ #include "tele/tele_view_tl.h"
+ #include "api/api_chat_filters.h"
+ #include "apiwrap.h"
+@@ -766,6 +767,7 @@ void FiltersMenu::showMenu(QPoint position, FilterId id) {
+ 			MarkAsReadMenu::ChatListKind::Folder,
+ 			std::move(filteredChats),
+ 			addAction);
++		Tele::AddMuteFolderAction(&_session->session(), id, addAction);
+ 
+ 		addAction({
+ 			.text = tr::lng_filters_context_remove(tr::now),

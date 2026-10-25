@@ -1,0 +1,1290 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 07:52:17 +0300
+Subject: [PATCH] feat: customize the window title and format template values
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  81 ++-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  28 +
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +
+ Telegram/SourceFiles/tele/tele_title.cpp      | 296 +++++-----
+ Telegram/SourceFiles/tele/tele_title.h        |   7 +
+ .../SourceFiles/tele/tele_title_template.cpp  | 521 ++++++++++++++++++
+ .../SourceFiles/tele/tele_title_template.h    |  58 ++
+ Telegram/SourceFiles/window/main_window.cpp   |   9 +
+ 9 files changed, 822 insertions(+), 184 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_title_template.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_title_template.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 320de97f89eb19450494e5e5895eb765a414a60f..49de4294591597030f0741b71feda14f9ea29317 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2531,6 +2531,8 @@ PRIVATE
+     tele/tele_time.h
+     tele/tele_title.cpp
+     tele/tele_title.h
++    tele/tele_title_template.cpp
++    tele/tele_title_template.h
+     tele/tele_updater.cpp
+     tele/tele_updater.h
+     tele/tele_view_tl.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index b7a715850b278878e7e50200a6c1c255c1908375..964ec99163beb94f477f97afcd5b1e4ad64150bf 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -292,40 +292,72 @@ void AddServer(
+ 
+ void TitleBox(
+ 		not_null<Ui::GenericBox*> box,
+-		not_null<Window::Controller*> window) {
+-	box->setTitle(rpl::single(::Tele::Lower(u"Title bar label"_q)));
++		not_null<Window::Controller*> window,
++		bool windowTitle) {
++	const auto option = &base::options::lookup<QString>(windowTitle
++		? ::Tele::kOptionWindowTitleTemplate
++		: ::Tele::kOptionTitleTemplate);
++	box->setTitle(rpl::single(::Tele::Lower(windowTitle
++		? u"Window title"_q
++		: u"Title bar label"_q)));
+ 	const auto field = box->addRow(object_ptr<Ui::InputField>(
+ 		box,
+ 		st::defaultInputField,
+ 		rpl::single(::Tele::Lower(u"Template"_q)),
+-		::Tele::TitleTemplate()));
++		option->value()));
+ 	const auto preview = box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+ 		QString(),
+ 		st::boxLabel));
++	const auto refresh = [=] {
++		const auto source = field->getLastText();
++		const auto text = windowTitle
++			? ::Tele::PreviewWindowTitleText(window, source)
++			: ::Tele::PreviewTitleText(window, source);
++		preview->setText(!text.isEmpty()
++			? text
++			: !windowTitle
++			? u"no label"_q
++			: source.isEmpty()
++			? ::Tele::Lower(u"Default title"_q)
++			: ::Tele::Lower(u"Empty title"_q));
++	};
++	if (windowTitle) {
++		const auto use = box->addRow(object_ptr<Ui::LinkButton>(
++			box,
++			::Tele::Lower(u"Use the title bar label"_q)));
++		use->setClickedCallback([=] {
++			field->setText(u"{label}"_q);
++			refresh();
++		});
++	}
+ 	box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+ 		u"{build} {version}\n"
+ 		"{time} {date} {weekday}, or custom formats like "
+ 		"{time:HH:mm:ss} and {date:dd MMM}\n"
+ 		"{name} {username} {id} {accounts}\n"
+-		"{unread} {chat} {chat_unread} {status}\n"
+-		"[ ... ] hides its part when a variable inside is empty or 0, "
++		"{unread} {chat} {chat_unread} {status}\n"_q
++		+ (windowTitle ? u"{label}\n"_q : QString())
++		+ u"[ ... ] hides its part when a variable inside is empty or 0, "
+ 		"doubled brackets are literal."_q,
+ 		st::boxDividerLabel));
+-	const auto refresh = [=] {
+-		const auto text = ::Tele::PreviewTitleText(
+-			window,
+-			field->getLastText());
+-		preview->setText(text.isEmpty() ? u"no label"_q : text);
+-	};
++	if (windowTitle) {
++		box->addRow(object_ptr<Ui::FlatLabel>(
++			box,
++			::Tele::Lower(u"The title Windows, macOS and Linux show in the "
++				"taskbar, Alt+Tab and the system window frame. Empty keeps "
++				"the default title, a template that renders to nothing "
++				"leaves the title blank."_q),
++			st::boxDividerLabel));
++	}
+ 	const auto timer = box->lifetime().make_state<base::Timer>(refresh);
+ 	timer->callEach(crl::time(1000));
+ 	field->changes(
+ 	) | rpl::on_next(refresh, field->lifetime());
+ 	refresh();
+ 	const auto save = [=] {
+-		::Tele::SetTitleTemplate(field->getLastText());
++		option->set(field->getLastText());
+ 		box->closeBox();
+ 	};
+ 	field->submits(
+@@ -340,8 +372,7 @@ void TitleBox(
+ 		box->closeBox();
+ 	});
+ 	box->addLeftButton(rpl::single(::Tele::Lower(u"Reset"_q)), [=] {
+-		field->setText(base::options::lookup<QString>(
+-			::Tele::kOptionTitleTemplate).defaultValue());
++		field->setText(option->defaultValue());
+ 		refresh();
+ 	});
+ }
+@@ -359,7 +390,7 @@ void AddTitle(
+ 		}),
+ 		st::settingsButtonNoIcon);
+ 	button->setClickedCallback([=] {
+-		controller->show(Box(TitleBox, &controller->window()));
++		controller->show(Box(TitleBox, &controller->window(), false));
+ 	});
+ 	SetupLink(button, option.id());
+ 	container->add(
+@@ -368,6 +399,26 @@ void AddTitle(
+ 			::Tele::Lower(option.description()),
+ 			st::settingsExperimentalAbout),
+ 		st::settingsExperimentalAboutPadding);
++	const auto &windowOption = base::options::lookup<QString>(
++		::Tele::kOptionWindowTitleTemplate);
++	const auto windowButton = AddButtonWithLabel(
++		container,
++		rpl::single(::Tele::Lower(u"Window title"_q)),
++		::Tele::WindowTitleTemplateValue(
++		) | rpl::map([](const QString &text) {
++			return text.isEmpty() ? ::Tele::Lower(u"Default"_q) : text;
++		}),
++		st::settingsButtonNoIcon);
++	windowButton->setClickedCallback([=] {
++		controller->show(Box(TitleBox, &controller->window(), true));
++	});
++	SetupLink(windowButton, windowOption.id());
++	container->add(
++		object_ptr<Ui::FlatLabel>(
++			container,
++			::Tele::Lower(windowOption.description()),
++			st::settingsExperimentalAbout),
++		st::settingsExperimentalAboutPadding);
+ }
+ 
+ class IgnoredRow final : public PeerListRowWithLink {
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index a96110cdd4dc5db2fc16931d3a1e154396b0c9bb..e2983cb5b04bd9deca406665480dcdee5455c541 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -45,6 +45,7 @@ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionViewAsTl[] = "tele-view-as-tl";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
++const char kOptionWindowTitleTemplate[] = "tele-window-title";
+ 
+ namespace {
+ 
+@@ -372,6 +373,15 @@ base::options::option<QString> TitleTemplateOption({
+ 	.defaultValue = u"TELE {build}"_q,
+ });
+ 
++base::options::option<QString> WindowTitleTemplateOption({
++	.id = kOptionWindowTitleTemplate,
++	.name = "Window title",
++	.description = "The title the system shows in the taskbar, Alt+Tab "
++		"and the system window frame, with the same variables as the "
++		"label and {label} for the label itself. Empty keeps the "
++		"default title.",
++});
++
+ } // namespace
+ 
+ bool HideStories() {
+@@ -693,4 +703,22 @@ rpl::producer<QString> TitleTemplateValue() {
+ 	});
+ }
+ 
++QString WindowTitleTemplate() {
++	return WindowTitleTemplateOption.value();
++}
++
++void SetWindowTitleTemplate(const QString &value) {
++	WindowTitleTemplateOption.set(value);
++}
++
++rpl::producer<QString> WindowTitleTemplateValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		WindowTitleTemplateOption.changes()
++	) | rpl::map([] {
++		return WindowTitleTemplateOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 56d6c5d3d280071971058d83e5b7089f06137d05..6990ac3450f715f3338be93658bcf12b43e6d53f 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -43,6 +43,7 @@ extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionViewAsTl[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
++extern const char kOptionWindowTitleTemplate[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -106,5 +107,8 @@ void SetServerUrl(const QString &url);
+ [[nodiscard]] QString TitleTemplate();
+ void SetTitleTemplate(const QString &value);
+ [[nodiscard]] rpl::producer<QString> TitleTemplateValue();
++[[nodiscard]] QString WindowTitleTemplate();
++void SetWindowTitleTemplate(const QString &value);
++[[nodiscard]] rpl::producer<QString> WindowTitleTemplateValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_title.cpp b/Telegram/SourceFiles/tele/tele_title.cpp
+index 4c6317f887bcdd01d4db58562f7601e79c9c492d..674ac6b49bc34ff46339aa26dc0243a256130dd3 100644
+--- a/Telegram/SourceFiles/tele/tele_title.cpp
++++ b/Telegram/SourceFiles/tele/tele_title.cpp
+@@ -18,137 +18,26 @@
+ #include "tele/tele_build.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_title_template.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+ 
+ namespace Tele {
+ namespace {
+ 
+-enum class Tick {
+-	None,
+-	Minute,
+-	Second,
+-};
+-
+-struct Token {
+-	QString text;
+-	QString name;
+-	QString format;
+-	std::vector<Token> group;
+-	bool variable = false;
+-	bool optional = false;
+-};
++using namespace Titles;
+ 
+-struct Template {
+-	std::vector<Token> tokens;
+-	Tick tick = Tick::None;
++enum class Target {
++	Label,
++	Window,
+ };
+ 
+ struct Context {
+ 	Window::SessionController *controller = nullptr;
++	const std::vector<Token> *label = nullptr;
+ 	QDateTime now;
+ };
+ 
+-[[nodiscard]] std::vector<Token> ParseTokens(
+-		const QString &source,
+-		int &position,
+-		bool nested,
+-		bool &closed) {
+-	auto result = std::vector<Token>();
+-	auto literal = QString();
+-	const auto flush = [&] {
+-		if (!literal.isEmpty()) {
+-			result.push_back({ .text = base::take(literal) });
+-		}
+-	};
+-	const auto size = int(source.size());
+-	while (position < size) {
+-		const auto ch = source[position];
+-		const auto doubled = (position + 1 < size)
+-			&& (source[position + 1] == ch);
+-		if (doubled
+-			&& (ch == '{' || ch == '}' || ch == '[' || ch == ']')) {
+-			literal += ch;
+-			position += 2;
+-		} else if (ch == '{') {
+-			const auto end = source.indexOf('}', position + 1);
+-			if (end < 0) {
+-				literal += source.mid(position);
+-				position = size;
+-				break;
+-			}
+-			const auto body = source.mid(position + 1, end - position - 1);
+-			const auto colon = body.indexOf(':');
+-			flush();
+-			result.push_back({
+-				.text = source.mid(position, end - position + 1),
+-				.name = body.mid(0, colon).trimmed(),
+-				.format = (colon < 0) ? QString() : body.mid(colon + 1),
+-				.variable = true,
+-			});
+-			position = end + 1;
+-		} else if (ch == '[') {
+-			auto inner = position + 1;
+-			auto innerClosed = false;
+-			auto group = ParseTokens(source, inner, true, innerClosed);
+-			if (!innerClosed) {
+-				literal += ch;
+-				flush();
+-				for (auto &token : group) {
+-					result.push_back(std::move(token));
+-				}
+-				position = inner;
+-				break;
+-			}
+-			flush();
+-			result.push_back({ .group = std::move(group), .optional = true });
+-			position = inner;
+-		} else if (ch == ']' && nested) {
+-			++position;
+-			flush();
+-			closed = true;
+-			return result;
+-		} else {
+-			literal += ch;
+-			++position;
+-		}
+-	}
+-	flush();
+-	closed = false;
+-	return result;
+-}
+-
+-[[nodiscard]] Tick TickFor(const std::vector<Token> &tokens) {
+-	auto result = Tick::None;
+-	for (const auto &token : tokens) {
+-		auto tick = Tick::None;
+-		if (token.optional) {
+-			tick = TickFor(token.group);
+-		} else if (!token.variable) {
+-			continue;
+-		} else if (token.name == u"status"_q
+-			|| token.name == u"chat_unread"_q) {
+-			tick = Tick::Second;
+-		} else if (token.name == u"time"_q || token.name == u"date"_q) {
+-			tick = (token.format.contains('s') || token.format.contains('z'))
+-				? Tick::Second
+-				: Tick::Minute;
+-		} else if (token.name == u"weekday"_q) {
+-			tick = Tick::Minute;
+-		}
+-		result = std::max(result, tick);
+-	}
+-	return result;
+-}
+-
+-[[nodiscard]] Template Parse(const QString &source) {
+-	auto position = 0;
+-	auto closed = false;
+-	auto tokens = ParseTokens(source, position, false, closed);
+-	const auto tick = TickFor(tokens);
+-	return { .tokens = std::move(tokens), .tick = tick };
+-}
+-
+ [[nodiscard]] Context MakeContext(not_null<Window::Controller*> window) {
+ 	return {
+ 		.controller = Core::App().passcodeLocked()
+@@ -158,12 +47,16 @@ struct Context {
+ 	};
+ }
+ 
+-[[nodiscard]] QString ThreadName(not_null<Data::Thread*> thread) {
++[[nodiscard]] QString ThreadName(not_null<Data::Thread*> thread, bool brief) {
+ 	if (const auto topic = thread->asTopic()) {
+ 		return topic->title();
+ 	}
+ 	const auto peer = thread->owningHistory()->peer;
+-	return peer->isSelf() ? tr::lng_saved_messages(tr::now) : peer->name();
++	return peer->isSelf()
++		? tr::lng_saved_messages(tr::now)
++		: brief
++		? peer->shortName()
++		: peer->name();
+ }
+ 
+ [[nodiscard]] bool Connecting(not_null<Main::Session*> session) {
+@@ -173,11 +66,21 @@ struct Context {
+ 		|| (state < 0);
+ }
+ 
++[[nodiscard]] std::optional<QString> RenderIn(
++	const std::vector<Token> &tokens,
++	const Context &context);
++
++[[nodiscard]] QString Counter(int count, bool brief) {
++	const auto text = QString::number(count);
++	return brief ? Compact(text) : text;
++}
++
+ [[nodiscard]] std::optional<QString> Value(
+ 		const Token &token,
+ 		const Context &context) {
+ 	const auto &name = token.name;
+ 	const auto &format = token.format;
++	const auto brief = token.brief;
+ 	const auto controller = context.controller;
+ 	const auto user = controller
+ 		? controller->session().user().get()
+@@ -186,22 +89,36 @@ struct Context {
+ 		? controller->activeChatCurrent()
+ 		: Dialogs::Key();
+ 	const auto thread = key ? key.thread() : nullptr;
++	const auto date = context.now.date();
+ 	if (name == u"build"_q) {
+ 		return (BuildNumber() > 0)
+-			? u"#%1"_q.arg(BuildNumber())
++			? ((brief ? QString() : u"#"_q) + QString::number(BuildNumber()))
+ 			: Lower(u"DEV"_q);
+ 	} else if (name == u"version"_q) {
+-		return QString::fromLatin1(AppVersionStr);
++		const auto version = QString::fromLatin1(AppVersionStr);
++		return brief ? version.section('.', 0, 1) : version;
+ 	} else if (name == u"time"_q) {
+ 		return context.now.toString(format.isEmpty() ? u"HH:mm"_q : format);
+ 	} else if (name == u"date"_q) {
+ 		return format.isEmpty()
+-			? QLocale().toString(context.now.date(), QLocale::ShortFormat)
++			? QLocale().toString(date, QLocale::ShortFormat)
+ 			: context.now.toString(format);
+ 	} else if (name == u"weekday"_q) {
+-		return QLocale().dayName(context.now.date().dayOfWeek());
++		return QLocale().dayName(
++			date.dayOfWeek(),
++			brief ? QLocale::ShortFormat : QLocale::LongFormat);
++	} else if (name == u"day"_q) {
++		return QString::number(date.day());
++	} else if (name == u"month"_q) {
++		return QLocale().monthName(
++			date.month(),
++			brief ? QLocale::ShortFormat : QLocale::LongFormat);
+ 	} else if (name == u"name"_q) {
+-		return user ? user->name() : QString();
++		return !user
++			? QString()
++			: (brief && !user->firstName.isEmpty())
++			? user->firstName
++			: user->name();
+ 	} else if (name == u"username"_q) {
+ 		return user ? user->username() : QString();
+ 	} else if (name == u"id"_q) {
+@@ -210,46 +127,36 @@ struct Context {
+ 			: QString();
+ 	} else if (name == u"accounts"_q) {
+ 		return controller
+-			? QString::number(Core::App().domain().accountsAuthedCount())
++			? Counter(Core::App().domain().accountsAuthedCount(), brief)
+ 			: QString();
+ 	} else if (name == u"unread"_q) {
+ 		return controller
+-			? QString::number(Core::App().unreadBadge())
++			? Counter(Core::App().unreadBadge(), brief)
+ 			: QString();
+ 	} else if (name == u"chat"_q) {
+-		return thread ? ThreadName(thread) : QString();
++		return thread ? ThreadName(thread, brief) : QString();
+ 	} else if (name == u"chat_unread"_q) {
+ 		return thread
+-			? QString::number(thread->chatListBadgesState().unreadCounter)
++			? Counter(thread->chatListBadgesState().unreadCounter, brief)
+ 			: QString();
+ 	} else if (name == u"status"_q) {
+ 		return (controller && Connecting(&controller->session()))
+-			? u"connecting"_q
++			? (brief ? QString(QChar(0x2026)) : u"connecting"_q)
+ 			: QString();
++	} else if (name == u"label"_q && context.label) {
++		auto inner = context;
++		inner.label = nullptr;
++		return RenderIn(*context.label, inner).value_or(QString());
+ 	}
+ 	return std::nullopt;
+ }
+ 
+-[[nodiscard]] std::optional<QString> Render(
++std::optional<QString> RenderIn(
+ 		const std::vector<Token> &tokens,
+-		const Context &context,
+-		bool optional) {
+-	auto result = QString();
+-	for (const auto &token : tokens) {
+-		if (token.optional) {
+-			result += Render(token.group, context, true).value_or(QString());
+-		} else if (!token.variable) {
+-			result += token.text;
+-		} else if (const auto value = Value(token, context)) {
+-			if (optional && (value->isEmpty() || *value == u"0"_q)) {
+-				return std::nullopt;
+-			}
+-			result += *value;
+-		} else {
+-			result += token.text;
+-		}
+-	}
+-	return result;
++		const Context &context) {
++	return Render(tokens, [&](const Token &token) {
++		return Value(token, context);
++	});
+ }
+ 
+ [[nodiscard]] crl::time TickDelay(Tick tick) {
+@@ -258,46 +165,49 @@ struct Context {
+ 	return period - (now % period) + 10;
+ }
+ 
+-} // namespace
+-
+-QString TitleText(not_null<Window::Controller*> window) {
+-	return PreviewTitleText(window, TitleTemplate());
+-}
+-
+-QString PreviewTitleText(
++[[nodiscard]] rpl::producer<QString> LiveText(
+ 		not_null<Window::Controller*> window,
+-		const QString &source) {
+-	return Render(Parse(source).tokens, MakeContext(window), false).value_or(
+-		QString());
+-}
+-
+-rpl::producer<QString> TitleTextValue(not_null<Window::Controller*> window) {
++		Target target) {
+ 	return [=](auto consumer) {
+ 		auto lifetime = rpl::lifetime();
+ 		struct State {
+ 			Template parsed;
++			Template label;
++			Tick tick = Tick::None;
+ 			base::Timer timer;
+ 			rpl::lifetime session;
+ 			std::optional<QString> last;
+ 		};
+ 		const auto state = lifetime.make_state<State>();
+ 		const auto push = [=] {
+-			auto text = Render(
++			auto context = MakeContext(window);
++			if (target == Target::Window) {
++				context.label = &state->label.tokens;
++			}
++			auto text = RenderIn(
+ 				state->parsed.tokens,
+-				MakeContext(window),
+-				false).value_or(QString());
++				context).value_or(QString());
+ 			if (state->last != text) {
+ 				state->last = text;
+ 				consumer.put_next_copy(text);
+ 			}
+-			if (state->parsed.tick != Tick::None) {
+-				state->timer.callOnce(TickDelay(state->parsed.tick));
++			if (state->tick != Tick::None) {
++				state->timer.callOnce(TickDelay(state->tick));
+ 			}
+ 		};
+ 		state->timer.setCallback(push);
+-		TitleTemplateValue(
+-		) | rpl::on_next([=](const QString &source) {
+-			state->parsed = Parse(source);
++		const auto titled = (target == Target::Window);
++		rpl::combine(
++			titled ? WindowTitleTemplateValue() : TitleTemplateValue(),
++			(titled
++				? TitleTemplateValue()
++				: rpl::producer<QString>(rpl::single(QString())))
++		) | rpl::on_next([=](const QString &source, const QString &label) {
++			state->parsed = Parse(source, titled);
++			state->label = Parse(label);
++			state->tick = state->parsed.label
++				? std::max(state->parsed.tick, state->label.tick)
++				: state->parsed.tick;
+ 			state->timer.cancel();
+ 			push();
+ 		}, lifetime);
+@@ -325,4 +235,52 @@ rpl::producer<QString> TitleTextValue(not_null<Window::Controller*> window) {
+ 	};
+ }
+ 
++} // namespace
++
++QString TitleText(not_null<Window::Controller*> window) {
++	return PreviewTitleText(window, TitleTemplate());
++}
++
++QString PreviewTitleText(
++		not_null<Window::Controller*> window,
++		const QString &source) {
++	return RenderIn(Parse(source).tokens, MakeContext(window)).value_or(
++		QString());
++}
++
++rpl::producer<QString> TitleTextValue(not_null<Window::Controller*> window) {
++	return LiveText(window, Target::Label);
++}
++
++QString PreviewWindowTitleText(
++		not_null<Window::Controller*> window,
++		const QString &source) {
++	const auto label = Parse(TitleTemplate());
++	auto context = MakeContext(window);
++	context.label = &label.tokens;
++	return RenderIn(Parse(source, true).tokens, context).value_or(QString());
++}
++
++std::optional<QString> WindowTitleText(not_null<Window::Controller*> window) {
++	const auto source = WindowTitleTemplate();
++	if (source.isEmpty()) {
++		return std::nullopt;
++	}
++	const auto text = PreviewWindowTitleText(window, source);
++	return text.isEmpty() ? u" "_q : text;
++}
++
++rpl::producer<> WindowTitleChanges(not_null<Window::Controller*> window) {
++	return WindowTitleTemplateValue(
++	) | rpl::map([](const QString &source) {
++		return source.isEmpty();
++	}) | rpl::distinct_until_changed(
++	) | rpl::map([=](bool empty) -> rpl::producer<> {
++		if (empty) {
++			return rpl::single(rpl::empty);
++		}
++		return LiveText(window, Target::Window) | rpl::to_empty;
++	}) | rpl::flatten_latest();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_title.h b/Telegram/SourceFiles/tele/tele_title.h
+index 25c22f248e76c7f9b9853cc3a4841938659b1407..b7b5e337474c4aa513ca9ea8ec0554dcab0c1225 100644
+--- a/Telegram/SourceFiles/tele/tele_title.h
++++ b/Telegram/SourceFiles/tele/tele_title.h
+@@ -12,5 +12,12 @@ namespace Tele {
+ 	const QString &source);
+ [[nodiscard]] rpl::producer<QString> TitleTextValue(
+ 	not_null<Window::Controller*> window);
++[[nodiscard]] QString PreviewWindowTitleText(
++	not_null<Window::Controller*> window,
++	const QString &source);
++[[nodiscard]] std::optional<QString> WindowTitleText(
++	not_null<Window::Controller*> window);
++[[nodiscard]] rpl::producer<> WindowTitleChanges(
++	not_null<Window::Controller*> window);
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_title_template.cpp b/Telegram/SourceFiles/tele/tele_title_template.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed23deaa5a6c490a29bf984ef247a78ddbe473e0
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_title_template.cpp
+@@ -0,0 +1,521 @@
++#include "tele/tele_title_template.h"
++
++#include "tele/tele_lowercase.h"
++
++namespace Tele::Titles {
++namespace {
++
++enum class Arity {
++	None,
++	Number,
++	Text,
++};
++
++struct ModifierResult {
++	std::optional<Modifier> modifier;
++	QString error;
++};
++
++[[nodiscard]] bool Known(const QString &name) {
++	static const auto list = QStringList{
++		u"build"_q,
++		u"version"_q,
++		u"time"_q,
++		u"date"_q,
++		u"weekday"_q,
++		u"day"_q,
++		u"month"_q,
++		u"name"_q,
++		u"username"_q,
++		u"id"_q,
++		u"accounts"_q,
++		u"unread"_q,
++		u"chat"_q,
++		u"chat_unread"_q,
++		u"status"_q,
++		u"label"_q,
++	};
++	return list.contains(name);
++}
++
++[[nodiscard]] bool Formatted(const QString &name) {
++	return (name == u"time"_q) || (name == u"date"_q);
++}
++
++[[nodiscard]] std::optional<Arity> ModifierArity(const QString &name) {
++	if (name == u"lower"_q
++		|| name == u"upper"_q
++		|| name == u"title"_q
++		|| name == u"cap"_q
++		|| name == u"short"_q
++		|| name == u"first"_q
++		|| name == u"last"_q
++		|| name == u"k"_q) {
++		return Arity::None;
++	} else if (name == u"max"_q || name == u"pad"_q) {
++		return Arity::Number;
++	} else if (name == u"default"_q) {
++		return Arity::Text;
++	}
++	return std::nullopt;
++}
++
++[[nodiscard]] QString Quoted(const QString &text) {
++	return QChar(0x201C) + text + QChar(0x201D);
++}
++
++[[nodiscard]] ModifierResult ParseModifier(const QString &segment) {
++	const auto colon = segment.indexOf(':');
++	const auto name = segment.mid(0, colon).trimmed();
++	const auto argument = (colon < 0) ? QString() : segment.mid(colon + 1);
++	if (name.isEmpty()) {
++		return { .error = Lower(u"empty modifier"_q) };
++	}
++	const auto arity = ModifierArity(name);
++	if (!arity) {
++		return { .error = Lower(u"unknown modifier "_q) + Quoted(name) };
++	} else if (*arity == Arity::None) {
++		if (colon >= 0) {
++			return { .error = Quoted(name) + Lower(u" takes no value"_q) };
++		}
++		return { .modifier = Modifier{ .name = name } };
++	} else if (*arity == Arity::Number) {
++		const auto limit = (name == u"max"_q) ? 1000 : 64;
++		auto ok = false;
++		const auto number = argument.trimmed().toInt(&ok);
++		if (colon < 0 || !ok || number < 1 || number > limit) {
++			return {
++				.error = Quoted(name)
++					+ Lower(u" needs a number from 1 to %1, like "_q.arg(
++						limit))
++					+ name
++					+ u":%1"_q.arg((name == u"max"_q) ? 20 : 2),
++			};
++		}
++		return { .modifier = Modifier{ .name = name, .number = number } };
++	} else if (colon < 0) {
++		return {
++			.error = Quoted(name)
++				+ Lower(u" needs a value, like "_q)
++				+ name
++				+ u":none"_q,
++		};
++	}
++	return { .modifier = Modifier{ .name = name, .argument = argument } };
++}
++
++[[nodiscard]] std::vector<int> Pipes(const QString &text) {
++	auto result = std::vector<int>();
++	auto quoted = false;
++	for (auto i = 0, size = int(text.size()); i != size; ++i) {
++		if (text[i] == '\'') {
++			quoted = !quoted;
++		} else if (text[i] == '|' && !quoted) {
++			result.push_back(i);
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] std::optional<std::vector<Modifier>> ParseModifiers(
++		const QString &tail,
++		QString *error) {
++	auto result = std::vector<Modifier>();
++	for (const auto &segment : tail.split('|')) {
++		auto parsed = ParseModifier(segment);
++		if (!parsed.modifier) {
++			if (error) {
++				*error = parsed.error;
++			}
++			return std::nullopt;
++		}
++		result.push_back(std::move(*parsed.modifier));
++	}
++	return result;
++}
++
++[[nodiscard]] Token ParseVariable(
++		const QString &source,
++		int from,
++		int till,
++		bool window,
++		Template &out) {
++	auto token = Token{
++		.text = source.mid(from, till - from),
++		.variable = true,
++	};
++	const auto body = source.mid(from + 1, till - from - 2);
++	const auto size = int(body.size());
++	auto end = 0;
++	while (end < size && body[end] != ':' && body[end] != '|') {
++		++end;
++	}
++	token.name = body.mid(0, end).trimmed();
++	auto tail = std::optional<QString>();
++	if (end < size && body[end] == ':') {
++		const auto rest = body.mid(end + 1);
++		if (Formatted(token.name)) {
++			const auto pipes = Pipes(rest);
++			auto split = -1;
++			for (const auto pipe : pipes) {
++				if (ParseModifiers(rest.mid(pipe + 1), nullptr)) {
++					split = pipe;
++					break;
++				}
++			}
++			if (split >= 0) {
++				token.format = rest.mid(0, split);
++				tail = rest.mid(split + 1);
++			} else {
++				token.format = rest;
++				if (!pipes.empty()) {
++					const auto first = rest.mid(pipes.front() + 1).section(
++						'|',
++						0,
++						0).section(':', 0, 0).trimmed();
++					out.errors.push_back(token.text
++						+ u": "_q
++						+ Quoted(first)
++						+ Lower(u" isn't a modifier, so it stays in the "
++							"format"_q));
++				}
++			}
++		} else {
++			const auto pipe = rest.indexOf('|');
++			token.format = rest.mid(0, pipe);
++			if (pipe >= 0) {
++				tail = rest.mid(pipe + 1);
++			}
++		}
++	} else if (end < size) {
++		tail = body.mid(end + 1);
++	}
++	auto invalid = false;
++	if (tail) {
++		auto error = QString();
++		if (auto modifiers = ParseModifiers(*tail, &error)) {
++			token.modifiers = std::move(*modifiers);
++			token.brief = ranges::any_of(token.modifiers, [](
++					const Modifier &modifier) {
++				return (modifier.name == u"short"_q);
++			});
++		} else {
++			token.broken = true;
++			invalid = true;
++			out.errors.push_back(token.text + u": "_q + error);
++		}
++	}
++	if (!Known(token.name)) {
++		invalid = true;
++		out.errors.push_back(token.text + Lower(u": unknown variable"_q));
++	} else if (token.name == u"label"_q && !window) {
++		invalid = true;
++		out.errors.push_back(token.text
++			+ Lower(u": only works in the window title"_q));
++	}
++	out.spans.push_back({
++		.from = from,
++		.till = till,
++		.type = invalid ? SpanType::Invalid : SpanType::Variable,
++	});
++	return token;
++}
++
++[[nodiscard]] QString Unmatched(QChar ch) {
++	return Lower(u"Unmatched "_q)
++		+ ch
++		+ Lower(u", use "_q)
++		+ ch
++		+ ch
++		+ Lower(u" for a literal one"_q);
++}
++
++[[nodiscard]] std::vector<Token> ParseTokens(
++		const QString &source,
++		int &position,
++		bool nested,
++		bool &closed,
++		bool window,
++		Template &out) {
++	auto result = std::vector<Token>();
++	auto literal = QString();
++	const auto flush = [&] {
++		if (!literal.isEmpty()) {
++			result.push_back({ .text = base::take(literal) });
++		}
++	};
++	const auto invalid = [&](int at, QChar ch) {
++		out.spans.push_back({
++			.from = at,
++			.till = at + 1,
++			.type = SpanType::Invalid,
++		});
++		out.errors.push_back(Unmatched(ch));
++	};
++	const auto size = int(source.size());
++	while (position < size) {
++		const auto ch = source[position];
++		const auto doubled = (position + 1 < size)
++			&& (source[position + 1] == ch);
++		if (doubled
++			&& (ch == '{' || ch == '}' || ch == '[' || ch == ']')) {
++			literal += ch;
++			position += 2;
++		} else if (ch == '{') {
++			const auto end = source.indexOf('}', position + 1);
++			if (end < 0) {
++				invalid(position, ch);
++				literal += source.mid(position);
++				position = size;
++				break;
++			}
++			flush();
++			result.push_back(
++				ParseVariable(source, position, end + 1, window, out));
++			position = end + 1;
++		} else if (ch == '[') {
++			const auto open = position;
++			auto inner = position + 1;
++			auto innerClosed = false;
++			auto group = ParseTokens(
++				source,
++				inner,
++				true,
++				innerClosed,
++				window,
++				out);
++			if (!innerClosed) {
++				invalid(open, ch);
++				literal += ch;
++				flush();
++				for (auto &token : group) {
++					result.push_back(std::move(token));
++				}
++				position = inner;
++				break;
++			}
++			out.spans.push_back({
++				.from = open,
++				.till = open + 1,
++				.type = SpanType::Bracket,
++			});
++			out.spans.push_back({
++				.from = inner - 1,
++				.till = inner,
++				.type = SpanType::Bracket,
++			});
++			flush();
++			result.push_back({ .group = std::move(group), .optional = true });
++			position = inner;
++		} else if (ch == ']' && nested) {
++			++position;
++			flush();
++			closed = true;
++			return result;
++		} else {
++			if (ch == ']' || ch == '}') {
++				invalid(position, ch);
++			}
++			literal += ch;
++			++position;
++		}
++	}
++	flush();
++	closed = false;
++	return result;
++}
++
++[[nodiscard]] Tick TickFor(const std::vector<Token> &tokens) {
++	auto result = Tick::None;
++	for (const auto &token : tokens) {
++		auto tick = Tick::None;
++		if (token.optional) {
++			tick = TickFor(token.group);
++		} else if (!token.variable) {
++			continue;
++		} else if (token.name == u"status"_q
++			|| token.name == u"chat_unread"_q) {
++			tick = Tick::Second;
++		} else if (token.name == u"time"_q || token.name == u"date"_q) {
++			tick = (token.format.contains('s') || token.format.contains('z'))
++				? Tick::Second
++				: Tick::Minute;
++		} else if (token.name == u"weekday"_q
++			|| token.name == u"day"_q
++			|| token.name == u"month"_q) {
++			tick = Tick::Minute;
++		}
++		result = std::max(result, tick);
++	}
++	return result;
++}
++
++[[nodiscard]] bool UsesLabel(const std::vector<Token> &tokens) {
++	return ranges::any_of(tokens, [](const Token &token) {
++		return token.optional
++			? UsesLabel(token.group)
++			: (token.variable && token.name == u"label"_q);
++	});
++}
++
++[[nodiscard]] bool Empty(const QString &value) {
++	return value.isEmpty() || (value == u"0"_q);
++}
++
++[[nodiscard]] bool Digits(const QString &value) {
++	return !value.isEmpty() && ranges::all_of(value, [](QChar ch) {
++		return (ch >= '0') && (ch <= '9');
++	});
++}
++
++[[nodiscard]] QString Word(const QString &text, bool first) {
++	const auto words = text.simplified().split(' ', Qt::SkipEmptyParts);
++	return words.isEmpty()
++		? QString()
++		: first
++		? words.front()
++		: words.back();
++}
++
++[[nodiscard]] QString Titled(QString text) {
++	auto start = true;
++	for (auto &ch : text) {
++		if (ch.isSpace()) {
++			start = true;
++		} else {
++			if (start) {
++				ch = ch.toUpper();
++			}
++			start = false;
++		}
++	}
++	return text;
++}
++
++[[nodiscard]] QString Capitalized(QString text) {
++	for (auto &ch : text) {
++		if (!ch.isSpace()) {
++			ch = ch.toUpper();
++			break;
++		}
++	}
++	return text;
++}
++
++[[nodiscard]] QString Elided(const QString &text, int limit) {
++	if (text.size() <= limit) {
++		return text;
++	}
++	auto cut = limit - 1;
++	if (cut > 0 && text[cut - 1].isHighSurrogate()) {
++		--cut;
++	}
++	while (cut > 0 && text[cut - 1].isSpace()) {
++		--cut;
++	}
++	return text.mid(0, cut) + QChar(0x2026);
++}
++
++[[nodiscard]] QString Padded(const QString &text, int width) {
++	const auto size = int(text.size());
++	return (size >= width)
++		? text
++		: QString(width - size, Digits(text) ? QChar('0') : QChar(' ')) + text;
++}
++
++void Apply(const Modifier &modifier, QString &text, bool &filled) {
++	const auto &name = modifier.name;
++	if (name == u"lower"_q) {
++		text = text.toLower();
++	} else if (name == u"upper"_q) {
++		text = text.toUpper();
++	} else if (name == u"title"_q) {
++		text = Titled(text);
++	} else if (name == u"cap"_q) {
++		text = Capitalized(text);
++	} else if (name == u"first"_q) {
++		text = Word(text, true);
++	} else if (name == u"last"_q) {
++		text = Word(text, false);
++	} else if (name == u"k"_q) {
++		text = Compact(text);
++	} else if (name == u"max"_q) {
++		text = Elided(text, modifier.number);
++	} else if (name == u"pad"_q) {
++		text = Padded(text, modifier.number);
++	} else if (name == u"default"_q && Empty(text)) {
++		text = modifier.argument;
++		filled = true;
++	}
++}
++
++} // namespace
++
++Template Parse(const QString &source, bool window) {
++	auto result = Template();
++	auto position = 0;
++	auto closed = false;
++	result.tokens = ParseTokens(
++		source,
++		position,
++		false,
++		closed,
++		window,
++		result);
++	result.tick = TickFor(result.tokens);
++	result.label = UsesLabel(result.tokens);
++	ranges::sort(result.spans, ranges::less(), &Span::from);
++	result.errors.removeDuplicates();
++	return result;
++}
++
++std::optional<QString> Render(
++		const std::vector<Token> &tokens,
++		const Resolver &resolve,
++		bool optional) {
++	auto result = QString();
++	for (const auto &token : tokens) {
++		if (token.optional) {
++			result += Render(token.group, resolve, true).value_or(QString());
++		} else if (!token.variable || token.broken) {
++			result += token.text;
++		} else if (const auto value = resolve(token)) {
++			auto text = *value;
++			const auto empty = Empty(text);
++			auto filled = false;
++			for (const auto &modifier : token.modifiers) {
++				Apply(modifier, text, filled);
++			}
++			if (optional && empty && !filled) {
++				return std::nullopt;
++			}
++			result += text;
++		} else {
++			result += token.text;
++		}
++	}
++	return result;
++}
++
++QString Compact(const QString &number) {
++	if (!Digits(number) || number.size() > 15) {
++		return number;
++	}
++	const auto value = number.toLongLong();
++	const auto format = [&](qint64 unit, QChar suffix) {
++		const auto whole = value / unit;
++		const auto tenth = (whole < 10) ? ((value % unit) * 10 / unit) : 0;
++		return QString::number(whole)
++			+ (tenth ? (u"."_q + QString::number(tenth)) : QString())
++			+ suffix;
++	};
++	return (value < 1000)
++		? number
++		: (value < 1000000)
++		? format(1000, 'k')
++		: (value < 1000000000)
++		? format(1000000, 'm')
++		: format(1000000000, 'b');
++}
++
++} // namespace Tele::Titles
+diff --git a/Telegram/SourceFiles/tele/tele_title_template.h b/Telegram/SourceFiles/tele/tele_title_template.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..b226ba5e1026ac14a8561a293e9ddbdbabf405e6
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_title_template.h
+@@ -0,0 +1,58 @@
++#pragma once
++
++namespace Tele::Titles {
++
++enum class Tick {
++	None,
++	Minute,
++	Second,
++};
++
++struct Modifier {
++	QString name;
++	QString argument;
++	int number = 0;
++};
++
++struct Token {
++	QString text;
++	QString name;
++	QString format;
++	std::vector<Modifier> modifiers;
++	std::vector<Token> group;
++	bool variable = false;
++	bool optional = false;
++	bool broken = false;
++	bool brief = false;
++};
++
++enum class SpanType {
++	Variable,
++	Invalid,
++	Bracket,
++};
++
++struct Span {
++	int from = 0;
++	int till = 0;
++	SpanType type = SpanType::Variable;
++};
++
++struct Template {
++	std::vector<Token> tokens;
++	std::vector<Span> spans;
++	QStringList errors;
++	Tick tick = Tick::None;
++	bool label = false;
++};
++
++using Resolver = Fn<std::optional<QString>(const Token &token)>;
++
++[[nodiscard]] Template Parse(const QString &source, bool window = false);
++[[nodiscard]] std::optional<QString> Render(
++	const std::vector<Token> &tokens,
++	const Resolver &resolve,
++	bool optional = false);
++[[nodiscard]] QString Compact(const QString &number);
++
++} // namespace Tele::Titles
+diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
+index 46755f395bb5012a84b3dd2c858cc21d1d401ed6..239c20c7ef203371b0c90fc6b8aba7caf2a180d5 100644
+--- a/Telegram/SourceFiles/window/main_window.cpp
++++ b/Telegram/SourceFiles/window/main_window.cpp
+@@ -580,6 +580,11 @@ void MainWindow::init() {
+ 	}
+ 	refreshTitleWidget();
+ 	setupCanaryTitleLabel();
++	Tele::WindowTitleChanges(
++		&controller()
++	) | rpl::skip(1) | rpl::on_next([=] {
++		updateTitle();
++	}, lifetime());
+ 
+ 	updateTitle();
+ 	updateWindowIcon();
+@@ -892,6 +897,10 @@ void MainWindow::updateTitle() {
+ 	if (Core::Quitting()) {
+ 		return;
+ 	}
++	if (const auto custom = Tele::WindowTitleText(&controller())) {
++		setTitle(*custom);
++		return;
++	}
+ 
+ 	const auto suffix = nativeTitleSuffix();
+ 	const auto settings = Core::App().settings().windowTitleContent();

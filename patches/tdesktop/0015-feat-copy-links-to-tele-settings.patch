@@ -9,7 +9,7 @@ Subject: [PATCH] feat: copy links to tele settings
  2 files changed, 77 insertions(+), 12 deletions(-)
 
 diff --git a/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp b/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
-index 7b12135f0ebf5d3b71226eca8b8d775e1ce5f484..d49e379207b8cc204f8f516d4d9eb27ed60f440b 100644
+index ba9096429eac05093e8dbe139a738caaf9929081..7b2258b705dcc7959e6f1e056298db059c6f10c3 100644
 --- a/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
 +++ b/Telegram/SourceFiles/core/deep_links/deep_links_settings.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -20,7 +20,7 @@ index 7b12135f0ebf5d3b71226eca8b8d775e1ce5f484..d49e379207b8cc204f8f516d4d9eb27e
  #include "settings/sections/settings_premium.h"
  #include "ui/power_saving.h"
  #include "settings/sections/settings_privacy_security.h"
-@@ -562,6 +563,11 @@ void RegisterSettingsHandlers(Router &router) {
+@@ -554,6 +555,11 @@ void RegisterSettingsHandlers(Router &router) {
  		.action = CodeBlock{ showExperimental },
  	});
  

@@ -1,0 +1,454 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 19:17:54 +0300
+Subject: [PATCH] feat: queue messages behind an uploading media
+
+---
+ Telegram/SourceFiles/data/data_histories.cpp  |   6 +
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  15 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ Telegram/SourceFiles/tele/tele_send_order.cpp | 297 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_send_order.h   |   8 +
+ 6 files changed, 330 insertions(+)
+
+diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
+index 30089124af11621e1b94b2493d486dc135944820..2ceaf52f45798265ef9b8e699f14e765c584f351 100644
+--- a/Telegram/SourceFiles/data/data_histories.cpp
++++ b/Telegram/SourceFiles/data/data_histories.cpp
+@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_ghost.h"
++#include "tele/tele_send_order.h"
+ 
+ namespace Data {
+ namespace {
+@@ -1179,6 +1180,11 @@ int Histories::sendPreparedMessage(
+ 		_creatingTopicRequests.emplace(id);
+ 		return id;
+ 	}
++	if (Tele::HoldBehindMedia(history, randomId, message(history, replyTo), [=] {
++		sendPreparedMessage(history, replyTo, randomId, message, done, fail);
++	})) {
++		return 0;
++	}
+ 	auto realReplyTo = replyTo;
+ 	const auto topicReplyToId = [&](const auto &id) {
+ 		return convertTopicReplyToId(history, id);
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 32fea520f63ed3beb1d6416de56352cce24cdb78..3bb9c2d26070573afe3f7a7a079650a3fc4d2d3b 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -961,6 +961,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionParallelUploads);
+ 	AddOptionToggle(builder, ::Tele::kOptionCalcmula);
+ 	AddOptionToggle(builder, ::Tele::kOptionSentToBottom);
++	AddOptionToggle(builder, ::Tele::kOptionQueueBehindMedia);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index bf0171ccf96a021e17e312550cf3b9895b75b2f2..27ad0f90ce728f9d2f17e670a5facd465a735503 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -50,6 +50,7 @@ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
+ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
++const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ 
+ namespace {
+ 
+@@ -345,6 +346,12 @@ base::options::toggle SentToBottomOption({
+ 	.description = "When a slow upload finishes after newer messages.",
+ });
+ 
++base::options::toggle QueueBehindMediaOption({
++	.id = kOptionQueueBehindMedia,
++	.name = "Queue messages behind uploading media",
++	.description = "Messages sent during an upload go out after it, in order.",
++});
++
+ } // namespace
+ 
+ bool HideStories() {
+@@ -700,4 +707,12 @@ bool SentToBottom() {
+ 	return SentToBottomOption.value();
+ }
+ 
++bool QueueBehindMedia() {
++	return QueueBehindMediaOption.value();
++}
++
++rpl::producer<> QueueBehindMediaChanges() {
++	return QueueBehindMediaOption.changes();
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 20491f09d7876144197fcab9de127e86e311f77d..cfbc281ad62698702247e32560753fe8633d80b7 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -48,6 +48,7 @@ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
+ extern const char kOptionSentToBottom[];
++extern const char kOptionQueueBehindMedia[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -118,5 +119,7 @@ void SetTitleTemplate(const QString &value);
+ void SetWindowTitleTemplate(const QString &value);
+ [[nodiscard]] rpl::producer<QString> WindowTitleTemplateValue();
+ [[nodiscard]] bool SentToBottom();
++[[nodiscard]] bool QueueBehindMedia();
++[[nodiscard]] rpl::producer<> QueueBehindMediaChanges();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_send_order.cpp b/Telegram/SourceFiles/tele/tele_send_order.cpp
+index da15effac4bc92d1bc5d9ccb9d1d5715453c8f63..68d15093dd5a88f2595011a52af5140f9d66fe73 100644
+--- a/Telegram/SourceFiles/tele/tele_send_order.cpp
++++ b/Telegram/SourceFiles/tele/tele_send_order.cpp
+@@ -1,10 +1,14 @@
+ #include "tele/tele_send_order.h"
+ 
++#include "data/data_changes.h"
+ #include "data/data_groups.h"
++#include "data/data_media_types.h"
+ #include "data/data_session.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "history/view/history_view_element.h"
++#include "main/main_session.h"
++#include "storage/file_upload.h"
+ #include "tele/tele_options.h"
+ 
+ namespace Tele {
+@@ -52,6 +56,260 @@ using Element = HistoryView::Element;
+ 		|| (block == thanBlock && view->indexInBlock() > than->indexInBlock());
+ }
+ 
++[[nodiscard]] mtpBuffer Serialize(const auto &request) {
++	auto result = mtpBuffer();
++	request.write(result);
++	return result;
++}
++
++[[nodiscard]] std::vector<uint64> ForwardRandomIds(
++		const MTPmessages_ForwardMessages &request) {
++	const auto buffer = Serialize(request);
++	auto from = buffer.constData();
++	const auto end = from + buffer.size();
++	auto type = MTPint();
++	auto flags = MTPint();
++	auto peer = MTPInputPeer();
++	auto ids = MTPVector<MTPint>();
++	auto randomIds = MTPVector<MTPlong>();
++	if (!type.read(from, end)
++		|| !flags.read(from, end)
++		|| !peer.read(from, end)
++		|| !ids.read(from, end)
++		|| !randomIds.read(from, end)) {
++		return {};
++	}
++	auto result = std::vector<uint64>();
++	result.reserve(randomIds.v.size());
++	for (const auto &randomId : randomIds.v) {
++		result.push_back(randomId.v);
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<uint64> AlbumRandomIds(
++		const MTPmessages_SendMultiMedia &request) {
++	using Flag = MTPmessages_sendMultiMedia::Flag;
++	const auto buffer = Serialize(request);
++	auto from = buffer.constData();
++	const auto end = from + buffer.size();
++	auto type = MTPint();
++	auto flags = MTPint();
++	auto peer = MTPInputPeer();
++	auto replyTo = MTPInputReplyTo();
++	auto media = MTPVector<MTPInputSingleMedia>();
++	if (!type.read(from, end)
++		|| !flags.read(from, end)
++		|| !peer.read(from, end)
++		|| ((uint32(flags.v) & uint32(Flag::f_reply_to))
++			&& !replyTo.read(from, end))
++		|| !media.read(from, end)) {
++		return {};
++	}
++	auto result = std::vector<uint64>();
++	result.reserve(media.v.size());
++	for (const auto &single : media.v) {
++		result.push_back(single.data().vrandom_id().v);
++	}
++	return result;
++}
++
++[[nodiscard]] std::vector<uint64> RandomIds(
++		uint64 randomId,
++		const Data::Histories::PreparedMessage &message) {
++	if (randomId) {
++		return { randomId };
++	}
++	return v::match(message, [](const MTPmessages_ForwardMessages &request) {
++		return ForwardRandomIds(request);
++	}, [](const MTPmessages_SendMultiMedia &request) {
++		return AlbumRandomIds(request);
++	}, [](const auto &) {
++		return std::vector<uint64>();
++	});
++}
++
++struct Held {
++	not_null<History*> history;
++	std::vector<FullMsgId> ids;
++	Fn<void()> send;
++};
++
++struct Queue {
++	std::vector<Held> held;
++	base::flat_set<FullMsgId> failed;
++	bool scheduled = false;
++};
++
++struct QueueState {
++	QueueState();
++
++	base::flat_map<not_null<Main::Session*>, Queue> sessions;
++	rpl::lifetime lifetime;
++};
++
++[[nodiscard]] QueueState &Queues() {
++	static QueueState state;
++	return state;
++}
++
++void Check(not_null<Main::Session*> session);
++
++void Schedule(not_null<Main::Session*> session) {
++	auto &sessions = Queues().sessions;
++	const auto i = sessions.find(session);
++	if (i == end(sessions) || i->second.scheduled) {
++		return;
++	}
++	i->second.scheduled = true;
++	crl::on_main(session, [=] {
++		Check(session);
++	});
++}
++
++QueueState::QueueState() {
++	QueueBehindMediaChanges(
++	) | rpl::on_next([] {
++		for (const auto &[session, queue] : Queues().sessions) {
++			Schedule(session);
++		}
++	}, lifetime);
++}
++
++void MarkFailed(not_null<Main::Session*> session, FullMsgId id) {
++	auto &sessions = Queues().sessions;
++	const auto i = sessions.find(session);
++	if (i != end(sessions)) {
++		i->second.failed.emplace(id);
++		Schedule(session);
++	}
++}
++
++[[nodiscard]] Queue &SessionQueue(not_null<Main::Session*> session) {
++	auto &sessions = Queues().sessions;
++	if (const auto i = sessions.find(session); i != end(sessions)) {
++		return i->second;
++	}
++	session->changes().historyUpdates(
++		Data::HistoryUpdate::Flag::ClientSideMessages
++	) | rpl::on_next([=] {
++		Schedule(session);
++	}, session->lifetime());
++	rpl::merge(
++		session->uploader().photoFailed(),
++		session->uploader().documentFailed()
++	) | rpl::on_next([=](FullMsgId id) {
++		MarkFailed(session, id);
++	}, session->lifetime());
++	session->data().sessionDataAboutToBeCleared(
++	) | rpl::on_next([=] {
++		Queues().sessions.remove(session);
++	}, session->lifetime());
++	session->lifetime().add([=] {
++		Queues().sessions.remove(session);
++	});
++	return sessions[session];
++}
++
++[[nodiscard]] bool IsHeld(const Queue *queue, FullMsgId id) {
++	if (!queue) {
++		return false;
++	}
++	for (const auto &entry : queue->held) {
++		if (ranges::contains(entry.ids, id)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] bool IsSendingMedia(
++		const Queue *queue,
++		not_null<HistoryItem*> item) {
++	const auto media = item->media();
++	return media
++		&& !media->webpage()
++		&& (media->photo() || media->document())
++		&& !(queue && queue->failed.contains(item->fullId()));
++}
++
++[[nodiscard]] bool Blocked(
++		not_null<History*> history,
++		const std::vector<FullMsgId> &ids,
++		const Queue *queue) {
++	const auto &owner = history->owner();
++	auto first = (HistoryItem*)nullptr;
++	for (const auto &id : ids) {
++		const auto item = owner.message(id);
++		if (item && (!first || item->id < first->id)) {
++			first = item;
++		}
++	}
++	if (!first) {
++		return false;
++	}
++	const auto topicRootId = first->topicRootId();
++	const auto sublistPeerId = first->sublistPeerId();
++	for (const auto &item : history->clientSideMessages()) {
++		if (item->id >= first->id
++			|| !item->isSending()
++			|| ranges::contains(ids, item->fullId())
++			|| item->topicRootId() != topicRootId
++			|| item->sublistPeerId() != sublistPeerId) {
++			continue;
++		} else if (IsHeld(queue, item->fullId())
++			|| IsSendingMedia(queue, item)) {
++			return true;
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] bool AnyAlive(const Held &entry) {
++	const auto &owner = entry.history->owner();
++	return ranges::any_of(entry.ids, [&](FullMsgId id) {
++		return owner.message(id) != nullptr;
++	});
++}
++
++void Check(not_null<Main::Session*> session) {
++	auto &sessions = Queues().sessions;
++	auto i = sessions.find(session);
++	if (i == end(sessions)) {
++		return;
++	}
++	i->second.scheduled = false;
++	const auto &owner = session->data();
++	for (auto j = begin(i->second.failed); j != end(i->second.failed);) {
++		if (owner.message(*j)) {
++			++j;
++		} else {
++			j = i->second.failed.erase(j);
++		}
++	}
++	const auto enabled = QueueBehindMedia();
++	auto index = 0;
++	while (true) {
++		i = sessions.find(session);
++		if (i == end(sessions) || index >= int(i->second.held.size())) {
++			return;
++		}
++		auto &queue = i->second;
++		const auto &entry = queue.held[index];
++		if (enabled
++			&& AnyAlive(entry)
++			&& Blocked(entry.history, entry.ids, &queue)) {
++			++index;
++			continue;
++		}
++		auto taken = std::move(queue.held[index]);
++		queue.held.erase(begin(queue.held) + index);
++		if (AnyAlive(taken)) {
++			taken.send();
++		}
++	}
++}
++
+ } // namespace
+ 
+ void MoveSentToBottom(not_null<HistoryItem*> item) {
+@@ -90,4 +348,43 @@ void MoveSentToBottom(not_null<HistoryItem*> item) {
+ 	history->owner().notifyHistoryChangeDelayed(history);
+ }
+ 
++bool HoldBehindMedia(
++		not_null<History*> history,
++		uint64 randomId,
++		const Data::Histories::PreparedMessage &message,
++		Fn<void()> send) {
++	if (!QueueBehindMedia()) {
++		return false;
++	}
++	const auto session = &history->session();
++	const auto &owner = history->owner();
++	auto ids = std::vector<FullMsgId>();
++	for (const auto id : RandomIds(randomId, message)) {
++		const auto itemId = owner.messageIdByRandomId(id);
++		const auto item = itemId ? owner.message(itemId) : nullptr;
++		if (item
++			&& item->history() == history
++			&& item->isHistoryEntry()
++			&& item->isSending()
++			&& IsClientMsgId(item->id)) {
++			ids.push_back(itemId);
++		}
++	}
++	if (ids.empty()) {
++		return false;
++	}
++	const auto &sessions = Queues().sessions;
++	const auto i = sessions.find(session);
++	const auto queue = (i != end(sessions)) ? &i->second : nullptr;
++	if (!Blocked(history, ids, queue)) {
++		return false;
++	}
++	SessionQueue(session).held.push_back({
++		.history = history,
++		.ids = std::move(ids),
++		.send = std::move(send),
++	});
++	return true;
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_send_order.h b/Telegram/SourceFiles/tele/tele_send_order.h
+index e1a6f0f9853db0b9e7ea5181a284d497c0a4abfc..8e8c88a51e8f990b794394b0e6d030d48748267f 100644
+--- a/Telegram/SourceFiles/tele/tele_send_order.h
++++ b/Telegram/SourceFiles/tele/tele_send_order.h
+@@ -1,9 +1,17 @@
+ #pragma once
+ 
++#include "data/data_histories.h"
++
++class History;
+ class HistoryItem;
+ 
+ namespace Tele {
+ 
+ void MoveSentToBottom(not_null<HistoryItem*> item);
++[[nodiscard]] bool HoldBehindMedia(
++	not_null<History*> history,
++	uint64 randomId,
++	const Data::Histories::PreparedMessage &message,
++	Fn<void()> send);
+ 
+ } // namespace Tele

@@ -1,0 +1,204 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 18:37:32 +0300
+Subject: [PATCH] feat: upload media in several chats at once
+
+---
+ Telegram/CMakeLists.txt                       |  1 +
+ .../SourceFiles/settings/settings_tele.cpp    |  3 +
+ Telegram/SourceFiles/storage/file_upload.cpp  |  9 ++-
+ Telegram/SourceFiles/tele/tele_options.cpp    | 11 ++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 +
+ Telegram/SourceFiles/tele/tele_uploads.h      | 60 +++++++++++++++++++
+ 6 files changed, 84 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_uploads.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 49de4294591597030f0741b71feda14f9ea29317..6124b344e8aa6db8576a7400dbd2a166080dfa66 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2535,6 +2535,7 @@ PRIVATE
+     tele/tele_title_template.h
+     tele/tele_updater.cpp
+     tele/tele_updater.h
++    tele/tele_uploads.h
+     tele/tele_view_tl.cpp
+     tele/tele_view_tl.h
+ )
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 46b917be98d627067c1cbec9cc41c47b5a4a3d7e..b78a3d6ad94c720d920058ab93ab9a8c8c9fe970 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -956,6 +956,9 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(builder, ::Tele::kOptionDeletedIcon);
+ 	AddGroupDivider(builder);
++	AddGroupTitle(builder, u"Sending"_q);
++	AddOptionToggle(builder, ::Tele::kOptionParallelUploads);
++	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Disappearing media"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionKeepSecretMedia);
+ 	AddOptionToggle(builder, ::Tele::kOptionScreenshotSecretMedia);
+diff --git a/Telegram/SourceFiles/storage/file_upload.cpp b/Telegram/SourceFiles/storage/file_upload.cpp
+index a19470a24b6a62b58c63d8cc21d831641d970260..d8b3c0e5b8fcaf429e277641557d06ea41669e10 100644
+--- a/Telegram/SourceFiles/storage/file_upload.cpp
++++ b/Telegram/SourceFiles/storage/file_upload.cpp
+@@ -31,6 +31,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "storage/storage_account.h"
+ #include "apiwrap.h"
++#include "tele/tele_uploads.h"
+ 
+ #include <QtCore/QFileInfo>
+ 
+@@ -727,6 +728,9 @@ Uploader::Entry *Uploader::chooseEntryForNextRequest() {
+ 		Assert(i != end(_queue));
+ 		return &*i;
+ 	}
++	if (::Tele::ParallelUploads()) {
++		return ::Tele::ChooseParallelUpload(_queue, _requests);
++	}
+ 
+ 	for (auto i = begin(_queue); i != end(_queue); ++i) {
+ 		if (i->preparing) {
+@@ -1068,7 +1072,8 @@ void Uploader::partLoaded(const MTPBool &result, mtpRequestId requestId) {
+ 		_nonPremiumDelays.fire_copy(itemId);
+ 	}
+ 
+-	if (!_queue.empty() && itemId == _queue.front().itemId) {
++	if (!_queue.empty()
++		&& (itemId == _queue.front().itemId || ::Tele::ParallelUploads())) {
+ 		maybeFinishFront();
+ 	}
+ 	maybeSend();
+@@ -1104,7 +1109,7 @@ void Uploader::maybeFinishFront() {
+ 			&& !entry.partsWaiting
+ 			&& !entry.docPartsWaiting) {
+ 			finishFront();
+-		} else {
++		} else if (!::Tele::RaiseFinishedUpload(_queue)) {
+ 			break;
+ 		}
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 81552d22fe7b5be5846c5c0800dff953a11a0d00..69149320b4222096be4f3a384b363afe667ccfcb 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -43,6 +43,7 @@ const char kOptionDeletedIcon[] = "tele-deleted-icon";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionViewAsTl[] = "tele-view-as-tl";
++const char kOptionParallelUploads[] = "tele-parallel-uploads";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
+@@ -294,6 +295,12 @@ base::options::toggle ViewAsTlOption({
+ 	.description = "Opens messages, chats and more on schema.jppgr.am.",
+ });
+ 
++base::options::toggle ParallelUploadsOption({
++	.id = kOptionParallelUploads,
++	.name = "Upload media in several chats at once",
++	.description = "Files in one chat still go one after another.",
++});
++
+ base::options::option<QString> ServerUrlOption({
+ 	.id = kOptionServerUrl,
+ 	.name = "tele server",
+@@ -601,6 +608,10 @@ bool ViewAsTl() {
+ 	return ViewAsTlOption.value();
+ }
+ 
++bool ParallelUploads() {
++	return ParallelUploadsOption.value();
++}
++
+ QString ServerUrl() {
+ 	return ServerUrlOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 6990ac3450f715f3338be93658bcf12b43e6d53f..1a09cbbc6eba92dba635da85c8e2391dc8653776 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -41,6 +41,7 @@ extern const char kOptionDeletedIcon[];
+ extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionViewAsTl[];
++extern const char kOptionParallelUploads[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
+@@ -101,6 +102,7 @@ void SetIgnoredList(const QString &value);
+ [[nodiscard]] bool KeepSecretMedia();
+ [[nodiscard]] bool ScreenshotSecretMedia();
+ [[nodiscard]] bool ViewAsTl();
++[[nodiscard]] bool ParallelUploads();
+ [[nodiscard]] QString ServerUrl();
+ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();
+diff --git a/Telegram/SourceFiles/tele/tele_uploads.h b/Telegram/SourceFiles/tele/tele_uploads.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..5799a8264fb097a3843706216a4717bacb776d7e
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_uploads.h
+@@ -0,0 +1,60 @@
++#pragma once
++
++#include "tele/tele_options.h"
++
++namespace Tele {
++
++template <typename Queue, typename Requests>
++[[nodiscard]] auto ChooseParallelUpload(
++		Queue &queue,
++		const Requests &requests) -> decltype(&queue.front()) {
++	auto result = decltype(&queue.front())(nullptr);
++	auto resultBytes = int64();
++	auto peers = std::vector<PeerId>();
++	for (auto &entry : queue) {
++		const auto peer = entry.itemId.peer;
++		if (entry.preparing
++			|| (entry.partsSent >= entry.parts->size()
++				&& entry.docPartsSent >= entry.docPartsCount)
++			|| ranges::contains(peers, peer)) {
++			continue;
++		}
++		peers.push_back(peer);
++		auto bytes = int64();
++		for (const auto &[requestId, request] : requests) {
++			if (request.itemId.peer == peer) {
++				bytes += request.bytes.size();
++			}
++		}
++		if (!result || bytes < resultBytes) {
++			result = &entry;
++			resultBytes = bytes;
++		}
++	}
++	return result;
++}
++
++template <typename Queue>
++[[nodiscard]] bool RaiseFinishedUpload(Queue &queue) {
++	if (!ParallelUploads()) {
++		return false;
++	}
++	auto peers = std::vector<PeerId>();
++	for (auto i = begin(queue); i != end(queue); ++i) {
++		const auto peer = i->itemId.peer;
++		if (ranges::contains(peers, peer)) {
++			continue;
++		}
++		peers.push_back(peer);
++		if (i->partsSent >= i->parts->size()
++			&& i->docPartsSent >= i->docPartsCount
++			&& !i->partsWaiting
++			&& !i->docPartsWaiting) {
++			std::rotate(begin(queue), i, std::next(i));
++			return true;
++		}
++	}
++	return false;
++}
++
++} // namespace Tele

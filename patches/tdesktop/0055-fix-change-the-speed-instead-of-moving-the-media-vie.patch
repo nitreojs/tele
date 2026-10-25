@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 19:30:37 +0300
+Subject: [PATCH] fix: change the speed instead of moving the media viewer
+ while holding
+
+---
+ Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index 93f17fc59e3801926973aed242d44c672cab12d9..24ebd0073e97b87bfde5e5af086afc15ec710e24 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -1053,6 +1053,7 @@ void OverlayWidget::setupWindow() {
+ 		}
+ 		const auto inControls = ((_over != Over::None) && (_over != Over::Video));
+ 		if (inControls
++			|| (_speedBoostActive && _speedBoostFromMouse)
+ 			|| (_streamed
+ 				&& _streamed->controls
+ 				&& _streamed->controls->dragging())) {

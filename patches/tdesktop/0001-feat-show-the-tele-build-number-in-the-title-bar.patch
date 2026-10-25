@@ -13,10 +13,10 @@ Subject: [PATCH] feat: show the tele build number in the title bar
  create mode 100644 Telegram/SourceFiles/tele/tele_build.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 811707d7fdcebc4bb80c7f9e20b8bb4cd885bf43..b4bd7fbc0bd0707aa5d3e3e73f033235fcb958fa 100644
+index 11d2fc68269f2581dbbc76a290e759fdc205c88a..f80e99a8f2aa4295f14cad9c089043e5cd06cceb 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2370,6 +2370,17 @@ else()
+@@ -2478,6 +2478,17 @@ else()
      )
  endif()
  
@@ -70,10 +70,10 @@ index 0000000000000000000000000000000000000000..2e2bceb142dfe499e63f170dc41128d2
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index ae2b4949734e6c8826310c96b65f51b630ab600d..3e9c31e82428ccc21e46b6309eaee4df35f6168b 100644
+index 1fc83264f07ab1ce97a6413a9088e7937ae05346..eaec34d2a89038c384c760380b30426d61c4ac2c 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
-@@ -47,6 +47,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "mainwidget.h" // session->content()->windowShown().
  #include "tray.h"
@@ -81,7 +81,7 @@ index ae2b4949734e6c8826310c96b65f51b630ab600d..3e9c31e82428ccc21e46b6309eaee4df
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
  
-@@ -570,9 +571,7 @@ void MainWindow::init() {
+@@ -578,9 +579,7 @@ void MainWindow::init() {
  		}, lifetime());
  	}
  	refreshTitleWidget();
@@ -92,7 +92,7 @@ index ae2b4949734e6c8826310c96b65f51b630ab600d..3e9c31e82428ccc21e46b6309eaee4df
  
  	updateTitle();
  	updateWindowIcon();
-@@ -703,7 +702,7 @@ void MainWindow::setupCanaryTitleLabel() {
+@@ -711,7 +710,7 @@ void MainWindow::setupCanaryTitleLabel() {
  	const auto label = Ui::CreateTitleSubWidget(
  		title,
  		st::titleSubWidgetStyle,
@@ -101,7 +101,7 @@ index ae2b4949734e6c8826310c96b65f51b630ab600d..3e9c31e82428ccc21e46b6309eaee4df
  		layout->value(
  		) | rpl::map([](const Ui::Platform::TitleLayout &layout) {
  			return layout.onLeft() ? style::al_right : style::al_left;
-@@ -718,11 +717,9 @@ void MainWindow::setupCanaryTitleLabel() {
+@@ -726,11 +725,9 @@ void MainWindow::setupCanaryTitleLabel() {
  }
  
  QString MainWindow::nativeTitleSuffix() const {

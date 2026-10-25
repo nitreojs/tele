@@ -1,0 +1,1311 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 21:42:51 +0300
+Subject: [PATCH] feat: show edit history as a chat
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/tele/tele_edit_history.cpp    | 269 +++---
+ Telegram/SourceFiles/tele/tele_edit_history.h |  17 +
+ .../tele/tele_edit_history_section.cpp        | 765 ++++++++++++++++++
+ .../tele/tele_edit_history_section.h          |  42 +
+ Telegram/SourceFiles/tele/tele_time.cpp       |   5 +-
+ 6 files changed, 985 insertions(+), 115 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_edit_history_section.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_edit_history_section.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 215f4f0d33d635bc537a04d85a7342b26df126df..d40aa2d8c71bce7b0b8a816c368dd146215e8b63 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2511,6 +2511,8 @@ PRIVATE
+     tele/tele_edit_history.h
+     tele/tele_editor_eyedropper.cpp
+     tele/tele_editor_eyedropper.h
++    tele/tele_edit_history_section.cpp
++    tele/tele_edit_history_section.h
+     tele/tele_folders.cpp
+     tele/tele_folders.h
+     tele/tele_gifts.cpp
+diff --git a/Telegram/SourceFiles/tele/tele_edit_history.cpp b/Telegram/SourceFiles/tele/tele_edit_history.cpp
+index 5afcb65649dfc1555e5cf4cd8e85c2ce4a23c6b4..9fdce6d62d80698bcf59e3f603e461ba3056fe79 100644
+--- a/Telegram/SourceFiles/tele/tele_edit_history.cpp
++++ b/Telegram/SourceFiles/tele/tele_edit_history.cpp
+@@ -1,7 +1,6 @@
+ #include "tele/tele_edit_history.h"
+ 
+ #include "base/unixtime.h"
+-#include "core/ui_integration.h"
+ #include "data/data_document.h"
+ #include "data/data_groups.h"
+ #include "data/data_media_types.h"
+@@ -11,15 +10,12 @@
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "history/history_item_components.h"
+-#include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_edit_history_section.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+-#include "ui/layers/generic_box.h"
+-#include "ui/widgets/labels.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "window/window_session_controller.h"
+-#include "styles/style_layers.h"
+ #include "styles/style_menu_icons.h"
+ 
+ namespace Tele {
+@@ -27,6 +23,7 @@ namespace {
+ 
+ struct Version {
+ 	EditContent content;
++	FullMsgId snapshot;
+ 	TimeId date = 0;
+ 	bool original = false;
+ };
+@@ -39,6 +36,7 @@ struct Record {
+ 
+ struct SessionState {
+ 	base::flat_map<not_null<const HistoryItem*>, Record> records;
++	rpl::event_stream<not_null<const HistoryItem*>> changes;
+ 	rpl::lifetime lifetime;
+ };
+ 
+@@ -51,21 +49,55 @@ struct State {
+ 	rpl::lifetime lifetime;
+ };
+ 
+-struct Entry {
+-	QString header;
+-	TextWithEntities text;
+-};
+-
+ [[nodiscard]] State &Get() {
+ 	static State state;
+ 	return state;
+ }
+ 
++void DestroySnapshots(
++		not_null<Main::Session*> session,
++		const std::vector<FullMsgId> &ids) {
++	for (const auto &id : ids) {
++		if (const auto item = session->data().message(id)) {
++			item->destroy();
++		}
++	}
++}
++
++void DestroySnapshotsLater(
++		not_null<Main::Session*> session,
++		std::vector<FullMsgId> ids) {
++	if (ids.empty()) {
++		return;
++	}
++	crl::on_main(session.get(), [=] {
++		DestroySnapshots(session, ids);
++	});
++}
++
++[[nodiscard]] std::vector<FullMsgId> SnapshotIds(const Record &record) {
++	auto result = std::vector<FullMsgId>();
++	result.reserve(record.versions.size());
++	for (const auto &version : record.versions) {
++		result.push_back(version.snapshot);
++	}
++	return result;
++}
++
+ State::State() {
+ 	EditHistoryValue(
+ 	) | rpl::on_next([=](bool enabled) {
+-		if (!enabled) {
+-			sessions.clear();
++		if (enabled) {
++			return;
++		}
++		auto taken = base::take(sessions);
++		for (const auto &[session, state] : taken) {
++			auto ids = std::vector<FullMsgId>();
++			for (const auto &[item, record] : state->records) {
++				const auto list = SnapshotIds(record);
++				ids.insert(end(ids), begin(list), end(list));
++			}
++			DestroySnapshots(session, ids);
+ 		}
+ 	}, lifetime);
+ }
+@@ -81,7 +113,13 @@ State::State() {
+ 		std::make_unique<SessionState>()).first->second.get();
+ 	session->data().itemRemoved(
+ 	) | rpl::on_next([=](not_null<const HistoryItem*> item) {
+-		state->records.remove(item);
++		const auto i = state->records.find(item);
++		if (i == end(state->records)) {
++			return;
++		}
++		auto ids = SnapshotIds(i->second);
++		state->records.erase(i);
++		DestroySnapshotsLater(session, std::move(ids));
+ 	}, state->lifetime);
+ 	session->lifetime().add([=] {
+ 		Get().sessions.remove(session);
+@@ -148,12 +186,10 @@ State::State() {
+ 	return result;
+ }
+ 
+-[[nodiscard]] bool SameMedia(const EditContent &a, const EditContent &b) {
+-	return (a.media == b.media) && (a.mediaId == b.mediaId);
+-}
+-
+ [[nodiscard]] bool Same(const EditContent &a, const EditContent &b) {
+-	return SameMedia(a, b) && (a.text == b.text);
++	return (a.media == b.media)
++		&& (a.mediaId == b.mediaId)
++		&& (a.text == b.text);
+ }
+ 
+ [[nodiscard]] TimeId EditDate(not_null<const HistoryItem*> item) {
+@@ -161,6 +197,11 @@ State::State() {
+ 	return edited ? edited->date : TimeId();
+ }
+ 
++[[nodiscard]] bool Capturable(not_null<const HistoryItem*> item) {
++	return !item->isService()
++		&& (item->isHistoryEntry() || item->isScheduled());
++}
++
+ [[nodiscard]] Record *Versions(not_null<const HistoryItem*> item) {
+ 	if (!EditHistory()) {
+ 		return nullptr;
+@@ -171,11 +212,18 @@ State::State() {
+ 	}
+ 	const auto current = Read(item);
+ 	auto &versions = record->versions;
++	auto dropped = std::vector<FullMsgId>();
+ 	while (!versions.empty() && Same(versions.back().content, current)) {
+ 		record->since = versions.back().date;
+ 		record->original = versions.back().original;
++		dropped.push_back(versions.back().snapshot);
+ 		versions.pop_back();
+ 	}
++	if (!dropped.empty()) {
++		const auto session = &item->history()->session();
++		DestroySnapshotsLater(session, std::move(dropped));
++		Sessions(session).changes.fire_copy(item);
++	}
+ 	return versions.empty() ? nullptr : record;
+ }
+ 
+@@ -194,109 +242,36 @@ State::State() {
+ 	return nullptr;
+ }
+ 
+-[[nodiscard]] QString FormatDate(TimeId date) {
+-	const auto parsed = base::unixtime::parse(date);
+-	const auto time = parsed.time().toString(u"HH:mm:ss"_q);
+-	return (parsed.date() == QDate::currentDate())
+-		? time
+-		: (QLocale().toString(parsed.date(), QLocale::ShortFormat)
+-			+ QChar(' ')
+-			+ time);
+-}
+-
+-[[nodiscard]] std::vector<Entry> Entries(
+-		not_null<const HistoryItem*> item,
+-		const Record &record) {
+-	auto list = record.versions;
+-	list.push_back({
+-		.content = Read(item),
+-		.date = record.since,
+-		.original = record.original,
+-	});
+-	auto result = std::vector<Entry>();
+-	result.reserve(list.size());
+-	for (auto i = 0, count = int(list.size()); i != count; ++i) {
+-		const auto &version = list[i];
+-		const auto &content = version.content;
+-		const auto date = FormatDate(version.date);
+-		auto header = (i + 1 < count)
+-			? (version.original
+-				? Lower(u"Original, %1"_q).arg(date)
+-				: Lower(u"Edited %1"_q).arg(date))
+-			: (version.original
+-				? Lower(u"Current, original, %1"_q).arg(date)
+-				: Lower(u"Current, edited %1"_q).arg(date));
+-		const auto mediaChanged = (i > 0
+-				&& !SameMedia(list[i - 1].content, content))
+-			|| (i + 1 < count
+-				&& !SameMedia(list[i + 1].content, content));
+-		if (!content.media.isEmpty()
+-			&& (content.text.empty() || mediaChanged)) {
+-			header += u" \u00B7 "_q + Lower(content.media);
+-		}
+-		result.push_back({
+-			.header = std::move(header),
+-			.text = content.text,
+-		});
+-	}
+-	return result;
+-}
+-
+-void EditHistoryBox(
+-		not_null<Ui::GenericBox*> box,
+-		not_null<Main::Session*> session,
+-		std::vector<Entry> entries) {
+-	box->setTitle(rpl::single(Lower(u"Edit history"_q)));
+-	box->setWidth(st::boxWideWidth);
+-	const auto padding = style::margins(
+-		st::boxRowPadding.left(),
+-		st::defaultSubsectionTitlePadding.top(),
+-		st::boxRowPadding.right(),
+-		st::defaultSubsectionTitlePadding.bottom());
+-	for (const auto &entry : entries) {
+-		box->addRow(
+-			object_ptr<Ui::FlatLabel>(
+-				box,
+-				entry.header,
+-				st::defaultSubsectionTitle),
+-			padding);
+-		if (!entry.text.empty()) {
+-			const auto label = box->addRow(
+-				object_ptr<Ui::FlatLabel>(
+-					box,
+-					rpl::single(entry.text),
+-					st::boxLabel,
+-					st::defaultPopupMenu,
+-					Core::TextContext({ .session = session })));
+-			label->setSelectable(true);
+-		}
+-	}
+-	box->addSkip(st::boxLittleSkip);
+-	box->addButton(tr::lng_close(), [=] {
+-		box->closeBox();
+-	});
+-}
+-
+ } // namespace
+ 
+ EditCapture::EditCapture(not_null<HistoryItem*> item) {
+-	if (!EditHistory() || item->isService() || item->isEditingMedia()) {
++	if (!EditHistory() || !Capturable(item) || item->isEditingMedia()) {
+ 		return;
+ 	}
+ 	_item = item;
+ 	_before = Read(item);
+ 	_editDate = EditDate(item);
++	const auto record = FindRecord(item);
++	const auto date = record
++		? record->since
++		: _editDate
++		? _editDate
++		: item->date();
++	_snapshot = MakeEditVersionCopy(item, date)->fullId();
+ }
+ 
+ EditCapture::~EditCapture() {
+-	if (!_item || !EditHistory() || _item->isService()) {
++	if (!_item) {
+ 		return;
+ 	}
+ 	const auto item = not_null<HistoryItem*>(_item);
+-	if (Same(_before, Read(item))) {
++	const auto session = &item->history()->session();
++	if (!EditHistory() || !Capturable(item) || Same(_before, Read(item))) {
++		DestroySnapshotsLater(session, { _snapshot });
+ 		return;
+ 	}
+-	auto &records = Sessions(&item->history()->session()).records;
++	auto &state = Sessions(session);
++	auto &records = state.records;
+ 	auto i = records.find(item);
+ 	if (i == end(records)) {
+ 		i = records.emplace(item, Record{
+@@ -307,6 +282,7 @@ EditCapture::~EditCapture() {
+ 	auto &record = i->second;
+ 	record.versions.push_back({
+ 		.content = std::move(_before),
++		.snapshot = _snapshot,
+ 		.date = record.since,
+ 		.original = record.original,
+ 	});
+@@ -315,6 +291,77 @@ EditCapture::~EditCapture() {
+ 		? editDate
+ 		: base::unixtime::now();
+ 	record.original = false;
++	state.changes.fire_copy(item);
++}
++
++not_null<HistoryItem*> MakeEditVersionCopy(
++		not_null<HistoryItem*> source,
++		TimeId date) {
++	const auto history = source->history();
++	const auto from = source->from();
++	auto flags = MessageFlags(MessageFlag::FakeHistoryItem);
++	if (source->out()) {
++		flags |= MessageFlag::Outgoing;
++	}
++	if (source->isPost()) {
++		flags |= MessageFlag::Post;
++	}
++	if (from != history->peer) {
++		flags |= MessageFlag::HasFromId;
++	}
++	const auto result = history->makeMessage({
++		.id = history->nextNonHistoryEntryId(),
++		.flags = flags,
++		.from = from->id,
++		.date = date,
++		.ignoreForwardFrom = true,
++	}, source);
++	const auto &text = source->originalText();
++	if (!source->richPage()
++		&& !text.empty()
++		&& result->originalText() != text) {
++		result->setText(text);
++	}
++	return result;
++}
++
++std::vector<EditVersion> EditVersions(not_null<HistoryItem*> item) {
++	const auto record = Versions(item);
++	if (!record) {
++		return {};
++	}
++	auto &owner = item->history()->owner();
++	auto result = std::vector<EditVersion>();
++	result.reserve(record->versions.size() + 1);
++	for (const auto &version : record->versions) {
++		if (const auto snapshot = owner.message(version.snapshot)) {
++			result.push_back({
++				.item = snapshot,
++				.date = version.date,
++				.original = version.original,
++			});
++		}
++	}
++	if (result.empty()) {
++		return {};
++	}
++	result.push_back({
++		.item = item,
++		.date = record->since,
++		.original = record->original,
++		.current = true,
++	});
++	return result;
++}
++
++rpl::producer<> EditVersionsChanges(not_null<HistoryItem*> item) {
++	const auto raw = item.get();
++	return Sessions(
++		&item->history()->session()
++	).changes.events(
++	) | rpl::filter([=](not_null<const HistoryItem*> changed) {
++		return (changed.get() == raw);
++	}) | rpl::to_empty;
+ }
+ 
+ void AddEditHistoryAction(
+@@ -325,18 +372,12 @@ void AddEditHistoryAction(
+ 	if (!target) {
+ 		return;
+ 	}
+-	const auto session = &target->history()->session();
++	const auto history = target->history();
+ 	const auto itemId = target->fullId();
+ 	const auto controller = navigation->parentController();
+ 	menu->addAction(Lower(u"Edit history"_q), [=] {
+-		const auto item = session->data().message(itemId);
+-		const auto record = item ? Versions(item) : nullptr;
+-		if (record) {
+-			controller->show(Box(
+-				EditHistoryBox,
+-				session,
+-				Entries(item, *record)));
+-		}
++		controller->showSection(
++			std::make_shared<EditHistoryMemento>(history, itemId));
+ 	}, &st::menuIconGroupLog);
+ }
+ 
+diff --git a/Telegram/SourceFiles/tele/tele_edit_history.h b/Telegram/SourceFiles/tele/tele_edit_history.h
+index 9240c6a0f458a1a29a465b94a4e7094f0bf51fc6..b11c48b6c4efb0c91e94532e9b7c50c1fa508537 100644
+--- a/Telegram/SourceFiles/tele/tele_edit_history.h
++++ b/Telegram/SourceFiles/tele/tele_edit_history.h
+@@ -1,5 +1,6 @@
+ #pragma once
+ 
++#include "data/data_msg_id.h"
+ #include "ui/text/text_entity.h"
+ 
+ class HistoryItem;
+@@ -20,6 +21,13 @@ struct EditContent {
+ 	uint64 mediaId = 0;
+ };
+ 
++struct EditVersion {
++	not_null<HistoryItem*> item;
++	TimeId date = 0;
++	bool original = false;
++	bool current = false;
++};
++
+ class EditCapture final {
+ public:
+ 	explicit EditCapture(not_null<HistoryItem*> item);
+@@ -30,10 +38,19 @@ public:
+ private:
+ 	HistoryItem *_item = nullptr;
+ 	EditContent _before;
++	FullMsgId _snapshot;
+ 	TimeId _editDate = 0;
+ 
+ };
+ 
++[[nodiscard]] not_null<HistoryItem*> MakeEditVersionCopy(
++	not_null<HistoryItem*> source,
++	TimeId date);
++[[nodiscard]] std::vector<EditVersion> EditVersions(
++	not_null<HistoryItem*> item);
++[[nodiscard]] rpl::producer<> EditVersionsChanges(
++	not_null<HistoryItem*> item);
++
+ void AddEditHistoryAction(
+ 	not_null<Ui::PopupMenu*> menu,
+ 	not_null<Window::SessionNavigation*> navigation,
+diff --git a/Telegram/SourceFiles/tele/tele_edit_history_section.cpp b/Telegram/SourceFiles/tele/tele_edit_history_section.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b6c3e2100881edfc24456c96663221db230a19a2
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_edit_history_section.cpp
+@@ -0,0 +1,765 @@
++#include "tele/tele_edit_history_section.h"
++
++#include "base/unixtime.h"
++#include "data/data_changes.h"
++#include "data/data_peer_values.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_helpers.h"
++#include "history/history_view_swipe_back_session.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "tele/tele_edit_history.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_time.h"
++#include "ui/chat/chat_style.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/elastic_scroll.h"
++#include "ui/widgets/shadow.h"
++#include "ui/painter.h"
++#include "ui/ui_utility.h"
++#include "window/window_adaptive.h"
++#include "window/window_session_controller.h"
++#include "styles/style_chat.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_dialogs.h"
++#include "styles/style_info.h"
++#include "styles/style_window.h"
++
++namespace Tele {
++namespace {
++
++using namespace HistoryView;
++
++[[nodiscard]] QString FormatDate(TimeId date) {
++	const auto parsed = base::unixtime::parse(date);
++	const auto time = FormatMessageTime(parsed.time());
++	return (parsed.date() == QDate::currentDate())
++		? time
++		: (QLocale().toString(parsed.date(), QLocale::ShortFormat)
++			+ QChar(' ')
++			+ time);
++}
++
++[[nodiscard]] QString Label(const EditVersion &version) {
++	const auto date = FormatDate(version.date);
++	return (version.current
++		? (version.original
++			? Lower(u"Current version, sent %1"_q)
++			: Lower(u"Current version, edited %1"_q))
++		: (version.original
++			? Lower(u"Original, sent %1"_q)
++			: Lower(u"Edited %1"_q))).arg(date);
++}
++
++[[nodiscard]] not_null<HistoryItem*> MakeDivider(
++		not_null<History*> history,
++		const EditVersion &version) {
++	return history->makeMessage({
++		.id = history->nextNonHistoryEntryId(),
++		.flags = MessageFlag::FakeHistoryItem,
++		.date = version.date,
++	}, PreparedServiceText{ { .text = Label(version) } });
++}
++
++void DestroyItems(
++		not_null<History*> history,
++		const std::vector<FullMsgId> &ids) {
++	for (const auto &id : ids) {
++		if (const auto item = history->owner().message(id)) {
++			item->destroy();
++		}
++	}
++}
++
++class TopBar final : public Ui::RpWidget {
++public:
++	TopBar(QWidget *parent, not_null<PeerData*> peer, Fn<void()> back);
++
++private:
++	int resizeGetHeight(int newWidth) override;
++	void paintEvent(QPaintEvent *e) override;
++
++	const not_null<PeerData*> _peer;
++	object_ptr<Ui::IconButton> _back;
++
++};
++
++TopBar::TopBar(QWidget *parent, not_null<PeerData*> peer, Fn<void()> back)
++: RpWidget(parent)
++, _peer(peer)
++, _back(this, st::historyTopBarBack) {
++	_back->setClickedCallback(std::move(back));
++	_back->setAccessibleName(tr::lng_go_back(tr::now));
++	_back->moveToLeft(0, 0);
++	_peer->session().changes().peerUpdates(
++		_peer,
++		Data::PeerUpdate::Flag::Name
++	) | rpl::on_next([=] {
++		update();
++	}, lifetime());
++}
++
++int TopBar::resizeGetHeight(int newWidth) {
++	return st::topBarHeight;
++}
++
++void TopBar::paintEvent(QPaintEvent *e) {
++	auto p = Painter(this);
++	p.fillRect(e->rect(), st::topBarBg);
++	const auto left = _back->width();
++	const auto available = std::max(
++		width() - left - st::topBarArrowPadding.right(),
++		0);
++	const auto title = Lower(u"Edit history"_q);
++	const auto subtitle = _peer->isSelf()
++		? tr::lng_saved_messages(tr::now)
++		: _peer->name();
++	p.setPen(st::dialogsNameFg);
++	p.setFont(st::semiboldFont);
++	p.drawTextLeft(
++		left,
++		st::topBarArrowPadding.top(),
++		width(),
++		st::semiboldFont->elided(title, available));
++	p.setPen(st::historyStatusFg);
++	p.setFont(st::dialogsTextFont);
++	p.drawTextLeft(
++		left,
++		(st::topBarHeight
++			- st::topBarArrowPadding.bottom()
++			- st::dialogsTextFont->height),
++		width(),
++		st::dialogsTextFont->elided(subtitle, available));
++}
++
++class EditHistoryWidget final
++	: public Window::SectionWidget
++	, private HistoryView::WindowListDelegate {
++public:
++	EditHistoryWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		not_null<History*> history,
++		FullMsgId itemId);
++	~EditHistoryWidget();
++
++	Dialogs::RowDescriptor activeChat() const override;
++
++	bool hasTopBarShadow() const override {
++		return true;
++	}
++
++	QPixmap grabForShowAnimation(
++		const Window::SectionSlideParams &params) override;
++
++	bool showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) override;
++	std::shared_ptr<Window::SectionMemento> createMemento() override;
++
++	void setInternalState(
++		const QRect &geometry,
++		not_null<EditHistoryMemento*> memento);
++
++	bool floatPlayerHandleWheelEvent(QEvent *e) override;
++	QRect floatPlayerAvailableRect() override;
++
++	Context listContext() override;
++	bool listScrollTo(int top, bool syntetic = true) override;
++	void listCancelRequest() override;
++	void listDeleteRequest() override;
++	void listTryProcessKeyInput(not_null<QKeyEvent*> e) override;
++	rpl::producer<Data::MessagesSlice> listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) override;
++	bool listAllowsMultiSelect() override;
++	bool listIsItemGoodForSelection(not_null<HistoryItem*> item) override;
++	bool listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) override;
++	void listSelectionChanged(SelectedItems &&items) override;
++	void listMarkReadTill(not_null<HistoryItem*> item) override;
++	void listMarkContentsRead(
++		const base::flat_set<not_null<HistoryItem*>> &items) override;
++	MessagesBarData listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) override;
++	void listContentRefreshed() override;
++	void listUpdateDateLink(
++		ClickHandlerPtr &link,
++		not_null<Element*> view) override;
++	bool listElementHideReply(not_null<const Element*> view) override;
++	bool listElementShownUnread(not_null<const Element*> view) override;
++	bool listIsGoodForAroundPosition(
++		not_null<const Element*> view) override;
++	void listSendBotCommand(
++		const QString &command,
++		const FullMsgId &context) override;
++	void listSearch(
++		const QString &query,
++		const FullMsgId &context) override;
++	void listHandleViaClick(not_null<UserData*> bot) override;
++	not_null<Ui::ChatTheme*> listChatTheme() override;
++	CopyRestrictionType listCopyRestrictionType(HistoryItem *item) override;
++	CopyRestrictionType listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) override;
++	CopyRestrictionType listSelectRestrictionType() override;
++	auto listAllowedReactionsValue()
++		-> rpl::producer<Data::AllowedReactions> override;
++	void listShowPremiumToast(not_null<DocumentData*> document) override;
++	void listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) override;
++	void listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) override;
++	void listPaintEmpty(
++		Painter &p,
++		const Ui::ChatPaintContext &context) override;
++	QString listElementAuthorRank(not_null<const Element*> view) override;
++	bool listElementHideTopicButton(not_null<const Element*> view) override;
++	History *listTranslateHistory() override;
++	void listAddTranslatedItems(
++		not_null<TranslateTracker*> tracker) override;
++	bool listAllowsDragForward() override;
++	Ui::ElasticScroll *listScrollArea() const override;
++	bool listThanosEffectEnabled() const override;
++
++private:
++	void resizeEvent(QResizeEvent *e) override;
++	void paintEvent(QPaintEvent *e) override;
++
++	void showAnimatedHook(
++		const Window::SectionSlideParams &params) override;
++	void showFinishedHook() override;
++	void doSetInnerFocus() override;
++	void checkActivation() override;
++
++	void onScroll();
++	void updateInnerVisibleArea();
++	void updateControlsGeometry();
++	void updateAdaptiveLayout();
++	void saveState(not_null<EditHistoryMemento*> memento);
++	void restoreState(not_null<EditHistoryMemento*> memento);
++	void recountChatWidth();
++
++	[[nodiscard]] bool build();
++	void scheduleRebuild();
++	void rebuild();
++	[[nodiscard]] Data::MessagesSlice buildSlice() const;
++
++	const not_null<History*> _history;
++	const FullMsgId _itemId;
++	std::shared_ptr<Ui::ChatTheme> _theme;
++	QPointer<ListWidget> _inner;
++	object_ptr<TopBar> _topBar;
++	object_ptr<Ui::PlainShadow> _topBarShadow;
++
++	bool _skipScrollEvent = false;
++	std::unique_ptr<Ui::ElasticScroll> _scroll;
++
++	std::vector<FullMsgId> _ids;
++	rpl::event_stream<> _refreshes;
++	bool _rebuildScheduled = false;
++
++};
++
++EditHistoryWidget::EditHistoryWidget(
++	QWidget *parent,
++	not_null<Window::SessionController*> controller,
++	not_null<History*> history,
++	FullMsgId itemId)
++: Window::SectionWidget(parent, controller, history->peer)
++, HistoryView::WindowListDelegate(controller)
++, _history(history)
++, _itemId(itemId)
++, _topBar(this, history->peer, [=] { controller->showBackFromStack(); })
++, _topBarShadow(this)
++, _scroll(std::make_unique<Ui::ElasticScroll>(
++	this,
++	controller->chatStyle()->value(lifetime(), st::historyScroll))) {
++	controller->chatStyle()->paletteChanged(
++	) | rpl::on_next([=] {
++		_scroll->updateBars();
++	}, _scroll->lifetime());
++
++	Window::ChatThemeValueFromPeer(
++		controller,
++		history->peer
++	) | rpl::on_next([=](std::shared_ptr<Ui::ChatTheme> &&theme) {
++		_theme = std::move(theme);
++		controller->setChatStyleTheme(_theme);
++	}, lifetime());
++
++	_topBar->move(0, 0);
++	_topBar->resizeToWidth(width());
++	_topBar->show();
++
++	_topBarShadow->raise();
++	controller->adaptive().value(
++	) | rpl::on_next([=] {
++		updateAdaptiveLayout();
++	}, lifetime());
++
++	_scroll->setHandleTouch(false);
++	_inner = _scroll->setOwnedWidget(object_ptr<ListWidget>(
++		this,
++		&controller->session(),
++		static_cast<ListDelegate*>(this)));
++	_inner->lower();
++	_scroll->move(0, _topBar->height());
++	_scroll->show();
++	_scroll->setOverscrollBg(QColor(0, 0, 0, 0));
++	_scroll->setOverscrollEdges([=] {
++		return _inner->loadedAtTopKnown() && _inner->loadedAtTop();
++	}, [=] {
++		return _inner->loadedAtBottomKnown() && _inner->loadedAtBottom();
++	});
++	_scroll->scrolls(
++	) | rpl::on_next([=] {
++		onScroll();
++	}, lifetime());
++
++	_inner->scrollKeyEvents(
++	) | rpl::on_next([=](not_null<QKeyEvent*> e) {
++		_scroll->keyPressEvent(e);
++	}, lifetime());
++
++	if (const auto item = history->owner().message(itemId)) {
++		EditVersionsChanges(
++			item
++		) | rpl::on_next([=] {
++			scheduleRebuild();
++		}, lifetime());
++	}
++	history->owner().itemRemoved(
++	) | rpl::filter([=](not_null<const HistoryItem*> item) {
++		return (item->fullId() == _itemId);
++	}) | rpl::on_next([=] {
++		scheduleRebuild();
++	}, lifetime());
++
++	if (!build()) {
++		scheduleRebuild();
++	}
++
++	Window::SetupSwipeBackSection(this, _scroll.get(), _inner);
++}
++
++EditHistoryWidget::~EditHistoryWidget() {
++	DestroyItems(_history, base::take(_ids));
++}
++
++bool EditHistoryWidget::build() {
++	const auto item = _history->owner().message(_itemId);
++	const auto versions = item
++		? EditVersions(item)
++		: std::vector<EditVersion>();
++	if (versions.empty()) {
++		return false;
++	}
++	_ids.reserve(versions.size() * 2);
++	for (const auto &version : versions) {
++		_ids.push_back(MakeDivider(_history, version)->fullId());
++		_ids.push_back(
++			MakeEditVersionCopy(version.item, version.date)->fullId());
++	}
++	return true;
++}
++
++void EditHistoryWidget::scheduleRebuild() {
++	if (_rebuildScheduled) {
++		return;
++	}
++	_rebuildScheduled = true;
++	crl::on_main(this, [=] {
++		_rebuildScheduled = false;
++		rebuild();
++	});
++}
++
++void EditHistoryWidget::rebuild() {
++	const auto old = base::take(_ids);
++	const auto built = build();
++	_refreshes.fire({});
++	DestroyItems(_history, old);
++	if (!built) {
++		controller()->showBackFromStack();
++	}
++}
++
++Data::MessagesSlice EditHistoryWidget::buildSlice() const {
++	auto result = Data::MessagesSlice();
++	result.ids = _ids;
++	result.fullCount = int(_ids.size());
++	result.skippedBefore = result.skippedAfter = 0;
++	if (!_ids.empty()) {
++		result.nearestToAround = _ids.back();
++	}
++	return result;
++}
++
++void EditHistoryWidget::updateAdaptiveLayout() {
++	_topBarShadow->moveToLeft(
++		controller()->adaptive().isOneColumn() ? 0 : st::lineWidth,
++		_topBar->height());
++}
++
++Dialogs::RowDescriptor EditHistoryWidget::activeChat() const {
++	return {
++		_history,
++		FullMsgId(_history->peer->id, ShowAtUnreadMsgId)
++	};
++}
++
++QPixmap EditHistoryWidget::grabForShowAnimation(
++		const Window::SectionSlideParams &params) {
++	if (params.withTopBarShadow) _topBarShadow->hide();
++	auto result = Ui::GrabWidget(this);
++	if (params.withTopBarShadow) _topBarShadow->show();
++	return result;
++}
++
++void EditHistoryWidget::checkActivation() {
++	_inner->checkActivation();
++}
++
++void EditHistoryWidget::doSetInnerFocus() {
++	_inner->setFocus();
++}
++
++bool EditHistoryWidget::showInternal(
++		not_null<Window::SectionMemento*> memento,
++		const Window::SectionShow &params) {
++	const auto edit = dynamic_cast<EditHistoryMemento*>(memento.get());
++	if (edit
++		&& edit->history() == _history
++		&& edit->itemId() == _itemId) {
++		restoreState(edit);
++		return true;
++	}
++	return false;
++}
++
++void EditHistoryWidget::setInternalState(
++		const QRect &geometry,
++		not_null<EditHistoryMemento*> memento) {
++	setGeometry(geometry);
++	Ui::SendPendingMoveResizeEvents(this);
++	restoreState(memento);
++}
++
++std::shared_ptr<Window::SectionMemento> EditHistoryWidget::createMemento() {
++	auto result = std::make_shared<EditHistoryMemento>(_history, _itemId);
++	saveState(result.get());
++	return result;
++}
++
++void EditHistoryWidget::saveState(not_null<EditHistoryMemento*> memento) {
++	_inner->saveState(memento->list());
++}
++
++void EditHistoryWidget::restoreState(
++		not_null<EditHistoryMemento*> memento) {
++	_inner->restoreState(memento->list());
++}
++
++void EditHistoryWidget::resizeEvent(QResizeEvent *e) {
++	if (!width() || !height()) {
++		return;
++	}
++	recountChatWidth();
++	updateControlsGeometry();
++}
++
++void EditHistoryWidget::recountChatWidth() {
++	auto layout = (width() < st::adaptiveChatWideWidth)
++		? Window::Adaptive::ChatLayout::Normal
++		: Window::Adaptive::ChatLayout::Wide;
++	controller()->adaptive().setChatLayout(layout);
++}
++
++void EditHistoryWidget::updateControlsGeometry() {
++	const auto contentWidth = width();
++
++	const auto newScrollTop = _scroll->isHidden()
++		? std::nullopt
++		: base::make_optional(_scroll->scrollTop() + takeTopDelta());
++	_topBar->resizeToWidth(contentWidth);
++	_topBarShadow->resize(contentWidth, st::lineWidth);
++
++	const auto top = _topBar->height();
++	const auto scrollSize = QSize(contentWidth, height() - top);
++	if (_scroll->size() != scrollSize) {
++		_skipScrollEvent = true;
++		_scroll->resize(scrollSize);
++		_inner->resizeToWidth(scrollSize.width(), _scroll->height());
++		_skipScrollEvent = false;
++	}
++	_scroll->move(0, top);
++	if (!_scroll->isHidden()) {
++		if (newScrollTop) {
++			_scroll->scrollToY(*newScrollTop);
++		}
++		updateInnerVisibleArea();
++	}
++}
++
++void EditHistoryWidget::paintEvent(QPaintEvent *e) {
++	if (animatingShow()) {
++		SectionWidget::paintEvent(e);
++		return;
++	} else if (controller()->contentOverlapped(this, e)) {
++		return;
++	}
++
++	const auto aboveHeight = _topBar->height();
++	const auto bg = e->rect().intersected(
++		QRect(0, aboveHeight, width(), height() - aboveHeight));
++	SectionWidget::PaintBackground(controller(), _theme.get(), this, bg);
++}
++
++void EditHistoryWidget::onScroll() {
++	if (_skipScrollEvent) {
++		return;
++	}
++	updateInnerVisibleArea();
++}
++
++void EditHistoryWidget::updateInnerVisibleArea() {
++	const auto scrollTop = _scroll->scrollTop();
++	_inner->setVisibleTopBottom(scrollTop, scrollTop + _scroll->height());
++}
++
++void EditHistoryWidget::showAnimatedHook(
++		const Window::SectionSlideParams &params) {
++	if (params.withTopBarShadow) {
++		_topBarShadow->show();
++	}
++}
++
++void EditHistoryWidget::showFinishedHook() {
++	_inner->showFinished();
++}
++
++bool EditHistoryWidget::floatPlayerHandleWheelEvent(QEvent *e) {
++	return _scroll->viewportEvent(e);
++}
++
++QRect EditHistoryWidget::floatPlayerAvailableRect() {
++	return mapToGlobal(_scroll->geometry());
++}
++
++Context EditHistoryWidget::listContext() {
++	return Context::ChatPreview;
++}
++
++bool EditHistoryWidget::listScrollTo(int top, bool syntetic) {
++	top = std::clamp(top, 0, _scroll->scrollTopMax());
++	if (_scroll->scrollTop() == top) {
++		updateInnerVisibleArea();
++		return false;
++	}
++	_scroll->scrollToY(top);
++	return true;
++}
++
++void EditHistoryWidget::listCancelRequest() {
++	controller()->showBackFromStack();
++}
++
++void EditHistoryWidget::listDeleteRequest() {
++}
++
++void EditHistoryWidget::listTryProcessKeyInput(not_null<QKeyEvent*> e) {
++}
++
++rpl::producer<Data::MessagesSlice> EditHistoryWidget::listSource(
++		Data::MessagePosition aroundId,
++		int limitBefore,
++		int limitAfter) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		_refreshes.events()
++	) | rpl::map([=] {
++		return buildSlice();
++	});
++}
++
++bool EditHistoryWidget::listAllowsMultiSelect() {
++	return false;
++}
++
++bool EditHistoryWidget::listIsItemGoodForSelection(
++		not_null<HistoryItem*> item) {
++	return false;
++}
++
++bool EditHistoryWidget::listIsLessInOrder(
++		not_null<HistoryItem*> first,
++		not_null<HistoryItem*> second) {
++	return first->id < second->id;
++}
++
++void EditHistoryWidget::listSelectionChanged(SelectedItems &&items) {
++}
++
++void EditHistoryWidget::listMarkReadTill(not_null<HistoryItem*> item) {
++}
++
++void EditHistoryWidget::listMarkContentsRead(
++	const base::flat_set<not_null<HistoryItem*>> &items) {
++}
++
++MessagesBarData EditHistoryWidget::listMessagesBar(
++		const std::vector<not_null<Element*>> &elements,
++		bool markLastAsRead) {
++	return {};
++}
++
++void EditHistoryWidget::listContentRefreshed() {
++}
++
++void EditHistoryWidget::listUpdateDateLink(
++	ClickHandlerPtr &link,
++	not_null<Element*> view) {
++}
++
++bool EditHistoryWidget::listElementHideReply(not_null<const Element*> view) {
++	return false;
++}
++
++bool EditHistoryWidget::listElementShownUnread(
++		not_null<const Element*> view) {
++	return false;
++}
++
++bool EditHistoryWidget::listIsGoodForAroundPosition(
++		not_null<const Element*> view) {
++	return true;
++}
++
++void EditHistoryWidget::listSendBotCommand(
++	const QString &command,
++	const FullMsgId &context) {
++}
++
++void EditHistoryWidget::listSearch(
++		const QString &query,
++		const FullMsgId &context) {
++	const auto inChat = _history->peer->isUser()
++		? Dialogs::Key()
++		: Dialogs::Key(_history);
++	controller()->searchMessages(query, inChat);
++}
++
++void EditHistoryWidget::listHandleViaClick(not_null<UserData*> bot) {
++}
++
++not_null<Ui::ChatTheme*> EditHistoryWidget::listChatTheme() {
++	return _theme.get();
++}
++
++CopyRestrictionType EditHistoryWidget::listCopyRestrictionType(
++		HistoryItem *item) {
++	return CopyRestrictionTypeFor(_history->peer, item);
++}
++
++CopyRestrictionType EditHistoryWidget::listCopyMediaRestrictionType(
++		not_null<HistoryItem*> item) {
++	return CopyMediaRestrictionTypeFor(_history->peer, item);
++}
++
++CopyRestrictionType EditHistoryWidget::listSelectRestrictionType() {
++	return SelectRestrictionTypeFor(_history->peer);
++}
++
++auto EditHistoryWidget::listAllowedReactionsValue()
++-> rpl::producer<Data::AllowedReactions> {
++	return Data::PeerAllowedReactionsValue(_history->peer);
++}
++
++void EditHistoryWidget::listShowPremiumToast(
++	not_null<DocumentData*> document) {
++}
++
++void EditHistoryWidget::listOpenPhoto(
++		not_null<PhotoData*> photo,
++		FullMsgId context) {
++	controller()->openPhoto(photo, { .id = context });
++}
++
++void EditHistoryWidget::listOpenDocument(
++		not_null<DocumentData*> document,
++		FullMsgId context,
++		bool showInMediaView) {
++	controller()->openDocument(document, showInMediaView, { .id = context });
++}
++
++void EditHistoryWidget::listPaintEmpty(
++	Painter &p,
++	const Ui::ChatPaintContext &context) {
++}
++
++QString EditHistoryWidget::listElementAuthorRank(
++		not_null<const Element*> view) {
++	return {};
++}
++
++bool EditHistoryWidget::listElementHideTopicButton(
++		not_null<const Element*> view) {
++	return true;
++}
++
++History *EditHistoryWidget::listTranslateHistory() {
++	return nullptr;
++}
++
++void EditHistoryWidget::listAddTranslatedItems(
++	not_null<TranslateTracker*> tracker) {
++}
++
++bool EditHistoryWidget::listAllowsDragForward() {
++	return false;
++}
++
++Ui::ElasticScroll *EditHistoryWidget::listScrollArea() const {
++	return _scroll.get();
++}
++
++bool EditHistoryWidget::listThanosEffectEnabled() const {
++	return false;
++}
++
++} // namespace
++
++EditHistoryMemento::EditHistoryMemento(
++	not_null<History*> history,
++	FullMsgId itemId)
++: _history(history)
++, _itemId(itemId) {
++}
++
++object_ptr<Window::SectionWidget> EditHistoryMemento::createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) {
++	if (column == Window::Column::Third) {
++		return nullptr;
++	}
++	auto result = object_ptr<EditHistoryWidget>(
++		parent,
++		controller,
++		_history,
++		_itemId);
++	result->setInternalState(geometry, this);
++	return result;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_edit_history_section.h b/Telegram/SourceFiles/tele/tele_edit_history_section.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..dd2757db772087cc8bf21b6e4080247e3ce2e2fd
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_edit_history_section.h
+@@ -0,0 +1,42 @@
++#pragma once
++
++#include "window/section_widget.h"
++#include "window/section_memento.h"
++#include "history/view/history_view_list_widget.h"
++
++class History;
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++class EditHistoryMemento final : public Window::SectionMemento {
++public:
++	EditHistoryMemento(not_null<History*> history, FullMsgId itemId);
++
++	object_ptr<Window::SectionWidget> createWidget(
++		QWidget *parent,
++		not_null<Window::SessionController*> controller,
++		Window::Column column,
++		const QRect &geometry) override;
++
++	[[nodiscard]] not_null<History*> history() const {
++		return _history;
++	}
++	[[nodiscard]] FullMsgId itemId() const {
++		return _itemId;
++	}
++	[[nodiscard]] not_null<HistoryView::ListMemento*> list() {
++		return &_list;
++	}
++
++private:
++	const not_null<History*> _history;
++	const FullMsgId _itemId;
++	HistoryView::ListMemento _list;
++
++};
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_time.cpp b/Telegram/SourceFiles/tele/tele_time.cpp
+index fa7cd6b5d35f0acb19bf9996e9e25995186bd479..873ff0bea0624a55c2a4e479ff60d5bade9d0cc5 100644
+--- a/Telegram/SourceFiles/tele/tele_time.cpp
++++ b/Telegram/SourceFiles/tele/tele_time.cpp
+@@ -97,7 +97,10 @@ QString FormatMessageSavedFromDate(const QDateTime &dateTime) {
+ TextWithEntities WithServiceTime(
+ 		not_null<const HistoryItem*> item,
+ 		const TextWithEntities &text) {
+-	if (!MessageSeconds() || text.empty() || item->date() <= 0) {
++	if (!MessageSeconds()
++		|| text.empty()
++		|| item->date() <= 0
++		|| !item->isHistoryEntry()) {
+ 		return text;
+ 	}
+ 	auto result = text;

@@ -1,0 +1,250 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 11:52:59 +0300
+Subject: [PATCH] fix: retry failed upload parts
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ Telegram/SourceFiles/storage/file_upload.cpp  | 38 ++++++++-
+ .../SourceFiles/tele/tele_upload_retry.cpp    | 56 +++++++++++++
+ Telegram/SourceFiles/tele/tele_upload_retry.h | 84 +++++++++++++++++++
+ 4 files changed, 178 insertions(+), 2 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_upload_retry.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_upload_retry.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 9d99d457636d527ea35b890e7888287b7b4fcea2..a535838c0c0dbf27e372bbb1e3a70db80825f713 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2800,6 +2800,8 @@ PRIVATE
+     tele/tele_unsorted_folder.h
+     tele/tele_updater.cpp
+     tele/tele_updater.h
++    tele/tele_upload_retry.cpp
++    tele/tele_upload_retry.h
+     tele/tele_uploads.h
+     tele/tele_username_aliases.cpp
+     tele/tele_username_aliases.h
+diff --git a/Telegram/SourceFiles/storage/file_upload.cpp b/Telegram/SourceFiles/storage/file_upload.cpp
+index b157815de096189c9d57c28aae32719a191c73ab..2087364bccd6ba07e5825089fc6f1e18118d16a1 100644
+--- a/Telegram/SourceFiles/storage/file_upload.cpp
++++ b/Telegram/SourceFiles/storage/file_upload.cpp
+@@ -31,7 +31,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "storage/storage_account.h"
+ #include "apiwrap.h"
++#include "base/call_delayed.h"
+ #include "tele/tele_download_folders.h"
++#include "tele/tele_upload_retry.h"
+ #include "tele/tele_uploads.h"
+ 
+ #include <QtCore/QFileInfo>
+@@ -122,6 +124,7 @@ struct Uploader::Request {
+ 	bool docPart = false;
+ 	bool bigPart = false;
+ 	bool nonPremiumDelayed = false;
++	uchar retries = 0;
+ };
+ 
+ Uploader::Entry::Entry(
+@@ -868,6 +871,7 @@ auto Uploader::sendSlicedPart(not_null<Entry*> entry, uchar dcIndex)
+ 	), {
+ 		.itemId = itemId,
+ 		.bytes = partBytes,
++		.part = index,
+ 		.dcIndex = dcIndex,
+ 	});
+ 	return SendResult::Success;
+@@ -1230,8 +1234,38 @@ void Uploader::finishFront() {
+ }
+ 
+ void Uploader::partFailed(const MTP::Error &error, mtpRequestId requestId) {
+-	const auto request = finishRequest(requestId);
+-	failed(request.itemId);
++	auto request = finishRequest(requestId);
++	const auto itemId = request.itemId;
++	const auto i = ranges::find(_queue, itemId, &Entry::itemId);
++	if (i != end(_queue)) {
++		const auto file = std::weak_ptr(i->file);
++		const auto requeue = [&](Request &&request, crl::time delay) {
++			if (!delay) {
++				_pendingFromRemovedDcIndices.push_back(std::move(request));
++				return;
++			}
++			base::call_delayed(delay, this, [=, request = std::move(request)](
++					) mutable {
++				const auto i = ranges::find(_queue, itemId, &Entry::itemId);
++				if (i != end(_queue) && i->file == file.lock()) {
++					_pendingFromRemovedDcIndices.push_back(std::move(request));
++					maybeSend();
++				}
++			});
++		};
++		if (::Tele::RetryUploadPart(
++				*i,
++				std::move(request),
++				error,
++				_requests,
++				_pendingFromRemovedDcIndices,
++				requeue)) {
++			maybeSend();
++			return;
++		}
++		::Tele::UploadPartFailed(i->file->filename, error);
++	}
++	failed(itemId);
+ }
+ 
+ void Uploader::uploadVideoCover(
+diff --git a/Telegram/SourceFiles/tele/tele_upload_retry.cpp b/Telegram/SourceFiles/tele/tele_upload_retry.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..78be2d47b5382d279dc57754774c67e2ffc5d4c1
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_upload_retry.cpp
+@@ -0,0 +1,56 @@
++#include "tele/tele_upload_retry.h"
++
++#include "mtproto/mtproto_response.h"
++#include "tele/tele_lowercase.h"
++#include "ui/toast/toast.h"
++
++#include <QtCore/QFile>
++#include <QtCore/QRegularExpression>
++
++namespace Tele {
++
++std::optional<int> MissingUploadPart(const MTP::Error &error) {
++	static const auto expression = QRegularExpression(
++		u"^FILE_PART_(\\d+)_MISSING$"_q);
++	const auto match = expression.match(error.type());
++	if (!match.hasMatch()) {
++		return std::nullopt;
++	}
++	auto ok = false;
++	const auto result = match.captured(1).toInt(&ok);
++	return ok ? std::make_optional(result) : std::nullopt;
++}
++
++crl::time UploadPartRetryDelay(int retry) {
++	return crl::time(1000) << std::clamp(retry - 1, 0, 4);
++}
++
++QByteArray ReadUploadPart(
++		const QByteArray &content,
++		const QString &path,
++		int64 offset,
++		int size) {
++	if (!content.isEmpty()) {
++		return (offset < content.size()) ? content.mid(offset, size) : QByteArray();
++	}
++	auto file = QFile(path);
++	if (path.isEmpty()
++		|| !file.open(QIODevice::ReadOnly)
++		|| !file.seek(offset)) {
++		return QByteArray();
++	}
++	return file.read(size);
++}
++
++void UploadPartFailed(const QString &name, const MTP::Error &error) {
++	LOG(("Uploader: Part of \"%1\" failed with %2 %3."
++		).arg(name
++		).arg(error.code()
++		).arg(error.type()));
++	const auto what = name.isEmpty()
++		? Lower(u"Couldn't upload the file"_q)
++		: (Lower(u"Couldn't upload"_q) + ' ' + name);
++	Ui::Toast::Show(what + u": "_q + error.type());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_upload_retry.h b/Telegram/SourceFiles/tele/tele_upload_retry.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..b35e89fa2d9ac4eab3ab315945a16de84c050726
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_upload_retry.h
+@@ -0,0 +1,84 @@
++#pragma once
++
++namespace MTP {
++class Error;
++} // namespace MTP
++
++namespace Tele {
++
++inline constexpr auto kUploadPartRetries = 3;
++
++[[nodiscard]] std::optional<int> MissingUploadPart(const MTP::Error &error);
++[[nodiscard]] crl::time UploadPartRetryDelay(int retry);
++[[nodiscard]] QByteArray ReadUploadPart(
++	const QByteArray &content,
++	const QString &path,
++	int64 offset,
++	int size);
++void UploadPartFailed(const QString &name, const MTP::Error &error);
++
++template <
++	typename Entry,
++	typename Request,
++	typename Requests,
++	typename Pending,
++	typename Requeue>
++[[nodiscard]] bool RetryUploadPart(
++		Entry &entry,
++		Request &&request,
++		const MTP::Error &error,
++		const Requests &requests,
++		const Pending &pending,
++		Requeue &&requeue) {
++	if (++request.retries > kUploadPartRetries) {
++		return false;
++	}
++	const auto missing = MissingUploadPart(error);
++	if (!missing) {
++		const auto delay = UploadPartRetryDelay(request.retries);
++		requeue(std::move(request), delay);
++		return true;
++	}
++	const auto part = *missing;
++	const auto same = [&](const auto &other) {
++		return (other.itemId == request.itemId)
++			&& (other.docPart == request.docPart)
++			&& (int(other.part) == part);
++	};
++	const auto flying = ranges::any_of(requests, [&](const auto &pair) {
++		return same(pair.second);
++	}) || ranges::any_of(pending, same);
++	const auto sent = request.docPart
++		? int(entry.docPartsSent)
++		: int(entry.partsSent);
++	if (part != int(request.part) && part >= 0 && part < sent && !flying) {
++		auto bytes = request.docPart
++			? ReadUploadPart(
++				entry.file->content,
++				entry.file->filepath,
++				int64(part) * entry.docPartSize,
++				entry.docPartSize)
++			: entry.parts->at(part);
++		if (bytes.isEmpty()) {
++			return false;
++		}
++		if (request.docPart) {
++			++entry.docPartsWaiting;
++			entry.docSentSize -= bytes.size();
++		} else {
++			++entry.partsWaiting;
++			entry.sentSize -= bytes.size();
++		}
++		auto resent = std::remove_cvref_t<Request>();
++		resent.itemId = request.itemId;
++		resent.bytes = std::move(bytes);
++		resent.part = ushort(part);
++		resent.docPart = request.docPart;
++		resent.bigPart = request.bigPart;
++		requeue(std::move(resent), crl::time(0));
++	}
++	requeue(std::move(request), crl::time(0));
++	return true;
++}
++
++} // namespace Tele

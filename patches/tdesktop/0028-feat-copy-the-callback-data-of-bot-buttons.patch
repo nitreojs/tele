@@ -11,10 +11,10 @@ Subject: [PATCH] feat: copy the callback data of bot buttons
  4 files changed, 102 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 97d2d36073e39e66a44c00256a13b2e90ab6e4f5..fa4c2c3dca36761636624754776b6ba3d719bdc7 100644
+index e308de10066bed313f7f2aec02a020fdb1633a02..51c171cce720f3e05ddbe6e97be1d2a880e2d012 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -129,6 +129,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_histories.h"
  #include "data/data_changes.h"
  #include "dialogs/ui/dialogs_video_userpic.h"
@@ -22,7 +22,7 @@ index 97d2d36073e39e66a44c00256a13b2e90ab6e4f5..fa4c2c3dca36761636624754776b6ba3
  #include "tele/tele_deleted.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ignored.h"
-@@ -3710,6 +3711,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3722,6 +3723,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				HistoryView::CopyPostLink(controller, itemId, HistoryView::Context::History);
  			}, &st::menuIconLink);
  		}
@@ -34,7 +34,7 @@ index 97d2d36073e39e66a44c00256a13b2e90ab6e4f5..fa4c2c3dca36761636624754776b6ba3
  			const auto hasAbout = ranges::any_of(
  				_menu->actions(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 81aa2bea08553d78553143258481e00262a50497..222f552ff30c11d56534eceb1956b899c62be2ee 100644
+index 8ba2fb4d2d6478dc3b92ade0a87792f718b22266..ba5d28517e875be0f48fc35f6ee233567f45381a 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index 81aa2bea08553d78553143258481e00262a50497..222f552ff30c11d56534eceb1956b899
  #include "tele/tele_deleted.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_secret_media.h"
-@@ -1929,6 +1930,10 @@ void FillContextMenuItems(
+@@ -1930,6 +1931,10 @@ void FillContextMenuItems(
  	}
  
  	AddCopyLinkAction(result, link);

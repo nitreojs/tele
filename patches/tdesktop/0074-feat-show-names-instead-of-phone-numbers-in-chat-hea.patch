@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 01:06:05 +0300
+Subject: [PATCH] feat: show names instead of phone numbers in chat headers
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../view/history_view_top_bar_widget.cpp      |  3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    | 23 ++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  3 +
+ Telegram/SourceFiles/tele/tele_phones.cpp     | 55 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_phones.h       |  9 +++
+ 7 files changed, 95 insertions(+), 1 deletion(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_phones.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_phones.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index cbe63bb9930cef01e45790df8fd9d385ce0d47e4..1cedc3656ea9cef2d71214cca2d27ad4d7c3e503 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2549,6 +2549,8 @@ PRIVATE
+     tele/tele_options.h
+     tele/tele_peer_id.cpp
+     tele/tele_peer_id.h
++    tele/tele_phones.cpp
++    tele/tele_phones.h
+     tele/tele_rich_timestamps.cpp
+     tele/tele_rich_timestamps.h
+     tele/tele_secret_media.cpp
+diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
+index 6cb499b61bbecb6e64a8e844b2ad6c82bb7ecc66..8024357cdea12a78cfe71cc36a9ba39d43b7bcbb 100644
+--- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
+@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "api/api_chat_participants.h"
+ #include "tele/tele_calls.h"
++#include "tele/tele_phones.h"
+ #include "styles/style_window.h"
+ #include "styles/style_dialogs.h"
+ #include "styles/style_chat.h"
+@@ -97,7 +98,7 @@ QString TopBarNameText(
+ 			return tr::lng_hidden_author_messages(tr::now);
+ 		}
+ 	}
+-	return peer->topBarNameText();
++	return Tele::TopBarNameText(peer);
+ }
+ 
+ } // namespace
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index ddddecbeac4dff41803c3fa31354fa435127789c..f97fd8fe5bcd295ed78f6eee6f159cd3444e3951 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1348,6 +1348,7 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowDc);
++	AddOptionToggle(builder, ::Tele::kOptionNoPhoneInHeader);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Gifts"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index ac6e3f310ccc7375f58dc9658d06d0f4bf668ee6..b03aba4f5b256d35e97e9572df1dad30c94db0e2 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -69,6 +69,7 @@ const char kOptionInlineWithoutVia[] = "tele-inline-without-via";
+ const char kOptionNoRichPastePrompt[] = "tele-no-rich-paste-prompt";
+ const char kOptionChatBackgrounds[] = "tele-chat-backgrounds";
+ const char kOptionUsernameAliases[] = "tele-username-aliases";
++const char kOptionNoPhoneInHeader[] = "tele-no-phone-in-header";
+ 
+ namespace {
+ 
+@@ -485,6 +486,14 @@ base::options::option<QString> UsernameAliasesOption({
+ 		"Clicking one opens the linked chat, sending one mentions it.",
+ });
+ 
++base::options::toggle NoPhoneInHeaderOption({
++	.id = kOptionNoPhoneInHeader,
++	.name = "Names instead of phone numbers in chats",
++	.description = "People who shared their number with you but aren't in "
++		"your contacts keep their name in the chat header. The number stays "
++		"in their profile.",
++});
++
+ void MigrateHideCalls() {
+ 	if (!HideCallsOption.value()) {
+ 		return;
+@@ -1012,4 +1021,18 @@ rpl::producer<QString> UsernameAliasesValue() {
+ 	});
+ }
+ 
++bool NoPhoneInHeader() {
++	return NoPhoneInHeaderOption.value();
++}
++
++rpl::producer<bool> NoPhoneInHeaderValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		NoPhoneInHeaderOption.changes()
++	) | rpl::map([] {
++		return NoPhoneInHeaderOption.value();
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 9321ac99d182095664db4ae7788a205173dadbcf..2f830654da028dbb225bab91fa384c022bb7105d 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -66,6 +66,7 @@ extern const char kOptionInlineWithoutVia[];
+ extern const char kOptionNoRichPastePrompt[];
+ extern const char kOptionChatBackgrounds[];
+ extern const char kOptionUsernameAliases[];
++extern const char kOptionNoPhoneInHeader[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
+@@ -167,5 +168,7 @@ void SetChatBackgrounds(const QString &value);
+ [[nodiscard]] rpl::producer<QString> ChatBackgroundsValue();
+ void SetUsernameAliases(const QString &value);
+ [[nodiscard]] rpl::producer<QString> UsernameAliasesValue();
++[[nodiscard]] bool NoPhoneInHeader();
++[[nodiscard]] rpl::producer<bool> NoPhoneInHeaderValue();
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_phones.cpp b/Telegram/SourceFiles/tele/tele_phones.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..706ace65492bf8d9cad4274c4418994c0ce2eebd
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_phones.cpp
+@@ -0,0 +1,55 @@
++#include "tele/tele_phones.h"
++
++#include "core/application.h"
++#include "data/data_peer.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++namespace {
++
++void Refresh(not_null<UserData*> user) {
++	const auto phone = user->nameOrPhone;
++	if (phone.isEmpty()) {
++		return;
++	}
++	const auto username = user->editableUsername();
++	user->setName(user->firstName, user->lastName, QString(), username);
++	user->setName(user->firstName, user->lastName, phone, username);
++}
++
++void Track() {
++	static auto tracked = false;
++	if (tracked) {
++		return;
++	}
++	tracked = true;
++	static auto lifetime = rpl::lifetime();
++	NoPhoneInHeaderValue(
++	) | rpl::skip(1) | rpl::on_next([] {
++		if (!Core::IsAppLaunched()) {
++			return;
++		}
++		for (const auto &[index, account] : Core::App().domain().accounts()) {
++			if (const auto session = account->maybeSession()) {
++				session->data().enumerateUsers(Refresh);
++			}
++		}
++	}, lifetime);
++}
++
++} // namespace
++
++QString TopBarNameText(not_null<PeerData*> peer) {
++	Track();
++	const auto user = peer->asUser();
++	return (user && !user->isSelf() && NoPhoneInHeader())
++		? user->name()
++		: peer->topBarNameText();
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_phones.h b/Telegram/SourceFiles/tele/tele_phones.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..42971452c3e0bc01859a16907f799eb3906baa89
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_phones.h
+@@ -0,0 +1,9 @@
++#pragma once
++
++class PeerData;
++
++namespace Tele {
++
++[[nodiscard]] QString TopBarNameText(not_null<PeerData*> peer);
++
++} // namespace Tele

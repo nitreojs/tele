@@ -1,0 +1,204 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 29 Sep 2026 17:10:03 +0300
+Subject: [PATCH] feat: hide and show the pinned bar from the chat menu
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/tele/tele_show_pinned.cpp     | 115 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_show_pinned.h  |  22 ++++
+ .../SourceFiles/window/window_peer_menu.cpp   |   3 +
+ 4 files changed, 142 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_show_pinned.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_show_pinned.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 3cf0875cd866195ca9631c85abcd4c1aeed2e438..c0c65904c48487df22478e28047cb65174a1cf6b 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2645,6 +2645,8 @@ PRIVATE
+     tele/tele_shot.h
+     tele/tele_shot_sharp.cpp
+     tele/tele_shot_sharp.h
++    tele/tele_show_pinned.cpp
++    tele/tele_show_pinned.h
+     tele/tele_silent.cpp
+     tele/tele_silent.h
+     tele/tele_spoilers.cpp
+diff --git a/Telegram/SourceFiles/tele/tele_show_pinned.cpp b/Telegram/SourceFiles/tele/tele_show_pinned.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..c6387ac1a852ab8507ba47a02f881d5b0b7ccdd3
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_show_pinned.cpp
+@@ -0,0 +1,115 @@
++#include "tele/tele_show_pinned.h"
++
++#include "data/data_changes.h"
++#include "data/data_chat.h"
++#include "data/data_forum_topic.h"
++#include "data/data_peer.h"
++#include "data/data_thread.h"
++#include "history/history.h"
++#include "main/main_session.h"
++#include "main/main_session_settings.h"
++#include "tele/tele_lowercase.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "window/window_peer_menu.h"
++#include "window/window_session_controller.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++enum class PinnedBarState {
++	None,
++	Shown,
++	Hidden,
++};
++
++[[nodiscard]] MsgId TopicRootId(not_null<Data::Thread*> thread) {
++	const auto topic = thread->asTopic();
++	return topic ? topic->rootId() : MsgId(0);
++}
++
++[[nodiscard]] PinnedBarState ResolveState(not_null<Data::Thread*> thread) {
++	const auto peer = thread->peer();
++	if ((!thread->asHistory() && !thread->asTopic())
++		|| peer->canPinMessages()) {
++		return PinnedBarState::None;
++	}
++	const auto topicRootId = TopicRootId(thread);
++	const auto migrated = topicRootId ? nullptr : peer->migrateFrom();
++	const auto top = Data::ResolveTopPinnedId(
++		peer,
++		topicRootId,
++		PeerId(0),
++		migrated);
++	const auto universal = !top
++		? MsgId(0)
++		: (migrated && !peerIsChannel(top.peer))
++		? (top.msg - ServerMaxMsgId)
++		: top.msg;
++	if (!universal) {
++		return PinnedBarState::None;
++	}
++	const auto hiddenId = peer->session().settings().hiddenPinnedMessageId(
++		peer->id,
++		topicRootId);
++	return (universal == hiddenId)
++		? PinnedBarState::Hidden
++		: PinnedBarState::Shown;
++}
++
++void Refresh(not_null<Data::Thread*> thread) {
++	thread->session().changes().entryUpdated(
++		thread,
++		Data::EntryUpdate::Flag::HasPinnedMessages);
++}
++
++} // namespace
++
++void AddPinnedBarAction(
++		not_null<Window::SessionController*> controller,
++		Data::Thread *thread,
++		const Ui::Menu::MenuCallback &addAction) {
++	const auto state = thread
++		? ResolveState(thread)
++		: PinnedBarState::None;
++	if (state == PinnedBarState::None) {
++		return;
++	}
++	const auto weak = base::make_weak(thread);
++	if (state == PinnedBarState::Shown) {
++		addAction(Lower(u"Hide pinned messages"_q), [=] {
++			const auto strong = weak.get();
++			if (!strong) {
++				return;
++			}
++			Window::HidePinnedBar(
++				controller,
++				strong->peer(),
++				TopicRootId(strong),
++				PeerId(0),
++				[=] {
++					if (const auto strong = weak.get()) {
++						Refresh(strong);
++					}
++				});
++		}, &st::menuIconUnpin);
++		return;
++	}
++	addAction(Lower(u"Show pinned messages"_q), [=] {
++		const auto strong = weak.get();
++		if (!strong) {
++			return;
++		}
++		const auto peer = strong->peer();
++		auto &session = peer->session();
++		session.settings().setHiddenPinnedMessageId(
++			peer->id,
++			TopicRootId(strong),
++			PeerId(0),
++			MsgId(0));
++		session.saveSettingsDelayed();
++		Refresh(strong);
++	}, &st::menuIconPin);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_show_pinned.h b/Telegram/SourceFiles/tele/tele_show_pinned.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4e881c0427444de945b23f732eea8a48d5d91b82
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_show_pinned.h
+@@ -0,0 +1,22 @@
++#pragma once
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++void AddPinnedBarAction(
++	not_null<Window::SessionController*> controller,
++	Data::Thread *thread,
++	const Ui::Menu::MenuCallback &addAction);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index b855753d31df69c167887a0d2edb86924d6a6587..04bc47d345914f2cf7866131e06ac0781a7e08a7 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_local_names.h"
+ #include "tele/tele_local_pins.h"
+ #include "tele/tele_mtp_inspector.h"
++#include "tele/tele_show_pinned.h"
+ #include "tele/tele_silent.h"
+ #include "tele/tele_username_aliases.h"
+ #include "tele/tele_view_tl.h"
+@@ -1958,6 +1959,7 @@ void Filler::fillHistoryActions() {
+ 	addInfo();
+ 	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
+ 	Tele::AddBookmarksAction(_controller, _thread, _addAction);
++	Tele::AddPinnedBarAction(_controller, _thread, _addAction);
+ 	Tele::AddUsernameAliasAction(_controller, _peer, _addAction);
+ 	Tele::AddLocalNameAction(_controller, _peer, _addAction);
+ 	addViewAsTopics();
+@@ -2018,6 +2020,7 @@ void Filler::fillRepliesActions() {
+ 		addInfo();
+ 		Tele::AddJumpToFirstAction(_controller, _topic, _addAction);
+ 		Tele::AddBookmarksAction(_controller, _topic, _addAction);
++		Tele::AddPinnedBarAction(_controller, _topic, _addAction);
+ 		addManageTopic();
+ 		Tele::AddChatBackgroundAction(_controller, _peer, _addAction);
+ 	}

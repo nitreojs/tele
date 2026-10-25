@@ -1,0 +1,935 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 20:32:51 +0300
+Subject: [PATCH] feat: reorder and hide message menu items
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  28 +
+ Telegram/SourceFiles/tele/tele_menu_order.cpp | 698 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_menu_order.h   |  13 +
+ .../SourceFiles/tele/tele_message_menu.cpp    |  27 +-
+ Telegram/SourceFiles/tele/tele_options.cpp    |  26 +
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +
+ 7 files changed, 791 insertions(+), 7 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_menu_order.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_menu_order.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 0e1a72604c6900ca22d1b2fea6e7860d03a447e9..f6f3f88402224245a488585a289cccf4ee7ffab2 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2519,6 +2519,8 @@ PRIVATE
+     tele/tele_ignored.h
+     tele/tele_lowercase.cpp
+     tele/tele_lowercase.h
++    tele/tele_menu_order.cpp
++    tele/tele_menu_order.h
+     tele/tele_message_menu.cpp
+     tele/tele_message_menu.h
+     tele/tele_jump_to_first.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d7d80f4d6d03131f6d7631639443f4bbf23f7bb4..fd7e962f106c14705663f8e9fdb663f599c5d187 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -21,6 +21,7 @@
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_menu_order.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_title.h"
+ #include "tele/tele_updater.h"
+@@ -584,6 +585,32 @@ void AddTitle(SectionBuilder &builder) {
+ 	AddAbout(builder, windowDescription);
+ }
+ 
++void AddMessageMenu(SectionBuilder &builder) {
++	const auto &option = base::options::lookup<QString>(
++		::Tele::kOptionMessageMenuLayout);
++	const auto controller = builder.controller();
++	const auto description = ::Tele::Lower(option.description());
++	const auto button = builder.addButton({
++		.id = option.id(),
++		.title = rpl::single(::Tele::Lower(option.name())),
++		.st = &st::settingsButtonNoIcon,
++		.label = ::Tele::MessageMenuLayoutValue(
++		) | rpl::map([](const QString &layout) {
++			return ::Tele::Lower(layout.isEmpty()
++				? u"Default"_q
++				: u"Custom"_q);
++		}),
++		.onClick = [=] {
++			controller->show(Box(::Tele::MessageMenuBox));
++		},
++		.keywords = { description, u"context"_q, u"reorder"_q },
++	});
++	if (button) {
++		SetupLink(button, option.id());
++	}
++	AddAbout(builder, description);
++}
++
+ class IgnoredRow final : public PeerListRowWithLink {
+ public:
+ 	explicit IgnoredRow(not_null<UserData*> user)
+@@ -969,6 +996,7 @@ void FillChats(SectionBuilder &builder) {
+ 	AddOptionToggle(builder, ::Tele::kOptionScreenshotSecretMedia);
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Menus"_q);
++	AddMessageMenu(builder);
+ 	AddOptionToggle(builder, ::Tele::kOptionJumpToFirst);
+ 	AddOptionToggle(builder, ::Tele::kOptionMessageIdMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionViewAsTl);
+diff --git a/Telegram/SourceFiles/tele/tele_menu_order.cpp b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ccaecacde36d2289dadb00952454ff09c6ed2a2b
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_menu_order.cpp
+@@ -0,0 +1,698 @@
++#include "tele/tele_menu_order.h"
++
++#include "lang/lang_keys.h"
++#include "settings/settings_common.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "tele/tele_view_tl.h"
++#include "ui/layers/generic_box.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/labels.h"
++#include "ui/widgets/menu/menu.h"
++#include "ui/widgets/menu/menu_action.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/widgets/scroll_area.h"
++#include "ui/wrap/vertical_layout.h"
++#include "ui/wrap/vertical_layout_reorder.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_layers.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_settings.h"
++
++#include <typeinfo>
++
++namespace Tele {
++namespace {
++
++struct Phrase {
++	QString (*text)(int count) = nullptr;
++	const style::icon *icon = nullptr;
++	bool counted = false;
++};
++
++struct Known {
++	QString key;
++	std::vector<Phrase> phrases;
++	QString (*label)() = nullptr;
++};
++
++struct Entry {
++	int index = 0;
++	bool hidden = false;
++};
++
++struct Matcher {
++	QString text;
++	QString prefix;
++	QString suffix;
++	bool counted = false;
++	int index = 0;
++	const style::icon *icon = nullptr;
++};
++
++struct Found {
++	not_null<QAction*> action;
++	not_null<const style::Menu*> st;
++	const style::icon *icon = nullptr;
++	int index = 0;
++};
++
++[[nodiscard]] const std::vector<Known> &Registry() {
++	static const auto result = std::vector<Known>{
++		{ u"reply"_q, {
++			{ [](int) { return tr::lng_context_reply_msg(tr::now); },
++				&st::menuIconReply },
++			{ [](int) { return tr::lng_context_quote_and_reply(tr::now); },
++				&st::menuIconReply },
++			{ [](int) { return tr::lng_context_reply_to_task(tr::now); },
++				&st::menuIconReply },
++		} },
++		{ u"add_tasks"_q, {
++			{ [](int) { return tr::lng_todo_add_title(tr::now); },
++				&st::menuIconAdd },
++		} },
++		{ u"copy_selected"_q, {
++			{ [](int) { return tr::lng_context_copy_selected(tr::now); },
++				&st::menuIconCopy },
++			{ [](int) {
++				return tr::lng_context_copy_selected_items(tr::now);
++			}, &st::menuIconCopy },
++		} },
++		{ u"translate_selected"_q, {
++			{ [](int) {
++				return tr::lng_context_translate_selected(tr::now);
++			}, &st::menuIconTranslate },
++		} },
++		{ u"go_to_message"_q, {
++			{ [](int) { return tr::lng_context_to_msg(tr::now); },
++				&st::menuIconShowInChat },
++		} },
++		{ u"view_replies"_q, {
++			{ [](int) { return tr::lng_replies_view_thread(tr::now); },
++				&st::menuIconViewReplies },
++			{ [](int) { return tr::lng_replies_view_topic(tr::now); },
++				&st::menuIconViewReplies },
++			{ [](int count) {
++				return tr::lng_replies_view(tr::now, lt_count, count);
++			}, &st::menuIconViewReplies, true },
++		}, [] { return Lower(u"View replies"_q); } },
++		{ u"edit"_q, {
++			{ [](int) { return tr::lng_context_edit_msg(tr::now); },
++				&st::menuIconEdit },
++		} },
++		{ u"edit_history"_q, {
++			{ [](int) { return Lower(u"Edit history"_q); },
++				&st::menuIconGroupLog },
++		} },
++		{ u"mark_viewed"_q, {
++			{ [](int) { return Lower(u"Mark as viewed"_q); },
++				&st::menuIconMarkRead },
++		} },
++		{ u"mark_read"_q, {
++			{ [](int) { return Lower(u"Mark as read up to here"_q); },
++				&st::menuIconMarkRead },
++		} },
++		{ u"factcheck"_q, {
++			{ [](int) { return tr::lng_context_add_factcheck(tr::now); },
++				&st::menuIconFactcheck },
++			{ [](int) { return tr::lng_context_edit_factcheck(tr::now); },
++				&st::menuIconFactcheck },
++		} },
++		{ u"pin"_q, {
++			{ [](int) { return tr::lng_context_pin_msg(tr::now); },
++				&st::menuIconPin },
++			{ [](int) { return tr::lng_context_unpin_msg(tr::now); },
++				&st::menuIconUnpin },
++			{ [](int) { return tr::lng_context_unpin_selected(tr::now); },
++				&st::menuIconUnpin },
++		} },
++		{ u"statistics"_q, {
++			{ [](int) { return tr::lng_stats_title(tr::now); },
++				&st::menuIconStats },
++		} },
++		{ u"poll_results"_q, {
++			{ [](int) { return tr::lng_polls_view_stats(tr::now); },
++				&st::menuIconStats },
++		} },
++		{ u"poll_retract"_q, {
++			{ [](int) { return tr::lng_polls_retract(tr::now); },
++				&st::menuIconRetractVote },
++		} },
++		{ u"poll_stop"_q, {
++			{ [](int) { return tr::lng_polls_stop(tr::now); },
++				&st::menuIconRemove },
++		} },
++		{ u"cancel_download"_q, {
++			{ [](int) { return tr::lng_context_cancel_download(tr::now); },
++				&st::menuIconCancel },
++		} },
++		{ u"open_gif"_q, {
++			{ [](int) { return tr::lng_context_open_gif(tr::now); },
++				&st::menuIconShowInChat },
++		} },
++		{ u"save_gif"_q, {
++			{ [](int) { return tr::lng_context_save_gif(tr::now); },
++				&st::menuIconGif },
++		} },
++		{ u"sticker_set"_q, {
++			{ [](int) { return tr::lng_context_pack_info(tr::now); },
++				&st::menuIconStickers },
++			{ [](int) { return tr::lng_context_pack_add(tr::now); },
++				&st::menuIconStickers },
++		} },
++		{ u"fave_sticker"_q, {
++			{ [](int) { return tr::lng_faved_stickers_add(tr::now); },
++				&st::menuIconFave },
++			{ [](int) { return tr::lng_faved_stickers_remove(tr::now); },
++				&st::menuIconUnfave },
++		} },
++		{ u"show_in_folder"_q, {
++			{ [](int) { return tr::lng_context_show_in_folder(tr::now); },
++				&st::menuIconShowInFolder },
++			{ [](int) { return tr::lng_context_show_in_finder(tr::now); },
++				&st::menuIconShowInFolder },
++		} },
++		{ u"save_sound"_q, {
++			{ [](int) { return tr::lng_context_save_custom_sound(tr::now); },
++				&st::menuIconSoundAdd },
++		} },
++		{ u"save_as"_q, {
++			{ [](int) { return tr::lng_context_save_image(tr::now); },
++				&st::menuIconSaveImage },
++			{ [](int) { return tr::lng_context_save_file(tr::now); },
++				&st::menuIconDownload },
++			{ [](int) { return tr::lng_context_save_video(tr::now); },
++				&st::menuIconDownload },
++			{ [](int) { return tr::lng_context_save_audio(tr::now); },
++				&st::menuIconDownload },
++			{ [](int) { return tr::lng_context_save_audio_file(tr::now); },
++				&st::menuIconDownload },
++		} },
++		{ u"copy_image"_q, {
++			{ [](int) { return tr::lng_context_copy_image(tr::now); },
++				&st::menuIconCopy },
++		} },
++		{ u"copy_filename"_q, {
++			{ [](int) { return tr::lng_context_copy_filename(tr::now); },
++				&st::menuIconCopy },
++		} },
++		{ u"attached_stickers"_q, {
++			{ [](int) {
++				return tr::lng_context_attached_stickers(tr::now);
++			}, &st::menuIconStickers },
++		} },
++		{ u"copy_phone"_q, {
++			{ [](int) { return tr::lng_profile_copy_phone(tr::now); },
++				&st::menuIconCopy },
++		} },
++		{ u"send_gift"_q, {
++			{ [](int) { return tr::lng_context_gift_send(tr::now); },
++				&st::menuIconGiftPremium },
++		} },
++		{ u"copy_text"_q, {
++			{ [](int) { return tr::lng_context_copy_text(tr::now); },
++				&st::menuIconCopy },
++		} },
++		{ u"translate"_q, {
++			{ [](int) { return tr::lng_context_translate(tr::now); },
++				&st::menuIconTranslate },
++		} },
++		{ u"copy_link"_q, {
++			{ [](int) { return tr::lng_context_copy_link(tr::now); },
++				&st::menuIconCopy },
++			{ [](int) { return tr::lng_context_copy_email(tr::now); },
++				&st::menuIconCopy },
++			{ [](int) { return tr::lng_context_copy_mention(tr::now); },
++				&st::menuIconCopy },
++			{ [](int) { return tr::lng_context_copy_hashtag(tr::now); },
++				&st::menuIconCopy },
++		} },
++		{ u"open_uncleaned"_q, {
++			{ [](int) { return Lower(u"Open without cleaning"_q); },
++				&st::menuIconLink },
++		} },
++		{ u"copy_button_data"_q, {
++			{ [](int) { return Lower(u"Copy callback data"_q); },
++				&st::menuIconCopy },
++			{ [](int) { return Lower(u"Copy callback data as hex"_q); },
++				&st::menuIconCopy },
++			{ [](int) { return Lower(u"Copy inline query"_q); },
++				&st::menuIconCopy },
++			{ [](int) { return Lower(u"Copy web app URL"_q); },
++				&st::menuIconCopy },
++			{ [](int) { return Lower(u"Copy text from button"_q); },
++				&st::menuIconCopy },
++			{ [](int) { return Lower(u"Copy user ID"_q); },
++				&st::menuIconCopy },
++		}, [] { return Lower(u"Copy button data"_q); } },
++		{ u"copy_message_link"_q, {
++			{ [](int) { return tr::lng_context_copy_message_link(tr::now); },
++				&st::menuIconLink },
++			{ [](int) { return tr::lng_context_copy_post_link(tr::now); },
++				&st::menuIconLink },
++		} },
++		{ u"forward"_q, {
++			{ [](int) { return tr::lng_context_forward_msg(tr::now); },
++				&st::menuIconForward },
++			{ [](int) { return tr::lng_context_forward_selected(tr::now); },
++				&st::menuIconForward },
++		} },
++		{ u"add_offer"_q, {
++			{ [](int) { return tr::lng_context_add_offer(tr::now); },
++				&st::menuIconTagSell },
++		} },
++		{ u"send_now"_q, {
++			{ [](int) { return tr::lng_context_send_now_msg(tr::now); },
++				&st::menuIconSend },
++			{ [](int) { return tr::lng_context_send_now_selected(tr::now); },
++				&st::menuIconSend },
++		} },
++		{ u"edit_caption"_q, {
++			{ [](int) {
++				return tr::lng_context_upload_edit_caption(tr::now);
++			}, &st::menuIconEdit },
++		} },
++		{ u"cancel_upload"_q, {
++			{ [](int) { return tr::lng_context_cancel_upload(tr::now); },
++				&st::menuIconCancel },
++		} },
++		{ u"delete"_q, {
++			{ [](int) { return tr::lng_context_delete_msg(tr::now); },
++				&st::menuIconDelete },
++			{ [](int) { return tr::lng_context_delete_selected(tr::now); },
++				&st::menuIconDelete },
++		} },
++		{ u"download_selected"_q, {
++			{ [](int) {
++				return tr::lng_context_save_documents_selected(tr::now);
++			}, &st::menuIconDownload },
++			{ [](int) {
++				return tr::lng_context_save_images_selected(tr::now);
++			}, &st::menuIconSaveImage },
++		} },
++		{ u"save_html"_q, {
++			{ [](int) { return tr::lng_context_save_html(tr::now); },
++				&st::menuIconExport },
++		} },
++		{ u"report"_q, {
++			{ [](int) { return tr::lng_context_report_msg(tr::now); },
++				&st::menuIconReport },
++		} },
++		{ u"block_user"_q, {
++			{ [](int) { return tr::lng_profile_block_user(tr::now); },
++				&st::menuIconBlock },
++		} },
++		{ u"select"_q, {
++			{ [](int) { return tr::lng_context_select_msg(tr::now); },
++				&st::menuIconSelect },
++		} },
++		{ u"select_up_to"_q, {
++			{ [](int) { return tr::lng_context_select_msg_bulk(tr::now); },
++				&st::menuIconSelect },
++		} },
++		{ u"clear_selection"_q, {
++			{ [](int) { return tr::lng_context_clear_selection(tr::now); },
++				&st::menuIconSelect },
++		} },
++		{ u"reschedule"_q, {
++			{ [](int) { return tr::lng_context_reschedule(tr::now); },
++				&st::menuIconReschedule },
++			{ [](int) {
++				return tr::lng_context_reschedule_selected(tr::now);
++			}, &st::menuIconReschedule },
++		} },
++		{ u"view_as_tl"_q, {
++			{ [](int) { return ViewTlText(); }, &st::menuIconInfo },
++		} },
++		{ u"copy_emoji_id"_q, {
++			{ [](int) { return Lower(u"Copy emoji ID"_q); },
++				&st::menuIconCopy },
++		} },
++	};
++	return result;
++}
++
++[[nodiscard]] QString Label(const Known &known) {
++	return known.label
++		? known.label()
++		: known.phrases.front().text(1);
++}
++
++[[nodiscard]] std::vector<Entry> ResolveLayout(const QString &value) {
++	const auto &registry = Registry();
++	const auto count = int(registry.size());
++	auto result = std::vector<Entry>();
++	auto seen = std::vector<char>(count, 0);
++	for (const auto &part : value.split(',', Qt::SkipEmptyParts)) {
++		const auto trimmed = part.trimmed();
++		const auto hidden = trimmed.startsWith('-');
++		const auto key = hidden ? trimmed.mid(1) : trimmed;
++		const auto i = ranges::find(registry, key, &Known::key);
++		if (i == end(registry)) {
++			continue;
++		}
++		const auto index = int(i - begin(registry));
++		if (!seen[index]) {
++			seen[index] = 1;
++			result.push_back({ .index = index, .hidden = hidden });
++		}
++	}
++	for (auto index = 0; index != count; ++index) {
++		if (seen[index]) {
++			continue;
++		}
++		const auto after = index
++			? ranges::find(result, index - 1, &Entry::index)
++			: end(result);
++		result.insert(
++			(after != end(result)) ? (after + 1) : begin(result),
++			Entry{ .index = index });
++	}
++	return result;
++}
++
++[[nodiscard]] QString SerializeLayout(const std::vector<Entry> &entries) {
++	const auto &registry = Registry();
++	auto parts = QStringList();
++	auto changed = false;
++	for (auto i = 0; i != int(entries.size()); ++i) {
++		const auto &entry = entries[i];
++		if (entry.hidden || entry.index != i) {
++			changed = true;
++		}
++		parts.push_back((entry.hidden ? u"-"_q : QString())
++			+ registry[entry.index].key);
++	}
++	return changed ? parts.join(',') : QString();
++}
++
++[[nodiscard]] std::vector<Matcher> CollectMatchers() {
++	const auto &registry = Registry();
++	auto result = std::vector<Matcher>();
++	for (auto index = 0; index != int(registry.size()); ++index) {
++		for (const auto &phrase : registry[index].phrases) {
++			if (!phrase.counted) {
++				result.push_back({
++					.text = phrase.text(0),
++					.index = index,
++					.icon = phrase.icon,
++				});
++				continue;
++			}
++			for (const auto count : { 1, 2, 5 }) {
++				const auto sample = phrase.text(count);
++				const auto number = QString::number(count);
++				const auto position = sample.indexOf(number);
++				if (position < 0) {
++					continue;
++				}
++				result.push_back({
++					.prefix = sample.left(position),
++					.suffix = sample.mid(position + number.size()),
++					.counted = true,
++					.index = index,
++					.icon = phrase.icon,
++				});
++			}
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] bool Matches(const Matcher &matcher, const QString &text) {
++	if (!matcher.counted) {
++		return (text == matcher.text);
++	}
++	const auto from = int(matcher.prefix.size());
++	const auto till = int(text.size() - matcher.suffix.size());
++	return (till > from)
++		&& text.startsWith(matcher.prefix)
++		&& text.endsWith(matcher.suffix)
++		&& text[from].isDigit();
++}
++
++[[nodiscard]] std::optional<Found> Identify(
++		not_null<Ui::Menu::Menu*> menu,
++		not_null<QAction*> action,
++		const std::vector<Matcher> &matchers) {
++	if (action->isSeparator() || action->menu()) {
++		return std::nullopt;
++	}
++	const auto item = menu->itemForAction(action);
++	if (!item || typeid(*item) != typeid(Ui::Menu::Action)) {
++		return std::nullopt;
++	}
++	const auto text = action->text();
++	for (const auto &matcher : matchers) {
++		if (Matches(matcher, text)) {
++			return Found{
++				.action = action,
++				.st = &static_cast<Ui::Menu::Action*>(item)->st(),
++				.icon = matcher.icon,
++				.index = matcher.index,
++			};
++		}
++	}
++	return std::nullopt;
++}
++
++void NormalizeSeparators(not_null<Ui::PopupMenu*> menu) {
++	const auto &actions = menu->actions();
++	auto previous = true;
++	for (auto i = 0; i < int(actions.size());) {
++		const auto separator = actions[i]->isSeparator();
++		if (separator && previous) {
++			menu->removeAction(i);
++		} else {
++			previous = separator;
++			++i;
++		}
++	}
++	if (!actions.empty() && actions.back()->isSeparator()) {
++		menu->removeAction(int(actions.size()) - 1);
++	}
++}
++
++class Handle final : public Ui::RpWidget {
++public:
++	explicit Handle(not_null<QWidget*> parent);
++
++protected:
++	void paintEvent(QPaintEvent *e) override;
++	void mousePressEvent(QMouseEvent *e) override;
++
++};
++
++Handle::Handle(not_null<QWidget*> parent) : RpWidget(parent) {
++	setCursor(style::cur_sizeall);
++}
++
++void Handle::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	st::stickersReorderIcon.paintInCenter(p, rect());
++}
++
++void Handle::mousePressEvent(QMouseEvent *e) {
++}
++
++[[nodiscard]] Ui::ScrollArea *FindScroll(not_null<QWidget*> widget) {
++	for (auto parent = widget->parentWidget()
++		; parent
++		; parent = parent->parentWidget()) {
++		if (const auto scroll = dynamic_cast<Ui::ScrollArea*>(parent)) {
++			return scroll;
++		}
++	}
++	return nullptr;
++}
++
++} // namespace
++
++void ApplyMessageMenuLayout(not_null<Ui::PopupMenu*> menu) {
++	const auto value = MessageMenuLayout();
++	if (value.isEmpty() || menu->empty()) {
++		return;
++	}
++	const auto layout = ResolveLayout(value);
++	auto rank = std::vector<int>(layout.size());
++	auto hidden = std::vector<char>(layout.size());
++	for (auto i = 0; i != int(layout.size()); ++i) {
++		rank[layout[i].index] = i;
++		hidden[layout[i].index] = layout[i].hidden ? 1 : 0;
++	}
++	const auto matchers = CollectMatchers();
++	const auto raw = menu->menu();
++	const auto &actions = raw->actions();
++
++	auto removed = false;
++	for (auto i = int(actions.size()); i != 0;) {
++		const auto found = Identify(raw, actions[--i], matchers);
++		if (found && hidden[found->index]) {
++			menu->removeAction(i);
++			removed = true;
++		}
++	}
++
++	auto positions = std::vector<int>();
++	auto current = std::vector<Found>();
++	for (auto i = 0; i != int(actions.size()); ++i) {
++		if (const auto found = Identify(raw, actions[i], matchers)) {
++			positions.push_back(i);
++			current.push_back(*found);
++		}
++	}
++	auto target = current;
++	ranges::stable_sort(target, ranges::less(), [&](const Found &found) {
++		return rank[found.index];
++	});
++	auto misplaced = std::vector<std::pair<int, QObject*>>();
++	for (auto i = 0; i != int(current.size()); ++i) {
++		const auto action = current[i].action;
++		if (action != target[i].action) {
++			misplaced.emplace_back(i, action->parent());
++			action->setParent(menu.get());
++		}
++	}
++	for (const auto &[i, parent] : misplaced) {
++		menu->removeAction(positions[i]);
++		menu->insertAction(
++			positions[i],
++			base::make_unique_q<Ui::Menu::Action>(
++				raw,
++				*target[i].st,
++				target[i].action,
++				target[i].icon,
++				target[i].icon));
++	}
++	for (const auto &[i, parent] : misplaced) {
++		current[i].action->setParent(parent);
++	}
++	const auto moved = !misplaced.empty();
++
++	if (removed) {
++		NormalizeSeparators(menu);
++	}
++	if (removed || moved) {
++		for (auto i = 0; i != int(actions.size()); ++i) {
++			if (const auto item = raw->itemForAction(actions[i])) {
++				item->setIndex(i);
++			}
++		}
++	}
++}
++
++void MessageMenuBox(not_null<Ui::GenericBox*> box) {
++	struct Row {
++		not_null<Ui::SettingsButton*> button;
++		not_null<Ui::RpWidget*> handle;
++		int index = 0;
++	};
++	struct State {
++		style::SettingsButton st;
++		std::vector<Row> rows;
++		std::unique_ptr<Ui::VerticalLayoutReorder> reorder;
++		Ui::ScrollArea *scroll = nullptr;
++	};
++	const auto &registry = Registry();
++	const auto state = box->lifetime().make_state<State>(State{
++		.st = st::settingsButton,
++	});
++	const auto skip = st::settingsButton.toggleSkip;
++	const auto handleWidth = st::stickersReorderIcon.width() + skip;
++	state->st.toggleSkip += handleWidth;
++
++	box->setWidth(st::boxWideWidth);
++	box->setTitle(rpl::single(Lower(u"Message menu"_q)));
++	box->addRow(object_ptr<Ui::FlatLabel>(
++		box,
++		Lower(u"Drag the handles to reorder, switch items off to hide them. "
++			"Items that aren't listed here keep their place."_q),
++		st::boxDividerLabel));
++	const auto inner = box->addRow(
++		object_ptr<Ui::VerticalLayout>(box),
++		style::margins());
++
++	const auto rebuildReorder = [=] {
++		state->reorder = nullptr;
++		auto handles = std::vector<not_null<Ui::RpWidget*>>();
++		for (auto i = 0; i != inner->count(); ++i) {
++			const auto widget = inner->widgetAt(i);
++			const auto row = ranges::find(
++				state->rows,
++				widget.get(),
++				[](const Row &row) {
++					return static_cast<Ui::RpWidget*>(row.button.get());
++				});
++			handles.push_back(row->handle);
++		}
++		state->reorder = state->scroll
++			? std::make_unique<Ui::VerticalLayoutReorder>(
++				inner,
++				state->scroll)
++			: std::make_unique<Ui::VerticalLayoutReorder>(inner);
++		state->reorder->setMouseEventProxy([=](int i) {
++			return handles[i];
++		});
++		state->reorder->start();
++	};
++	const auto fill = [=](const std::vector<Entry> &entries) {
++		state->reorder = nullptr;
++		state->rows.clear();
++		inner->clear();
++		for (const auto &entry : entries) {
++			const auto &known = registry[entry.index];
++			const auto button = inner->add(Settings::CreateButtonWithIcon(
++				inner,
++				rpl::single(Label(known)),
++				state->st,
++				{ known.phrases.front().icon }));
++			button->toggleOn(rpl::single(!entry.hidden));
++			const auto handle = Ui::CreateChild<Handle>(button);
++			button->sizeValue(
++			) | rpl::on_next([=](QSize size) {
++				handle->setGeometry(
++					size.width() - skip / 2 - handleWidth,
++					0,
++					handleWidth,
++					size.height());
++			}, handle->lifetime());
++			handle->show();
++			state->rows.push_back({
++				.button = button,
++				.handle = handle,
++				.index = entry.index,
++			});
++		}
++		rebuildReorder();
++	};
++	fill(ResolveLayout(MessageMenuLayout()));
++	crl::on_main(box.get(), [=] {
++		state->scroll = FindScroll(inner);
++		rebuildReorder();
++	});
++
++	box->addButton(tr::lng_settings_save(), [=] {
++		auto entries = std::vector<Entry>();
++		for (auto i = 0; i != inner->count(); ++i) {
++			const auto widget = inner->widgetAt(i);
++			for (const auto &row : state->rows) {
++				if (row.button.get() == widget.get()) {
++					entries.push_back({
++						.index = row.index,
++						.hidden = !row.button->toggled(),
++					});
++				}
++			}
++		}
++		SetMessageMenuLayout(SerializeLayout(entries));
++		box->closeBox();
++	});
++	box->addButton(tr::lng_cancel(), [=] {
++		box->closeBox();
++	});
++	box->addLeftButton(rpl::single(Lower(u"Reset"_q)), [=] {
++		fill(ResolveLayout(QString()));
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_menu_order.h b/Telegram/SourceFiles/tele/tele_menu_order.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..73378356c54d3ccf237cfade13bd6f594e8baaf1
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_menu_order.h
+@@ -0,0 +1,13 @@
++#pragma once
++
++namespace Ui {
++class GenericBox;
++class PopupMenu;
++} // namespace Ui
++
++namespace Tele {
++
++void ApplyMessageMenuLayout(not_null<Ui::PopupMenu*> menu);
++void MessageMenuBox(not_null<Ui::GenericBox*> box);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.cpp b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+index fbf57cddaa2671dc770d5ce40d55b6f84dfa9453..7174b26e68dd2b102d41d6f133761468c0930c0d 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.cpp
++++ b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+@@ -9,6 +9,7 @@
+ #include "history/view/history_view_element.h"
+ #include "main/session/session_show.h"
+ #include "tele/tele_lowercase.h"
++#include "tele/tele_menu_order.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_view_tl.h"
+ #include "ui/text/text_isolated_emoji.h"
+@@ -137,17 +138,12 @@ void CopyEmojiIdToClipboard(
+ 		&st::menuIconInfo);
+ }
+ 
+-} // namespace
+-
+-void InsertMessageTools(
++void AppendTools(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		std::shared_ptr<Main::SessionShow> show,
+-		HistoryItem *item,
++		not_null<HistoryItem*> item,
+ 		HistoryView::Element *view,
+ 		QPoint point) {
+-	if (!item || menu->empty()) {
+-		return;
+-	}
+ 	const auto server = IsServerMsgId(item->id);
+ 	auto tools = std::vector<base::unique_qptr<Ui::Menu::ItemBase>>();
+ 	if (server && ViewAsTl()) {
+@@ -175,6 +171,23 @@ void InsertMessageTools(
+ 	}
+ }
+ 
++} // namespace
++
++void InsertMessageTools(
++		not_null<Ui::PopupMenu*> menu,
++		std::shared_ptr<Main::SessionShow> show,
++		HistoryItem *item,
++		HistoryView::Element *view,
++		QPoint point) {
++	if (menu->empty()) {
++		return;
++	}
++	if (item) {
++		AppendTools(menu, show, item, view, point);
++	}
++	ApplyMessageMenuLayout(menu);
++}
++
+ void AddCopyEmojiIdAction(
+ 		not_null<Ui::PopupMenu*> menu,
+ 		std::shared_ptr<Main::SessionShow> show,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0b5c07c1383edfa360c10cf202bdf8a1e670b2ac..63cd6fb62fb8c50581be8c7182cc296553210917 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -54,6 +54,7 @@ const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ const char kOptionWindowTitleTemplate[] = "tele-window-title";
++const char kOptionMessageMenuLayout[] = "tele-message-menu";
+ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
+ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ 
+@@ -379,6 +380,13 @@ base::options::option<QString> WindowTitleTemplateOption({
+ 		"default title.",
+ });
+ 
++base::options::option<QString> MessageMenuLayoutOption({
++	.id = kOptionMessageMenuLayout,
++	.name = "Message menu",
++	.description = "Reorder and hide items of the right-click menu on "
++		"messages.",
++});
++
+ base::options::toggle SentToBottomOption({
+ 	.id = kOptionSentToBottom,
+ 	.name = "Move late-sent messages to the bottom",
+@@ -766,6 +774,24 @@ rpl::producer<QString> WindowTitleTemplateValue() {
+ 	});
+ }
+ 
++QString MessageMenuLayout() {
++	return MessageMenuLayoutOption.value();
++}
++
++void SetMessageMenuLayout(const QString &value) {
++	MessageMenuLayoutOption.set(value);
++}
++
++rpl::producer<QString> MessageMenuLayoutValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		MessageMenuLayoutOption.changes()
++	) | rpl::map([] {
++		return MessageMenuLayoutOption.value();
++	});
++}
++
+ bool SentToBottom() {
+ 	return SentToBottomOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 8c2b5849f132449b324967b547e9fc51e0971f1b..fdf23568febc15b10b3bff98803f0e9c8192d1fc 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -52,6 +52,7 @@ extern const char kOptionCopyEmojiId[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ extern const char kOptionWindowTitleTemplate[];
++extern const char kOptionMessageMenuLayout[];
+ extern const char kOptionSentToBottom[];
+ extern const char kOptionQueueBehindMedia[];
+ 
+@@ -129,6 +130,9 @@ void SetTitleTemplate(const QString &value);
+ [[nodiscard]] QString WindowTitleTemplate();
+ void SetWindowTitleTemplate(const QString &value);
+ [[nodiscard]] rpl::producer<QString> WindowTitleTemplateValue();
++[[nodiscard]] QString MessageMenuLayout();
++void SetMessageMenuLayout(const QString &value);
++[[nodiscard]] rpl::producer<QString> MessageMenuLayoutValue();
+ [[nodiscard]] bool SentToBottom();
+ [[nodiscard]] bool QueueBehindMedia();
+ [[nodiscard]] rpl::producer<> QueueBehindMediaChanges();

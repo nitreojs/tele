@@ -1,0 +1,953 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 11:52:09 +0300
+Subject: [PATCH] fix: gift batches survive flood waits and bad items
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/mtproto/mtp_instance.cpp |   2 +-
+ Telegram/SourceFiles/tele/tele_gift_batch.cpp | 269 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_gift_batch.h   |  42 +++
+ Telegram/SourceFiles/tele/tele_gift_list.cpp  | 186 ++++++------
+ .../SourceFiles/tele/tele_gift_quantity.cpp   | 160 ++++++-----
+ 6 files changed, 505 insertions(+), 156 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_batch.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_batch.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 8e3273abfa10bd7cc753f6231643171f8eabf4fe..9d99d457636d527ea35b890e7888287b7b4fcea2 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2586,6 +2586,8 @@ PRIVATE
+     tele/tele_full_preview.h
+     tele/tele_gif_video.cpp
+     tele/tele_gif_video.h
++    tele/tele_gift_batch.cpp
++    tele/tele_gift_batch.h
+     tele/tele_gift_collection_link.cpp
+     tele/tele_gift_collection_link.h
+     tele/tele_gift_fake_upgrade.cpp
+diff --git a/Telegram/SourceFiles/mtproto/mtp_instance.cpp b/Telegram/SourceFiles/mtproto/mtp_instance.cpp
+index 0a60e313bbe4158fafa6c9e0b91ed3d1cf665529..2a056e6f55a5168429308554d86f39589d1458c5 100644
+--- a/Telegram/SourceFiles/mtproto/mtp_instance.cpp
++++ b/Telegram/SourceFiles/mtproto/mtp_instance.cpp
+@@ -591,7 +591,7 @@ void Instance::Private::teleFloodEvent(
+ 		int seconds,
+ 		bool resent,
+ 		const QString &error) {
+-	if (!requestId || seconds < 0) {
++	if (!requestId) {
+ 		return;
+ 	}
+ 	auto request = mtpTypeId(0);
+diff --git a/Telegram/SourceFiles/tele/tele_gift_batch.cpp b/Telegram/SourceFiles/tele/tele_gift_batch.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..3fde784dbe93658ae2ac47c7a7c74905e69e8138
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_batch.cpp
+@@ -0,0 +1,269 @@
++#include "tele/tele_gift_batch.h"
++
++#include "base/timer.h"
++#include "base/weak_ptr.h"
++#include "lang/lang_keys.h"
++#include "main/main_session.h"
++#include "mtproto/mtp_instance.h"
++#include "tele/tele_flood_wait.h"
++#include "tele/tele_lowercase.h"
++#include "ui/text/format_values.h"
++
++namespace Tele {
++namespace {
++
++constexpr auto kTick = crl::time(250);
++
++[[nodiscard]] bool Tracked(mtpTypeId request) {
++	switch (request) {
++	case mtpc_payments_getPaymentForm:
++	case mtpc_payments_sendStarsForm:
++	case mtpc_payments_saveStarGift:
++	case mtpc_payments_transferStarGift:
++	case mtpc_payments_updateStarGiftPrice:
++	case mtpc_payments_convertStarGift:
++		return true;
++	}
++	return false;
++}
++
++class Runner final : public std::enable_shared_from_this<Runner> {
++public:
++	explicit Runner(GiftBatch &&batch);
++
++	void start();
++
++private:
++	[[nodiscard]] bool alive() const;
++	void next();
++	void stepDone(int step, bool ok, const QString &error);
++	void flood(const FloodWait &event);
++	void tick();
++	void clearWait();
++	void report();
++	void cancel();
++	void finish();
++
++	GiftBatch _batch;
++	const base::weak_ptr<Main::Session> _session;
++	GiftBatchResult _result;
++	int _index = 0;
++	int _step = 0;
++	bool _running = false;
++	bool _finished = false;
++	QString _error;
++	base::flat_set<mtpRequestId> _waiting;
++	crl::time _waitTill = 0;
++	int _shown = -1;
++	base::Timer _timer;
++	rpl::lifetime _lifetime;
++
++};
++
++Runner::Runner(GiftBatch &&batch)
++: _batch(std::move(batch))
++, _session(base::make_weak(_batch.session.get()))
++, _timer([=] { tick(); }) {
++	_batch.session->mtp().teleFloodWaits(
++	) | rpl::on_next([=](const FloodWait &event) {
++		flood(event);
++	}, _lifetime);
++}
++
++void Runner::start() {
++	next();
++}
++
++bool Runner::alive() const {
++	return _session && (!_batch.alive || _batch.alive());
++}
++
++void Runner::next() {
++	if (_finished) {
++		return;
++	} else if (_index >= _batch.total) {
++		finish();
++		return;
++	} else if (!alive()) {
++		cancel();
++		return;
++	}
++	_running = true;
++	_error = QString();
++	const auto step = ++_step;
++	report();
++	_batch.step(_index, [self = shared_from_this(), step](
++			bool ok,
++			QString error) {
++		self->stepDone(step, ok, error);
++	});
++}
++
++void Runner::stepDone(int step, bool ok, const QString &error) {
++	if (_finished || step != _step || !_running) {
++		return;
++	}
++	_running = false;
++	clearWait();
++	if (ok) {
++		++_result.done;
++	} else {
++		const auto type = error.isEmpty() ? _error : error;
++		if (!_batch.skipFailed) {
++			_result.failed = true;
++			_result.error = type;
++			finish();
++			return;
++		}
++		_result.skipped.push_back(_index);
++		_result.errors.push_back(type);
++	}
++	++_index;
++	next();
++}
++
++void Runner::flood(const FloodWait &event) {
++	if (!_running || !Tracked(event.request)) {
++		return;
++	} else if (event.resent) {
++		if (_waiting.remove(event.requestId) && _waiting.empty()) {
++			clearWait();
++		}
++		return;
++	} else if (event.seconds < 0) {
++		_error = event.error;
++		return;
++	} else if (event.seconds == 0) {
++		return;
++	}
++	_waiting.emplace(event.requestId);
++	_waitTill = std::max(
++		_waitTill,
++		crl::now() + event.seconds * crl::time(1000));
++	if (!_timer.isActive()) {
++		_timer.callEach(kTick);
++	}
++	report();
++}
++
++void Runner::tick() {
++	const auto self = shared_from_this();
++	if (!alive()) {
++		cancel();
++	} else if (crl::now() >= _waitTill) {
++		clearWait();
++	} else {
++		report();
++	}
++}
++
++void Runner::clearWait() {
++	_timer.cancel();
++	_waiting.clear();
++	if (_waitTill) {
++		_waitTill = 0;
++		report();
++	}
++}
++
++void Runner::report() {
++	if (_finished || !_batch.progress) {
++		return;
++	}
++	const auto left = _waitTill ? (_waitTill - crl::now()) : crl::time();
++	const auto wait = int((std::max(left, crl::time()) + 999) / 1000);
++	if (_shown == wait && wait > 0) {
++		return;
++	}
++	_shown = wait;
++	_batch.progress({ .index = _index, .wait = wait });
++}
++
++void Runner::cancel() {
++	if (_finished) {
++		return;
++	}
++	_result.cancelled = true;
++	const auto waiting = base::take(_waiting);
++	const auto session = _session.get();
++	finish();
++	if (session) {
++		for (const auto requestId : waiting) {
++			session->mtp().cancel(requestId);
++		}
++	}
++}
++
++void Runner::finish() {
++	if (_finished) {
++		return;
++	}
++	_finished = true;
++	_timer.cancel();
++	_lifetime.destroy();
++	if (const auto finished = base::take(_batch.finished)) {
++		finished(base::take(_result));
++	}
++}
++
++} // namespace
++
++void RunGiftBatch(GiftBatch &&batch) {
++	std::make_shared<Runner>(std::move(batch))->start();
++}
++
++QString GiftBatchWait(int seconds) {
++	return Ui::FormatDurationText(seconds);
++}
++
++QString GiftErrorReason(const QString &type) {
++	if (type.isEmpty()) {
++		return Lower(u"Failed"_q);
++	} else if (type == u"STARGIFT_USAGE_LIMITED"_q) {
++		return tr::lng_gift_sold_out_title(tr::now);
++	} else if (type == u"USER_DISALLOWED_STARGIFTS"_q) {
++		return tr::lng_edit_privacy_gifts_restricted(tr::now);
++	} else if (type == u"STARGIFT_MESSAGE_INVALID"_q) {
++		return tr::lng_gift_send_message_restricted(tr::now);
++	} else if (type == u"STARGIFT_ALREADY_BURNED"_q) {
++		return tr::lng_gift_burned_message(tr::now);
++	} else if (type.startsWith(u"STARGIFT_TRANSFER_TOO_EARLY_"_q)) {
++		return Lower(u"Can't be transferred yet"_q);
++	} else if (type.startsWith(u"STARGIFT_RESELL_TOO_EARLY_"_q)) {
++		return Lower(u"Can't be sold yet"_q);
++	}
++	return type;
++}
++
++QString GiftBatchText(
++		const GiftBatchResult &result,
++		int total,
++		const QString &success) {
++	auto reasons = QStringList();
++	for (const auto &error : result.errors) {
++		const auto reason = GiftErrorReason(error);
++		if (!reasons.contains(reason)) {
++			reasons.push_back(reason);
++		}
++	}
++	const auto skipped = int(result.skipped.size());
++	const auto skips = skipped
++		? Lower(u"%1 skipped: %2"_q).arg(skipped).arg(reasons.join(u"; "_q))
++		: QString();
++	if (result.cancelled) {
++		const auto text = Lower(u"Cancelled after %1 of %2."_q)
++			.arg(result.done + skipped)
++			.arg(total);
++		return skips.isEmpty() ? text : (text + ' ' + skips);
++	} else if (result.failed) {
++		return Lower(u"Stopped after %1 of %2: %3"_q)
++			.arg(result.done)
++			.arg(total)
++			.arg(GiftErrorReason(result.error));
++	} else if (skipped) {
++		return Lower(u"%1 done, %2"_q).arg(result.done).arg(skips);
++	}
++	return success;
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_batch.h b/Telegram/SourceFiles/tele/tele_gift_batch.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..7588ff49113434a28c633747b663c9231202f85d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_batch.h
+@@ -0,0 +1,42 @@
++#pragma once
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++struct GiftBatchProgress {
++	int index = 0;
++	int wait = 0;
++};
++
++struct GiftBatchResult {
++	int done = 0;
++	std::vector<int> skipped;
++	std::vector<QString> errors;
++	QString error;
++	bool failed = false;
++	bool cancelled = false;
++};
++
++struct GiftBatch {
++	not_null<Main::Session*> session;
++	int total = 0;
++	bool skipFailed = false;
++	Fn<bool()> alive;
++	Fn<void(int, Fn<void(bool, QString)>)> step;
++	Fn<void(GiftBatchProgress)> progress;
++	Fn<void(GiftBatchResult)> finished;
++};
++
++void RunGiftBatch(GiftBatch &&batch);
++
++[[nodiscard]] QString GiftBatchWait(int seconds);
++[[nodiscard]] QString GiftErrorReason(const QString &type);
++[[nodiscard]] QString GiftBatchText(
++	const GiftBatchResult &result,
++	int total,
++	const QString &success);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_list.cpp b/Telegram/SourceFiles/tele/tele_gift_list.cpp
+index 3cd3753d58e022a827eba80b41a7df7c6730f42a..290cc6f58dc64c1877d0f281aac294a168593f3f 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_list.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_list.cpp
+@@ -20,6 +20,7 @@
+ #include "main/main_session.h"
+ #include "overview/overview_checkbox.h"
+ #include "settings/settings_credits_graphics.h"
++#include "tele/tele_gift_batch.h"
+ #include "tele/tele_local_password.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
+@@ -175,6 +176,13 @@ constexpr auto kActions = std::array{
+ 
+ using Gift = Data::SavedStarGift;
+ 
++[[nodiscard]] std::vector<Data::SavedStarGiftId> Ids(
++		const std::vector<Gift> &gifts) {
++	return gifts
++		| ranges::views::transform(&Gift::manageId)
++		| ranges::to_vector;
++}
++
+ [[nodiscard]] QString ActionName(Action action) {
+ 	switch (action) {
+ 	case Action::Show: return Lower(u"Show"_q);
+@@ -421,27 +429,39 @@ void ShowError(
+ 	}
+ }
+ 
+-void ShowBatchResult(
+-		std::shared_ptr<ChatHelpers::Show> show,
+-		int done,
+-		int total,
+-		const QString &success) {
+-	ShowTeleToast(show, (done == total)
+-		? success
+-		: Lower(u"Stopped after %1 of %2."_q)
+-			.arg(done)
+-			.arg(GiftsCount(total)));
++void KeepSelected(
++		not_null<State*> state,
++		const std::vector<Data::SavedStarGiftId> &keep) {
++	auto removed = std::vector<Data::SavedStarGiftId>();
++	for (const auto &gift : state->selected) {
++		if (!ranges::contains(keep, gift.manageId)) {
++			removed.push_back(gift.manageId);
++		}
++	}
++	state->busy = false;
++	state->selected.erase(
++		ranges::remove_if(state->selected, [&](const Gift &gift) {
++			return ranges::contains(removed, gift.manageId);
++		}),
++		end(state->selected));
++	for (const auto &id : removed) {
++		UpdateChecks(state, id);
++	}
++	state->changes.fire({});
+ }
+ 
+ void RunBatch(
+ 		not_null<State*> state,
+ 		QString title,
+-		int total,
+-		Fn<void(int, Fn<void(bool)>)> step,
+-		Fn<void(int)> finished) {
++		std::vector<Data::SavedStarGiftId> ids,
++		Fn<void(int, Fn<void(bool, QString)>)> step,
++		QString success) {
+ 	state->busy = true;
++	const auto total = int(ids.size());
++	const auto show = state->window->uiShow();
+ 	const auto weak = base::make_weak(state->list);
+-	const auto progress = std::make_shared<rpl::variable<int>>(0);
++	const auto progress = std::make_shared<rpl::variable<QString>>(
++		Lower(u"%1 of %2"_q).arg(1).arg(total));
+ 	const auto cancelled = std::make_shared<bool>(false);
+ 	auto progressBox = base::weak_qptr<Ui::GenericBox>();
+ 	if (!title.isEmpty()) {
+@@ -450,9 +470,7 @@ void RunBatch(
+ 			box->setCloseByOutsideClick(false);
+ 			box->addRow(object_ptr<Ui::FlatLabel>(
+ 				box,
+-				progress->value() | rpl::map([=](int done) {
+-					return Lower(u"%1 of %2"_q).arg(done + 1).arg(total);
+-				}),
++				progress->value(),
+ 				st::boxLabel));
+ 			box->addButton(tr::lng_cancel(), [=] {
+ 				*cancelled = true;
+@@ -462,30 +480,49 @@ void RunBatch(
+ 		progressBox = base::make_weak(box.data());
+ 		state->window->show(std::move(box));
+ 	}
+-	const auto next = std::make_shared<Fn<void(int)>>();
+-	const auto finish = [=](int done) {
+-		if (const auto strong = progressBox.get()) {
+-			strong->closeBox();
+-		}
+-		finished(done);
+-		FinishFor(weak);
+-		*next = nullptr;
+-	};
+-	*next = [=](int index) {
+-		if (index == total || *cancelled) {
+-			finish(index);
+-			return;
+-		}
+-		*progress = index;
+-		step(index, [=](bool ok) {
+-			if (!ok) {
+-				finish(index);
+-			} else if (const auto onstack = *next) {
+-				onstack(index + 1);
++	RunGiftBatch({
++		.session = &state->window->session(),
++		.total = total,
++		.skipFailed = true,
++		.alive = [=] { return !*cancelled && weak.get(); },
++		.step = std::move(step),
++		.progress = [=](GiftBatchProgress now) {
++			const auto text = Lower(u"%1 of %2"_q)
++				.arg(now.index + 1)
++				.arg(total);
++			*progress = now.wait
++				? Lower(u"%1, waiting %2 for Telegram's limit"_q)
++					.arg(text)
++					.arg(GiftBatchWait(now.wait))
++				: text;
++		},
++		.finished = [=](GiftBatchResult result) {
++			if (const auto strong = progressBox.get()) {
++				strong->closeBox();
+ 			}
+-		});
+-	};
+-	(*next)(0);
++			ShowTeleToast(show, GiftBatchText(result, total, success));
++			auto keep = std::vector<Data::SavedStarGiftId>();
++			for (const auto index : result.skipped) {
++				keep.push_back(ids[index]);
++			}
++			if (result.cancelled) {
++				const auto processed = result.done
++					+ int(result.skipped.size());
++				for (auto i = processed; i < total; ++i) {
++					keep.push_back(ids[i]);
++				}
++			}
++			const auto strong = weak.get();
++			const auto current = strong ? Find(strong) : nullptr;
++			if (!current) {
++				return;
++			} else if (keep.empty()) {
++				Finish(current);
++			} else {
++				KeepSelected(current, keep);
++			}
++		},
++	});
+ }
+ 
+ void ToggleSaved(not_null<State*> state, bool save) {
+@@ -498,10 +535,11 @@ void ToggleSaved(not_null<State*> state, bool save) {
+ 	if (list.empty()) {
+ 		return;
+ 	}
+-	const auto show = state->window->uiShow();
+ 	const auto session = &state->window->session();
+ 	const auto total = int(list.size());
+-	RunBatch(state, QString(), total, [=](int index, Fn<void(bool)> done) {
++	RunBatch(state, QString(), list, [=](
++			int index,
++			Fn<void(bool, QString)> done) {
+ 		using Flag = MTPpayments_SaveStarGift::Flag;
+ 		const auto id = list[index];
+ 		session->api().request(MTPpayments_SaveStarGift(
+@@ -513,16 +551,13 @@ void ToggleSaved(not_null<State*> state, bool save) {
+ 				.id = id,
+ 				.action = (save ? Action::Save : Action::Unsave),
+ 			});
+-			done(true);
++			done(true, QString());
+ 		}).fail([=](const MTP::Error &error) {
+-			ShowError(show, error);
+-			done(false);
++			done(false, error.type());
+ 		}).send();
+-	}, [=](int done) {
+-		ShowBatchResult(show, done, total, save
+-			? Lower(u"%1 shown"_q).arg(GiftsCount(total))
+-			: Lower(u"%1 hidden"_q).arg(GiftsCount(total)));
+-	});
++	}, save
++		? Lower(u"%1 shown"_q).arg(GiftsCount(total))
++		: Lower(u"%1 hidden"_q).arg(GiftsCount(total)));
+ }
+ 
+ void TogglePinned(not_null<State*> state, bool pin) {
+@@ -663,27 +698,20 @@ void RunTransfer(
+ 		std::vector<Gift> gifts,
+ 		not_null<PeerData*> to) {
+ 	const auto window = state->window;
+-	const auto show = window->uiShow();
+ 	const auto total = int(gifts.size());
+-	RunBatch(state, Lower(u"Transferring gifts"_q), total, [=](
++	RunBatch(state, Lower(u"Transferring gifts"_q), Ids(gifts), [=](
+ 			int index,
+-			Fn<void(bool)> done) {
++			Fn<void(bool, QString)> done) {
+ 		const auto &gift = gifts[index];
+ 		TransferUniqueGift(
+ 			window,
+ 			to,
+ 			gift.info.unique,
+ 			gift.manageId,
+-			done);
+-	}, [=](int done) {
+-		ShowBatchResult(
+-			show,
+-			done,
+-			total,
+-			Lower(u"%1 transferred to %2."_q)
+-				.arg(GiftsCount(total))
+-				.arg(to->shortName()));
+-	});
++			[=](bool ok) { done(ok, QString()); });
++	}, Lower(u"%1 transferred to %2."_q)
++		.arg(GiftsCount(total))
++		.arg(to->shortName()));
+ }
+ 
+ void Transfer(not_null<State*> state) {
+@@ -741,21 +769,19 @@ void RunSellPrice(
+ 	const auto total = int(gifts.size());
+ 	RunBatch(state, price
+ 		? Lower(u"Putting gifts on sale"_q)
+-		: Lower(u"Removing gifts from sale"_q), total, [=](
++		: Lower(u"Removing gifts from sale"_q), Ids(gifts), [=](
+ 			int index,
+-			Fn<void(bool)> done) {
++			Fn<void(bool, QString)> done) {
+ 		const auto &gift = gifts[index];
+ 		Ui::UpdateGiftSellPrice(
+ 			show,
+ 			gift.info.unique,
+ 			gift.manageId,
+ 			price,
+-			done);
+-	}, [=](int done) {
+-		ShowBatchResult(show, done, total, price
+-			? Lower(u"%1 put on sale"_q).arg(GiftsCount(total))
+-			: Lower(u"%1 removed from sale"_q).arg(GiftsCount(total)));
+-	});
++			[=](bool ok) { done(ok, QString()); });
++	}, price
++		? Lower(u"%1 put on sale"_q).arg(GiftsCount(total))
++		: Lower(u"%1 removed from sale"_q).arg(GiftsCount(total)));
+ }
+ 
+ void SellBox(
+@@ -950,24 +976,18 @@ void Convert(not_null<State*> state) {
+ 			close();
+ 			StartFor(weak, LocalPasswordAction::ConvertGifts, [=](
+ 					not_null<State*> state) {
+-				RunBatch(state, Lower(u"Converting gifts"_q), total, [=](
++				RunBatch(state, Lower(u"Converting gifts"_q), Ids(gifts), [=](
+ 						int index,
+-						Fn<void(bool)> done) {
++						Fn<void(bool, QString)> done) {
+ 					const auto &gift = gifts[index];
+ 					Settings::ConvertSavedStarGift(
+ 						show,
+ 						gift.manageId,
+ 						int(gift.starsConverted),
+-						done);
+-				}, [=](int done) {
+-					ShowBatchResult(
+-						show,
+-						done,
+-						total,
+-						Lower(u"%1 converted to %2 stars"_q)
+-							.arg(GiftsCount(total))
+-							.arg(Lang::FormatCountDecimal(stars)));
+-				});
++						[=](bool ok) { done(ok, QString()); });
++				}, Lower(u"%1 converted to %2 stars"_q)
++					.arg(GiftsCount(total))
++					.arg(Lang::FormatCountDecimal(stars)));
+ 			});
+ 		},
+ 		.confirmText = tr::lng_gift_convert_sure(),
+diff --git a/Telegram/SourceFiles/tele/tele_gift_quantity.cpp b/Telegram/SourceFiles/tele/tele_gift_quantity.cpp
+index 06424990bcb9571827a2d369c5f14ed000a99936..26ddd32f49649afebd373e3a46780ede459f988d 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_quantity.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_quantity.cpp
+@@ -11,6 +11,7 @@
+ #include "lang/lang_tag.h"
+ #include "main/main_session.h"
+ #include "settings/settings_credits_graphics.h"
++#include "tele/tele_gift_batch.h"
+ #include "tele/tele_local_password.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_notices.h"
+@@ -38,6 +39,7 @@ struct GiftCounter : base::has_weak_ptr {
+ 	not_null<Ui::GenericBox*> box;
+ 	rpl::variable<int> count = 1;
+ 	rpl::variable<int> sending = 0;
++	rpl::variable<int> wait = 0;
+ 	int total = 0;
+ };
+ 
+@@ -79,9 +81,22 @@ using Info::PeerGifts::GiftTypeStars;
+ 		: 0;
+ }
+ 
++[[nodiscard]] int GiftLimit(const Data::StarGift &gift) {
++	auto result = std::numeric_limits<int>::max();
++	if (gift.limitedCount > 0) {
++		result = std::min(result, gift.limitedLeft);
++	}
++	if (gift.perUserTotal > 0) {
++		result = std::min(result, gift.perUserRemains);
++	}
++	return result;
++}
++
+ void AddCounterRow(
+ 		not_null<Ui::VerticalLayout*> container,
+-		not_null<GiftCounter*> counter) {
++		not_null<GiftCounter*> counter,
++		int limit) {
++	const auto limited = (limit < std::numeric_limits<int>::max());
+ 	const auto &padding = st::settingsButtonNoIcon.padding;
+ 	const auto height = st::defaultLightButton.height
+ 		+ padding.top()
+@@ -90,7 +105,10 @@ void AddCounterRow(
+ 		object_ptr<Ui::FixedHeightWidget>(container, height));
+ 	const auto label = Ui::CreateChild<Ui::FlatLabel>(
+ 		row,
+-		Lower(u"Quantity"_q),
++		(limited
++			? Lower(u"Quantity, %1 left"_q).arg(
++				Lang::FormatCountDecimal(limit))
++			: Lower(u"Quantity"_q)),
+ 		st::boxLabel);
+ 	const auto minus = Ui::CreateChild<Ui::RoundButton>(
+ 		row,
+@@ -105,21 +123,21 @@ void AddCounterRow(
+ 		CountFieldStyle(),
+ 		rpl::single(u"1"_q),
+ 		u"1"_q,
+-		std::numeric_limits<int>::max());
++		limit);
+ 	minus->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
+ 	plus->setTextTransform(Ui::RoundButtonTextTransform::NoTransform);
+ 	const auto fieldWidth = st::defaultLightButton.height * 2;
+ 	field->resize(fieldWidth, st::defaultLightButton.height);
+ 
+ 	const auto set = [=](int value) {
+-		counter->count = std::max(value, 1);
++		counter->count = std::clamp(value, 1, limit);
+ 		const auto text = QString::number(counter->count.current());
+ 		if (field->getLastText() != text) {
+ 			field->setText(text);
+ 		}
+ 	};
+ 	QObject::connect(field, &Ui::NumberInput::changed, [=] {
+-		counter->count = std::max(field->getLastText().toInt(), 1);
++		counter->count = std::clamp(field->getLastText().toInt(), 1, limit);
+ 	});
+ 	QObject::connect(field, &Ui::NumberInput::blurred, [=] {
+ 		set(counter->count.current());
+@@ -129,10 +147,11 @@ void AddCounterRow(
+ 	});
+ 	plus->setClickedCallback([=] {
+ 		const auto now = counter->count.current();
+-		set((now < std::numeric_limits<int>::max()) ? (now + 1) : now);
++		set((now < limit) ? (now + 1) : now);
+ 	});
+ 	counter->count.value() | rpl::on_next([=](int value) {
+ 		minus->setDisabled(value <= 1);
++		plus->setDisabled(value >= limit);
+ 	}, minus->lifetime());
+ 
+ 	row->widthValue() | rpl::on_next([=](int width) {
+@@ -174,29 +193,22 @@ void AddCounterRow(
+ [[nodiscard]] TextWithEntities ErrorText(
+ 		const QString &type,
+ 		const Data::StarGift &gift) {
+-	if (type == u"STARGIFT_USAGE_LIMITED"_q) {
+-		return { tr::lng_gift_sold_out_title(tr::now) };
+-	} else if (type == u"STARGIFT_USER_USAGE_LIMITED"_q) {
++	if (type == u"STARGIFT_USER_USAGE_LIMITED"_q) {
+ 		return tr::lng_gift_sent_finished(
+ 			tr::now,
+ 			lt_count,
+ 			std::max(gift.perUserTotal, 1),
+ 			tr::rich);
+-	} else if (type == u"USER_DISALLOWED_STARGIFTS"_q) {
+-		return { tr::lng_edit_privacy_gifts_restricted(tr::now) };
+-	} else if (type == u"STARGIFT_MESSAGE_INVALID"_q) {
+-		return { tr::lng_gift_send_message_restricted(tr::now) };
+ 	}
+-	return { type };
++	return { GiftErrorReason(type) };
+ }
+ 
+ void SendOne(
+ 		not_null<Main::Session*> session,
+ 		MTPInputInvoice invoice,
+-		Data::StarGift gift,
+-		Fn<void(std::optional<TextWithEntities>)> done) {
++		Fn<void(bool, QString)> done) {
+ 	const auto fail = [=](const MTP::Error &error) {
+-		done(ErrorText(error.type(), gift));
++		done(false, error.type());
+ 	};
+ 	session->api().request(MTPpayments_GetPaymentForm(
+ 		MTP_flags(0),
+@@ -212,7 +224,7 @@ void SendOne(
+ 			return uint64();
+ 		});
+ 		if (!formId) {
+-			done(ErrorText(u"PAYMENT_FORM_INVALID"_q, gift));
++			done(false, u"PAYMENT_FORM_INVALID"_q);
+ 			return;
+ 		}
+ 		session->api().request(MTPpayments_SendStarsForm(
+@@ -221,9 +233,9 @@ void SendOne(
+ 		)).done([=](const MTPpayments_PaymentResult &result) {
+ 			result.match([&](const MTPDpayments_paymentResult &data) {
+ 				session->api().applyUpdates(data.vupdates());
+-				done(std::nullopt);
++				done(true, QString());
+ 			}, [&](const MTPDpayments_paymentVerificationNeeded &) {
+-				done(ErrorText(u"PAYMENT_VERIFICATION_NEEDED"_q, gift));
++				done(false, u"PAYMENT_VERIFICATION_NEEDED"_q);
+ 			});
+ 		}).fail(fail).send();
+ 	}).fail(fail).send();
+@@ -235,65 +247,56 @@ void SendAll(
+ 		not_null<PeerData*> peer,
+ 		GiftSendDetails details,
+ 		int count) {
+-	struct State {
+-		int sent = 0;
+-		Fn<void()> next;
+-	};
+-	const auto state = std::make_shared<State>();
+ 	const auto session = &peer->session();
+ 	const auto show = window->uiShow();
+ 	const auto weak = base::make_weak(counter);
+ 	const auto weakWindow = base::make_weak(window);
+ 	const auto invoice = GiftInvoice(peer, details);
+ 	const auto gift = v::get<GiftTypeStars>(details.descriptor).info;
+-	const auto finish = [=](std::optional<TextWithEntities> error) {
+-		state->next = nullptr;
+-		const auto sent = state->sent;
+-		session->credits().load(true);
+-		if (sent > 0) {
+-			if (const auto strong = weakWindow.get()) {
+-				strong->showPeerHistory(peer);
++	counter->total = count;
++	RunGiftBatch({
++		.session = session,
++		.total = count,
++		.alive = [=] { return weak.get() != nullptr; },
++		.step = [=](int index, Fn<void(bool, QString)> done) {
++			SendOne(session, invoice, std::move(done));
++		},
++		.progress = [=](GiftBatchProgress progress) {
++			if (const auto strong = weak.get()) {
++				strong->wait = progress.wait;
++				strong->sending = progress.index + 1;
+ 			}
+-		}
+-		auto toast = Ui::Toast::Config();
+-		if (!error && sent == count) {
+-			toast.title = tr::lng_gift_sent_title(tr::now);
+-			toast.text = { Lower(u"Sent %1 gifts."_q).arg(sent) };
+-		} else {
+-			toast.title = Lower(u"Sent %1 of %2 gifts"_q).arg(sent).arg(count);
+-			toast.text = error.value_or(TextWithEntities());
+-		}
+-		ShowTeleToast(show, std::move(toast));
+-		if (const auto strong = weak.get()) {
+-			strong->sending = 0;
+-			strong->box->closeBox();
+-		}
+-	};
+-	state->next = [=] {
+-		const auto strong = weak.get();
+-		if (!strong) {
+-			finish(std::nullopt);
+-			return;
+-		} else if (state->sent >= count) {
+-			finish(std::nullopt);
+-			return;
+-		}
+-		strong->sending = state->sent + 1;
+-		SendOne(session, invoice, gift, [=](
+-				std::optional<TextWithEntities> error) {
+-			if (error) {
+-				finish(std::move(error));
+-				return;
++		},
++		.finished = [=](GiftBatchResult result) {
++			const auto sent = result.done;
++			session->credits().load(true);
++			if (sent > 0) {
++				if (const auto strong = weakWindow.get()) {
++					strong->showPeerHistory(peer);
++				}
+ 			}
+-			++state->sent;
+-			if (const auto next = state->next) {
+-				next();
++			auto toast = Ui::Toast::Config();
++			if (result.cancelled) {
++				toast.title = Lower(u"Cancelled after %1 of %2 gifts"_q)
++					.arg(sent)
++					.arg(count);
++			} else if (result.failed) {
++				toast.title = Lower(u"Sent %1 of %2 gifts"_q)
++					.arg(sent)
++					.arg(count);
++				toast.text = ErrorText(result.error, gift);
++			} else {
++				toast.title = tr::lng_gift_sent_title(tr::now);
++				toast.text = { Lower(u"Sent %1 gifts."_q).arg(sent) };
+ 			}
+-		});
+-	};
+-	counter->total = count;
+-	const auto first = state->next;
+-	first();
++			ShowTeleToast(show, std::move(toast));
++			if (const auto strong = weak.get()) {
++				strong->wait = 0;
++				strong->sending = 0;
++				strong->box->closeBox();
++			}
++		},
++	});
+ }
+ 
+ } // namespace
+@@ -311,8 +314,12 @@ GiftCounter *AddGiftQuantity(
+ 		|| stars->info.unique) {
+ 		return nullptr;
+ 	}
++	const auto limit = GiftLimit(stars->info);
++	if (limit <= 1) {
++		return nullptr;
++	}
+ 	const auto counter = box->lifetime().make_state<GiftCounter>(box);
+-	AddCounterRow(container, counter);
++	AddCounterRow(container, counter, limit);
+ 	return counter;
+ }
+ 
+@@ -330,14 +337,23 @@ rpl::producer<TextWithEntities> GiftQuantitySendLabel(
+ 	return rpl::combine(
+ 		counter->count.value(),
+ 		counter->sending.value(),
++		counter->wait.value(),
+ 		std::move(details),
+ 		std::move(cost)
+ 	) | rpl::map([=](
+ 			int count,
+ 			int sending,
++			int wait,
+ 			const GiftSendDetails &details,
+ 			const TextWithEntities &cost) {
+-		if (sending) {
++		if (sending && wait) {
++			return TextWithEntities{
++				Lower(u"Waiting %1 to send %2 of %3\u2026"_q)
++					.arg(GiftBatchWait(wait))
++					.arg(sending)
++					.arg(counter->total),
++			};
++		} else if (sending) {
+ 			return TextWithEntities{
+ 				Lower(u"Sending %1 of %2\u2026"_q)
+ 					.arg(sending)

@@ -1,0 +1,300 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 05:14:02 +0300
+Subject: [PATCH] feat: show id and dc in one row
+
+---
+ .../info/profile/info_profile_actions.cpp     |   6 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  28 ++++-
+ Telegram/SourceFiles/tele/tele_options.h      |   4 +-
+ Telegram/SourceFiles/tele/tele_peer_id.cpp    | 103 ++++++++++++++----
+ 5 files changed, 112 insertions(+), 30 deletions(-)
+
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+index 0037eadfc5610a21e9ced458c1368be7446ff813..7f53fb060667f51bce19ff1d96d22da3d0d74241 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+@@ -1854,7 +1854,7 @@ Section DetailsFiller::makeInfo() {
+ 			setupAboutContextMenu(about.text, AboutWithAdvancedValue(_peer));
+ 		}
+ 	}
+-	if (!_topic && ShowPeerIdBelowAbout.value()) {
++	if (!_topic) {
+ 		Tele::SetupPeerIdLabel(
+ 			addInfoOneLine(
+ 				Tele::Lower(u"ID"_q),
+@@ -1862,8 +1862,6 @@ Section DetailsFiller::makeInfo() {
+ 				QString()).text,
+ 			_peer,
+ 			controller);
+-	}
+-	if (!_topic) {
+ 		addInfoOneLine(
+ 			Tele::Lower(u"Real name"_q),
+ 			Tele::LocalRealNameValue(_peer),
+@@ -1875,8 +1873,6 @@ Section DetailsFiller::makeInfo() {
+ 				QString()).text,
+ 			_peer,
+ 			controller);
+-	}
+-	if (!_topic && Tele::ShowDc()) {
+ 		Tele::SetupPeerDcLabel(
+ 			addInfoOneLine(
+ 				Tele::Lower(u"DC"_q),
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 17da4bd98a179278db82768384bfca83e4a9711e..2f6c4322213225a76dc9819fd0ea9f85ce2790ee 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1731,6 +1731,7 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Profiles"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowDc);
++	AddOptionToggle(builder, ::Tele::kOptionMergeIdDc);
+ 	AddOptionToggle(builder, ::Tele::kOptionNoPhoneInHeader);
+ 	AddOptionToggle(builder, ::Tele::kOptionNftPurchasePrice);
+ 	AddLocalNames(builder);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index c5cfe2ea8374bcfc111ada1b6da54741a11b32f0..52505e516c25d4ec50cf4eb2bb6fa18e92afb0eb 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -48,6 +48,7 @@ const char kOptionSeeTgButton[] = "tele-seetg-button";
+ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
+ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
+ const char kOptionShowDc[] = "tele-show-dc";
++const char kOptionMergeIdDc[] = "tele-merge-id-dc";
+ const char kOptionMessageIdMenu[] = "tele-message-id-menu";
+ const char kOptionHideIgnored[] = "tele-hide-ignored";
+ const char kOptionIgnoredUsers[] = "tele-ignored-users";
+@@ -368,6 +369,13 @@ base::options::toggle ShowDcOption({
+ 	.description = "A DC row in profiles, known from the profile photo.",
+ });
+ 
++base::options::toggle MergeIdDcOption({
++	.id = kOptionMergeIdDc,
++	.name = "ID and DC in one row",
++	.description = "When both are shown, the DC goes next to the ID"
++		" in the same row.",
++});
++
+ base::options::toggle MessageIdMenuOption({
+ 	.id = kOptionMessageIdMenu,
+ 	.name = "Show message ID in the message menu",
+@@ -914,8 +922,24 @@ rpl::producer<> PeerIdFormatChanges() {
+ 		BotApiPeerIdsOption.changes());
+ }
+ 
+-bool ShowDc() {
+-	return ShowDcOption.value();
++rpl::producer<bool> ShowDcValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ShowDcOption.changes()
++	) | rpl::map([] {
++		return ShowDcOption.value();
++	});
++}
++
++rpl::producer<bool> MergeIdDcValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		MergeIdDcOption.changes()
++	) | rpl::map([] {
++		return MergeIdDcOption.value();
++	});
+ }
+ 
+ bool MessageIdMenu() {
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 995f336feaa3e9ce17e873f2f957d209cfe93ffc..c451d23efa5fa77d7c7dc934edabc288ea42be36 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -45,6 +45,7 @@ extern const char kOptionSeeTgButton[];
+ extern const char kOptionPeerIdsWithoutSpaces[];
+ extern const char kOptionBotApiPeerIds[];
+ extern const char kOptionShowDc[];
++extern const char kOptionMergeIdDc[];
+ extern const char kOptionMessageIdMenu[];
+ extern const char kOptionHideIgnored[];
+ extern const char kOptionIgnoredUsers[];
+@@ -143,7 +144,8 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] bool PeerIdsWithoutSpaces();
+ [[nodiscard]] bool BotApiPeerIds();
+ [[nodiscard]] rpl::producer<> PeerIdFormatChanges();
+-[[nodiscard]] bool ShowDc();
++[[nodiscard]] rpl::producer<bool> ShowDcValue();
++[[nodiscard]] rpl::producer<bool> MergeIdDcValue();
+ [[nodiscard]] bool MessageIdMenu();
+ [[nodiscard]] bool HideIgnored();
+ [[nodiscard]] rpl::producer<bool> HideIgnoredValue();
+diff --git a/Telegram/SourceFiles/tele/tele_peer_id.cpp b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+index b8c405f8af8705f93a10f5a29c3c22dbf8205869..d4141c19615b0f0bda750ea4d1f81ae903068a7b 100644
+--- a/Telegram/SourceFiles/tele/tele_peer_id.cpp
++++ b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+@@ -1,7 +1,9 @@
+ #include "tele/tele_peer_id.h"
+ 
++#include "base/options.h"
+ #include "data/data_changes.h"
+ #include "data/data_peer.h"
++#include "info/profile/info_profile_actions.h"
+ #include "lang/lang_tag.h"
+ #include "main/main_session.h"
+ #include "mtproto/mtp_instance.h"
+@@ -76,6 +78,13 @@ private:
+ 	return QString();
+ }
+ 
++[[nodiscard]] QString DcText(not_null<PeerData*> peer, int dc) {
++	const auto location = DcLocation(peer, dc);
++	return location.isEmpty()
++		? QString::number(dc)
++		: u"%1, %2"_q.arg(dc).arg(Lower(location));
++}
++
+ [[nodiscard]] rpl::producer<int> PeerDcValue(not_null<PeerData*> peer) {
+ 	return peer->session().changes().peerFlagsValue(
+ 		peer,
+@@ -85,6 +94,41 @@ private:
+ 	}) | rpl::distinct_until_changed();
+ }
+ 
++[[nodiscard]] rpl::producer<bool> ShowPeerIdValue() {
++	const auto option = &base::options::lookup<bool>(
++		::Info::Profile::kOptionShowPeerIdBelowAbout);
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		option->changes()
++	) | rpl::map([=] {
++		return option->value();
++	});
++}
++
++[[nodiscard]] rpl::producer<int> MergedDcValue(not_null<PeerData*> peer) {
++	return rpl::combine(
++		MergeIdDcValue(),
++		ShowDcValue(),
++		PeerDcValue(peer)
++	) | rpl::map([](bool merge, bool show, int dc) {
++		return (merge && show) ? dc : 0;
++	}) | rpl::distinct_until_changed();
++}
++
++void CopyDc(
++		not_null<PeerData*> peer,
++		base::weak_ptr<Window::SessionController> weak) {
++	TextUtilities::SetClipboardText({ QString::number(PeerDc(peer)) });
++	if (const auto strong = weak.get()) {
++		strong->showToast({
++			.text = { Lower(u"DC copied to clipboard."_q) },
++			.iconLottie = u"toast/copy"_q,
++			.iconLottieSize = st::toastLottieIconSize,
++		});
++	}
++}
++
+ } // namespace
+ 
+ QString FormatPeerId(not_null<PeerData*> peer) {
+@@ -102,8 +146,19 @@ QString FormatPeerId(not_null<PeerData*> peer) {
+ }
+ 
+ rpl::producer<TextWithEntities> PeerIdTextValue(not_null<PeerData*> peer) {
+-	return PeerIdValue(peer) | rpl::map([](const QString &id) {
+-		return Ui::Text::Link(id, kLinkIndex);
++	return rpl::combine(
++		ShowPeerIdValue(),
++		PeerIdValue(peer),
++		MergedDcValue(peer)
++	) | rpl::map([=](bool shown, const QString &id, int dc) {
++		if (!shown) {
++			return TextWithEntities();
++		}
++		return Ui::Text::Link(
++			(dc
++				? u"%1 (%2%3)"_q.arg(id, Lower(u"DC"_q), DcText(peer, dc))
++				: id),
++			kLinkIndex);
+ 	});
+ }
+ 
+@@ -122,15 +177,24 @@ void SetupPeerIdLabel(
+ 			});
+ 		}
+ 	};
+-	PeerIdValue(peer) | rpl::on_next([=](const QString &id) {
++	PeerIdTextValue(peer) | rpl::on_next([=] {
+ 		label->setLink(
+ 			kLinkIndex,
+-			std::make_shared<CopyClickHandler>(id, copy));
++			std::make_shared<CopyClickHandler>(FormatPeerId(peer), copy));
++	}, label->lifetime());
++	const auto mergedDc = label->lifetime().make_state<int>(0);
++	MergedDcValue(peer) | rpl::on_next([=](int dc) {
++		*mergedDc = dc;
+ 	}, label->lifetime());
+ 	label->setContextMenuHook([=](
+ 			Ui::FlatLabel::ContextMenuRequest request) {
+ 		if (request.selection.empty()) {
+ 			request.menu->addAction(Lower(u"Copy ID"_q), copy);
++			if (*mergedDc) {
++				request.menu->addAction(Lower(u"Copy DC"_q), [=] {
++					CopyDc(peer, weak);
++				});
++			}
+ 		} else {
+ 			label->fillContextMenu(request);
+ 		}
+@@ -138,16 +202,16 @@ void SetupPeerIdLabel(
+ }
+ 
+ rpl::producer<TextWithEntities> PeerDcTextValue(not_null<PeerData*> peer) {
+-	return PeerDcValue(peer) | rpl::map([=](int dc) {
+-		if (!dc) {
++	return rpl::combine(
++		ShowDcValue(),
++		MergeIdDcValue(),
++		ShowPeerIdValue(),
++		PeerDcValue(peer)
++	) | rpl::map([=](bool shown, bool merge, bool idShown, int dc) {
++		if (!shown || (merge && idShown) || !dc) {
+ 			return TextWithEntities();
+ 		}
+-		const auto location = DcLocation(peer, dc);
+-		return Ui::Text::Link(
+-			(location.isEmpty()
+-				? QString::number(dc)
+-				: u"%1, %2"_q.arg(dc).arg(Lower(location))),
+-			kLinkIndex);
++		return Ui::Text::Link(DcText(peer, dc), kLinkIndex);
+ 	});
+ }
+ 
+@@ -157,19 +221,14 @@ void SetupPeerDcLabel(
+ 		not_null<Window::SessionController*> controller) {
+ 	const auto weak = base::make_weak(controller);
+ 	const auto copy = [=] {
+-		TextUtilities::SetClipboardText({ QString::number(PeerDc(peer)) });
+-		if (const auto strong = weak.get()) {
+-			strong->showToast({
+-				.text = { Lower(u"DC copied to clipboard."_q) },
+-				.iconLottie = u"toast/copy"_q,
+-				.iconLottieSize = st::toastLottieIconSize,
+-			});
+-		}
++		CopyDc(peer, weak);
+ 	};
+-	PeerDcValue(peer) | rpl::on_next([=](int dc) {
++	PeerDcTextValue(peer) | rpl::on_next([=] {
+ 		label->setLink(
+ 			kLinkIndex,
+-			std::make_shared<CopyClickHandler>(QString::number(dc), copy));
++			std::make_shared<CopyClickHandler>(
++				QString::number(PeerDc(peer)),
++				copy));
+ 	}, label->lifetime());
+ 	label->setContextMenuHook([=](
+ 			Ui::FlatLabel::ContextMenuRequest request) {

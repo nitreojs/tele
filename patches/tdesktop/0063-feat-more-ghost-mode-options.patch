@@ -1,0 +1,376 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 22:20:55 +0300
+Subject: [PATCH] feat: more ghost mode options
+
+---
+ Telegram/SourceFiles/api/api_updates.cpp      |   1 +
+ Telegram/SourceFiles/apiwrap.cpp              |   4 +-
+ .../data/data_message_reactions.cpp           |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_ghost.cpp      | 137 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_ghost.h        |  13 ++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  18 ++-
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ 8 files changed, 172 insertions(+), 6 deletions(-)
+
+diff --git a/Telegram/SourceFiles/api/api_updates.cpp b/Telegram/SourceFiles/api/api_updates.cpp
+index 5a379e8abcb3215b10876496d745fc8107c85847..19f5fb4af05ae3207f2a0f1a31e228736406bf5a 100644
+--- a/Telegram/SourceFiles/api/api_updates.cpp
++++ b/Telegram/SourceFiles/api/api_updates.cpp
+@@ -1705,6 +1705,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
+ 					// registerMessageSentData.
+ 					return;
+ 				} else {
++					Tele::OfflineAfterSend(&session());
+ 					const auto existing = session().data().message(
+ 						id.peer,
+ 						newId);
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index 07fe89ed6a7d3f7b0d0aaa025896fb775fe518ee..f91d10ad06029f0a3d0ff96c85b6796e410e06b5 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -1451,7 +1451,7 @@ void ApiWrap::markContentsRead(
+ 		if (Tele::KeepsSecretMedia(item)
+ 			|| !item->markContentsRead(true)
+ 			|| !item->isRegular()
+-			|| Tele::HideRead(item->history()->peer)) {
++			|| Tele::HideContentsRead(item)) {
+ 			continue;
+ 		}
+ 		if (const auto channel = item->history()->peer->asChannel()) {
+@@ -1479,7 +1479,7 @@ void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
+ 	if (Tele::KeepsSecretMedia(item)
+ 		|| !item->markContentsRead(true)
+ 		|| !item->isRegular()
+-		|| Tele::HideRead(item->history()->peer)) {
++		|| Tele::HideContentsRead(item)) {
+ 		return;
+ 	}
+ 	const auto ids = MTP_vector<MTPint>(1, MTP_int(item->id));
+diff --git a/Telegram/SourceFiles/data/data_message_reactions.cpp b/Telegram/SourceFiles/data/data_message_reactions.cpp
+index ce05de5fadc5caf73bf3cf31f4a7d35a4e0b63dc..42fc948a584bc05c72a59bb0794ac7f224d000d6 100644
+--- a/Telegram/SourceFiles/data/data_message_reactions.cpp
++++ b/Telegram/SourceFiles/data/data_message_reactions.cpp
+@@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "base/call_delayed.h"
+ #include "base/unixtime.h"
+ #include "apiwrap.h"
++#include "tele/tele_ghost.h"
+ #include "styles/style_chat.h"
+ 
+ #include "base/random.h"
+@@ -2269,6 +2270,7 @@ bool MessageReactions::change(
+ 			});
+ 		});
+ 	}
++	Tele::ApplyLocalReactionsRead(_item, parsed, min);
+ 	if (_recent != parsed) {
+ 		_recent = std::move(parsed);
+ 		changed = true;
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 982a3518080be5ed8aa6f5394d91061663d3ac2a..1ad81f81d5e34588a87207326d0547c3f6a16195 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1106,6 +1106,7 @@ void FillPrivacy(SectionBuilder &builder) {
+ 	builder.addSkip();
+ 	AddGroupTitle(builder, u"Ghost mode"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhost);
++	AddOptionToggle(builder, ::Tele::kOptionGhostInMenu);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhostRead);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhostReadOnReply);
+ 	AddOptionToggle(builder, ::Tele::kOptionGhostTyping);
+diff --git a/Telegram/SourceFiles/tele/tele_ghost.cpp b/Telegram/SourceFiles/tele/tele_ghost.cpp
+index 7772d51fd1d7c2deb381822953e1682822cd60ad..f463d7d17d81ed1c96dd2dec61748b4a97eef9a7 100644
+--- a/Telegram/SourceFiles/tele/tele_ghost.cpp
++++ b/Telegram/SourceFiles/tele/tele_ghost.cpp
+@@ -3,15 +3,19 @@
+ #include "api/api_common.h"
+ #include "api/api_updates.h"
+ #include "apiwrap.h"
++#include "base/timer.h"
+ #include "base/unixtime.h"
+ #include "core/application.h"
+ #include "core/core_settings.h"
+ #include "data/components/ephemeral_messages.h"
++#include "data/data_changes.h"
+ #include "data/data_channel.h"
+ #include "data/data_forum_topic.h"
++#include "data/data_message_reactions.h"
+ #include "data/data_peer.h"
+ #include "data/data_saved_sublist.h"
+ #include "data/data_session.h"
++#include "data/data_user.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "main/main_account.h"
+@@ -48,6 +52,7 @@ constexpr auto kTestBit = BareId(1) << 63;
+ constexpr auto kChannelShift = int64(1000000000000LL);
+ constexpr auto kScheduleDelay = TimeId(12);
+ constexpr auto kScheduleProxyDelay = TimeId(15);
++constexpr auto kOfflineAfterSendDelay = crl::time(200);
+ 
+ using Key = BareId;
+ 
+@@ -262,6 +267,70 @@ void MarkReadTill(not_null<HistoryItem*> item) {
+ 			caption);
+ }
+ 
++using OfflineTimerMap = base::flat_map<
++	not_null<Main::Session*>,
++	std::unique_ptr<base::Timer>>;
++
++using ReadReaction = std::pair<PeerId, Data::ReactionId>;
++using ReadReactions = base::flat_map<
++	FullMsgId,
++	base::flat_set<ReadReaction>>;
++using ReadReactionsMap = base::flat_map<
++	not_null<Main::Session*>,
++	ReadReactions>;
++
++[[nodiscard]] ReadReactionsMap &LocalReadReactions() {
++	static auto result = ReadReactionsMap();
++	return result;
++}
++
++void RememberReadReactions(not_null<HistoryItem*> item) {
++	auto pairs = base::flat_set<ReadReaction>();
++	for (const auto &[id, list] : item->recentReactions()) {
++		for (const auto &reaction : list) {
++			if (!reaction.my) {
++				pairs.emplace(reaction.peer->id, id);
++			}
++		}
++	}
++	if (pairs.empty()) {
++		return;
++	}
++	const auto session = &item->history()->session();
++	auto &map = LocalReadReactions();
++	auto i = map.find(session);
++	if (i == end(map)) {
++		i = map.emplace(session, ReadReactions()).first;
++		session->lifetime().add([=] {
++			LocalReadReactions().remove(session);
++		});
++	}
++	auto &already = i->second[item->fullId()];
++	for (const auto &pair : pairs) {
++		already.emplace(pair);
++	}
++}
++
++[[nodiscard]] OfflineTimerMap &OfflineTimers() {
++	static auto result = OfflineTimerMap();
++	return result;
++}
++
++void SendOffline(not_null<Main::Session*> session) {
++	if (!HideOnline()) {
++		return;
++	}
++	session->api().request(MTPaccount_UpdateStatus(
++		MTP_bool(true)
++	)).send();
++	const auto self = session->user();
++	self->updateLastseen(Data::LastseenStatus::OnlineTill(
++		base::unixtime::now() - 1));
++	session->changes().peerUpdated(
++		self,
++		Data::PeerUpdate::Flag::OnlineStatus);
++}
++
+ } // namespace
+ 
+ bool HideRead(not_null<PeerData*> peer) {
+@@ -287,6 +356,53 @@ bool SkipReadInbox(not_null<History*> history, MsgId tillId) {
+ 	return true;
+ }
+ 
++bool HideContentsRead(not_null<HistoryItem*> item) {
++	if (!HideRead(item->history()->peer)) {
++		return false;
++	}
++	RememberReadReactions(item);
++	return true;
++}
++
++void ApplyLocalReactionsRead(
++		not_null<HistoryItem*> item,
++		base::flat_map<
++			Data::ReactionId,
++			std::vector<Data::RecentReaction>> &recent,
++		bool min) {
++	auto &map = LocalReadReactions();
++	const auto i = map.find(&item->history()->session());
++	if (i == end(map)) {
++		return;
++	}
++	auto &items = i->second;
++	const auto j = items.find(item->fullId());
++	if (j == end(items)) {
++		return;
++	}
++	const auto hide = HideRead(item->history()->peer);
++	auto kept = base::flat_set<ReadReaction>();
++	for (auto &[id, list] : recent) {
++		for (auto &reaction : list) {
++			const auto key = ReadReaction(reaction.peer->id, id);
++			if (!reaction.unread || !j->second.contains(key)) {
++				continue;
++			}
++			kept.emplace(key);
++			if (hide) {
++				reaction.unread = false;
++			}
++		}
++	}
++	if (min) {
++		return;
++	} else if (kept.empty()) {
++		items.erase(j);
++	} else {
++		j->second = std::move(kept);
++	}
++}
++
+ void ReadOnSend(const Api::SendAction &action) {
+ 	const auto history = action.history;
+ 	const auto peer = history->peer;
+@@ -318,6 +434,24 @@ void ReadOnSend(const Api::SendAction &action) {
+ 	}
+ }
+ 
++void OfflineAfterSend(not_null<Main::Session*> session) {
++	if (!HideOnline()) {
++		return;
++	}
++	auto &timers = OfflineTimers();
++	auto i = timers.find(session);
++	if (i == end(timers)) {
++		i = timers.emplace(
++			session,
++			std::make_unique<base::Timer>([=] { SendOffline(session); })
++		).first;
++		session->lifetime().add([=] {
++			OfflineTimers().remove(session);
++		});
++	}
++	i->second->callOnce(kOfflineAfterSendDelay);
++}
++
+ void ApplyGhostSchedule(Api::SendAction &action, const QString &caption) {
+ 	if (CanGhostSchedule(action, caption)) {
+ 		action.options.scheduled = base::unixtime::now() + ScheduleDelay();
+@@ -378,6 +512,9 @@ void AddMarkReadAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+ }
+ 
+ void AddGhostMenuToggle(not_null<Ui::VerticalLayout*> container) {
++	if (!GhostInMenu()) {
++		return;
++	}
+ 	const auto button = Settings::AddButtonWithIcon(
+ 		container,
+ 		rpl::single(Lower(u"Ghost mode"_q)),
+diff --git a/Telegram/SourceFiles/tele/tele_ghost.h b/Telegram/SourceFiles/tele/tele_ghost.h
+index df4f394418bf70ffefa2dcd8035febd3d1910c87..dfbbca5b59ab7b2921201f3f04bea07796893cb8 100644
+--- a/Telegram/SourceFiles/tele/tele_ghost.h
++++ b/Telegram/SourceFiles/tele/tele_ghost.h
+@@ -9,6 +9,11 @@ struct SendAction;
+ struct SendOptions;
+ } // namespace Api
+ 
++namespace Data {
++struct ReactionId;
++struct RecentReaction;
++} // namespace Data
++
+ namespace Main {
+ class Session;
+ } // namespace Main
+@@ -40,7 +45,15 @@ struct GhostChat {
+ [[nodiscard]] bool HideTyping(not_null<PeerData*> peer);
+ [[nodiscard]] bool HideOnline();
+ [[nodiscard]] bool SkipReadInbox(not_null<History*> history, MsgId tillId);
++[[nodiscard]] bool HideContentsRead(not_null<HistoryItem*> item);
++void ApplyLocalReactionsRead(
++	not_null<HistoryItem*> item,
++	base::flat_map<
++		Data::ReactionId,
++		std::vector<Data::RecentReaction>> &recent,
++	bool min);
+ void ReadOnSend(const Api::SendAction &action);
++void OfflineAfterSend(not_null<Main::Session*> session);
+ 
+ void ApplyGhostSchedule(
+ 	Api::SendAction &action,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index e0bfb12629b6c1537e3a7c1a0b58edd8a965565b..fe1954902b58dd84aee3abdad5291ac11edef92c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -7,6 +7,7 @@ namespace Tele {
+ const char kOptionHideStories[] = "tele-hide-stories";
+ const char kOptionInvisibleStories[] = "tele-invisible-stories";
+ const char kOptionGhost[] = "tele-ghost";
++const char kOptionGhostInMenu[] = "tele-ghost-in-menu";
+ const char kOptionGhostRead[] = "tele-ghost-read";
+ const char kOptionGhostReadOnReply[] = "tele-ghost-read-on-reply";
+ const char kOptionGhostTyping[] = "tele-ghost-typing";
+@@ -80,8 +81,13 @@ base::options::toggle InvisibleStoriesOption({
+ base::options::toggle GhostOption({
+ 	.id = kOptionGhost,
+ 	.name = "Ghost mode",
+-	.description = "Applies the switches below, also toggled from the main "
+-		"menu.",
++	.description = "Applies the switches below.",
++});
++
++base::options::toggle GhostInMenuOption({
++	.id = kOptionGhostInMenu,
++	.name = "Ghost mode in the main menu",
++	.description = "A quick switch for ghost mode in the left menu.",
+ });
+ 
+ base::options::toggle GhostReadOption({
+@@ -108,8 +114,8 @@ base::options::toggle GhostTypingOption({
+ base::options::toggle GhostOnlineOption({
+ 	.id = kOptionGhostOnline,
+ 	.name = "Don't go online",
+-	.description = "Sending a message still shows you online, unless it's "
+-		"scheduled.",
++	.description = "After sending a message, tele sets you offline right "
++		"away.",
+ 	.defaultValue = true,
+ });
+ 
+@@ -621,6 +627,10 @@ bool JumpToFirst() {
+ 	return JumpToFirstOption.value();
+ }
+ 
++bool GhostInMenu() {
++	return GhostInMenuOption.value();
++}
++
+ bool StaticUserpicsList() {
+ 	return StaticUserpicsListOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 282b50bf463ee13a9bb3a495f19914124483b776..cd88b5a00b1a7b26af7e6fc703ec6f79f4643bb9 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -30,6 +30,7 @@ extern const char kOptionCleanSentLinks[];
+ extern const char kOptionHideAllChats[];
+ extern const char kOptionJumpToFirst[];
+ extern const char kOptionStaticUserpicsList[];
++extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionShowGiftIds[];
+ extern const char kOptionSeeTgButton[];
+@@ -96,6 +97,7 @@ void SetGroupCallButton(const QString &value);
+ [[nodiscard]] bool HideAllChats();
+ [[nodiscard]] rpl::producer<> HideAllChatsChanges();
+ [[nodiscard]] bool JumpToFirst();
++[[nodiscard]] bool GhostInMenu();
+ [[nodiscard]] bool StaticUserpicsList();
+ [[nodiscard]] rpl::producer<> StaticUserpicsListChanges();
+ [[nodiscard]] bool StaticUserpicsChats();

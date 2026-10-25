@@ -1,0 +1,99 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 16:23:03 +0300
+Subject: [PATCH] fix: late-sent messages show their real sent time
+
+---
+ Telegram/SourceFiles/history/history_item.cpp |  3 +++
+ Telegram/SourceFiles/tele/tele_send_order.cpp | 25 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_send_order.h   |  4 +++
+ 3 files changed, 32 insertions(+)
+
+diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
+index 12d78fa6fe5403e56db2c5855b08d4a986ffe902..92e93c8627b4dcdc00eb2fb06300845b543a5163 100644
+--- a/Telegram/SourceFiles/history/history_item.cpp
++++ b/Telegram/SourceFiles/history/history_item.cpp
+@@ -90,6 +90,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_deleted_reply.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_send_order.h"
+ #include "tele/tele_shot.h"
+ 
+ #include "styles/style_chat.h"
+@@ -2832,6 +2833,7 @@ void HistoryItem::applySentMessage(const MTPDmessage &data) {
+ 	}
+ 	setPostAuthor(data.vpost_author().value_or_empty());
+ 	contributeToSlowmode(data.vdate().v);
++	Tele::ApplySentDate(this, data.vdate().v, _date);
+ 	if (isRegular() && wasTypes) {
+ 		// addToSharedMediaIndex() below writes the message's current
+ 		// (key, mask); this is its inverse. A type the message keeps at
+@@ -2904,6 +2906,7 @@ void HistoryItem::applySentMessage(
+ 			? existingRichPage->fullPage
+ 			: nullptr);
+ 	contributeToSlowmode(data.vdate().v);
++	Tele::ApplySentDate(this, data.vdate().v, _date);
+ 	if (!wasAlready) {
+ 		addToSharedMediaIndex();
+ 		addToMessagesIndex();
+diff --git a/Telegram/SourceFiles/tele/tele_send_order.cpp b/Telegram/SourceFiles/tele/tele_send_order.cpp
+index 6cb6aa9fcd55377ea92261a91f10e67ec4531bdf..b6c5a1c2d38ef3243756c8e9489674e7a6951c3b 100644
+--- a/Telegram/SourceFiles/tele/tele_send_order.cpp
++++ b/Telegram/SourceFiles/tele/tele_send_order.cpp
+@@ -2,8 +2,11 @@
+ 
+ #include "data/data_changes.h"
+ #include "data/data_document.h"
++#include "data/data_forum_topic.h"
+ #include "data/data_groups.h"
+ #include "data/data_media_types.h"
++#include "data/data_peer.h"
++#include "data/data_saved_sublist.h"
+ #include "data/data_session.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
+@@ -474,6 +477,28 @@ void MoveSentToBottom(not_null<HistoryItem*> item) {
+ 	history->owner().notifyHistoryChangeDelayed(history);
+ }
+ 
++void ApplySentDate(
++		not_null<HistoryItem*> item,
++		TimeId date,
++		TimeId &field) {
++	if (!SentToBottom()
++		|| field == date
++		|| !item->isRegular()
++		|| !(item->out() || item->history()->peer->isSelf())) {
++		return;
++	}
++	field = date;
++	const auto refresh = [&](Dialogs::Entry *entry) {
++		if (entry && entry->chatListMessage() == item) {
++			entry->setChatListTimeId(date);
++		}
++	};
++	refresh(item->history());
++	refresh(item->topic());
++	refresh(item->savedSublist());
++	item->history()->owner().requestItemViewRefresh(item);
++}
++
+ bool HoldBehindMedia(
+ 		not_null<History*> history,
+ 		const FullReplyTo &replyTo,
+diff --git a/Telegram/SourceFiles/tele/tele_send_order.h b/Telegram/SourceFiles/tele/tele_send_order.h
+index a269eba34b470d2d024250b28186e56521ce49d9..1cbb4fdf5b367776d4c5d1cd37fd61762e5374ce 100644
+--- a/Telegram/SourceFiles/tele/tele_send_order.h
++++ b/Telegram/SourceFiles/tele/tele_send_order.h
+@@ -16,6 +16,10 @@ class PopupMenu;
+ namespace Tele {
+ 
+ void MoveSentToBottom(not_null<HistoryItem*> item);
++void ApplySentDate(
++	not_null<HistoryItem*> item,
++	TimeId date,
++	TimeId &field);
+ [[nodiscard]] bool HoldBehindMedia(
+ 	not_null<History*> history,
+ 	const FullReplyTo &replyTo,

@@ -1,0 +1,170 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 22:22:20 +0300
+Subject: [PATCH] feat: show ids on regular gifts
+
+---
+ .../SourceFiles/boxes/gift_premium_box.cpp    |  2 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  1 +
+ Telegram/SourceFiles/tele/tele_gifts.cpp      | 27 ++++++++++++++-----
+ Telegram/SourceFiles/tele/tele_gifts.h        |  3 ++-
+ Telegram/SourceFiles/tele/tele_options.cpp    | 11 ++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 ++
+ 6 files changed, 38 insertions(+), 8 deletions(-)
+
+diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
+index db8da85a8b3ef242573ef5104fb13bfbf650e42f..f605241e0e0db9aab094434f93ec3661f22ec415 100644
+--- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
++++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
+@@ -1514,7 +1514,7 @@ void AddStarGiftTable(
+ 		&& (entry.in || entry.bareGiftOwnerId == selfBareId);
+ 	const auto giftToChannel = entry.giftChannelSavedId
+ 		&& peerIsChannel(PeerId(entry.bareEntryOwnerId));
+-	Tele::AddGiftIdRow(show, table, unique);
++	Tele::AddGiftIdRow(show, table, entry);
+ 
+ 	const auto tooltip = std::make_shared<TableRowTooltipData>(
+ 		TableRowTooltipData{ .parent = container });
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 1ad81f81d5e34588a87207326d0547c3f6a16195..b1fa391b6fbe352ee58d497a5fc78c509e06f064 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -1137,6 +1137,7 @@ void FillProfiles(SectionBuilder &builder) {
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Gifts"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionShowGiftIds);
++	AddOptionToggle(builder, ::Tele::kOptionShowRegularGiftIds);
+ 	AddOptionToggle(builder, ::Tele::kOptionSeeTgButton);
+ 	builder.addSkip();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gifts.cpp b/Telegram/SourceFiles/tele/tele_gifts.cpp
+index a7879ec3e8c3b6a8bb39ab82c9d00cda551b09a3..5bb1651da3a209d6081780cfa67c6f619a30c493 100644
+--- a/Telegram/SourceFiles/tele/tele_gifts.cpp
++++ b/Telegram/SourceFiles/tele/tele_gifts.cpp
+@@ -3,6 +3,7 @@
+ #include "base/qthelp_url.h"
+ #include "chat_helpers/compose/compose_show.h"
+ #include "core/click_handler_types.h"
++#include "data/data_credits.h"
+ #include "data/data_star_gift.h"
+ #include "lang/lang_text_entity.h"
+ #include "tele/tele_lowercase.h"
+@@ -23,14 +24,13 @@
+ 
+ namespace Tele {
+ 
+-void AddGiftIdRow(
++namespace {
++
++void AddIdRow(
+ 		std::shared_ptr<ChatHelpers::Show> show,
+ 		not_null<Ui::TableLayout*> table,
+-		const Data::UniqueGift *gift) {
+-	if (!gift || !gift->id || !ShowGiftIds()) {
+-		return;
+-	}
+-	const auto id = QString::number(gift->id);
++		uint64 value) {
++	const auto id = QString::number(value);
+ 	auto label = object_ptr<Ui::FlatLabel>(
+ 		table,
+ 		rpl::single(Ui::Text::Wrapped({ id }, EntityType::Code)),
+@@ -47,6 +47,21 @@ void AddGiftIdRow(
+ 	Ui::AddTableRow(table, rpl::single(Lower(u"Gift ID"_q)), std::move(label));
+ }
+ 
++} // namespace
++
++void AddGiftIdRow(
++		std::shared_ptr<ChatHelpers::Show> show,
++		not_null<Ui::TableLayout*> table,
++		const Data::CreditsHistoryEntry &entry) {
++	if (const auto unique = entry.uniqueGift.get()) {
++		if (unique->id && ShowGiftIds()) {
++			AddIdRow(show, table, unique->id);
++		}
++	} else if (entry.stargiftId && ShowRegularGiftIds()) {
++		AddIdRow(show, table, entry.stargiftId);
++	}
++}
++
+ void AddSeeTgButton(
+ 		std::shared_ptr<ChatHelpers::Show> show,
+ 		not_null<Ui::GenericBox*> box,
+diff --git a/Telegram/SourceFiles/tele/tele_gifts.h b/Telegram/SourceFiles/tele/tele_gifts.h
+index ea7984f0f28ceb04cdfafaa55a932a486606daf3..00bf2160ed39f27c1fd0f85723411c1c4f707c98 100644
+--- a/Telegram/SourceFiles/tele/tele_gifts.h
++++ b/Telegram/SourceFiles/tele/tele_gifts.h
+@@ -5,6 +5,7 @@ class Show;
+ } // namespace ChatHelpers
+ 
+ namespace Data {
++struct CreditsHistoryEntry;
+ struct UniqueGift;
+ } // namespace Data
+ 
+@@ -18,7 +19,7 @@ namespace Tele {
+ void AddGiftIdRow(
+ 	std::shared_ptr<ChatHelpers::Show> show,
+ 	not_null<Ui::TableLayout*> table,
+-	const Data::UniqueGift *gift);
++	const Data::CreditsHistoryEntry &entry);
+ 
+ void AddSeeTgButton(
+ 	std::shared_ptr<ChatHelpers::Show> show,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index fe1954902b58dd84aee3abdad5291ac11edef92c..92fa3c62388ca5760ea7393ae12029d8cfebb841 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -36,6 +36,7 @@ const char kOptionJumpToFirst[] = "tele-jump-to-first";
+ const char kOptionStaticUserpicsList[] = "tele-static-userpics-list";
+ const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
+ const char kOptionShowGiftIds[] = "tele-show-gift-ids";
++const char kOptionShowRegularGiftIds[] = "tele-show-regular-gift-ids";
+ const char kOptionSeeTgButton[] = "tele-seetg-button";
+ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
+ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
+@@ -269,6 +270,12 @@ base::options::toggle ShowGiftIdsOption({
+ 	.description = "In collectible gift cards, click to copy.",
+ });
+ 
++base::options::toggle ShowRegularGiftIdsOption({
++	.id = kOptionShowRegularGiftIds,
++	.name = "IDs on regular gifts",
++	.description = "The gift type ID on non-collectible gifts, click to copy.",
++});
++
+ base::options::toggle SeeTgButtonOption({
+ 	.id = kOptionSeeTgButton,
+ 	.name = "See.tg button on collectible gifts",
+@@ -651,6 +658,10 @@ bool ShowGiftIds() {
+ 	return ShowGiftIdsOption.value();
+ }
+ 
++bool ShowRegularGiftIds() {
++	return ShowRegularGiftIdsOption.value();
++}
++
+ bool SeeTgButton() {
+ 	return SeeTgButtonOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index cd88b5a00b1a7b26af7e6fc703ec6f79f4643bb9..f6e0e970120eb5ba4f4d8362a55d785de89e06f7 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -33,6 +33,7 @@ extern const char kOptionStaticUserpicsList[];
+ extern const char kOptionGhostInMenu[];
+ extern const char kOptionStaticUserpicsChats[];
+ extern const char kOptionShowGiftIds[];
++extern const char kOptionShowRegularGiftIds[];
+ extern const char kOptionSeeTgButton[];
+ extern const char kOptionPeerIdsWithoutSpaces[];
+ extern const char kOptionBotApiPeerIds[];
+@@ -103,6 +104,7 @@ void SetGroupCallButton(const QString &value);
+ [[nodiscard]] bool StaticUserpicsChats();
+ [[nodiscard]] rpl::producer<> StaticUserpicsChatsChanges();
+ [[nodiscard]] bool ShowGiftIds();
++[[nodiscard]] bool ShowRegularGiftIds();
+ [[nodiscard]] bool SeeTgButton();
+ [[nodiscard]] bool PeerIdsWithoutSpaces();
+ [[nodiscard]] bool BotApiPeerIds();
