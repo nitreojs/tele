@@ -62,6 +62,8 @@ when a platform fails, the others stay published and its clients keep the previo
 
 once every platform is out, the release notes list the new, changed and dropped patches with their rows from `docs/releases.md`, the downloads and the full patch table. when the announcement secrets are set, the release is also announced in the project's telegram channel: the new and changed patches grouped by the same categories as the in-app what's new, then the dropped ones. the channel also gets tele for android's releases, so the post is titled `tele for desktop <number> · <tdesktop version>` and ends with a `#desktop` footer.
 
+a release that moves to a newer tdesktop opens the notes, the post and the in-app what's new with a `telegram desktop <version>` section: upstream's own `changelog.txt` lines for every version after the previous release's upstream, betas included, oldest first. lines about build options are left out. if the changelog can't be fetched, a single "moved from" line stands in for it.
+
 ## signing and attestation
 
 - **update feeds.** each feed names the release, its build number, the zip url and the sha256 of the zip and of the executable inside it. it's signed with an ed25519 key that only exists as a repository secret, and the signature is verified against `ci/update-public-key.pem` before the release is created. the app has the matching public key built in and refuses a feed that doesn't verify, a download that doesn't match the hashes, and urls outside this repository's releases.

@@ -11,6 +11,9 @@ import sys
 import urllib.error
 import urllib.request
 
+CHANGELOG = 'https://raw.githubusercontent.com/telegramdesktop/tdesktop/{tag}/changelog.txt'
+VERSION = re.compile(r'^(\d+(?:\.\d+)*)(?:\s+beta)?\s+\(')
+
 
 def git(repo, *args):
     return subprocess.run(
@@ -64,6 +67,38 @@ def upstream(repo, rev):
     return git(repo, 'show', f'{rev}:UPSTREAM').strip()
 
 
+def version_key(text):
+    return tuple(int(part) for part in text.lstrip('v').split('.'))
+
+
+def upstream_changes(was, now):
+    # telegram desktop's own changelog lines after `was` up to `now`, betas included because tele only follows stables
+    if not was or not now or was == now:
+        return []
+    try:
+        with urllib.request.urlopen(CHANGELOG.format(tag=now), timeout=30) as response:
+            text = response.read().decode('utf-8')
+        low, high = version_key(was), version_key(now)
+    except (OSError, ValueError):
+        return []
+    sections = []
+    for line in text.splitlines():
+        heading = VERSION.match(line)
+        if heading:
+            take = low < version_key(heading.group(1)) <= high
+            sections.append([] if take else None)
+            continue
+        line = line.strip()
+        if sections and sections[-1] is not None and line.startswith('- ') and 'build option' not in line:
+            sections[-1].append(line[2:].strip())
+    return [item for section in reversed(sections) if section for item in section]
+
+
+def upstream_move(repo, previous, now):
+    was = upstream(repo, previous) if previous else ''
+    return (was, upstream_changes(was, now)) if was and was != now else ('', [])
+
+
 def escape(text):
     text = re.sub(r'([\\`*_\[\]()~=|$!#+\-])', r'\\\1', text)
     return text.replace('<', '&#60;')
@@ -94,10 +129,18 @@ def message(args):
         '',
         f'telegram desktop [{escape(args.upstream)}]({tdesktop}{args.upstream}) with {len(now)} patches.',
     ]
-    if args.previous:
-        was = upstream(args.repo, args.previous)
-        if was != args.upstream:
-            lines += ['', f'moved from tdesktop {escape(was)} to {escape(args.upstream)}.']
+    was, moved = upstream_move(args.repo, args.previous, args.upstream)
+    if moved:
+        lines += [
+            '',
+            f'**telegram desktop {escape(args.upstream.lstrip("v"))}**',
+            '',
+            f'new in telegram desktop since {escape(was.lstrip("v"))}:',
+            '',
+            *[f'- {escape(item)}' for item in moved],
+        ]
+    elif was:
+        lines += ['', f'moved from tdesktop {escape(was)} to {escape(args.upstream)}.']
     for title in CATEGORIES:
         if title in grouped:
             lines += ['', f'**{title}**', '', *grouped[title]]
