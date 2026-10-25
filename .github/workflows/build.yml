@@ -302,6 +302,13 @@ jobs:
           if (-not (Test-Path $atl)) { "::error::$component did not install $atl"; exit 1 }
           "installed $component"
 
+      # a cold prepare builds qt 6 in debug and release next to its sources, more than C: has free on the image
+      - name: Free C before prepare
+        shell: pwsh
+        run: |
+          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue C:\Android
+          Get-PSDrive C, D -ErrorAction SilentlyContinue | Format-Table Name, @{n='free GB';e={[math]::Round($_.Free / 1GB, 1)}}
+
       - name: Prepare libraries
         id: prepare
         run: |
@@ -319,6 +326,7 @@ jobs:
         env:
           PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
         run: |
+          df -h /c /d 2>/dev/null || true
           libs="$TBUILD/Libraries/win64"
           if [ ! -d "$libs" ]; then
             exit 0
