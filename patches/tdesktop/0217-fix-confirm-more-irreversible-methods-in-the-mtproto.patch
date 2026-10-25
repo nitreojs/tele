@@ -10,7 +10,7 @@ Subject: [PATCH] fix: confirm more irreversible methods in the mtproto console
  3 files changed, 39 insertions(+), 15 deletions(-)
 
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp b/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
-index cab497e2d85069e796ea9a1df9cf6ac19fa9118b..a4ada2f27a3b592c77a09bf5bf35c941857c3433 100644
+index 74265f6b276aa84cfecf661b124fab629ee27f86..f49549e33d61e6c89589951a8d911d83e15ea2d4 100644
 --- a/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
 +++ b/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
 @@ -46,7 +46,7 @@ struct Danger {

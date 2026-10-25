@@ -35,7 +35,7 @@ Subject: [PATCH] feat: keep deleted messages
  .../view/reactions/history_view_reactions.cpp |  11 +-
  .../markdown/iv_markdown_slideshow_chrome.cpp |   7 +-
  .../SourceFiles/settings/settings_tele.cpp    |   2 +
- Telegram/SourceFiles/tele/tele_deleted.cpp    | 370 +++++++++
+ Telegram/SourceFiles/tele/tele_deleted.cpp    | 378 +++++++++
  Telegram/SourceFiles/tele/tele_deleted.h      |  51 ++
  .../SourceFiles/tele/tele_deleted_section.cpp | 774 ++++++++++++++++++
  .../SourceFiles/tele/tele_deleted_section.h   |  51 ++
@@ -45,7 +45,7 @@ Subject: [PATCH] feat: keep deleted messages
  .../ui/effects/ministar_particles.cpp         |   2 +-
  .../ui/effects/unique_gift_message_bubble.cpp |   5 +-
  .../SourceFiles/window/window_peer_menu.cpp   |   2 +
- 41 files changed, 1466 insertions(+), 98 deletions(-)
+ 41 files changed, 1474 insertions(+), 98 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_deleted.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_deleted.h
  create mode 100644 Telegram/SourceFiles/tele/tele_deleted_section.cpp
@@ -1241,10 +1241,10 @@ index 40916b3666b829d00bb2068827845c6a121c35e2..038494773a727251030814dfa4713ce3
  	Ui::AddSkip(content);
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..9383ae7a9416d3ac90185df1e42b29f9f8d8a041
+index 0000000000000000000000000000000000000000..cbc9e673a7289f74489c13b1c580733ea414c41b
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
-@@ -0,0 +1,370 @@
+@@ -0,0 +1,378 @@
 +#include "tele/tele_deleted.h"
 +
 +#include "data/data_histories.h"
@@ -1543,9 +1543,17 @@ index 0000000000000000000000000000000000000000..9383ae7a9416d3ac90185df1e42b29f9
 +			? ServerMaxMsgId
 +			: MsgId(hi.bare + 1);
 +	}
++	auto present = base::flat_set<MsgId>();
++	present.reserve(items.size());
++	for (const auto &item : items) {
++		present.emplace(item->id);
++	}
 +	auto add = std::vector<not_null<HistoryItem*>>();
 +	for (const auto &[id, item] : *kept) {
-+		if (id > from && id < till && !item->mainView()) {
++		if (id > from
++			&& id < till
++			&& !item->mainView()
++			&& !present.contains(id)) {
 +			add.push_back(item);
 +		}
 +	}

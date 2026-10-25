@@ -187,7 +187,7 @@ index 221b6b8cd37be03bf7582f954eff96b3f74e71cf..328fcbbff5226488f7272bf0757e8482
  				builder,
  				::Tele::kOptionKeepDeletedPersist,
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index c36c94c9c03223a63b3637d7ff341cafc216dcba..820fe13a9d17278c7ea8fc9562dd003027e240e0 100644
+index 681b89c49a63efd4d79bf988ca28a1d1529fb99f..434962998299fda620df902bb100de54acffbe12 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -320,6 +320,26 @@ void KeepOwnDeleted(std::vector<not_null<HistoryItem*>> &items) {

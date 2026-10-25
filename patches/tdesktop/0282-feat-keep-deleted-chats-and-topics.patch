@@ -423,7 +423,7 @@ index 75bf4f77862b904a72d4c291e15d36ab67e0ad86..bdb17158254e2837a4635bafc9caf0eb
  				builder,
  				::Tele::kOptionKeepDeletedPersist,
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index 9638593db2d0230063353bf0595464f874e01ca0..08310676b56eef842f0eb0d20f7826e8bfa8a2b5 100644
+index 30f16b11fef497c1c197dad813a2257ab40b4b53..91a54022017040665d25f8e615ddeb18dbfc1862 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -18,6 +18,7 @@

@@ -38,7 +38,7 @@ index 0c02009a6a15b2b84ca29c706abb47ee1b92c661..a45635d4258a1836ca9139d1f568b56b
  		builder,
  		::Tele::kOptionDeletedIcon,
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index 91b7ebcb69126ba5444c499e9c4db55d78629c59..e3544ee5702026eed648d58b3d806c31cafc8f81 100644
+index 9976fedc2dcfb4749af57c922ebf744b8af57519..de22ce266e5c27a9ef699ca6b6e32c7519d9c0e3 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -3,6 +3,7 @@

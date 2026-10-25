@@ -68770,7 +68770,7 @@ index d69f590ab0ad28434803d9bd3dfad27a2537de36..0b2b6fbd137839d9b84bf4b7168addf3
  <div id="help-panel" class="modal"><div id="help-box" class="modal-box help-box"></div></div>
  <div id="confirm" class="modal"><div class="modal-box"><div id="confirm-text"></div><div class="modal-buttons"><button id="confirm-cancel" class="ui" type="button">Cancel</button><button id="confirm-ok" class="ui danger" type="button">Send</button></div></div></div>
 diff --git a/Telegram/Resources/tele_html/mtp_console.js b/Telegram/Resources/tele_html/mtp_console.js
-index 3efd16557002e364b14daf658a03acaa825b5a7d..2219ee92d1b1054d181203d3f857f18d686b3864 100644
+index ad7c9aa727ff60ca71466e7988c1420f1a2c754d..88d1bf8bdb93eee9466b42265a0e8f0dff9c9e94 100644
 --- a/Telegram/Resources/tele_html/mtp_console.js
 +++ b/Telegram/Resources/tele_html/mtp_console.js
 @@ -2506,6 +2506,7 @@ function collapseAll(root) {
@@ -118426,7 +118426,7 @@ index a0930ab18590f10fa048ec0377f7dfdc76258098..88dec2179e1a8d1cdcae8570320d96c7
  
  Main::Session *CountedSession(not_null<Main::Account*> account) {
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index 08310676b56eef842f0eb0d20f7826e8bfa8a2b5..c36c94c9c03223a63b3637d7ff341cafc216dcba 100644
+index 91a54022017040665d25f8e615ddeb18dbfc1862..681b89c49a63efd4d79bf988ca28a1d1529fb99f 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -46,6 +46,7 @@ struct State {
@@ -118447,7 +118447,7 @@ index 08310676b56eef842f0eb0d20f7826e8bfa8a2b5..c36c94c9c03223a63b3637d7ff341caf
  }
  
  void Restore(not_null<History*> history) {
-@@ -524,6 +528,10 @@ void ClearKeptDeleted(not_null<History*> history) {
+@@ -532,6 +536,10 @@ void ClearKeptDeleted(not_null<History*> history) {
  	history->owner().histories().deleteMessages(ids, false);
  }
  
@@ -119102,7 +119102,7 @@ index 188084b833c0a0a14971010c1cdf544b60cc2370..48e4a69035c10b55bff03d6141d66bd4
  		return finish(_requests.peers(), kJson);
  	} else if (id.starts_with("history/")) {
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp b/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
-index a4ada2f27a3b592c77a09bf5bf35c941857c3433..72e3f78a8bfd36af37c564e2ad22dadf52f35bb2 100644
+index f49549e33d61e6c89589951a8d911d83e15ea2d4..10ca47439ef363a4adbcbe4ec91392ca25494ebf 100644
 --- a/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
 +++ b/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
 @@ -18,6 +18,7 @@
@@ -119205,7 +119205,7 @@ index a4ada2f27a3b592c77a09bf5bf35c941857c3433..72e3f78a8bfd36af37c564e2ad22dadf
  MtpConsoleRequests::MtpConsoleRequests(
  	std::shared_ptr<Main::SessionShow> show,
  	Callbacks callbacks)
-@@ -796,37 +731,7 @@ void MtpConsoleRequests::finishLocal(int id, const QString &error) {
+@@ -815,37 +750,7 @@ void MtpConsoleRequests::finishLocal(int id, const QString &error) {
  }
  
  bool MtpConsoleRequests::applyUpdates(const QByteArray &bytes) const {

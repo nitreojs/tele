@@ -8,11 +8,12 @@ Subject: [PATCH] feat: report freezes
  Telegram/SourceFiles/core/application.cpp     |   2 +
  .../SourceFiles/core/crash_report_window.cpp  |   4 +-
  Telegram/SourceFiles/core/sandbox.cpp         |   3 +-
+ .../SourceFiles/platform/win/webauthn_win.cpp |  37 +-
  Telegram/SourceFiles/tele/tele_crash.cpp      |  16 +-
  Telegram/SourceFiles/tele/tele_crash.h        |   4 +-
- .../SourceFiles/tele/tele_freeze_watchdog.cpp | 385 ++++++++++++++++++
- .../SourceFiles/tele/tele_freeze_watchdog.h   |  13 +
- 8 files changed, 422 insertions(+), 7 deletions(-)
+ .../SourceFiles/tele/tele_freeze_watchdog.cpp | 395 ++++++++++++++++++
+ .../SourceFiles/tele/tele_freeze_watchdog.h   |  22 +
+ 9 files changed, 464 insertions(+), 21 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_freeze_watchdog.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_freeze_watchdog.h
 
@@ -99,6 +100,68 @@ index 5276241e8499b5bab9c5bc6c7d8f64b8110b8f3c..67c24a17f6505381f2184d60320f8b83
  	v::match(result, [&](CrashReports::Status status) {
  		if (status == CrashReports::CantOpen) {
  			new NotStartedWindow();
+diff --git a/Telegram/SourceFiles/platform/win/webauthn_win.cpp b/Telegram/SourceFiles/platform/win/webauthn_win.cpp
+index 4c9bdd4ba247ca351cba1c5c9bca3b937eb2f71a..3a728a77e0b004ac5de1096f023750b9e9a53275 100644
+--- a/Telegram/SourceFiles/platform/win/webauthn_win.cpp
++++ b/Telegram/SourceFiles/platform/win/webauthn_win.cpp
+@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/application.h"
+ #include "data/data_passkey_deserialize.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_freeze_watchdog.h"
+ #include "webauthn/webauthn_common.h"
+ #include "window/window_controller.h"
+ 
+@@ -196,14 +197,18 @@ void RegisterViaNative(
+ 	const auto hwnd = NativeParentWindow();
+ 
+ 	auto attestation = (PWEBAUTHN_CREDENTIAL_ATTESTATION)(nullptr);
+-	auto hr = (HRESULT)(WebAuthNAuthenticatorMakeCredential)(
+-		hwnd,
+-		&rpInfo,
+-		&userInfo,
+-		&credParamsList,
+-		&clientData,
+-		&options,
+-		&attestation);
++	auto hr = HRESULT();
++	{
++		const auto pause = Tele::FreezeWatchdogPause();
++		hr = (WebAuthNAuthenticatorMakeCredential)(
++			hwnd,
++			&rpInfo,
++			&userInfo,
++			&credParamsList,
++			&clientData,
++			&options,
++			&attestation);
++	}
+ 
+ 	if (SUCCEEDED(hr) && attestation) {
+ 		auto result = RegisterResult();
+@@ -290,12 +295,16 @@ void LoginViaNative(
+ 	const auto hwnd = NativeParentWindow();
+ 
+ 	auto assertion = (PWEBAUTHN_ASSERTION)(nullptr);
+-	auto hr = (HRESULT)(WebAuthNAuthenticatorGetAssertion)(
+-		hwnd,
+-		rpId.c_str(),
+-		&clientData,
+-		&options,
+-		&assertion);
++	auto hr = HRESULT();
++	{
++		const auto pause = Tele::FreezeWatchdogPause();
++		hr = (WebAuthNAuthenticatorGetAssertion)(
++			hwnd,
++			rpId.c_str(),
++			&clientData,
++			&options,
++			&assertion);
++	}
+ 
+ 	if (SUCCEEDED(hr) && assertion) {
+ 		auto result = LoginResult();
 diff --git a/Telegram/SourceFiles/tele/tele_crash.cpp b/Telegram/SourceFiles/tele/tele_crash.cpp
 index 10ed6205e57528a4abcb77c6d4a6140316393e1e..603b7ad428dbae61e0a0ec7fdb9b82e2a7740b78 100644
 --- a/Telegram/SourceFiles/tele/tele_crash.cpp
@@ -154,10 +217,10 @@ index 39e72197b8c34bd033f1f87714421512700a6870..d437b2ca61cb1dcadd8ec2a95bef2b0b
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_freeze_watchdog.cpp b/Telegram/SourceFiles/tele/tele_freeze_watchdog.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..1f89b1eb17f29e24fe037396b33fabb622ef207e
+index 0000000000000000000000000000000000000000..abf9901827dcce889a25e636bf99bd90c74cfe30
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_freeze_watchdog.cpp
-@@ -0,0 +1,385 @@
+@@ -0,0 +1,395 @@
 +#include "tele/tele_freeze_watchdog.h"
 +
 +#include "core/application.h"
@@ -192,6 +255,8 @@ index 0000000000000000000000000000000000000000..1f89b1eb17f29e24fe037396b33fabb6
 +[[nodiscard]] QString MarkerPath() {
 +	return cWorkingDir() + u"tdata/freeze"_q;
 +}
++
++std::atomic<int> Paused = 0;
 +
 +#ifndef Q_OS_MAC
 +
@@ -422,7 +487,7 @@ index 0000000000000000000000000000000000000000..1f89b1eb17f29e24fe037396b33fabb6
 +			}
 +			changed = mono;
 +			continue;
-+		} else if (slept) {
++		} else if (slept || Paused.load()) {
 +			if (!episode) {
 +				changed = mono;
 +			}
@@ -459,6 +524,14 @@ index 0000000000000000000000000000000000000000..1f89b1eb17f29e24fe037396b33fabb6
 +#endif
 +
 +} // namespace
++
++FreezeWatchdogPause::FreezeWatchdogPause() {
++	++Paused;
++}
++
++FreezeWatchdogPause::~FreezeWatchdogPause() {
++	--Paused;
++}
 +
 +void StartFreezeWatchdog() {
 +#ifndef Q_OS_MAC
@@ -545,10 +618,10 @@ index 0000000000000000000000000000000000000000..1f89b1eb17f29e24fe037396b33fabb6
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_freeze_watchdog.h b/Telegram/SourceFiles/tele/tele_freeze_watchdog.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..341c89daeda9c15ac786a016057c3c39989670c7
+index 0000000000000000000000000000000000000000..d5713e6dff9c3e476ba5dec517df3cc230d0cc40
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_freeze_watchdog.h
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,22 @@
 +#pragma once
 +
 +#include "core/crash_reports.h"
@@ -560,5 +633,14 @@ index 0000000000000000000000000000000000000000..341c89daeda9c15ac786a016057c3c39
 +	CrashReports::StartResult result);
 +[[nodiscard]] int FreezeReportSeconds(const QByteArray &report);
 +void ForgetFreezeReport();
++
++class FreezeWatchdogPause final {
++public:
++	FreezeWatchdogPause();
++	FreezeWatchdogPause(const FreezeWatchdogPause &) = delete;
++	FreezeWatchdogPause &operator=(const FreezeWatchdogPause &) = delete;
++	~FreezeWatchdogPause();
++
++};
 +
 +} // namespace Tele

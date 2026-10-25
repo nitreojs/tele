@@ -15,13 +15,13 @@ Subject: [PATCH] feat: mtproto console
  .../SourceFiles/settings/settings_tele.cpp    |   29 +
  .../SourceFiles/tele/tele_mtp_console.cpp     |  433 +++
  Telegram/SourceFiles/tele/tele_mtp_console.h  |   12 +
- .../tele/tele_mtp_console_requests.cpp        |  983 +++++
+ .../tele/tele_mtp_console_requests.cpp        | 1002 +++++
  .../tele/tele_mtp_console_requests.h          |   99 +
  .../SourceFiles/tele/tele_mtp_inspector.cpp   |   62 +-
  .../SourceFiles/tele/tele_mtp_inspector.h     |    3 +
  Telegram/SourceFiles/tele/tele_tl_runtime.cpp | 1249 ++++++
  Telegram/SourceFiles/tele/tele_tl_runtime.h   |  101 +
- 17 files changed, 7065 insertions(+), 30 deletions(-)
+ 17 files changed, 7084 insertions(+), 30 deletions(-)
  create mode 100644 Telegram/Resources/tele_html/mtp_console.css
  create mode 100644 Telegram/Resources/tele_html/mtp_console.html
  create mode 100644 Telegram/Resources/tele_html/mtp_console.js
@@ -748,7 +748,7 @@ index 0000000000000000000000000000000000000000..d69f590ab0ad28434803d9bd3dfad27a
 +</html>
 diff --git a/Telegram/Resources/tele_html/mtp_console.js b/Telegram/Resources/tele_html/mtp_console.js
 new file mode 100644
-index 0000000000000000000000000000000000000000..3efd16557002e364b14daf658a03acaa825b5a7d
+index 0000000000000000000000000000000000000000..ad7c9aa727ff60ca71466e7988c1420f1a2c754d
 --- /dev/null
 +++ b/Telegram/Resources/tele_html/mtp_console.js
 @@ -0,0 +1,3445 @@
@@ -762,7 +762,7 @@ index 0000000000000000000000000000000000000000..3efd16557002e364b14daf658a03acaa
 +const kVectorOpenLimit = 40;
 +const kPopupLimit = 12;
 +const kJsonWidth = 80;
-+const kPeerTypes = new Set(['InputPeer', 'InputUser', 'InputChannel']);
++const kPeerTypes = new Set(['InputPeer', 'InputUser', 'InputChannel', 'InputNotifyPeer', 'InputDialogPeer']);
 +const kNumericTypes = new Set(['int', 'long', 'double', 'int128', 'int256']);
 +const kNumber = /^[+-]?(?:0[xX][0-9a-fA-F]+|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)$/;
 +const kIdentStart = /[A-Za-z_]/;
@@ -4029,7 +4029,7 @@ index 0000000000000000000000000000000000000000..3efd16557002e364b14daf658a03acaa
 +		['0x + 32 or 64 hex digits', 'int128 and int256'],
 +	]],
 +	['Peers', [
-+		['me  @me  @durov  durov  t.me/durov  https://t.me/c/1234567890', 'InputPeer, InputUser and InputChannel', true],
++		['me  @me  @durov  durov  t.me/durov  https://t.me/c/1234567890', 'InputPeer, InputUser, InputChannel, InputNotifyPeer and InputDialogPeer', true],
 +		['123456789  -1001234567890  -123456', 'user, channel and chat ids from loaded chats'],
 +	]],
 +	['Wrappers', [
@@ -4763,10 +4763,10 @@ index 0000000000000000000000000000000000000000..a54a4c98c23ee95e759ee73082144920
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp b/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..43d3b6b71355359938ee3cd93315b568e8cff499
+index 0000000000000000000000000000000000000000..7e2d5f298d7900bd60aa686f51d62ef358658f56
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_mtp_console_requests.cpp
-@@ -0,0 +1,983 @@
+@@ -0,0 +1,1002 @@
 +#include "tele/tele_mtp_console_requests.h"
 +
 +#include "apiwrap.h"
@@ -5310,6 +5310,23 @@ index 0000000000000000000000000000000000000000..43d3b6b71355359938ee3cd93315b568
 +	const auto fail = [](QString error) {
 +		return TlRuntime::Resolution{ .error = error.toStdString() };
 +	};
++	const auto wrapper = (type == "InputNotifyPeer")
++		? "inputNotifyPeer"
++		: (type == "InputDialogPeer")
++		? "inputDialogPeer"
++		: nullptr;
++	if (wrapper) {
++		auto result = resolve(value, "InputPeer");
++		if (!result.bytes.empty()) {
++			const auto id = ConsoleSchema().constructor(wrapper)->id;
++			auto prefix = std::string(4, '\0');
++			for (auto i = 0; i != 4; ++i) {
++				prefix[i] = char((id >> (8 * i)) & 0xFF);
++			}
++			result.bytes = prefix + result.bytes;
++		}
++		return result;
++	}
 +	const auto name = FromStd(type);
 +	const auto user = (type == "InputUser");
 +	const auto channel = (type == "InputChannel");
@@ -5344,9 +5361,11 @@ index 0000000000000000000000000000000000000000..43d3b6b71355359938ee3cd93315b568
 +	const auto lower = text.toLower();
 +	if (lower == u"me"_q || lower == u"@me"_q || lower == u"self"_q) {
 +		if (user) {
-+			return { .bytes = ToStd(SerializeTl(MTP_inputUserSelf())) };
++			return { .bytes = ToStd(
++				SerializeTl(MTPInputUser(MTP_inputUserSelf()))) };
 +		} else if (!channel) {
-+			return { .bytes = ToStd(SerializeTl(MTP_inputPeerSelf())) };
++			return { .bytes = ToStd(
++				SerializeTl(MTPInputPeer(MTP_inputPeerSelf()))) };
 +		}
 +		return input(_session->user());
 +	}

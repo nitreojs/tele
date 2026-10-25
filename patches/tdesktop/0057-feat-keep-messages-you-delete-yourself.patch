@@ -23,7 +23,7 @@ index 2ceaf52f45798265ef9b8e699f14e765c584f351..0a54edd4a7bc14863a64e944e12e2a75
  		_owner->notifyItemsAboutToBeDestroyed(remove);
  	}
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index 9383ae7a9416d3ac90185df1e42b29f9f8d8a041..a98c8651fe75920d9469a79922d417a1d4a0f0d3 100644
+index cbc9e673a7289f74489c13b1c580733ea414c41b..38ea269a14a9899c4a5fcceb0c51991bc9a33f87 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -150,15 +150,13 @@ void Forget(

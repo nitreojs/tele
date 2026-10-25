@@ -199,7 +199,7 @@ index 0000000000000000000000000000000000000000..206b55e33f3d436f34fc22685263d919
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index 6641287981de7b4e6d7742812a89ab55cdf86d04..7cf129a639d23520d0eba316ef8f60be51511fde 100644
+index 1fec3ee9e842efa38a49bb9d91e71797b69505cf..1f85a817c37718e0097a6a8e1bedaa0d9e224913 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -223,6 +223,14 @@ void KeepOwnDeleted(std::vector<not_null<HistoryItem*>> &items) {

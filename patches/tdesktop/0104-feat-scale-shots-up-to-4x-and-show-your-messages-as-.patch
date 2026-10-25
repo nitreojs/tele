@@ -939,7 +939,7 @@ index e89de87be5eedecc5b5606d5aae30d6de115ac2c..d069c07a763c41a53e9bf928e2a5fbe3
  		frames.clear();
  	}
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index cc77304607e96aaf664dde8d2aaaf3897179eabf..91b7ebcb69126ba5444c499e9c4db55d78629c59 100644
+index 6161c79ee1ed54138bcc99236e053331e6637275..9976fedc2dcfb4749af57c922ebf744b8af57519 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -11,6 +11,7 @@

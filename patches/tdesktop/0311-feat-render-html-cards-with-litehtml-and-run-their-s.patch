@@ -1620,7 +1620,7 @@ index 0000000000000000000000000000000000000000..340740b73c23d66faa8c418eecf9a7bb
 +} // namespace Tele::Html
 diff --git a/Telegram/SourceFiles/tele/tele_html_card.cpp b/Telegram/SourceFiles/tele/tele_html_card.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..3cc9c7a516693f15076e2bc24f5c0ce6bdbf3c9c
+index 0000000000000000000000000000000000000000..243aefbe3249a4f723a30a975802b928b822c8e2
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_html_card.cpp
 @@ -0,0 +1,1087 @@
@@ -2569,7 +2569,7 @@ index 0000000000000000000000000000000000000000..3cc9c7a516693f15076e2bc24f5c0ce6
 +		bool active) {
 +	if (!active && _layout && _layout->leave()) {
 +		_cacheDirty = true;
-+		repaintCard();
++		_parent->repaint();
 +	}
 +}
 +

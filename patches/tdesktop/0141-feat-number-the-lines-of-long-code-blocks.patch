@@ -11,12 +11,12 @@ Subject: [PATCH] feat: number the lines of long code blocks
  .../iv_markdown_article_layout_structure.cpp  |   7 +-
  .../iv/markdown/iv_markdown_article_paint.cpp |   7 +
  .../SourceFiles/settings/settings_tele.cpp    |   4 +
- Telegram/SourceFiles/tele/tele_code_lines.cpp | 396 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_code_lines.cpp | 410 ++++++++++++++++++
  Telegram/SourceFiles/tele/tele_code_lines.h   |  46 ++
  Telegram/SourceFiles/tele/tele_options.cpp    |  14 +
  Telegram/SourceFiles/tele/tele_options.h      |   3 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
- 12 files changed, 498 insertions(+), 5 deletions(-)
+ 12 files changed, 512 insertions(+), 5 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_code_lines.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_code_lines.h
 
@@ -198,10 +198,10 @@ index d61a0da1741379e2526abe81c1b2520ea86a3a55..8349107aeb22da65e1b10139cbb444db
  	AddGroupTitle(builder, u"Bookmarks"_q);
 diff --git a/Telegram/SourceFiles/tele/tele_code_lines.cpp b/Telegram/SourceFiles/tele/tele_code_lines.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..b7592d3f030cd4702e8c09b24c8978898c161dda
+index 0000000000000000000000000000000000000000..8d6ab7f488b8a47727b8346d13d6e665d77a3596
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_code_lines.cpp
-@@ -0,0 +1,396 @@
+@@ -0,0 +1,410 @@
 +#include "tele/tele_code_lines.h"
 +
 +#include "base/weak_ptr.h"
@@ -225,6 +225,7 @@ index 0000000000000000000000000000000000000000..b7592d3f030cd4702e8c09b24c897889
 +
 +constexpr auto kMinLines = 5;
 +constexpr auto kCompactThreshold = 256;
++constexpr auto kMaxWrappedLines = 400;
 +constexpr auto kOpacity = 0.4;
 +
 +struct Number {
@@ -435,12 +436,25 @@ index 0000000000000000000000000000000000000000..b7592d3f030cd4702e8c09b24c897889
 +		const Ui::Text::String &leaf,
 +		int width) {
 +	const auto text = leaf.toString();
-+	auto request = Ui::Text::StateRequest();
-+	request.flags = Ui::Text::StateRequest::Flag::LookupSymbol;
-+
++	const auto lines = leaf.countLinesGeometry(width);
++	const auto count = int(lines.size());
 +	auto result = std::vector<RichNumber>();
 +	auto counter = 0;
-+	for (const auto &line : leaf.countLinesGeometry(width)) {
++	if (count == int(ranges::count_if(text, Ui::Text::IsNewline)) + 1) {
++		result.reserve(count);
++		for (const auto &line : lines) {
++			result.push_back({
++				.baseline = line.baseline,
++				.value = ++counter,
++			});
++		}
++		return result;
++	} else if (count > kMaxWrappedLines) {
++		return result;
++	}
++	auto request = Ui::Text::StateRequest();
++	request.flags = Ui::Text::StateRequest::Flag::LookupSymbol;
++	for (const auto &line : lines) {
 +		const auto symbol = leaf.getState(
 +			QPoint(0, line.baseline),
 +			width,

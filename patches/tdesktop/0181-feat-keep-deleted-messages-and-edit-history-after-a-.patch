@@ -169,7 +169,7 @@ index 905fb108c5b48bdd031f806fd36b466cd578724a..2829683a6c16768ceb7bbf96c8736649
  	AddGroupDivider(builder);
  	AddGroupTitle(builder, u"Bookmarks"_q);
 diff --git a/Telegram/SourceFiles/tele/tele_deleted.cpp b/Telegram/SourceFiles/tele/tele_deleted.cpp
-index e3544ee5702026eed648d58b3d806c31cafc8f81..6641287981de7b4e6d7742812a89ab55cdf86d04 100644
+index de22ce266e5c27a9ef699ca6b6e32c7519d9c0e3..1fec3ee9e842efa38a49bb9d91e71797b69505cf 100644
 --- a/Telegram/SourceFiles/tele/tele_deleted.cpp
 +++ b/Telegram/SourceFiles/tele/tele_deleted.cpp
 @@ -11,6 +11,7 @@
@@ -248,7 +248,7 @@ index e3544ee5702026eed648d58b3d806c31cafc8f81..6641287981de7b4e6d7742812a89ab55
  	const auto kept = Find(history);
  	if (!kept) {
  		return items;
-@@ -338,6 +361,7 @@ std::vector<not_null<HistoryItem*>> WithKeptDeleted(
+@@ -346,6 +369,7 @@ std::vector<not_null<HistoryItem*>> WithKeptDeleted(
  
  std::vector<not_null<HistoryItem*>> KeptDeletedItems(
  		not_null<History*> history) {
@@ -256,7 +256,7 @@ index e3544ee5702026eed648d58b3d806c31cafc8f81..6641287981de7b4e6d7742812a89ab55
  	auto result = std::vector<not_null<HistoryItem*>>();
  	if (const auto kept = Find(history)) {
  		result.reserve(kept->size());
-@@ -349,6 +373,7 @@ std::vector<not_null<HistoryItem*>> KeptDeletedItems(
+@@ -357,6 +381,7 @@ std::vector<not_null<HistoryItem*>> KeptDeletedItems(
  }
  
  int KeptDeletedCount(not_null<History*> history) {
