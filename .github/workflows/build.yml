@@ -220,10 +220,11 @@ jobs:
           path: tele
           persist-credentials: false
 
+      # C: has about 18 GB free, less than qt 6 needs to build in debug and release, so everything lives on D:
       - name: Prepare directories
         run: |
-          mkdir %USERPROFILE%\TBuild\Libraries
-          mklink /d %GITHUB_WORKSPACE%\TBuild %USERPROFILE%\TBuild
+          mkdir %GITHUB_WORKSPACE:~0,2%\TBuild\Libraries
+          mklink /d %GITHUB_WORKSPACE%\TBuild %GITHUB_WORKSPACE:~0,2%\TBuild
           echo TBUILD=%GITHUB_WORKSPACE%\TBuild>>%GITHUB_ENV%
 
       - name: Clone tdesktop
@@ -253,7 +254,8 @@ jobs:
           echo "VCVARS_VER=$toolset" >> "$GITHUB_ENV"
           # through stdin: a backslash in the path makes sha256sum prefix its output with \
           prepare_hash=$(sha256sum < "$TBUILD/tdesktop/Telegram/build/prepare/prepare.py" | cut -c1-16)
-          echo "CACHE_KEY=win64-$sdk-$prepare_hash" >> "$GITHUB_ENV"
+          # win64d: built in D:\TBuild. prepare.py keys embed absolute paths, so caches from C: can't be reused
+          echo "CACHE_KEY=win64d-$sdk-$prepare_hash" >> "$GITHUB_ENV"
           # same as upstream ci: no /Zi in the libraries' debug builds, keeps the cache small
           sed -i '/CMAKE_${lang}_FLAGS_DEBUG_INIT/s/${_Zi}//' "$PROGRAMFILES"/CMake/share/cmake*/Modules/Platform/Windows-MSVC.cmake
 
@@ -266,7 +268,7 @@ jobs:
           key: ${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             ${{ env.CACHE_KEY }}-
-            win64-
+            win64d-
 
       - name: Remember library state
         shell: bash
@@ -301,13 +303,6 @@ jobs:
           if ($process.ExitCode -ne 0 -and $process.ExitCode -ne 3010) { exit $process.ExitCode }
           if (-not (Test-Path $atl)) { "::error::$component did not install $atl"; exit 1 }
           "installed $component"
-
-      # a cold prepare builds qt 6 in debug and release next to its sources, more than C: has free on the image
-      - name: Free C before prepare
-        shell: pwsh
-        run: |
-          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue C:\Android
-          Get-PSDrive C, D -ErrorAction SilentlyContinue | Format-Table Name, @{n='free GB';e={[math]::Round($_.Free / 1GB, 1)}}
 
       - name: Prepare libraries
         id: prepare
@@ -353,13 +348,10 @@ jobs:
             ${{ env.TBUILD }}\Libraries
           key: ${{ env.CACHE_KEY }}-${{ github.run_id }}-${{ github.run_attempt }}
 
-      # libraries and sources stay on C: (prepare.py keys embed their paths), the build tree goes to D:
-      - name: Make room on C
+      # the linker's temporary files would go to C:, which has little room
+      - name: Temporary files on D
         shell: pwsh
         run: |
-          Remove-Item -Recurse -Force -ErrorAction SilentlyContinue C:\Android
-          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\out" | Out-Null
-          New-Item -ItemType Junction -Path "$env:TBUILD\tdesktop\out" -Target "$env:RUNNER_TEMP\out" | Out-Null
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\link" | Out-Null
           "TMP=$env:RUNNER_TEMP\link" >> $env:GITHUB_ENV
           "TEMP=$env:RUNNER_TEMP\link" >> $env:GITHUB_ENV
