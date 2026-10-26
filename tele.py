@@ -260,9 +260,10 @@ def apply_pending(tdesktop, state):
 
 def prime_patch_blobs(tdesktop):
     # a 3-way fallback needs each patch's preimage blob; for files an earlier tele patch already
-    # touched, that blob only exists after replaying the queue on UPSTREAM, which a fresh clone lacks
-    patches = patch_groups().get(ROOT_GROUP)
-    if not patches:
+    # touched, that blob only exists after replaying the queue on UPSTREAM, which a fresh clone lacks.
+    # submodules are primed at the commit the tag pins, fetched first when a shallow clone lacks it
+    groups = patch_groups()
+    if not groups:
         return
     upstream = read_upstream()
     ref = f'refs/tags/{upstream}'
@@ -270,18 +271,29 @@ def prime_patch_blobs(tdesktop):
         shallow = git(tdesktop, 'rev-parse', '--is-shallow-repository') == 'true'
         git(tdesktop, 'fetch', '--quiet', '--no-tags', *(['--depth', '1'] if shallow else []),
             UPSTREAM_URL, f'+{ref}:{ref}')
-    if git(tdesktop, 'rev-parse', 'HEAD') == git(tdesktop, 'rev-parse', ref + '^{commit}'):
-        return
-    print(f'replaying the patches on {upstream} to get their base files', flush=True)
-    scratch = Path(tempfile.mkdtemp(prefix='tele-prime-'))
-    worktree = scratch / 'tdesktop'
-    git(tdesktop, 'worktree', 'add', '--quiet', '--detach', str(worktree), ref)
-    try:
-        if run_git(worktree, *AM_ARGS, *map(str, patches)).returncode != 0:
-            run_git(worktree, 'am', '--abort')
-    finally:
-        git(tdesktop, 'worktree', 'remove', '--force', str(worktree))
-        shutil.rmtree(scratch, ignore_errors=True)
+    tag_commit = git(tdesktop, 'rev-parse', ref + '^{commit}')
+    for group, patches in groups.items():
+        if group == ROOT_GROUP:
+            repo, base = tdesktop, tag_commit
+        else:
+            repo = tdesktop / group
+            base = git(tdesktop, 'rev-parse', f'{tag_commit}:{group}')
+            if run_git(repo, 'cat-file', '-e', base + '^{commit}').returncode != 0:
+                shallow = git(repo, 'rev-parse', '--is-shallow-repository') == 'true'
+                git(repo, 'fetch', '--quiet', '--no-tags', *(['--depth', '1'] if shallow else []),
+                    'origin', base)
+        if git(repo, 'rev-parse', 'HEAD') == base:
+            continue
+        print(f'replaying the {group} patches on {upstream} to get their base files', flush=True)
+        scratch = Path(tempfile.mkdtemp(prefix='tele-prime-'))
+        worktree = scratch / 'repo'
+        git(repo, 'worktree', 'add', '--quiet', '--detach', str(worktree), base)
+        try:
+            if run_git(worktree, *AM_ARGS, *map(str, patches)).returncode != 0:
+                run_git(worktree, 'am', '--abort')
+        finally:
+            git(repo, 'worktree', 'remove', '--force', str(worktree))
+            shutil.rmtree(scratch, ignore_errors=True)
 
 
 def start_applying(tdesktop, tag):
