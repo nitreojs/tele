@@ -4,12 +4,13 @@ Date: Mon, 26 Oct 2026 09:17:56 +0300
 Subject: [PATCH] feat: translate tele into russian and ukrainian
 
 ---
- Telegram/CMakeLists.txt                       |    2 +
+ Telegram/CMakeLists.txt                       |    4 +
  Telegram/Resources/qrc/telegram/telegram.qrc  |    2 +
- Telegram/Resources/tele/translations/ru.json  | 2881 +++++++++++++++++
- Telegram/Resources/tele/translations/uk.json  | 2881 +++++++++++++++++
+ Telegram/Resources/tele/translations/ru.json  | 2882 +++++++++++++++++
+ Telegram/Resources/tele/translations/uk.json  | 2882 +++++++++++++++++
+ .../SourceFiles/info/info_wrap_widget.cpp     |    6 +
  Telegram/SourceFiles/lang/lang_instance.cpp   |    2 +-
- .../SourceFiles/settings/settings_tele.cpp    |  250 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  221 +-
  .../tele/scripting/tele_script_box.cpp        |    6 +-
  .../tele/scripting/tele_script_manager.cpp    |   14 +-
  .../SourceFiles/tele/secret/secret_chats.cpp  |    2 +-
@@ -70,6 +71,8 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  .../SourceFiles/tele/tele_settings_io.cpp     |   76 +-
  Telegram/SourceFiles/tele/tele_settings_io.h  |    1 +
  .../SourceFiles/tele/tele_settings_io_box.cpp |   55 +-
+ .../tele/tele_settings_language.cpp           |  175 +
+ .../SourceFiles/tele/tele_settings_language.h |   21 +
  Telegram/SourceFiles/tele/tele_shot.cpp       |   16 +-
  .../SourceFiles/tele/tele_stars_tools.cpp     |   32 +-
  .../SourceFiles/tele/tele_sticker_formats.cpp |   18 +-
@@ -80,17 +83,28 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  Telegram/SourceFiles/tele/tele_translations.h |   11 +
  .../SourceFiles/tele/tele_upload_retry.cpp    |    7 +-
  .../tele/tele_username_aliases.cpp            |   27 +-
- 76 files changed, 6913 insertions(+), 509 deletions(-)
+ 79 files changed, 7091 insertions(+), 508 deletions(-)
  create mode 100644 Telegram/Resources/tele/translations/ru.json
  create mode 100644 Telegram/Resources/tele/translations/uk.json
+ create mode 100644 Telegram/SourceFiles/tele/tele_settings_language.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_settings_language.h
  create mode 100644 Telegram/SourceFiles/tele/tele_translations.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_translations.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index af4dfd16771f55186dea52ca4f0bdd654fb02be9..a04d979f42d3b54d8020cee14946bc6c638c3678 100644
+index af4dfd16771f55186dea52ca4f0bdd654fb02be9..c4d23d59544da693b19bd7a7b158c8423a068cd9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3010,6 +3010,8 @@ PRIVATE
+@@ -2964,6 +2964,8 @@ PRIVATE
+     tele/tele_settings_io.h
+     tele/tele_settings_io_box.cpp
+     tele/tele_settings_io_box.h
++    tele/tele_settings_language.cpp
++    tele/tele_settings_language.h
+     tele/tele_shortcuts.cpp
+     tele/tele_shortcuts.h
+     tele/tele_shot.cpp
+@@ -3010,6 +3012,8 @@ PRIVATE
      tele/tele_tl_runtime.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h
@@ -114,10 +128,10 @@ index 3a6a3f0043c66dfd107fc78e810edc53d5e6cad5..9dc8d87002dd0b7617750a466bdd5405
      <file alias="scripting/inline.js">../../tele/scripting/inline.js</file>
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..7bd7c13e602917872a1e78e09b035dcf65520b01
+index 0000000000000000000000000000000000000000..e280ac231ab9cd9d203f3aaa983a6c2b9fc866a7
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/ru.json
-@@ -0,0 +1,2881 @@
+@@ -0,0 +1,2882 @@
 +{
 +	"language": "ru",
 +	"strings": {
@@ -2875,6 +2889,7 @@ index 0000000000000000000000000000000000000000..7bd7c13e602917872a1e78e09b035dcf
 +		"tele dev.lnk": "tele dev.lnk",
 +		"tele has no equivalent": "в tele нет замены",
 +		"tele has no such chat loaded": "в tele не загружен такой чат",
++		"tele language": "Язык tele",
 +		"tele on GitHub": "tele на GitHub",
 +		"tele server": "сервер tele",
 +		"tele settings (*.tele-settings.json *.json);;": "Настройки tele (*.tele-settings.json *.json);;",
@@ -3001,10 +3016,10 @@ index 0000000000000000000000000000000000000000..7bd7c13e602917872a1e78e09b035dcf
 +}
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..8ae84f81d8390d3b87cdd4f0c96f762f5be59c5c
+index 0000000000000000000000000000000000000000..dad0b3d5d7177462c6ae7a18caecf1a82a81ec8a
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/uk.json
-@@ -0,0 +1,2881 @@
+@@ -0,0 +1,2882 @@
 +{
 +	"language": "uk",
 +	"strings": {
@@ -5762,6 +5777,7 @@ index 0000000000000000000000000000000000000000..8ae84f81d8390d3b87cdd4f0c96f762f
 +		"tele dev.lnk": "tele dev.lnk",
 +		"tele has no equivalent": "у tele немає відповідника",
 +		"tele has no such chat loaded": "у tele не завантажено такого чату",
++		"tele language": "Мова tele",
 +		"tele on GitHub": "tele на GitHub",
 +		"tele server": "сервер tele",
 +		"tele settings (*.tele-settings.json *.json);;": "Налаштування tele (*.tele-settings.json *.json);;",
@@ -5886,6 +5902,30 @@ index 0000000000000000000000000000000000000000..8ae84f81d8390d3b87cdd4f0c96f762f
 +		"{weekday|short|lower} {day} {month|short|lower} · {time}": "{weekday|short|lower} {day} {month|short|lower} · {time}"
 +	}
 +}
+diff --git a/Telegram/SourceFiles/info/info_wrap_widget.cpp b/Telegram/SourceFiles/info/info_wrap_widget.cpp
+index 7b973cb8d64e84b3b5df3bb31c0a7fa3c2dec024..c4cf4abe70ae75200813e700433a50b3058c9398 100644
+--- a/Telegram/SourceFiles/info/info_wrap_widget.cpp
++++ b/Telegram/SourceFiles/info/info_wrap_widget.cpp
+@@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_numbers_animation.h"
+ #include "menu/menu_send.h"
+ #include "tele/tele_calls.h"
++#include "tele/tele_settings_language.h"
+ #include "styles/style_chat.h" // popupMenuExpandedSeparator
+ #include "styles/style_info.h"
+ #include "styles/style_layers.h"
+@@ -489,6 +490,11 @@ void WrapWidget::setupTopBarMenuToggle() {
+ 				Ui::DefaultShowFillPeerQrBoxCallback(show, self);
+ 			});
+ 		}
++		::Tele::AddSettingsLanguageButton(
++			_topBar.data(),
++			section.settingsType(),
++			(wrap() == Wrap::Layer),
++			_controller->parentController());
+ 		setupShortcuts();
+ 	} else if (key.storiesPeer()
+ 		&& key.storiesPeer()->isSelf()
 diff --git a/Telegram/SourceFiles/lang/lang_instance.cpp b/Telegram/SourceFiles/lang/lang_instance.cpp
 index 9de52ee1a37e686528037df0af90c80a07f1caf2..836cbe5d6360e5133106f8ace8e6dddb96bb2be5 100644
 --- a/Telegram/SourceFiles/lang/lang_instance.cpp
@@ -5900,7 +5940,7 @@ index 9de52ee1a37e686528037df0af90c80a07f1caf2..836cbe5d6360e5133106f8ace8e6dddb
  
  rpl::producer<QString> Value(ushort key) {
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d74add25ce 100644
+index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c38965e339f4d 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -59,6 +59,7 @@
@@ -6066,44 +6106,15 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (windowButton) {
  		SetupLink(windowButton, windowOption.id());
-@@ -1447,6 +1473,8 @@ void AddButtonChoice(
+@@ -1447,6 +1473,7 @@ void AddButtonChoice(
  	const auto controller = builder.controller();
  	const auto name = ::Tele::Lower(option.name());
  	const auto description = ::Tele::Lower(option.description());
-+	const auto restart = option.restartRequired();
 +	keywords.push_front(option.name());
  	keywords.push_front(description);
  	auto values = std::vector<QString>();
  	auto labels = std::vector<QString>();
-@@ -1479,7 +1507,16 @@ void AddButtonChoice(
- 							? int(current - begin(values))
- 							: 0,
- 						.callback = [=](int index) {
-+							const auto changed = (values[index] != get());
- 							set(values[index]);
-+							if (changed && restart) {
-+								controller->show(Ui::MakeConfirmBox({
-+									.text = tr::lng_settings_need_restart(),
-+									.confirmed = [] { Core::Restart(); },
-+									.confirmText = tr::lng_settings_restart_now(),
-+									.cancelText = tr::lng_settings_restart_later(),
-+								}));
-+							}
- 						},
- 					});
- 				}));
-@@ -1489,7 +1526,9 @@ void AddButtonChoice(
- 		if (button) {
- 			SetupLink(button, option.id());
- 		}
--		AddAbout(builder, option.id(), description);
-+		if (!description.isEmpty()) {
-+			AddAbout(builder, option.id(), description);
-+		}
- 	});
- }
- 
-@@ -1516,6 +1555,7 @@ void AddReactionsMenu(SectionBuilder &builder) {
+@@ -1516,6 +1543,7 @@ void AddReactionsMenu(SectionBuilder &builder) {
  			u"context menu"_q,
  			u"stories"_q,
  			u"media viewer"_q,
@@ -6111,7 +6122,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -1723,12 +1763,14 @@ void AddIgnoredUsers(SectionBuilder &builder) {
+@@ -1723,12 +1751,14 @@ void AddIgnoredUsers(SectionBuilder &builder) {
  		.label = ::Tele::IgnoredCountValue(
  			builder.session()
  		) | rpl::map([](int count) {
@@ -6128,7 +6139,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		SetupLink(button, u"tele-ignored-users"_q);
-@@ -1744,12 +1786,19 @@ void AddHiddenWords(SectionBuilder &builder) {
+@@ -1744,12 +1774,19 @@ void AddHiddenWords(SectionBuilder &builder) {
  		.st = &st::settingsButtonNoIcon,
  		.label = ::Tele::HiddenWordsCountValue(
  		) | rpl::map([](int count) {
@@ -6150,7 +6161,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		SetupLink(button, u"tele-hidden-words"_q);
-@@ -1791,12 +1840,19 @@ void AddOnlineNotify(SectionBuilder &builder) {
+@@ -1791,12 +1828,19 @@ void AddOnlineNotify(SectionBuilder &builder) {
  			.label = ::Tele::OnlineWatchedCountValue(
  				builder.session()
  			) | rpl::map([](int count) {
@@ -6172,7 +6183,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		});
  		if (button) {
  			SetupLink(button, id);
-@@ -1868,12 +1924,14 @@ void AddGhostChats(SectionBuilder &builder) {
+@@ -1868,12 +1912,14 @@ void AddGhostChats(SectionBuilder &builder) {
  					builder.session(),
  					mode
  				) | rpl::map([](int count) {
@@ -6189,7 +6200,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  			}, option.id());
  			if (button) {
  				SetupLink(button, id);
-@@ -1925,7 +1983,12 @@ void AddLocalDrafts(SectionBuilder &builder) {
+@@ -1925,7 +1971,12 @@ void AddLocalDrafts(SectionBuilder &builder) {
  					.confirmStyle = &st::attentionBoxButton,
  				}));
  			},
@@ -6203,7 +6214,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		}, owner);
  		if (button) {
  			SetupLink(button, id);
-@@ -2049,12 +2112,14 @@ void AddChatBackgrounds(SectionBuilder &builder) {
+@@ -2049,12 +2100,14 @@ void AddChatBackgrounds(SectionBuilder &builder) {
  		.label = ::Tele::ChatBackgroundsCountValue(
  			builder.session()
  		) | rpl::map([](int count) {
@@ -6220,7 +6231,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		SetupLink(button, option.id());
-@@ -2205,12 +2270,14 @@ void AddUsernameAliases(SectionBuilder &builder) {
+@@ -2205,12 +2258,14 @@ void AddUsernameAliases(SectionBuilder &builder) {
  		.label = ::Tele::UsernameAliasesCountValue(
  			builder.session()
  		) | rpl::map([](int count) {
@@ -6237,7 +6248,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		SetupLink(button, option.id());
-@@ -2233,12 +2300,20 @@ void AddSavedDrafts(SectionBuilder &builder) {
+@@ -2233,12 +2288,20 @@ void AddSavedDrafts(SectionBuilder &builder) {
  			::Tele::Drafts(session).changes()
  		) | rpl::map([=] {
  			const auto count = ::Tele::Drafts(session).savedCount();
@@ -6260,7 +6271,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	AddAbout(builder, u"tele-saved-drafts"_q, description);
  }
-@@ -2253,7 +2328,9 @@ void AddAppLinks(SectionBuilder &builder) {
+@@ -2253,7 +2316,9 @@ void AddAppLinks(SectionBuilder &builder) {
  		.st = &st::settingsButtonNoIcon,
  		.label = ::Tele::AppLinksCountValue(
  		) | rpl::map([](int count) {
@@ -6271,7 +6282,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		}),
  		.onClick = [=] {
  			controller->show(Box(::Tele::AppLinksBox));
-@@ -2267,6 +2344,7 @@ void AddAppLinks(SectionBuilder &builder) {
+@@ -2267,6 +2332,7 @@ void AddAppLinks(SectionBuilder &builder) {
  			u"maps"_q,
  			u"location"_q,
  			u"desktop app"_q,
@@ -6279,7 +6290,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -2285,7 +2363,9 @@ void AddLinkRewrites(SectionBuilder &builder) {
+@@ -2285,7 +2351,9 @@ void AddLinkRewrites(SectionBuilder &builder) {
  		.st = &st::settingsButtonNoIcon,
  		.label = ::Tele::LinkRewritesEnabledCountValue(
  		) | rpl::map([](int count) {
@@ -6290,7 +6301,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		}),
  		.onClick = [=] {
  			controller->show(Box(::Tele::LinkRewritesBox));
-@@ -2296,6 +2376,7 @@ void AddLinkRewrites(SectionBuilder &builder) {
+@@ -2296,6 +2364,7 @@ void AddLinkRewrites(SectionBuilder &builder) {
  			u"twitter"_q,
  			u"fixupx"_q,
  			u"embed"_q,
@@ -6298,7 +6309,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -2446,12 +2527,14 @@ void AddLocalNames(SectionBuilder &builder) {
+@@ -2446,12 +2515,14 @@ void AddLocalNames(SectionBuilder &builder) {
  		.label = ::Tele::LocalNamesCountValue(
  			builder.session()
  		) | rpl::map([](int count) {
@@ -6315,7 +6326,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		SetupLink(button, option.id());
-@@ -2536,7 +2619,11 @@ void AddInvisibleNamesPhrase(SectionBuilder &builder) {
+@@ -2536,7 +2607,11 @@ void AddInvisibleNamesPhrase(SectionBuilder &builder) {
  					InvisibleNamesPhraseBox,
  					&controller->session()));
  			},
@@ -6328,7 +6339,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		});
  		if (button) {
  			SetupLink(button, option.id());
-@@ -2600,6 +2687,7 @@ void AddGiftStudio(SectionBuilder &builder) {
+@@ -2600,6 +2675,7 @@ void AddGiftStudio(SectionBuilder &builder) {
  			u"symbol"_q,
  			u"render"_q,
  			description,
@@ -6336,7 +6347,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -2634,6 +2722,7 @@ void AddGiftGrid(SectionBuilder &builder) {
+@@ -2634,6 +2710,7 @@ void AddGiftGrid(SectionBuilder &builder) {
  			u"profile"_q,
  			u"gifts"_q,
  			u"studio"_q,
@@ -6344,7 +6355,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -2689,7 +2778,7 @@ void AddIconButton(
+@@ -2689,7 +2766,7 @@ void AddIconButton(
  		.title = rpl::single(::Tele::Lower(option.name())),
  		.st = &st::settingsButtonNoIcon,
  		.label = std::move(label),
@@ -6353,7 +6364,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		const auto menu = button->lifetime().make_state<
-@@ -3047,7 +3136,12 @@ void AddSavedHistory(SectionBuilder &builder) {
+@@ -3047,7 +3124,12 @@ void AddSavedHistory(SectionBuilder &builder) {
  					.confirmStyle = &st::attentionBoxButton,
  				}));
  			},
@@ -6367,7 +6378,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		});
  		if (button) {
  			SetupLink(button, id);
-@@ -3562,7 +3656,7 @@ void AddLocalPasswordAction(SectionBuilder &builder, const char id[]) {
+@@ -3562,7 +3644,7 @@ void AddLocalPasswordAction(SectionBuilder &builder, const char id[]) {
  			return SearchEntry{
  				.id = option.id(),
  				.title = name,
@@ -6376,7 +6387,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  			};
  		});
  	});
-@@ -3579,7 +3673,7 @@ void AddLocalPassword(SectionBuilder &builder) {
+@@ -3579,7 +3661,7 @@ void AddLocalPassword(SectionBuilder &builder) {
  		.st = &st::settingsButtonNoIcon,
  		.label = ::Tele::LocalPasswordSetValue(
  		) | rpl::map([](bool set) {
@@ -6385,7 +6396,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		}),
  		.onClick = [=] {
  			controller->show(
-@@ -3591,6 +3685,7 @@ void AddLocalPassword(SectionBuilder &builder) {
+@@ -3591,6 +3673,7 @@ void AddLocalPassword(SectionBuilder &builder) {
  			u"passcode"_q,
  			u"2fa"_q,
  			u"lock"_q,
@@ -6393,7 +6404,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -3967,6 +4062,7 @@ void AddDebugLogs(SectionBuilder &builder) {
+@@ -3967,6 +4050,7 @@ void AddDebugLogs(SectionBuilder &builder) {
  				u"debugmode"_q,
  				u"network"_q,
  				u"debuglogs"_q,
@@ -6401,7 +6412,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  			},
  		};
  	});
-@@ -3981,7 +4077,12 @@ void AddLogFolders(SectionBuilder &builder) {
+@@ -3981,7 +4065,12 @@ void AddLogFolders(SectionBuilder &builder) {
  		.onClick = [=] {
  			OpenFolder(controller, ::Tele::DebugLogsFolder());
  		},
@@ -6415,7 +6426,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (logs) {
  		SetupLink(logs, u"tele-open-logs"_q);
-@@ -3993,7 +4094,12 @@ void AddLogFolders(SectionBuilder &builder) {
+@@ -3993,7 +4082,12 @@ void AddLogFolders(SectionBuilder &builder) {
  		.onClick = [=] {
  			OpenFolder(controller, cWorkingDir());
  		},
@@ -6429,7 +6440,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (folder) {
  		SetupLink(folder, u"tele-open-folder"_q);
-@@ -4030,7 +4136,12 @@ void AddClearLogs(SectionBuilder &builder) {
+@@ -4030,7 +4124,12 @@ void AddClearLogs(SectionBuilder &builder) {
  				.confirmStyle = &st::attentionBoxButton,
  			}));
  		},
@@ -6443,7 +6454,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	});
  	if (button) {
  		SetupLink(button, u"tele-clear-logs"_q);
-@@ -4039,10 +4150,12 @@ void AddClearLogs(SectionBuilder &builder) {
+@@ -4039,10 +4138,12 @@ void AddClearLogs(SectionBuilder &builder) {
  
  void AddMtpInspector(SectionBuilder &builder) {
  	const auto controller = builder.controller();
@@ -6460,7 +6471,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	const auto button = AddButton(builder, {
  		.id = u"tele-mtp-inspector"_q,
  		.title = rpl::single(::Tele::Lower(u"MTProto inspector"_q)),
-@@ -4051,9 +4164,12 @@ void AddMtpInspector(SectionBuilder &builder) {
+@@ -4051,9 +4152,12 @@ void AddMtpInspector(SectionBuilder &builder) {
  			::Tele::DebugLogsCleared()
  		) | rpl::map([] {
  			const auto count = ::Tele::CountMtpLogFiles();
@@ -6476,7 +6487,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		}),
  		.onClick = [=] {
  			if (::Tele::CountMtpLogFiles()) {
-@@ -4069,6 +4185,7 @@ void AddMtpInspector(SectionBuilder &builder) {
+@@ -4069,6 +4173,7 @@ void AddMtpInspector(SectionBuilder &builder) {
  			u"tl"_q,
  			u"schema"_q,
  			u"requests"_q,
@@ -6484,7 +6495,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -4096,6 +4213,7 @@ void AddMtpConsole(SectionBuilder &builder) {
+@@ -4096,6 +4201,7 @@ void AddMtpConsole(SectionBuilder &builder) {
  			u"invoke"_q,
  			u"methods"_q,
  			u"requests"_q,
@@ -6492,7 +6503,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		},
  	});
  	if (button) {
-@@ -4188,6 +4306,7 @@ void AddBackup(SectionBuilder &builder) {
+@@ -4188,6 +4294,7 @@ void AddBackup(SectionBuilder &builder) {
  			const QString &title,
  			void (*box)(not_null<Ui::GenericBox*>),
  			QStringList keywords) {
@@ -6500,29 +6511,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		const auto button = AddButton(builder, {
  			.id = id,
  			.title = rpl::single(::Tele::Lower(title)),
-@@ -4313,6 +4432,21 @@ void AddNewEntry(SectionBuilder &builder) {
- void FillRoot(SectionBuilder &builder) {
- 	if (!Picked) {
- 		builder.addSkip();
-+	}
-+	AddButtonChoice(
-+		builder,
-+		::Tele::kOptionLanguage,
-+		::Tele::TeleLanguage,
-+		::Tele::SetTeleLanguage,
-+		::Tele::TeleLanguageValue,
-+		{
-+			{ QString(), u"Same as Telegram"_q },
-+			{ u"en"_q, u"English"_q },
-+			{ u"ru"_q, u"Русский"_q },
-+			{ u"uk"_q, u"Українська"_q },
-+		},
-+		{ u"translate"_q, u"english"_q, u"russian"_q, u"ukrainian"_q });
-+	if (!Picked) {
- 		AddNewEntry(builder);
- 		for (const auto &category : Categories()) {
- 			const auto button = builder.addSectionButton({
-@@ -4368,6 +4502,7 @@ void FillRoot(SectionBuilder &builder) {
+@@ -4368,6 +4475,7 @@ void FillRoot(SectionBuilder &builder) {
  			.icon = &icon,
  			.titleText = [=] { return ::Tele::Lower(title); },
  		};
@@ -6530,7 +6519,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  		result.push_back({
  			.path = std::move(path),
  			.title = std::move(title),
-@@ -4721,9 +4856,10 @@ void AddNewRelease(
+@@ -4721,9 +4829,10 @@ void AddNewRelease(
  	}
  	const auto addTitle = [&](const QString &text) {
  		AddNewGroupDivider(builder, first);
@@ -6544,7 +6533,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  	};
  	if (!blocks.empty()) {
  		addTitle(u"Settings"_q);
-@@ -4833,14 +4969,14 @@ void AddFreshSettings(
+@@ -4833,14 +4942,14 @@ void AddFreshSettings(
  		}
  		AddNewGroupDivider(builder, first);
  		builder.addSubsectionTitle(rpl::single(
@@ -6561,7 +6550,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..18b0acb6ff502ca135692bf25bfba0d7
  			.st = &st::settingsButtonLightNoIcon,
  			.onClick = [=] {
  				controller->setHighlightControlId(highlight);
-@@ -5029,7 +5165,7 @@ void NewSection::refreshTabs() {
+@@ -5029,7 +5138,7 @@ void NewSection::refreshTabs() {
  	for (const auto &release : ::Tele::ChangelogHistory()) {
  		tabs.push_back({
  			.id = QString::number(release.version),
@@ -9220,6 +9209,214 @@ index 1a07d6865593c93f9a8efccb3ce3dd128295c90e..f6fa06c42987b91af0cff16dc0364d4d
  		if (result.restart) {
  			show->showBox(Ui::MakeConfirmBox({
  				.text = text + ' ' + Lower(u"Some of them need a restart."_q),
+diff --git a/Telegram/SourceFiles/tele/tele_settings_language.cpp b/Telegram/SourceFiles/tele/tele_settings_language.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..94db0a6e0e484fbc47f9fb261473ce23d0dc58fd
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_settings_language.cpp
+@@ -0,0 +1,175 @@
++#include "tele/tele_settings_language.h"
++
++#include "core/application.h"
++#include "info/info_top_bar.h"
++#include "lang/lang_keys.h"
++#include "settings/settings_tele.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
++#include "ui/boxes/confirm_box.h"
++#include "ui/boxes/single_choice_box.h"
++#include "ui/effects/ripple_animation.h"
++#include "ui/layers/generic_box.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/tooltip.h"
++#include "ui/painter.h"
++#include "ui/ui_utility.h"
++#include "window/window_session_controller.h"
++#include "styles/style_info.h"
++#include "styles/style_menu_icons.h"
++
++#include <QtGui/QCursor>
++
++namespace Tele {
++namespace {
++
++struct Choice {
++	QString value;
++	QString label;
++};
++
++[[nodiscard]] std::vector<Choice> Choices() {
++	return {
++		{ QString(), u"Same as Telegram"_q },
++		{ u"en"_q, u"English"_q },
++		{ u"ru"_q, u"Русский"_q },
++		{ u"uk"_q, u"Українська"_q },
++	};
++}
++
++class LanguageButton final
++	: public Ui::RippleButton
++	, public Ui::AbstractTooltipShower {
++public:
++	LanguageButton(QWidget *parent, const style::IconButton &st);
++
++	QString tooltipText() const override;
++	QPoint tooltipPos() const override;
++	bool tooltipWindowActive() const override;
++
++private:
++	void paintEvent(QPaintEvent *e) override;
++	void onStateChanged(State was, StateChangeSource source) override;
++	QImage prepareRippleMask() const override;
++	QPoint prepareRippleStartPosition() const override;
++
++	const style::IconButton &_st;
++
++};
++
++LanguageButton::LanguageButton(QWidget *parent, const style::IconButton &st)
++: RippleButton(parent, st.ripple)
++, _st(st) {
++	resize(_st.width, _st.height);
++	setCursor(style::cur_pointer);
++}
++
++QString LanguageButton::tooltipText() const {
++	return Lower(u"tele language"_q);
++}
++
++QPoint LanguageButton::tooltipPos() const {
++	return QCursor::pos();
++}
++
++bool LanguageButton::tooltipWindowActive() const {
++	return Ui::AppInFocus() && Ui::InFocusChain(window());
++}
++
++void LanguageButton::paintEvent(QPaintEvent *e) {
++	auto p = QPainter(this);
++	paintRipple(p, _st.rippleAreaPosition);
++	const auto &icon = st::menuIconTranslate;
++	const auto position = _st.iconPosition;
++	const auto x = (position.x() < 0)
++		? (width() - icon.width()) / 2
++		: position.x();
++	const auto y = (position.y() < 0)
++		? (height() - icon.height()) / 2
++		: position.y();
++	icon.paint(
++		p,
++		x,
++		y,
++		width(),
++		(isOver() || isDown())
++			? st::boxTitleCloseFgOver->c
++			: st::boxTitleCloseFg->c);
++}
++
++void LanguageButton::onStateChanged(State was, StateChangeSource source) {
++	RippleButton::onStateChanged(was, source);
++	if (isOver()) {
++		Ui::Tooltip::Show(1000, this);
++	} else {
++		Ui::Tooltip::Hide();
++	}
++	update();
++}
++
++QImage LanguageButton::prepareRippleMask() const {
++	return Ui::RippleAnimation::EllipseMask(
++		QSize(_st.rippleAreaSize, _st.rippleAreaSize));
++}
++
++QPoint LanguageButton::prepareRippleStartPosition() const {
++	return mapFromGlobal(QCursor::pos()) - _st.rippleAreaPosition;
++}
++
++void ShowLanguageBox(not_null<Window::SessionController*> controller) {
++	const auto choices = Choices();
++	auto labels = std::vector<QString>();
++	for (const auto &choice : choices) {
++		labels.push_back(Lower(choice.label));
++	}
++	const auto current = ranges::find(choices, TeleLanguage(), &Choice::value);
++	const auto selected = (current != end(choices))
++		? int(current - begin(choices))
++		: 0;
++	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
++		SingleChoiceBox(box, {
++			.title = rpl::single(Lower(u"tele language"_q)),
++			.options = labels,
++			.initialSelection = selected,
++			.callback = [=](int index) {
++				const auto value = choices[index].value;
++				if (value == TeleLanguage()) {
++					return;
++				}
++				SetTeleLanguage(value);
++				controller->show(Ui::MakeConfirmBox({
++					.text = tr::lng_settings_need_restart(),
++					.confirmed = [] { Core::Restart(); },
++					.confirmText = tr::lng_settings_restart_now(),
++					.cancelText = tr::lng_settings_restart_later(),
++				}));
++			},
++		});
++	}));
++}
++
++} // namespace
++
++void AddSettingsLanguageButton(
++		not_null<Info::TopBar*> topBar,
++		::Settings::Type section,
++		bool layer,
++		not_null<Window::SessionController*> controller) {
++	const auto paths = ::Settings::TeleSettingsPaths();
++	const auto tele = ranges::any_of(paths, [&](const auto &path) {
++		return path.second == section;
++	});
++	if (!tele) {
++		return;
++	}
++	const auto button = topBar->addButton(
++		base::make_unique_q<LanguageButton>(
++			topBar,
++			layer ? st::infoLayerTopBarSearch : st::infoTopBarSearch));
++	button->setAccessibleName(Lower(u"tele language"_q));
++	button->setClickedCallback([=] {
++		ShowLanguageBox(controller);
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_settings_language.h b/Telegram/SourceFiles/tele/tele_settings_language.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..6efb8ee6f349645a34de0b8fb646a568a85d4d50
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_settings_language.h
+@@ -0,0 +1,21 @@
++#pragma once
++
++#include "settings/settings_type.h"
++
++namespace Info {
++class TopBar;
++} // namespace Info
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++void AddSettingsLanguageButton(
++	not_null<Info::TopBar*> topBar,
++	::Settings::Type section,
++	bool layer,
++	not_null<Window::SessionController*> controller);
++
++} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_shot.cpp b/Telegram/SourceFiles/tele/tele_shot.cpp
 index 0a4200b65d3c74e3aea997912b0ed04489228295..55cbbf901fcd90ea361c50c7e14020a93a6907ff 100644
 --- a/Telegram/SourceFiles/tele/tele_shot.cpp

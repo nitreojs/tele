@@ -8,7 +8,7 @@ all 344 patches, newest release first.
 
 | # | what it does | where to toggle |
 |---|---|---|
-| [337](../patches/tdesktop/0337-feat-translate-tele-into-russian-and-ukrainian.patch) | tele's own settings, menus, boxes and messages come in russian and ukrainian. by default they follow telegram's language, or pick one for tele alone; anything not translated yet stays english | tele → language, same as telegram |
+| [337](../patches/tdesktop/0337-feat-translate-tele-into-russian-and-ukrainian.patch) | tele's own settings, menus, boxes and messages come in russian and ukrainian. by default they follow telegram's language, or pick one for tele alone with the translate button in the header of tele's settings; anything not translated yet stays english | always on |
 
 ### [tele 23](https://github.com/nitreojs/tele/releases/tag/v7.3.3-tele.23)
 
