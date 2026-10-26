@@ -84,8 +84,12 @@ off by default has to mean exactly upstream's behaviour. with the option off, th
 
 ### ui strings
 
-- tele's strings are hardcoded english. don't add keys to `lang.strings`.
-- write them in sentence case and pass every one through `Tele::Lower` (`tele/tele_lowercase.h`) where it's shown, so the lowercase option covers it. option names and descriptions shown through `AddOptionToggle` are already handled.
+- tele's strings are english in the code, translated through tele's own tables, never keys in `lang.strings`.
+- write them in sentence case and pass every one through `Tele::Lower` (`tele/tele_lowercase.h`) where it's shown: it translates the exact english text, then applies the lowercase option. option names and descriptions shown through `AddOptionToggle` are already handled.
+- give `Lower` the untouched english literal, so it can be looked up: `Lower(u"Deleted %1"_q).arg(name)`, never `Lower(u"Deleted %1"_q.arg(name))` or a sentence glued from pieces. one sentence is one literal with `%1`, `%2` for the values.
+- text that depends on a number goes through `Tele::Plural` (`tele/tele_translations.h`) with both english forms: `Lower(Plural(u"%1 file"_q, u"%1 files"_q, count)).arg(count)`. the count decides the form in languages with more of them.
+- names, server errors and other text that isn't tele's own english go through `Tele::LowerOnly`, which lowercases without looking anything up.
+- new strings get their translations in `Telegram/Resources/tele/translations/<language>.json`. `python ci/translations.py --tdesktop <tree>` lists what each table lacks; a missing string just shows in english.
 - a description only when the name can't fully explain the item, for options, rows and the texts under settings groups alike. if the name says it all, leave it out. when it's needed: one short sentence with the missing fact (a side effect, a condition, what gets sent where). no filler ("this lets you…", "when enabled…"), no restating the name, no lists of examples.
 - call the app tele, and the service telegram.
 

@@ -48,7 +48,7 @@ open an issue first, before writing code. describe what the user sees, where the
 - [ ] off by default, and off behaves exactly like upstream.
 - [ ] the setting is in `tele_options`, on a settings page in a fitting group, and in the `Specs()` export table.
 - [ ] new network use has a setting and respects the launch flags.
-- [ ] ui strings go through `Tele::Lower`, and there are no code comments.
+- [ ] ui strings go through `Tele::Lower` as whole english literals (`.arg` after it, `Plural` for counts), and there are no code comments.
 - [ ] commit subjects are one line, `feat:` or `fix:`, no body or trailers.
 - [ ] a row in `docs/releases.md` in the right format, and the patch count updated.
 - [ ] `python tele.py --tdesktop <clean clone> apply` succeeds.

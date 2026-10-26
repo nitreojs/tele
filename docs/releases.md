@@ -2,7 +2,13 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 343 patches, newest release first.
+all 344 patches, newest release first.
+
+### [tele 24](https://github.com/nitreojs/tele/releases/tag/v7.3.3-tele.24)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [337](../patches/tdesktop/0337-feat-translate-tele-into-russian-and-ukrainian.patch) | tele's own settings, menus, boxes and messages come in russian and ukrainian. by default they follow telegram's language, or pick one for tele alone; anything not translated yet stays english | tele → language, same as telegram |
 
 ### [tele 23](https://github.com/nitreojs/tele/releases/tag/v7.3.3-tele.23)
 

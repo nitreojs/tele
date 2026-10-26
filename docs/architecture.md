@@ -148,9 +148,13 @@ tele rearranges seven menus: the message menu, the chat ⋯ menu, the chat list 
 - `tele/tele_menu_editor.*` is the editor box: the layout as a list on the left, a live preview with a context switcher on the right.
 - a tele item shows only while its feature's option is on.
 
-### lowercase
+### translations and lowercase
 
-`tele/tele_lowercase.*` has `Tele::Lower(QString)`. when the `tele-lowercase` option is on it lowercases the text, keeping lang tags and links as they are. every string tele adds to the ui goes through it. tele's own strings are hardcoded english, not `lang.strings` keys.
+tele's strings are english literals in the code, never `lang.strings` keys. every string tele adds to the ui goes through `Tele::Lower(QString)` (`tele/tele_lowercase.*`), which first translates it, then lowercases it when the `tele-lowercase` option is on, keeping lang tags and links as they are. `Tele::LowerOnly` only lowercases; telegram's own lang strings, names and server texts use it.
+
+- `tele/tele_translations.*`: `Tele::Translate(text)` looks the exact english text up in `Telegram/Resources/tele/translations/<language>.json` (`{"language": "ru", "strings": {"english": "translation" | {"one", "few", "many", "other"}}}`, bundled in the qrc). `Tele::Plural(one, other, count)` picks the form for a count, keyed by the english `other` form, with tele's own one/few/many rules for ru and uk (upstream's rules follow telegram's language, which can differ). missing entries stay english.
+- the language is the `tele-language` option (row at the top of settings → tele: same as telegram, english, русский, українська; changing it asks to restart) or, when it's empty, telegram's language id or its base id. the resolved table is cached and re-resolved when either changes.
+- `ci/translations.py --tdesktop <tree>` collects every string that looks like ui text from tele's files and the lines the patches add to upstream files, plus the pairs passed to `Plural`, and reports per language what's missing and what's stale. `--todo <dir>` writes the missing ones for translators.
 
 ### launch flags
 
