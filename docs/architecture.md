@@ -67,7 +67,7 @@ details that matter when you work with it:
 - `checkout` sets `submodule.<name>.ignore=all` in every repository, so `git status` and `git commit -a` in a parent never pick up a moved submodule pointer. commit submodule changes inside the submodule.
 - re-exporting unchanged commits produces byte-identical patches: no commit hashes, no signature, no `n/m` numbering. `export` regenerates the whole `patches/` directory, so a commit inserted in the middle of the queue renumbers every patch after it.
 - patch file names come from `git format-patch`: the number plus the subject, truncated. changing a subject renames the file.
-- before applying, `apply` and `checkout` make sure a 3-way merge can find each patch's base blobs: when `HEAD` isn't the `UPSTREAM` tag, the queue is first replayed on `UPSTREAM` in a temporary worktree.
+- before applying, `apply` and `checkout` make sure a 3-way merge can find each patch's base blobs: every patch group whose repository isn't at the `UPSTREAM` tag (or, for a submodule, the commit the tag pins) is first replayed there in a temporary worktree. a shallow clone fetches that commit first.
 - the app rename touches the same lines of `Telegram/SourceFiles/core/version.h` and `Telegram/Resources/winrc/Telegram.rc` that every release bumps. `tele.py` resolves that conflict on its own: upstream's version values, tele's name values.
 - when upstream and a patch both add `#include` lines at the same spot, `tele.py` keeps both: the union of the two blocks, sorted when both were sorted. any other conflict stops the apply for a human. a file that conflicts without conflict markers (one side deleted it) is never resolved automatically.
 - on a conflict it stops and prints the failing patch, the conflicted files, the `git am` output and what to run next.
@@ -263,7 +263,7 @@ runs after every finished Build run. when the run succeeded and its id equals th
 
 ## release notes
 
-`ci/notes.py` and `ci/announce.py` compare the patches of the release with those of the previous release. patches are matched by subject and compared by a hash of their changed lines only, so moved context after an upstream bump doesn't count as a change. the result is three lists: new, changed and dropped.
+`ci/notes.py` and `ci/announce.py` compare the patches of the release with those of the previous release. patches are matched by subject and compared by a hash of their changed lines only, so moved context after an upstream bump doesn't count as a change. the result is three lists: new, changed and dropped. a release on a newer tdesktop than the previous one opens with a `telegram desktop <version>` section made of upstream's own `changelog.txt` lines since the previous release's upstream.
 
 the text of each item comes from `docs/releases.md` (or `README.md` for releases older than that file). a row has to match this exactly, on one line:
 
@@ -287,8 +287,8 @@ rows are grouped in `docs/releases.md` by the release that introduced them, newe
 ## build numbering
 
 - a release is tagged `<UPSTREAM>-tele.<N>`, e.g. `v7.2.9-tele.10`.
-- `N` counts the releases on one upstream tag, starting from 1. it's the `TELE_BUILD` of that release.
-- the updater compares `(base, counter)`: upstream's `AppVersion` first, then `N`. so a release on a newer upstream tag is always newer, even when its `N` starts again at 1.
+- `N` goes on across upstream bumps (`v7.2.9-tele.18` is followed by `v7.3.0-tele.19`). it's the `TELE_BUILD` of that release.
+- the updater compares `(base, counter)`: upstream's `AppVersion` first, then `N`. so a release on a newer upstream tag is always newer.
 
 ## folding and baselines
 
