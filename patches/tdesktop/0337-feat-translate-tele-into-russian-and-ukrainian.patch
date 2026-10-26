@@ -83,7 +83,8 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  Telegram/SourceFiles/tele/tele_translations.h |   11 +
  .../SourceFiles/tele/tele_upload_retry.cpp    |    7 +-
  .../tele/tele_username_aliases.cpp            |   27 +-
- 79 files changed, 7091 insertions(+), 508 deletions(-)
+ .../wallet/wallet_key_protection.cpp          |    4 +-
+ 80 files changed, 7093 insertions(+), 510 deletions(-)
  create mode 100644 Telegram/Resources/tele/translations/ru.json
  create mode 100644 Telegram/Resources/tele/translations/uk.json
  create mode 100644 Telegram/SourceFiles/tele/tele_settings_language.cpp
@@ -128,7 +129,7 @@ index 3a6a3f0043c66dfd107fc78e810edc53d5e6cad5..9dc8d87002dd0b7617750a466bdd5405
      <file alias="scripting/inline.js">../../tele/scripting/inline.js</file>
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..e1c77c02585ce16c6f72789212f5be5080f7b9e7
+index 0000000000000000000000000000000000000000..9a42315e00301ffc5ffda3cd91f95c719d9a3b75
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/ru.json
 @@ -0,0 +1,2882 @@
@@ -2258,7 +2259,7 @@ index 0000000000000000000000000000000000000000..e1c77c02585ce16c6f72789212f5be50
 +		},
 +		"The request is malformed.": "Некорректный запрос.",
 +		"The rich message can't be read": "Не удаётся прочитать расширенное сообщение",
-+		"The same passcode as tele's local passcode. It locks tele at startup only if Lock app is on in Settings.": "Тот же код-пароль, что и локальный код-пароль tele. Он блокирует tele при запуске, только если в настройках включена «Блокировка приложения».",
++		"The same passcode as tele's local passcode. It locks tele at startup only if Lock Telegram with passcode is on in its settings.": "Тот же код-пароль, что и локальный код-пароль tele. Он блокирует tele при запуске, только если в настройках код-пароля включено «Использовать для Telegram».",
 +		"The script isn't running.": "Скрипт не запущен.",
 +		"The secret chat answer is invalid.": "Неверный ответ секретного чата.",
 +		"The secret chat ended.": "Секретный чат завершён.",
@@ -3016,7 +3017,7 @@ index 0000000000000000000000000000000000000000..e1c77c02585ce16c6f72789212f5be50
 +}
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..97dcdea849e5ac16636f601c85034b74ad7ad52f
+index 0000000000000000000000000000000000000000..3d172715539039a2e0a101dc870c79dfdbc33fb3
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/uk.json
 @@ -0,0 +1,2882 @@
@@ -4401,7 +4402,7 @@ index 0000000000000000000000000000000000000000..97dcdea849e5ac16636f601c85034b74
 +		"Names and badges": "Імена та значки",
 +		"Names instead of phone numbers in chats": "Імена замість номерів телефонів у чатах",
 +		"Need attention": "Потребують уваги",
-+		"Needs the passcode lock at startup, turning it off deletes the chats.": "Потрібне блокування код-паролем під час запуску; якщо вимкнути, чати буде видалено.",
++		"Needs the passcode lock at startup, turning it off deletes the chats.": "Потрібне блокування кодом доступу під час запуску; якщо вимкнути, чати буде видалено.",
 +		"Never block screen capture": "Ніколи не блокувати захоплення екрана",
 +		"Never ghost": "Завжди вимкнено",
 +		"Never ghost in": "Ніколи в режимі привида",
@@ -4850,9 +4851,9 @@ index 0000000000000000000000000000000000000000..97dcdea849e5ac16636f601c85034b74
 +		"Searching the wallet's history…": "Пошук в історії гаманця…",
 +		"Secret chat": "Секретний чат",
 +		"Secret chat ended": "Секретний чат завершено",
-+		"Secret chats need tele's passcode lock. With it on, tele asks for your passcode every time it starts.": "Для секретних чатів потрібен код-пароль tele. Коли його ввімкнено, tele запитує код-пароль під час кожного запуску.",
-+		"Secret chats need tele's passcode lock. tele will ask for the passcode every time it starts.": "Для секретних чатів потрібен код-пароль tele. tele запитуватиме його під час кожного запуску.",
-+		"Secret chats were deleted because the local passcode was removed.": "Секретні чати видалено, бо код-пароль вимкнено.",
++		"Secret chats need tele's passcode lock. With it on, tele asks for your passcode every time it starts.": "Для секретних чатів потрібен код доступу tele. Коли його ввімкнено, tele запитує код доступу під час кожного запуску.",
++		"Secret chats need tele's passcode lock. tele will ask for the passcode every time it starts.": "Для секретних чатів потрібен код доступу tele. tele запитуватиме його під час кожного запуску.",
++		"Secret chats were deleted because the local passcode was removed.": "Секретні чати видалено, бо код доступу вимкнено.",
 +		"Secret chats β": "Секретні чати β",
 +		"Secret message": "Секретне повідомлення",
 +		"See everything tele shows in its windows: texts, buttons and layout.": "Бачити все, що tele показує у своїх вікнах: тексти, кнопки й розташування.",
@@ -5146,7 +5147,7 @@ index 0000000000000000000000000000000000000000..97dcdea849e5ac16636f601c85034b74
 +		},
 +		"The request is malformed.": "Некоректний запит.",
 +		"The rich message can't be read": "Не вдається прочитати розширене повідомлення",
-+		"The same passcode as tele's local passcode. It locks tele at startup only if Lock app is on in Settings.": "Той самий код-пароль, що й локальний код-пароль tele. Він блокує tele під час запуску, лише якщо в налаштуваннях увімкнено «Блокування застосунку».",
++		"The same passcode as tele's local passcode. It locks tele at startup only if Lock Telegram with passcode is on in its settings.": "Той самий код доступу, що й локальний код доступу tele. Він блокує tele під час запуску, лише якщо в налаштуваннях коду доступу ввімкнено «Блокувати Telegram кодом доступу».",
 +		"The script isn't running.": "Скрипт не запущений.",
 +		"The secret chat answer is invalid.": "Некоректна відповідь секретного чату.",
 +		"The secret chat ended.": "Секретний чат завершено.",
@@ -10074,3 +10075,18 @@ index 56e3baf0c3f53d7ca8759c33e442d838f4293406..9bea9fce4bfb9050bb59d14f14f28d5f
  		SkipAliases = true;
  		link->onClick({
  			Qt::LeftButton,
+diff --git a/Telegram/SourceFiles/wallet/wallet_key_protection.cpp b/Telegram/SourceFiles/wallet/wallet_key_protection.cpp
+index d19b805a1b309c2865ef98c6aad16b5797c56120..f0b9bd932d5e04b3f0fbcbc47fe0f0a0c5ab5086 100644
+--- a/Telegram/SourceFiles/wallet/wallet_key_protection.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_key_protection.cpp
+@@ -946,8 +946,8 @@ void KeyProtectionBox(
+ 			? tr::lng_wallet_protection_passcode_keep
+ 			: tr::lng_wallet_protection_passcode)(),
+ 		rpl::single(::Tele::Lower(u"The same passcode as tele's local "
+-			"passcode. It locks tele at startup only if Lock app is on in "
+-			"Settings."_q)),
++			"passcode. It locks tele at startup only if Lock Telegram with "
++			"passcode is on in its settings."_q)),
+ 		st::defaultBoxCheckbox);
+ 	makeClickable(passcodeRow, VaultKind::Passcode);
+ 	// The passcode exists independently of whether this box already holds
