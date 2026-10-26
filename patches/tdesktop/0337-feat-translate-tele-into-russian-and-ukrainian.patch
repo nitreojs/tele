@@ -3016,7 +3016,7 @@ index 0000000000000000000000000000000000000000..e1c77c02585ce16c6f72789212f5be50
 +}
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..75fa4746ac203150a2461c8d86acdf805908194c
+index 0000000000000000000000000000000000000000..97dcdea849e5ac16636f601c85034b74ad7ad52f
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/uk.json
 @@ -0,0 +1,2882 @@
@@ -4371,8 +4371,8 @@ index 0000000000000000000000000000000000000000..75fa4746ac203150a2461c8d86acdf80
 +		"Minimal": "Мінімальний",
 +		"Missing model": "Модель відсутня",
 +		"Model": "Модель",
-+		"Model + backdrop rarity:": "Рідкісність моделі та фону:",
-+		"Model + backdrop rarity: unknown": "Рідкісність моделі та фону: невідома",
++		"Model + backdrop rarity:": "Рідкість моделі та фону:",
++		"Model + backdrop rarity: unknown": "Рідкість моделі та фону: невідома",
 +		"Model name": "Назва моделі",
 +		"Model not found: the code uses a custom .tgs model that isn't loaded on this device.": "Модель не знайдено: код використовує власну модель .tgs, яку не завантажено на цьому пристрої.",
 +		"Model size": "Розмір моделі",
@@ -4622,9 +4622,9 @@ index 0000000000000000000000000000000000000000..75fa4746ac203150a2461c8d86acdf80
 +		"Random replacement each time": "Щоразу випадкова заміна",
 +		"Random symbol": "Випадковий візерунок",
 +		"Randomize all": "Усе випадково",
-+		"Rarity": "Рідкісність",
-+		"Rarity and randomizing": "Рідкісність і випадковий вибір",
-+		"Rarity row on the card": "Рядок рідкісності на картці",
++		"Rarity": "Рідкість",
++		"Rarity and randomizing": "Рідкість і випадковий вибір",
++		"Rarity row on the card": "Рядок рідкості на картці",
 +		"Rate limited, going on in %1 s.": "Ліміт запитів, продовжимо через %1 с.",
 +		"Rate limits": "Ліміти запитів",
 +		"Rate-limit toasts and bar": "Спливні повідомлення й панель лімітів запитів",
@@ -5017,7 +5017,7 @@ index 0000000000000000000000000000000000000000..75fa4746ac203150a2461c8d86acdf80
 +		"Some of them need a restart.": "Деякі з них потребують перезапуску.",
 +		"Sort: %1": "Сортування: %1",
 +		"Source of checkmarks and custom verification, empty turns it off.": "Джерело галочок і власної верифікації; порожнє поле вимикає їх.",
-+		"Space or Enter opens it again. Nothing is bought: rarity decides the result.": "Space або Enter — відкрити знову. Нічого не купується: результат вирішує рідкісність.",
++		"Space or Enter opens it again. Nothing is bought: rarity decides the result.": "Space або Enter — відкрити знову. Нічого не купується: результат вирішує рідкість.",
 +		"Speed": "Швидкість",
 +		"Spoilers": "Спойлери",
 +		"Sponsored": "Реклама",
@@ -5359,7 +5359,7 @@ index 0000000000000000000000000000000000000000..75fa4746ac203150a2461c8d86acdf80
 +		"WebM stickers can be up to %1 KB, this one is %2 KB": "WebM-стікери можуть важити до %1 КБ, цей — %2 КБ",
 +		"WebSocket": "WebSocket",
 +		"WebSocket: TLS is not available in this build": "WebSocket: TLS недоступний у цій збірці",
-+		"Weighted by rarity": "З урахуванням рідкісності",
++		"Weighted by rarity": "З урахуванням рідкості",
 +		"Welcome to tele, a Telegram Desktop fork.\nIt's fast and secure.": "Ласкаво просимо до tele, форку Telegram Desktop.\nВін швидкий і безпечний.",
 +		"What doesn't fit the server limit stays on this device.": "Те, що не вміщується в ліміт сервера, лишається на цьому пристрої.",
 +		"What the last shot showed.": "Що було на останньому знімку.",
@@ -5868,7 +5868,7 @@ index 0000000000000000000000000000000000000000..75fa4746ac203150a2461c8d86acdf80
 +		"unknown grant '%1' is ignored": "невідомий дозвіл «%1» проігноровано",
 +		"unknown modifier %1": "невідомий модифікатор %1",
 +		"unknown name": "невідоме ім'я",
-+		"unknown rarity": "рідкісність невідома",
++		"unknown rarity": "рідкість невідома",
 +		"unpacked app doesn't match the feed": "розпакований застосунок не збігається з фідом",
 +		"unpacked exe doesn't match the feed": "розпакований exe не збігається з фідом",
 +		"unsafe link %1 in the archive": "небезпечне посилання %1 в архіві",
