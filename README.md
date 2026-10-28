@@ -61,6 +61,7 @@ everything tele adds lives in settings → tele, right below the language row.
 - [materialgram](https://github.com/kukuruzka165/materialgram) by kukuruzka165, another tdesktop fork. these tele features come from its ideas: hiding bubble tails and the classic bubble padding, no outline on large emoji, selecting more than 100 messages, showing online members in big groups, the upload date in the media viewer, copying a sticker set's owner id, better voice quality and keeping the start of voice messages, less photo compression, a thinner photo editor brush, a smaller minimum window, a bigger, faster chat export and mentioning several people in a row.
 - [freshGram](https://github.com/Snowy-Fluffy/freshGram) by Snowy-Fluffy, which combines [AyuGram Desktop](https://github.com/AyuGram/AyuGramDesktop) and materialgram. tele's secret chats prototype is ported from its secret chats, and these tele features come from its ideas: the message type filter in chat search, keeping deleted chats and topics, peeking at a hidden last seen and hiding birthday banners.
 - [SPOwnerBot](https://github.com/arynyklas/SPOwnerBot) by arynyklas and [its fork](https://github.com/madrik1337/SPOwnerBot) by madrik1337, for how a sticker set's id holds its owner, including owners past 8 billion.
+- [mad](https://github.com/yar2slav/madgram-desktop) by yar2slav, a tele fork, for applying the queue from one mbox so long queues fit windows' command line.
 
 ## contributing
 

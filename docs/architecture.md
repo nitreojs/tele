@@ -83,7 +83,7 @@ state lives in `<tdesktop>/.git/tele-state.json`:
 
 ## patch groups
 
-a group is a directory under `patches/`. `patches/tdesktop/` is the root repository. any other path is a submodule path inside tdesktop, like `patches/Telegram/lib_ui/`. each group is applied with `git am` inside its own repository, in file name order. a group whose path isn't a submodule of the checked-out tag is an error. a patch directly in `patches/` is an error too.
+a group is a directory under `patches/`. `patches/tdesktop/` is the root repository. any other path is a submodule path inside tdesktop, like `patches/Telegram/lib_ui/`. each group is applied with `git am` inside its own repository, in file name order, as one mbox of its patches (a few hundred patch paths would pass windows' command line limit). a group whose path isn't a submodule of the checked-out tag is an error. a patch directly in `patches/` is an error too.
 
 ## fork code in the tdesktop tree
 

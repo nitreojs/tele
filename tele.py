@@ -239,13 +239,24 @@ def resolve_known_conflicts(repo):
     return True
 
 
+def am_queue(repo, patches):
+    # windows caps a command line at 32767 characters, which a few hundred absolute patch paths reach;
+    # one mbox of the concatenated patches (bytes as stored, for --keep-cr) applies identically
+    with tempfile.TemporaryDirectory(prefix='tele-queue-') as scratch:
+        mbox = Path(scratch) / 'queue.mbox'
+        with mbox.open('wb') as output:
+            for patch in patches:
+                output.write(patch.read_bytes())
+        return run_git(repo, *AM_ARGS, str(mbox))
+
+
 def apply_pending(tdesktop, state):
     groups = patch_groups()
     while state['pending']:
         group = state['pending'][0]
         patches = groups[group]
         repo = repo_path(tdesktop, group)
-        result = run_git(repo, *AM_ARGS, *map(str, patches))
+        result = am_queue(repo, patches)
         while result.returncode != 0 and resolve_known_conflicts(repo):
             result = run_git(repo, 'am', '--continue')
         if result.returncode != 0:
@@ -289,7 +300,7 @@ def prime_patch_blobs(tdesktop):
         worktree = scratch / 'repo'
         git(repo, 'worktree', 'add', '--quiet', '--detach', str(worktree), base)
         try:
-            if run_git(worktree, *AM_ARGS, *map(str, patches)).returncode != 0:
+            if am_queue(worktree, patches).returncode != 0:
                 run_git(worktree, 'am', '--abort')
         finally:
             git(repo, 'worktree', 'remove', '--force', str(worktree))
