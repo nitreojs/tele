@@ -12,12 +12,12 @@ Subject: [PATCH] feat: copy the text of service messages
  5 files changed, 54 insertions(+), 8 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 891c364ce617fb6265b34ba0458b9ffbccacdd56..bed589ffb1ce3e848a7754ca607940785c847f10 100644
+index c4544c913130f622e9441685c133fc3efec2c473..8d8d275d3f96f6e786566d7baf5aa7dd09e73544 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -3743,6 +3743,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
- 						}
- 					}
+@@ -3846,6 +3846,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 				if (view) {
+ 					Tgw::AddLogAction(_menu, view, controller->uiShow());
  				}
 +				if (view && actionText.isEmpty() && !hasCopyRestriction(item)) {
 +					Tele::AddCopyServiceTextAction(_menu.get(), view, [=] {
@@ -29,10 +29,10 @@ index 891c364ce617fb6265b34ba0458b9ffbccacdd56..bed589ffb1ce3e848a7754ca60794078
  		}
  		if (!actionText.isEmpty()) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 509eeb784e17b578c228356bccfa69e17f63a0e2..d69527558c5675b34a84a014c50c9b59172f0d0e 100644
+index 409afa596c532bd4f6182e3e7611ae873839915a..60000a936f4a28227fddd7361b2b34fbbb6716fd 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -1910,8 +1910,13 @@ void FillContextMenuItems(
+@@ -1924,8 +1924,13 @@ void FillContextMenuItems(
  		if (const auto document = media ? media->getDocument() : nullptr) {
  			AddDocumentActions(result, document, view->data(), list);
  		}

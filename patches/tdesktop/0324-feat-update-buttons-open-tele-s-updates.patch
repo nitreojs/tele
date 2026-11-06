@@ -14,10 +14,10 @@ Subject: [PATCH] feat: update buttons open tele's updates
  create mode 100644 Telegram/SourceFiles/tele/tele_update_buttons.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c047834761e69b8d11a688805b5679981be5d762..d49d8ac5a5edde2cb59ad072a92b222b045d5f32 100644
+index f7cab9b0547564d39040c7665e224ef3a848fcc6..75cba322edd1a90d650e6c3b67f54bd14711dfe3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3008,6 +3008,8 @@ PRIVATE
+@@ -3150,6 +3150,8 @@ PRIVATE
      tele/tele_translate_out.h
      tele/tele_unsorted_folder.cpp
      tele/tele_unsorted_folder.h
@@ -27,7 +27,7 @@ index c047834761e69b8d11a688805b5679981be5d762..d49d8ac5a5edde2cb59ad072a92b222b
      tele/tele_updater.h
      tele/tele_upload_retry.cpp
 diff --git a/Telegram/SourceFiles/core/update_checker.cpp b/Telegram/SourceFiles/core/update_checker.cpp
-index 73eee14f179d769854237640b246858959808736..e2ae6f585b9c1193802c78b2adc34ac72ecb28fe 100644
+index eb4e5bc609dda1550e168e036b42b6fa20b2f348..472c5d4ca59d83807a815aab8acce9137b853c9e 100644
 --- a/Telegram/SourceFiles/core/update_checker.cpp
 +++ b/Telegram/SourceFiles/core/update_checker.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -38,7 +38,7 @@ index 73eee14f179d769854237640b246858959808736..e2ae6f585b9c1193802c78b2adc34ac7
  
  #include <QtCore/QJsonDocument>
  #include <QtCore/QJsonObject>
-@@ -2175,6 +2176,9 @@ bool checkReadyUpdate() {
+@@ -2198,6 +2199,9 @@ bool checkReadyUpdate() {
  }
  
  void UpdateApplication() {
@@ -49,10 +49,10 @@ index 73eee14f179d769854237640b246858959808736..e2ae6f585b9c1193802c78b2adc34ac7
  		const auto url = [&] {
  #ifdef OS_WIN_STORE
 diff --git a/Telegram/SourceFiles/history/history_item_helpers.cpp b/Telegram/SourceFiles/history/history_item_helpers.cpp
-index 5c7f272b782e8c09edc13c7ea05ecbeb535a24bc..a1c3fb6dd5c23520639ed56ecf1666ec7f7b6d00 100644
+index b30b994629cb8e0853ef438af391be744b0e6b18..3a89e92c78ddf328883209cace3eb152f7768de7 100644
 --- a/Telegram/SourceFiles/history/history_item_helpers.cpp
 +++ b/Telegram/SourceFiles/history/history_item_helpers.cpp
-@@ -1470,7 +1470,7 @@ bool CanHoldItemNotification(not_null<const HistoryItem*> item) {
+@@ -1467,7 +1467,7 @@ bool CanHoldItemNotification(not_null<const HistoryItem*> item) {
  }
  
  [[nodiscard]] TextWithEntities UnsupportedMessageText() {

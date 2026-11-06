@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send inline results without via
  create mode 100644 Telegram/SourceFiles/tele/tele_inline_via.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b377cbd59d23b3052a6f9c3a61cd1c5896d998c1..cfa44461d570eda3a3fa17021cd7319dcd7bed0a 100644
+index d790b6a1b8ba78028bd6ec3dfb46b29f97eb106e..13639e3ee85c400867dfe01a46ab9201ef5ed4d6 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2523,6 +2523,8 @@ PRIVATE
+@@ -2669,6 +2669,8 @@ PRIVATE
      tele/tele_ghost.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h
@@ -31,7 +31,7 @@ index b377cbd59d23b3052a6f9c3a61cd1c5896d998c1..cfa44461d570eda3a3fa17021cd7319d
      tele/tele_lowercase.h
      tele/tele_menu_order.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index f91d10ad06029f0a3d0ff96c85b6796e410e06b5..c14dc25975ba9f5f0be966e00088e8b67a8069c2 100644
+index dfbacbe9f006bc7d556cb3ef23c3e1bf34f85337..883812733a894b4ca4f23432c75c3f4c8ec2e5da 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,8 +41,8 @@ index f91d10ad06029f0a3d0ff96c85b6796e410e06b5..c14dc25975ba9f5f0be966e00088e8b6
 +#include "tele/tele_inline_via.h"
  #include "tele/tele_calcmula.h"
  #include "tele/tele_links.h"
- 
-@@ -5143,6 +5144,9 @@ void ApiWrap::sendInlineResult(
+ #include "tgw/tgw_storage.h"
+@@ -5135,6 +5136,9 @@ void ApiWrap::sendInlineResult(
  		Fn<void(bool)> done) {
  	StripEphemeralReply(_session, action.replyTo);
  	Tele::ApplyGhostSchedule(action);
@@ -53,7 +53,7 @@ index f91d10ad06029f0a3d0ff96c85b6796e410e06b5..c14dc25975ba9f5f0be966e00088e8b6
  
  	const auto history = action.history;
 diff --git a/Telegram/SourceFiles/inline_bots/inline_bot_result.h b/Telegram/SourceFiles/inline_bots/inline_bot_result.h
-index 80d7ae848e53db076bc08b45aa5e8eccedcd80da..3549dfc79dc34a26e10f940b1c5384f708b66b80 100644
+index 6d56d365beb5b05095321b25cf74fae6d792a9e0..3d720262ee0e4cd0ce6ab75951573d4585bbf92d 100644
 --- a/Telegram/SourceFiles/inline_bots/inline_bot_result.h
 +++ b/Telegram/SourceFiles/inline_bots/inline_bot_result.h
 @@ -23,6 +23,10 @@ class LocationPoint;
@@ -76,7 +76,7 @@ index 80d7ae848e53db076bc08b45aa5e8eccedcd80da..3549dfc79dc34a26e10f940b1c5384f7
  		uint64 queryId = 0;
  		Type type = Type::Unknown;
 diff --git a/Telegram/SourceFiles/inline_bots/inline_bot_send_data.h b/Telegram/SourceFiles/inline_bots/inline_bot_send_data.h
-index de21fd1defadf5c17a8435997de9596655444745..5725581df0e308a5d5d2762d27da30d8fa02f328 100644
+index 0b44269df8a462ba459196f7755df61591a4966e..230787028705f4ab396b07f1f5be4a1c58d482f4 100644
 --- a/Telegram/SourceFiles/inline_bots/inline_bot_send_data.h
 +++ b/Telegram/SourceFiles/inline_bots/inline_bot_send_data.h
 @@ -27,6 +27,10 @@ namespace Iv {
@@ -90,7 +90,7 @@ index de21fd1defadf5c17a8435997de9596655444745..5725581df0e308a5d5d2762d27da30d8
  namespace InlineBots {
  
  class Result;
-@@ -281,6 +285,8 @@ public:
+@@ -290,6 +294,8 @@ public:
  		not_null<History*> history) const override;
  
  private:
@@ -99,7 +99,7 @@ index de21fd1defadf5c17a8435997de9596655444745..5725581df0e308a5d5d2762d27da30d8
  	PhotoData *_photo;
  	QString _message;
  	EntitiesInText _entities;
-@@ -315,6 +321,8 @@ public:
+@@ -324,6 +330,8 @@ public:
  		not_null<History*> history) const override;
  
  private:

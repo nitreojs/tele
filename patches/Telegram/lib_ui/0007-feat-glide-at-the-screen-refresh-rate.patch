@@ -150,7 +150,7 @@ index 254bab9811e462471f901430140c9e8bf628603b..bb58087de83ae718281546521dcfa9b6
  	class ActiveBasicPointer {
  	public:
 diff --git a/ui/widgets/elastic_scroll.cpp b/ui/widgets/elastic_scroll.cpp
-index c134b201f0d36e05ce0f797d4533e04dfe68c8c0..e1c8361e11b65c424bc9048bb3e31b8a3bf288a8 100644
+index b1764184eda17f579fc81375f3247b763257d85f..887d804ee31a3f01b5283b5cf4fa2f5a1a4e730b 100644
 --- a/ui/widgets/elastic_scroll.cpp
 +++ b/ui/widgets/elastic_scroll.cpp
 @@ -418,6 +418,7 @@ ElasticScroll::ElasticScroll(

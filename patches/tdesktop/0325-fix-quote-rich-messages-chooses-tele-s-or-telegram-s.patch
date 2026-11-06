@@ -12,10 +12,10 @@ Subject: [PATCH] fix: quote rich messages chooses tele's or telegram's quotes
  5 files changed, 44 insertions(+), 18 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index c6931af709f0f4e67688ea2c849b8f4202408dad..27708a70cfd2ad27e042c9aead604d3412fcfaf7 100644
+index 5cbb46ced3c32553028fc2900e2abd945dd36c1c..04ecea70d86206b3442ecad86af2e3487caf454e 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -826,15 +826,22 @@ void HistoryInner::setupSwipeReplyAndBack() {
+@@ -834,15 +834,22 @@ void HistoryInner::setupSwipeReplyAndBack() {
  			result.msgBareId = viewItemId.msg.bare;
  			result.callback = [=] {
  				const auto still = show->session().data().message(viewItemId);
@@ -39,7 +39,7 @@ index c6931af709f0f4e67688ea2c849b8f4202408dad..27708a70cfd2ad27e042c9aead604d34
  				Window::ActivateWindow(_controller);
  				_widget->replyToMessage({
  					.messageId = exact->fullId(),
-@@ -3483,8 +3490,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3572,8 +3579,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		const auto canSendReply = CanSendReply(item);
  		const auto canReply = canSendReply || item->allowsForward();
  		if (canReply) {
@@ -51,10 +51,10 @@ index c6931af709f0f4e67688ea2c849b8f4202408dad..27708a70cfd2ad27e042c9aead604d34
  				(_selectedTextItem == item) ? item->mainView() : nullptr,
  				_selectedTextSelection);
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 771745750d2e68a10095d41f47f1e864535011c8..078a7d2653a32f88a3ea8ec0f311dd15a729172b 100644
+index ee8b1d00147ff807d99fe5f2f2d6090ec083edc5..45cad4b236c1cf7fe392d3db842ee96c0587e2c8 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -125,6 +125,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
@@ -62,7 +62,7 @@ index 771745750d2e68a10095d41f47f1e864535011c8..078a7d2653a32f88a3ea8ec0f311dd15
  #include "tele/tele_field_resize.h"
  #include "tele/tele_kept_chats.h"
  #include "tele/tele_silent.h"
-@@ -1948,16 +1949,23 @@ void ChatWidget::setupSwipeReplyAndBack() {
+@@ -2007,16 +2008,23 @@ void ChatWidget::setupSwipeReplyAndBack() {
  			const auto view = still
  				? _inner->viewByPosition(still->position())
  				: nullptr;
@@ -88,10 +88,10 @@ index 771745750d2e68a10095d41f47f1e864535011c8..078a7d2653a32f88a3ea8ec0f311dd15
  			_inner->replyToMessageRequestNotify({
  				.messageId = exact->fullId(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 367e9ee02212f99e3c52a44f144b94875e6a802a..72fc566484916f6092ed971b606eeb5e7077e54e 100644
+index a3769ef7c9ddf580f30c2c417a6fa6b4e386c409..0c15759d9609a91c2562a7f324976c9e057f33de 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -875,8 +875,8 @@ bool AddReplyToMessageAction(
+@@ -871,8 +871,8 @@ bool AddReplyToMessageAction(
  	const auto todoListTaskId = request.link
  		? request.link->property(kTodoListItemIdProperty).toInt()
  		: 0;

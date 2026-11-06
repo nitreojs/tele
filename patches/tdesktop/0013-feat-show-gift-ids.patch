@@ -17,10 +17,10 @@ Subject: [PATCH] feat: show gift ids
  create mode 100644 Telegram/SourceFiles/tele/tele_gifts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 626989d70e3dab67b6e6dfbefd7619cdb8e52cee..1e35d36f2d8cfea9c199e26cf6583eb5fd36c133 100644
+index fe7d6cf3971e61118a3e96bf5e4bcacc0e9bc6f0..15f7c352ac86bb3fb98f8001c8262965b068ad6e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2493,6 +2493,8 @@ PRIVATE
+@@ -2639,6 +2639,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -50,10 +50,10 @@ index 7451879230636b39abe45e14e9a732749c3eac01..db8da85a8b3ef242573ef5104fb13bfb
  	const auto tooltip = std::make_shared<TableRowTooltipData>(
  		TableRowTooltipData{ .parent = container });
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index a1158eef284655aa3747f728423e822d2ec04bbc..e10b6490412d0f4a88a215aa31bc350483295eb8 100644
+index 8fb8606a24b6ad04f47fdb734ab9f62bef610601..4784386251b18e988be112cb165446d434fbb4d4 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -2167,15 +2167,12 @@ void GenericCreditsEntryBody(
+@@ -2169,15 +2169,12 @@ void GenericCreditsEntryBody(
  	Ui::AddSkip(content);
  
  	const auto addGiftLinkTON = [&] {

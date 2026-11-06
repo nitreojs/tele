@@ -195,7 +195,7 @@ index ef50043f9d921d0ada08999a6f4c7e135fd7ad20..3f9196f1d6f80664d47065bcadfaddca
  [[nodiscard]] bool DownloadsPerChat();
  [[nodiscard]] rpl::producer<> PunctualScheduledChanges();
 diff --git a/Telegram/SourceFiles/tele/tele_protected.cpp b/Telegram/SourceFiles/tele/tele_protected.cpp
-index b2dfcb2164437c611c95ec7402ff0eb43584cb5d..653eea98c226549b63c01aaffae76ad319cc2714 100644
+index 22d44064a82b2b1abb2b0289094782cbf1bc2192..a45b1cc13c97e77aa765e367b78fd1e944fc657b 100644
 --- a/Telegram/SourceFiles/tele/tele_protected.cpp
 +++ b/Telegram/SourceFiles/tele/tele_protected.cpp
 @@ -26,6 +26,7 @@
@@ -206,7 +206,7 @@ index b2dfcb2164437c611c95ec7402ff0eb43584cb5d..653eea98c226549b63c01aaffae76ad3
  #include "tele/tele_lowercase.h"
  #include "tele/tele_notices.h"
  #include "tele/tele_options.h"
-@@ -414,6 +415,9 @@ void ShowToast(not_null<Job*> job, const QString &text) {
+@@ -415,6 +416,9 @@ void ShowToast(not_null<Job*> job, const QString &text) {
  		return std::nullopt;
  	}
  	auto result = std::move(list.files.front());

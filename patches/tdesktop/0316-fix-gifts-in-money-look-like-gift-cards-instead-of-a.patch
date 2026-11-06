@@ -17,10 +17,10 @@ Subject: [PATCH] fix: gifts in money look like gift cards instead of a blurry
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_tile.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3fec07fe44e3cdb7095ca92bd501caa5c4a35156..d6d36169af7311a3cd50abab6c0f80ee76ef4a5d 100644
+index 34de9b570ff669bea245cd79d1a61331f5c3f04f..713bf6d514dc6d6e22061fec3a64f712ad1a5c8c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2760,6 +2760,8 @@ PRIVATE
+@@ -2902,6 +2902,8 @@ PRIVATE
      tele/tele_gift_studio_video.h
      tele/tele_gift_studio_widgets.cpp
      tele/tele_gift_studio_widgets.h
@@ -482,7 +482,7 @@ index 13bc2ce96f59dd54a14cb929026adbd4bb6e25fa..bfa4fba95ac4d7ae09497d1a392f3b43
  			st::walletDetailsCollectibleRadius);
  	}, artwork->lifetime());
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index 49f06c2fa6aabe0b6f13991c43a264477bf9b814..e9a33ab2e7cc03170be25966fdb72db388514eab 100644
+index c9cd55bd2821ebf1d2988a6baa3e6f729744bd9a..6cabd0585b7232b1c6c0f799225384597bc3c736 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
 @@ -57,6 +57,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

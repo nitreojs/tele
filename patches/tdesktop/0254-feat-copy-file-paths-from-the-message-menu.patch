@@ -15,10 +15,10 @@ Subject: [PATCH] feat: copy file paths from the message menu
  8 files changed, 56 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 9f558b3a32ba05a333a5f29179a5f228a79ae875..85af79db0897027365dca981b842b540ae9bd3b9 100644
+index df37a6db6b19d0190d4456b139c28415e07205c5..dfb59735e28373dd8034f26afc6e2bb3c4e4227a 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -2789,6 +2789,10 @@ void AddCopyFilename(
+@@ -2807,6 +2807,10 @@ void AddCopyFilename(
  			}
  		}, &st::menuIconCopy);
  	}

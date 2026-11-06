@@ -21,10 +21,10 @@ Subject: [PATCH] feat: import wallets from private keys
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_keys.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 25e7e690de107c00ff5c0e0b23cdbd4de9d0879a..935d4017915a1b3274e0549bbe0f29848df84603 100644
+index 8145962e2f4a3ac95a5d61422a4447cadbcec7b1..473b8751085b3b18daac72a86d6fb4d11fc873aa 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2999,6 +2999,8 @@ PRIVATE
+@@ -3143,6 +3143,8 @@ PRIVATE
      tele/tele_voice_quality.h
      tele/tele_wallet_address.cpp
      tele/tele_wallet_address.h
@@ -991,7 +991,7 @@ index 0000000000000000000000000000000000000000..b3dfae54e0cd8dec3fe08620179a13ad
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index 714d254e3d262fb5f872035ab5b81a126b9546bd..d02ca495843fcd130b2a636cc4cbbab2d8740a32 100644
+index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543fa58b97ce 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
 @@ -60,6 +60,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -1532,10 +1532,10 @@ index 714d254e3d262fb5f872035ab5b81a126b9546bd..d02ca495843fcd130b2a636cc4cbbab2
  	phrase->toggleOn(rpl::combine(
  		wallet.capabilitiesValue(),
 diff --git a/Telegram/SourceFiles/wallet/wallet_engine.cpp b/Telegram/SourceFiles/wallet/wallet_engine.cpp
-index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7fa629842 100644
+index 463c8e03580285041bc3f5f64349b0ad1555ec3b..a06fad4cfab9935feed5b091c587a938f0a70b3f 100644
 --- a/Telegram/SourceFiles/wallet/wallet_engine.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_engine.cpp
-@@ -608,7 +608,7 @@ public:
+@@ -614,7 +614,7 @@ public:
  				throw HostFailed(
  					engine::StatuslessHostErrorKind::kCancelled,
  					u"wallet engine is closing"_q);
@@ -1544,7 +1544,7 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  				throw HostFailed(
  					engine::StatuslessHostErrorKind::kCancelled,
  					u"cancelled before start"_q);
-@@ -831,6 +831,7 @@ public:
+@@ -837,6 +837,7 @@ public:
  			}
  			_baseUrl = base;
  			_basePath = QUrl(base).path();
@@ -1552,7 +1552,7 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  			pending = base::take(_pending);
  			_cancelledEarly.clear();
  		}
-@@ -842,6 +843,22 @@ public:
+@@ -848,6 +849,22 @@ public:
  		}
  	}
  
@@ -1575,7 +1575,7 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  	// Main thread. Completes every waiting request so the worker can never
  	// block on a main thread that is tearing the Engine down.
  	void close() {
-@@ -914,6 +931,7 @@ private:
+@@ -920,6 +937,7 @@ private:
  
  	std::mutex _mutex;
  	bool _closed = false;
@@ -1583,7 +1583,7 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  	QString _baseUrl;
  	QString _basePath;
  	base::flat_map<uint64, std::shared_ptr<Pending>> _pending;
-@@ -1215,6 +1233,7 @@ Engine::Engine(not_null<Main::Session*> session, not_null<Api*> api)
+@@ -1221,6 +1239,7 @@ Engine::Engine(not_null<Main::Session*> session, not_null<Api*> api)
  : _session(session)
  , _accountId(session->uniqueId())
  , _statuslessHost(std::make_shared<StatuslessHost>(base::make_weak(this), api))
@@ -1591,7 +1591,7 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  , _vault(session->domain().walletKeyring().shared_from_this())
  , _platformHost(std::make_shared<PlatformHost>(
  	base::make_weak(this),
-@@ -1235,6 +1254,7 @@ Engine::~Engine() {
+@@ -1241,6 +1260,7 @@ Engine::~Engine() {
  	// The send journal is durable, so an interrupted shutdown is recovered
  	// by resolve_pending() on the next launch by the engine's own design.
  	_statuslessHost->close();
@@ -1599,7 +1599,7 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  	_platformHost->close();
  	_lifetime.destroy();
  	_vault->unregisterAccount(_accountId);
-@@ -1297,6 +1317,20 @@ void Engine::startClient(const engine::WalletClientConfig &config) {
+@@ -1303,6 +1323,20 @@ void Engine::startClient(const engine::WalletClientConfig &config) {
  		_platformHost);
  }
  
@@ -1621,10 +1621,10 @@ index 4fddf857aa08613fdcce48b88d544001ce7fc8a1..3877ccc4a0ec3aaf13967d5715cc19b7
  -> std::shared_ptr<wallet_engine::WalletClient> {
  	return _client;
 diff --git a/Telegram/SourceFiles/wallet/wallet_engine.h b/Telegram/SourceFiles/wallet/wallet_engine.h
-index 83c7fa8ff0daf14ef0cd9e5c2985b0beeb7a51df..34056ae7163d38a054e5c82587c928e3ffb15b71 100644
+index b32e4b9f11f88d2c9e2ab2038f33573481d7af88..2fc7af420ae36862e22f272e3d038e616e991d2c 100644
 --- a/Telegram/SourceFiles/wallet/wallet_engine.h
 +++ b/Telegram/SourceFiles/wallet/wallet_engine.h
-@@ -262,6 +262,10 @@ public:
+@@ -264,6 +264,10 @@ public:
  	void startClient(const wallet_engine::WalletClientConfig &config);
  	[[nodiscard]] auto client() const
  		-> std::shared_ptr<wallet_engine::WalletClient>;
@@ -1635,7 +1635,7 @@ index 83c7fa8ff0daf14ef0cd9e5c2985b0beeb7a51df..34056ae7163d38a054e5c82587c928e3
  
  	// The domain's runtime, shared with every other signed-in account.
  	[[nodiscard]] VaultRuntime &vault() const;
-@@ -427,6 +431,7 @@ private:
+@@ -429,6 +433,7 @@ private:
  	const not_null<Main::Session*> _session;
  	const uint64 _accountId;
  	std::shared_ptr<StatuslessHost> _statuslessHost;
@@ -1644,7 +1644,7 @@ index 83c7fa8ff0daf14ef0cd9e5c2985b0beeb7a51df..34056ae7163d38a054e5c82587c928e3
  	std::shared_ptr<PlatformHost> _platformHost;
  	std::shared_ptr<wallet_engine::WalletLifecycle> _lifecycle;
 diff --git a/Telegram/SourceFiles/wallet/wallet_session.cpp b/Telegram/SourceFiles/wallet/wallet_session.cpp
-index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca30e7f7452 100644
+index ea353d5fdb978030009f39fd3cf267ad2dbc30a9..b1863b2d8e0f4cf0623e2a042624e0bf27998978 100644
 --- a/Telegram/SourceFiles/wallet/wallet_session.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_session.cpp
 @@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -1653,9 +1653,9 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  #include "tele/tele_options.h"
 +#include "tele/tele_wallet_keys.h"
  #include "ui/widgets/separate_panel.h"
+ #include "wallet/wallet_address.h"
  #include "wallet/wallet_engine.h"
- #include "wallet/wallet_key_protection.h"
-@@ -2168,6 +2169,9 @@ std::vector<QString> WordlistSuggestions(
+@@ -2062,6 +2063,9 @@ std::vector<QString> WordlistSuggestions(
  }
  
  PhraseMatch DetectPhraseMatch(const std::vector<QString> &words) {
@@ -1665,7 +1665,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  	auto engineWords = std::vector<std::string>();
  	engineWords.reserve(words.size());
  	for (const auto &word : words) {
-@@ -3747,14 +3751,19 @@ void Session::revealLocally(
+@@ -3641,14 +3645,19 @@ void Session::revealLocally(
  	const auto descriptor = DescriptorFromRecord(record);
  	_engine->runLocal([lifecycle, descriptor] {
  		return lifecycle->reveal_recovery_phrase(descriptor);
@@ -1687,7 +1687,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  		done(std::move(words));
  	}, [=, this, grant = auth.grant](EngineError error) {
  		noteSecretReadFailure(
-@@ -4035,6 +4044,14 @@ void Session::fetchShareParts(
+@@ -3929,6 +3938,14 @@ void Session::fetchShareParts(
  void Session::validatePhraseIdentity(
  		const std::vector<QString> &words,
  		Fn<void(std::optional<PhraseIdentity>)> done) {
@@ -1702,7 +1702,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  	auto normalized = QStringList();
  	for (const auto &word : words) {
  		normalized.push_back(NormalizeWord(word));
-@@ -4058,7 +4075,7 @@ void Session::restoreFromWords(
+@@ -3952,7 +3969,7 @@ void Session::restoreFromWords(
  	if (scope && !commentScopeCurrent(scope)) {
  		fail(u"PHRASE_ORIGIN_EXPIRED"_q);
  		return;
@@ -1711,7 +1711,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  		LOG(("Wallet Error: reconstructed phrase too short "
  			"word_count=%1 export_request=%2."
  			).arg(words.size()).arg(exportRequestId));
-@@ -4276,6 +4293,11 @@ void Session::restoreFromWords(
+@@ -4170,6 +4187,11 @@ void Session::restoreFromWords(
  				rollback([=] { fail(u"PHRASE_ORIGIN_EXPIRED"_q); });
  				return;
  			}
@@ -1723,7 +1723,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  			done(std::move(restored.words), CustodyOutcome::Installed);
  		}, [=, this](EngineError error) {
  			// Only stores recorded by this import are removed. The shared
-@@ -4410,6 +4432,98 @@ void Session::restoreFromWords(
+@@ -4304,6 +4326,98 @@ void Session::restoreFromWords(
  	});
  }
  
@@ -1822,7 +1822,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  void Session::restoreFromPhrase(
  		KeyAuthorization auth,
  		std::vector<QString> words,
-@@ -4762,6 +4876,12 @@ void Session::enableBackup(
+@@ -4656,6 +4770,12 @@ void Session::enableBackup(
  		Fn<void(const QString &error)> fail) {
  	ensureLoaded();
  	fail = LoggedFail(u"backup enable"_q, std::move(fail));
@@ -1835,7 +1835,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  	if (custodyBusy() || custody().pendingRotation) {
  		LOG(("Wallet Error: backup requested while another is in flight."));
  		if (fail) {
-@@ -4889,6 +5009,11 @@ void Session::enableBackup(
+@@ -4783,6 +4903,11 @@ void Session::enableBackup(
  			return;
  		}
  		revealLocally(auth, record, [=, this](std::vector<QString> words) {
@@ -1847,7 +1847,7 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  			const auto parts = SealBackupParts(*keys, words);
  			if (!parts) {
  				LOG(("Wallet Error: backup parts could not be sealed."));
-@@ -6086,6 +6211,11 @@ void Session::replaceWithImported(
+@@ -5980,6 +6105,11 @@ void Session::replaceWithImported(
  					abandon(refusal);
  					return;
  				}
@@ -1860,10 +1860,10 @@ index 59fd6096aecd8e8457ba45fe817a5a13a8278987..e583205614f10dc35fbd03d2c8e94ca3
  					oldAddress,
  					record,
 diff --git a/Telegram/SourceFiles/wallet/wallet_session.h b/Telegram/SourceFiles/wallet/wallet_session.h
-index a0890b55c568778aa8004c854253a724f596a866..2bfc4337ae5de685259543220d0e00a90af3c127 100644
+index a917806486ee7c94942364cdd6ce9aa300c5d8f0..3ad636769e39d395598ebdde95141437b4597944 100644
 --- a/Telegram/SourceFiles/wallet/wallet_session.h
 +++ b/Telegram/SourceFiles/wallet/wallet_session.h
-@@ -662,6 +662,12 @@ public:
+@@ -672,6 +672,12 @@ public:
  		std::optional<Core::CloudPasswordResult> password,
  		Fn<void()> done,
  		Fn<void(const QString &error)> fail);
@@ -1876,7 +1876,7 @@ index a0890b55c568778aa8004c854253a724f596a866..2bfc4337ae5de685259543220d0e00a9
  	void restoreFromPhrase(
  		KeyAuthorization auth,
  		std::vector<QString> words,
-@@ -1244,6 +1250,7 @@ private:
+@@ -1255,6 +1261,7 @@ private:
  	bool _custodyResetting = false;
  	bool _phraseRevealing = false;
  	bool _replacing = false;

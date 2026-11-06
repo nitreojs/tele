@@ -429,7 +429,7 @@ index 72355671bad7ae8c31f32e4e27b47d14c06da4c3..3a6a3f0043c66dfd107fc78e810edc53
      <file alias="art/premium/flecks.png">../../art/premium/flecks.png</file>
      <file alias="art/premium/star_texture.svg">../../art/premium/star_texture.svg</file>
 diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
-index 2c191864a94967788cdf385651a4406294d009ff..7305bb57592e9c38cc38758f4c4393364ed754d5 100644
+index c21afb502f8096c360973d7df110caa8d8d5fee7..c67603cc19da09aac6069a421a687d06e1de5d07 100644
 --- a/Telegram/SourceFiles/data/data_peer.cpp
 +++ b/Telegram/SourceFiles/data/data_peer.cpp
 @@ -435,7 +435,7 @@ QImage *PeerData::userpicCloudImage(Ui::PeerUserpicView &view) const {

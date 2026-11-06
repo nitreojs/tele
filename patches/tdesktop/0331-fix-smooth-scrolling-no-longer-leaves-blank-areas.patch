@@ -11,10 +11,10 @@ Subject: [PATCH] fix: smooth scrolling no longer leaves blank areas
  4 files changed, 86 deletions(-)
 
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index 4351a12565e929e7642e7325c531138fb80442bc..6402b6e0ef10b99aefef6b3dc902a2d0f6e9a677 100644
+index d1bd63a886cacf15ece22623ffac7f1595dbf9da..afd69a5288fc2723752aeae6fdf15915e36ad3c3 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -375,7 +375,6 @@ InnerWidget::InnerWidget(
+@@ -385,7 +385,6 @@ InnerWidget::InnerWidget(
  		invalidateLoadedUserpics();
  		update();
  	});
@@ -23,10 +23,10 @@ index 4351a12565e929e7642e7325c531138fb80442bc..6402b6e0ef10b99aefef6b3dc902a2d0
  	Core::App().notifications().settingsChanged(
  	) | rpl::on_next([=](Window::Notifications::ChangeType change) {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 27708a70cfd2ad27e042c9aead604d3412fcfaf7..142aed26bc8a3ca84e31c81b01129a3e74945c9a 100644
+index 04ecea70d86206b3442ecad86af2e3487caf454e..2175a6b8dbae93417b99bf2ba549a3c749d896b3 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -145,7 +145,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -149,7 +149,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_secret_media.h"
  #include "tele/tele_select_many.h"
  #include "tele/tele_shot.h"
@@ -34,7 +34,7 @@ index 27708a70cfd2ad27e042c9aead604d3412fcfaf7..142aed26bc8a3ca84e31c81b01129a3e
  #include "tele/tele_message_menu.h"
  #include "tele/tele_options.h"
  #include "tele/tele_protected.h"
-@@ -447,7 +446,6 @@ HistoryInner::HistoryInner(
+@@ -455,7 +454,6 @@ HistoryInner::HistoryInner(
  	) | rpl::on_next([=] {
  		_teleScrollLayer->invalidate();
  	}, lifetime());

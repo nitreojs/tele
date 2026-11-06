@@ -93,10 +93,10 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  create mode 100644 Telegram/SourceFiles/tele/tele_translations.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index af4dfd16771f55186dea52ca4f0bdd654fb02be9..c4d23d59544da693b19bd7a7b158c8423a068cd9 100644
+index e50684f49d6e85a888c1977b0bfb06e71dcfc93b..90f7c4cdcbb9322d576ab0c2c8ddf870d8c63e53 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2964,6 +2964,8 @@ PRIVATE
+@@ -3106,6 +3106,8 @@ PRIVATE
      tele/tele_settings_io.h
      tele/tele_settings_io_box.cpp
      tele/tele_settings_io_box.h
@@ -105,7 +105,7 @@ index af4dfd16771f55186dea52ca4f0bdd654fb02be9..c4d23d59544da693b19bd7a7b158c842
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
      tele/tele_shot.cpp
-@@ -3010,6 +3012,8 @@ PRIVATE
+@@ -3152,6 +3154,8 @@ PRIVATE
      tele/tele_tl_runtime.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h
@@ -5908,7 +5908,7 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +	}
 +}
 diff --git a/Telegram/SourceFiles/info/info_wrap_widget.cpp b/Telegram/SourceFiles/info/info_wrap_widget.cpp
-index 7b973cb8d64e84b3b5df3bb31c0a7fa3c2dec024..c4cf4abe70ae75200813e700433a50b3058c9398 100644
+index c2ea2e186bfd0b8b8f7b24eb2cbc84d36835e276..c5d5d1231ebc02cbbc2d4794602607e3a32a6e38 100644
 --- a/Telegram/SourceFiles/info/info_wrap_widget.cpp
 +++ b/Telegram/SourceFiles/info/info_wrap_widget.cpp
 @@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -5919,7 +5919,7 @@ index 7b973cb8d64e84b3b5df3bb31c0a7fa3c2dec024..c4cf4abe70ae75200813e700433a50b3
  #include "styles/style_chat.h" // popupMenuExpandedSeparator
  #include "styles/style_info.h"
  #include "styles/style_layers.h"
-@@ -489,6 +490,11 @@ void WrapWidget::setupTopBarMenuToggle() {
+@@ -557,6 +558,11 @@ void WrapWidget::setupTopBarMenuToggle() {
  				Ui::DefaultShowFillPeerQrBoxCallback(show, self);
  			});
  		}
@@ -8681,18 +8681,18 @@ index 27736b2bd007b35e14fdc5df14829124ce56a80d..800e2832e8562f29ce6280159660121d
  	return text.isEmpty() ? label : (text + separator + label);
  }
 diff --git a/Telegram/SourceFiles/tele/tele_protected.cpp b/Telegram/SourceFiles/tele/tele_protected.cpp
-index 3c4163c550a867a1dd211991301eb7ed2bc74f09..88f74d8185f9e27c3c702320e8849b2489eb2206 100644
+index 91fd69e9e47b258868ec62194ebe5135c137d65e..24efe3a6b6be012c78d20b9db6e85e8e8a956296 100644
 --- a/Telegram/SourceFiles/tele/tele_protected.cpp
 +++ b/Telegram/SourceFiles/tele/tele_protected.cpp
-@@ -31,6 +31,7 @@
- #include "tele/tele_lowercase.h"
+@@ -32,6 +32,7 @@
  #include "tele/tele_notices.h"
  #include "tele/tele_options.h"
+ #include "tele/tele_send_files.h"
 +#include "tele/tele_translations.h"
  #include "ui/chat/attach/attach_prepare.h"
  #include "ui/image/image.h"
  #include "window/window_session_controller.h"
-@@ -178,7 +179,7 @@ void Track(not_null<Main::Session*> session) {
+@@ -179,7 +180,7 @@ void Track(not_null<Main::Session*> session) {
  void ShowToast(not_null<Job*> job, const QString &text) {
  	const auto peer = job->action.history->peer;
  	if (const auto window = job->session->tryResolveWindow(peer)) {
@@ -8701,7 +8701,7 @@ index 3c4163c550a867a1dd211991301eb7ed2bc74f09..88f74d8185f9e27c3c702320e8849b24
  	}
  }
  
-@@ -654,9 +655,11 @@ void Finish(not_null<Job*> job) {
+@@ -660,9 +661,11 @@ void Finish(not_null<Job*> job) {
  	job->timer.cancel();
  	if (job->failed) {
  		ShowToast(job, (job->failed == 1)
@@ -8716,7 +8716,7 @@ index 3c4163c550a867a1dd211991301eb7ed2bc74f09..88f74d8185f9e27c3c702320e8849b24
  	}
  	crl::on_main([=] {
  		Remove(job);
-@@ -814,7 +817,12 @@ void SendProtectedCopies(
+@@ -820,7 +823,12 @@ void SendProtectedCopies(
  		}
  	}
  	if (!skipped.isEmpty()) {
@@ -8730,7 +8730,7 @@ index 3c4163c550a867a1dd211991301eb7ed2bc74f09..88f74d8185f9e27c3c702320e8849b24
  	}
  	if (job->steps.empty()) {
  		return;
-@@ -831,7 +839,9 @@ void SendProtectedCopies(
+@@ -837,7 +845,9 @@ void SendProtectedCopies(
  	Jobs().push_back(std::move(owned));
  	Process(job);
  	if (!job->finished && !job->waiting) {

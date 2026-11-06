@@ -9,7 +9,7 @@ Subject: [PATCH] feat: resize the money window
  2 files changed, 63 insertions(+), 13 deletions(-)
 
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index f069df1d57512b408d7a42c9d79eecad2033c8c0..714d254e3d262fb5f872035ab5b81a126b9546bd 100644
+index dddf3e3352d7812ed17591b5a7481359535a19f6..a1c92a47256a0abdc61dbd0b32535557aaedd921 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
 @@ -1118,6 +1118,46 @@ QString EncryptedCommentLabel::accessibilityName() {
@@ -139,10 +139,10 @@ index f069df1d57512b408d7a42c9d79eecad2033c8c0..714d254e3d262fb5f872035ab5b81a12
  	}, lifetime());
  
 diff --git a/Telegram/SourceFiles/wallet/wallet_panel.cpp b/Telegram/SourceFiles/wallet/wallet_panel.cpp
-index 1b692f292c24fe70a1603421633f0fb21ac9f6f2..e84815c2f121f315a1faf674f70ca51491681ef1 100644
+index 0c0cc14a1a668e6eadb9c3f11c6b364db6a22f8e..4bc56ca95a4f364546b18adbf3a357c90e031909 100644
 --- a/Telegram/SourceFiles/wallet/wallet_panel.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_panel.cpp
-@@ -82,7 +82,7 @@ not_null<Ui::SeparatePanel*> ShowWallet(not_null<Main::Session*> session) {
+@@ -87,7 +87,7 @@ not_null<Ui::SeparatePanel*> ShowWallet(not_null<Main::Session*> session) {
  	const auto show = Main::MakeSessionShow(panel->uiShow(), session);
  	panel->setWindowFlag(Qt::WindowStaysOnTopHint, false);
  	Shortcuts::Listen(panel); // Main window may be hidden to tray.

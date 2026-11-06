@@ -42,10 +42,10 @@ Subject: [PATCH] feat: render html cards with litehtml and run their scripts
  create mode 100644 Telegram/SourceFiles/tele/tele_html_script.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 04be4b6266b445b0c1299893bf391918e52c8229..3f7d6aa50d03ac394ecb187a97fc4790e3757a5a 100644
+index 473b8751085b3b18daac72a86d6fb4d11fc873aa..635411b1a3dc045ef468108c1af9752353303116 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2774,6 +2774,18 @@ PRIVATE
+@@ -2916,6 +2916,18 @@ PRIVATE
      tele/tele_ghost_pending.h
      tele/tele_hidden_words.cpp
      tele/tele_hidden_words.h
@@ -65,7 +65,7 @@ index 04be4b6266b445b0c1299893bf391918e52c8229..3f7d6aa50d03ac394ecb187a97fc4790
      tele/tele_ignored.h
      tele/tele_inline_text.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index d544229de80fd7de813afedc2198b2ba4dec2c5e..04594f808d828df4f2d661b4829d6347a0aa76cc 100644
+index 084285099e1d412da819f5eb60cd609b68751df7..dec0b408979f11dcfff8e6d8c91fc66886a42c1d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
 @@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -87,10 +87,10 @@ index d544229de80fd7de813afedc2198b2ba4dec2c5e..04594f808d828df4f2d661b4829d6347
  	if (const auto media = item->media()) {
  		if (media->canBeGrouped()) {
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index 8e3ad5f4680f97d828fb24de377fcb7041710724..e03958924daa6facbcee675bb8edf23a539cdec9 100644
+index dbc5c649f8735ebaa0152e10596a00ec2ab37d04..853274c056f4826d0d68add8a7bfb21733a4b484 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -79,6 +79,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_punctual_scheduled.h"
  #include "tele/scripting/tele_script_hooks.h"
  #include "tele/tele_send_order.h"
@@ -98,7 +98,7 @@ index 8e3ad5f4680f97d828fb24de377fcb7041710724..e03958924daa6facbcee675bb8edf23a
  #include "styles/style_layers.h"
  
  #ifndef TDESKTOP_DISABLE_SPELLCHECK
-@@ -308,6 +309,7 @@ Session::Session(
+@@ -310,6 +311,7 @@ Session::Session(
  	Tele::SetupKeptStore(this);
  	Tele::SetupKeptChats(this);
  	Tele::Secret::Setup(this);
@@ -4440,7 +4440,7 @@ index 0000000000000000000000000000000000000000..90b9b7763361c5668ba3be47a0b155df
 +} // namespace Tele::Html
 diff --git a/Telegram/SourceFiles/tele/tele_html_script.cpp b/Telegram/SourceFiles/tele/tele_html_script.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..7b3b1e93ad262ef43d0dfb72551ce1677bfaa957
+index 0000000000000000000000000000000000000000..bebe6ba7877856cabd79bdbc101975b8546d9ca9
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_html_script.cpp
 @@ -0,0 +1,698 @@
@@ -4674,7 +4674,7 @@ index 0000000000000000000000000000000000000000..7b3b1e93ad262ef43d0dfb72551ce167
 +	return ScriptOf(ctx)->native(magic, argc, argv);
 +}
 +
-+int Interrupt(JSRuntime *rt, void *opaque) {
++int Interrupt(JSContext *ctx, void *opaque) {
 +	return static_cast<Script*>(opaque)->interrupt() ? 1 : 0;
 +}
 +

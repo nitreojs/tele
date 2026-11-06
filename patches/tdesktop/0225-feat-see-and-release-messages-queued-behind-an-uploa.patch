@@ -13,10 +13,10 @@ Subject: [PATCH] feat: see and release messages queued behind an upload
  6 files changed, 172 insertions(+), 7 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index ef2452a0a0b472ebe5925a0709d955e41909b19a..f304f3f11c07a34d16220b9c5226acc7bc5b610c 100644
+index ffb53c8f88300899881f6aa76f6646a6eac03227..05d0f29c2799ae08135d0adc2a85f6d99f89c9b2 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -146,6 +146,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -150,6 +150,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_rich_quote.h"
  #include "tele/tele_rmb_beside_bubble.h"
  #include "tele/tele_select_service.h"
@@ -24,7 +24,7 @@ index ef2452a0a0b472ebe5925a0709d955e41909b19a..f304f3f11c07a34d16220b9c5226acc7
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -3923,6 +3924,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4026,6 +4027,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		_menu.get(),
  		controller,
  		(isUponSelected != -2) ? _dragStateItem : nullptr);
@@ -35,10 +35,10 @@ index ef2452a0a0b472ebe5925a0709d955e41909b19a..f304f3f11c07a34d16220b9c5226acc7
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 96e975172fdfc6b3096d22bf96d2928727ee30b0..9b335d9be4a478aaf0b72579e106e19410f65981 100644
+index 83a6eeefe849d4e0b7c431edcf9709b50738b8c7..36a64bf8891ca1c7cca0e602881d7838c904b87e 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_protected.h"
  #include "tele/tele_read_log.h"
  #include "tele/tele_rich_quote.h"
@@ -46,7 +46,7 @@ index 96e975172fdfc6b3096d22bf96d2928727ee30b0..9b335d9be4a478aaf0b72579e106e194
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_layers.h"
-@@ -2018,6 +2019,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2033,6 +2034,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  	Tele::AddShotAction(result.get(), list, request);
  	Tele::AddRetryFailedActions(result.get(), item);
  	Tele::AddResendAsGifAction(result.get(), list->controller(), item);
@@ -55,7 +55,7 @@ index 96e975172fdfc6b3096d22bf96d2928727ee30b0..9b335d9be4a478aaf0b72579e106e194
  		result.get(),
  		list->controller()->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index b2d8399e92a89a7181a981a3f8c026de4574f040..9247ed1f3c0f83e01e83d8d684196693942366c7 100644
+index 64246527b6488913dc08c26d2f6ae3e7e8d2dc46..a6f653ddd96800d44c16829b86862929d67b874a 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
 @@ -79,6 +79,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -77,10 +77,10 @@ index b2d8399e92a89a7181a981a3f8c026de4574f040..9247ed1f3c0f83e01e83d8d684196693
  }
  
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index 38d0580380fdb80327aacf04fcb1fff109c45b10..4bb1fd4c4b9fc943283db1b6d3e783adc5b74370 100644
+index c801825ab6f5b4a3ac5130ea52ee5bbf18725a5b..c953ea177749ffe909147cf9bc05f57ff334f278 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -74,6 +74,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_past_limit.h"
  #include "tele/tele_protected.h"
  #include "tele/tele_punctual_scheduled.h"
@@ -88,7 +88,7 @@ index 38d0580380fdb80327aacf04fcb1fff109c45b10..4bb1fd4c4b9fc943283db1b6d3e783ad
  #include "styles/style_layers.h"
  
  #ifndef TDESKTOP_DISABLE_SPELLCHECK
-@@ -594,7 +595,7 @@ void Session::uploadsStopWithConfirmation(Fn<void()> done) {
+@@ -597,7 +598,7 @@ void Session::uploadsStopWithConfirmation(Fn<void()> done) {
  		box->addRow(
  			object_ptr<Ui::FlatLabel>(
  				box.get(),

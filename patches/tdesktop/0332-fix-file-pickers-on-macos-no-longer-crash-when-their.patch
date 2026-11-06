@@ -9,18 +9,18 @@ Subject: [PATCH] fix: file pickers on macos no longer crash when their window
  1 file changed, 6 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/core/file_utilities.cpp b/Telegram/SourceFiles/core/file_utilities.cpp
-index 697b8b5342e83f17395d46e8c5292d06ce03a632..de12878ce01c6ac8a274e0fd473d3cbc738d8384 100644
+index 1ca919bb30162cce5da740a6565235d7b416734d..f7faeae603899c205c74029bb6a1c37aa6d12c12 100644
 --- a/Telegram/SourceFiles/core/file_utilities.cpp
 +++ b/Telegram/SourceFiles/core/file_utilities.cpp
-@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -20,6 +20,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "platform/platform_file_utilities.h"
  #include "storage/localstorage.h"
  #include "storage/storage_account.h"
- #include "base/platform/base_platform_file_utilities.h"
 +#include "base/platform/base_platform_info.h"
- #include "platform/platform_file_utilities.h"
- #include "core/application.h"
- #include "base/unixtime.h"
-@@ -391,7 +392,11 @@ bool GetDefault(
+ #include "ui/chat/attach/attach_extensions.h"
+ #include "ui/toast/toast.h"
+ #include "ui/delayed_activation.h"
+@@ -451,7 +452,11 @@ bool GetDefault(
  	}
  	QString file;
  

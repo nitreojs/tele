@@ -23,10 +23,10 @@ Subject: [PATCH] feat: add launch flags to turn off tele's own network use
  create mode 100644 Telegram/SourceFiles/tele/tele_launch_flags.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3ffea811153c852c20cd5f45e92af504fb8214f5..b49b5a3c5b6e592c0962c8b1427143b2d3abebd1 100644
+index 9d8818eef7c178e3357335817aa93ea55c845ea7..062e19fff386d81c37a8531c42db160d126632fc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2551,6 +2551,8 @@ PRIVATE
+@@ -2697,6 +2697,8 @@ PRIVATE
      tele/tele_link_rewrites.h
      tele/tele_link_rewrites_box.cpp
      tele/tele_link_rewrites_box.h

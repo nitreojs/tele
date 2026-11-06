@@ -19,10 +19,10 @@ Subject: [PATCH] fix: open custom emoji in rich and emoji-only messages
  create mode 100644 Telegram/SourceFiles/tele/tele_custom_emoji.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f22d86fbda6a03f08c09ff6fa4569b4fae1e378a..a15b9873d5c2221ddac96f9966db117ebe183ec1 100644
+index b6973d5c7f7328e5b805d208342f95b47940e5ed..3543fdc9d4046ed1cb53f963e582858c8e4c698f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2519,6 +2519,8 @@ PRIVATE
+@@ -2665,6 +2665,8 @@ PRIVATE
      tele/tele_corner_buttons.h
      tele/tele_crash.cpp
      tele/tele_crash.h
@@ -32,18 +32,18 @@ index f22d86fbda6a03f08c09ff6fa4569b4fae1e378a..a15b9873d5c2221ddac96f9966db117e
      tele/tele_debug_logs.h
      tele/tele_deleted.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 4597e81904e55ab7c1481bf7758628042951b35a..fabdee813ebd97bf0d5ee6ab6c777774172c116f 100644
+index 809d1859b75161c6e16b80c35f40bf75cafeb800..e4c722982266f38500d5a032fe0bd9444ee1c426 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "spellcheck/spellcheck_types.h"
+@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tgw/tgw_selection.h"
  #include "apiwrap.h"
  #include "tele/tele_button_payload.h"
 +#include "tele/tele_custom_emoji.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_secret_media.h"
-@@ -2870,6 +2871,7 @@ std::vector<StickerSetIdentifier> CollectEmojiPacks(
+@@ -2889,6 +2890,7 @@ std::vector<StickerSetIdentifier> CollectEmojiPacks(
  				push(data);
  			}
  		}
@@ -224,7 +224,7 @@ index c2d1b020086b1be91693a86c754190bcc89cb8b2..94f446e5d5d4fe0e9cd935216866af14
  		[[nodiscard]] virtual DocumentData *document() {
  			return nullptr;
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
-index 1177128464762f8631216db92b5d715bc5e16148..2648a13ebf13c36e15df4a24162f9c25754284a8 100644
+index 3aa1d096a25742a7db69d76d7230c4c0cd812a1d..0914ca7de8b39b51f34eaedf9f56ebe0a1691080 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
 @@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -251,7 +251,7 @@ index 1177128464762f8631216db92b5d715bc5e16148..2648a13ebf13c36e15df4a24162f9c25
  		&& !result.state.link
  		&& !result.preparedLink
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
-index 7ab247c60ee6175abbc803142324da0cfcc3a971..2e33df6a7f501383eae75b047ed1918417a47202 100644
+index 82b75bfd529d126d39f3a7f7584a27ee0a2082bd..47fd953ac89acdff7d89bb4c544c4bb6713d1ab2 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_text.cpp
 @@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -262,7 +262,7 @@ index 7ab247c60ee6175abbc803142324da0cfcc3a971..2e33df6a7f501383eae75b047ed19184
  #include "tele/tele_spoilers.h"
  
  #include "styles/palette.h"
-@@ -2473,12 +2474,23 @@ void SetTextLeaf(
+@@ -2478,12 +2479,23 @@ void SetTextLeaf(
  		&& !inlineButtonPaintState->editMode
  		&& ranges::any_of(text.entities, [](const EntityInText &entity) {
  			return (entity.type() == EntityType::CustomEmoji)

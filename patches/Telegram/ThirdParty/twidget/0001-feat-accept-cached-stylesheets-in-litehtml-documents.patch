@@ -1,0 +1,194 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Fri, 6 Nov 2026 16:24:45 +0300
+Subject: [PATCH] feat: accept cached stylesheets in litehtml documents
+
+---
+ litehtml/include/litehtml/document.h   | 12 +++++++
+ litehtml/include/litehtml/stylesheet.h |  3 ++
+ litehtml/src/document.cpp              | 49 ++++++++++++++++++++++----
+ litehtml/src/stylesheet.cpp            | 21 +++++++++++
+ 4 files changed, 79 insertions(+), 6 deletions(-)
+
+diff --git a/litehtml/include/litehtml/document.h b/litehtml/include/litehtml/document.h
+index b4055c766f09c816adbee55fa59fec34904d3786..2a9cd3ccc56d4fa3249558a4a05c9d0a6e9b5bc6 100644
+--- a/litehtml/include/litehtml/document.h
++++ b/litehtml/include/litehtml/document.h
+@@ -261,6 +261,13 @@ namespace litehtml
+                                               const std::string& master_styles = litehtml::master_css,
+                                               const std::string& user_styles   = {});
+ 
++        // Sheets must be parsed with the same document mode and container settings as their consumers.
++        static std::shared_ptr<const css> parse_stylesheet(const std::string& text, document_container* container,
++                                                           document_mode mode);
++        static document::ptr createFromStringParsed(const estring& str, document_container* container,
++                                                    const std::shared_ptr<const css>& master,
++                                                    const std::shared_ptr<const css>& author);
++
+         // Like createFromString, but keeps the parse tree so update_from_string can patch the document.
+         static document::ptr createUpdatableFromString(const std::string& html, document_container* container,
+                                                        const std::string& master_styles);
+@@ -316,6 +323,11 @@ namespace litehtml
+                                          const std::string&              user_styles   = {});
+ 
+       private:
++        static document::ptr create_from_string(const estring& str, document_container* container,
++                                                const std::string& master_styles, const std::string& user_styles,
++                                                const css* master, const css* author);
++        void finalize(const std::shared_ptr<element>& root, const std::string& master_styles,
++                      const std::string& user_styles, const css* master, const css* author);
+         uint_ptr add_font(const font_description& descr, font_metrics* fm);
+         void     build_template();
+         int      update_from_template(const std::string& html, bool* changed);
+diff --git a/litehtml/include/litehtml/stylesheet.h b/litehtml/include/litehtml/stylesheet.h
+index b5e93667589be91d23568dcd4c911e2068751cd7..b158d97bf1c731fe28e8986e89366d371b00078d 100644
+--- a/litehtml/include/litehtml/stylesheet.h
++++ b/litehtml/include/litehtml/stylesheet.h
+@@ -74,6 +74,9 @@ namespace litehtml
+ 
+         void sort_selectors();
+ 
++        // Share immutable selectors, but give each document its own media-query state.
++        css for_document(document* doc) const;
++
+       private:
+         bool parse_style_rule(const raw_rule::ptr& rule, const std::string& baseurl,
+                               const std::shared_ptr<document>& doc, const media_query_list_list::ptr& media);
+diff --git a/litehtml/src/document.cpp b/litehtml/src/document.cpp
+index 35b19922c1da9f1afe8748a8d4474abacb33aedb..656054314ec4d9a883bc221553553b107209ab65 100644
+--- a/litehtml/src/document.cpp
++++ b/litehtml/src/document.cpp
+@@ -71,6 +71,31 @@ namespace litehtml
+ 
+     document::ptr document::createFromString(const estring& str, document_container* container,
+                                              const std::string& master_styles, const std::string& user_styles)
++    {
++        return create_from_string(str, container, master_styles, user_styles, nullptr, nullptr);
++    }
++
++    document::ptr document::createFromStringParsed(const estring& str, document_container* container,
++                                                   const std::shared_ptr<const css>& master,
++                                                   const std::shared_ptr<const css>& author)
++    {
++        return create_from_string(str, container, {}, {}, master.get(), author.get());
++    }
++
++    std::shared_ptr<const css> document::parse_stylesheet(const std::string& text, document_container* container,
++                                                         document_mode mode)
++    {
++        auto doc = createFromString(estring(""), container, {}, {});
++        doc->m_mode = mode;
++        auto result = std::make_shared<css>();
++        result->parse_css_stylesheet(text, "", doc);
++        result->sort_selectors();
++        return result;
++    }
++
++    document::ptr document::create_from_string(const estring& str, document_container* container,
++                                               const std::string& master_styles, const std::string& user_styles,
++                                               const css* master, const css* author)
+     {
+         // Create litehtml::document
+         document::ptr doc = std::make_shared<document>(container);
+@@ -104,7 +129,7 @@ namespace litehtml
+         // Destroy GumboOutput
+         gumbo_destroy_output(&kGumboDefaultOptions, output);
+ 
+-        doc->finalize_from_external_root(root, master_styles, user_styles);
++        doc->finalize(root, master_styles, user_styles, master, author);
+ 
+         return doc;
+     }
+@@ -2402,6 +2427,12 @@ namespace litehtml
+ 
+     void document::finalize_from_external_root(const std::shared_ptr<element>& root, const std::string& base_master_styles,
+                                                const std::string& user_styles)
++    {
++        finalize(root, base_master_styles, user_styles, nullptr, nullptr);
++    }
++
++    void document::finalize(const std::shared_ptr<element>& root, const std::string& base_master_styles,
++                            const std::string& user_styles, const css* master, const css* author)
+     {
+         invalidate_paint();
+         // Finalization accumulates state that is never rolled back: the parsed stylesheets, the media
+@@ -2420,7 +2451,10 @@ namespace litehtml
+             m_mode == quirks_mode && base_master_styles != ""
+                 ? base_master_styles + "\ntable { font-size: medium; font-weight: normal; font-style: normal; }\n"
+                 : base_master_styles;
+-        if(master_styles != "")
++        if(master)
++        {
++            m_master_css = master->for_document(this);
++        } else if(master_styles != "")
+         {
+             static std::mutex&                           master_cache_mutex = *new std::mutex;
+             static std::unordered_map<std::string, css>& master_cache = *new std::unordered_map<std::string, css>;
+@@ -2489,8 +2523,11 @@ namespace litehtml
+                     break;
+                 }
+             }
+-            bool styles_hit = false;
+-            if(styles_cacheable)
++            bool styles_hit = (author != nullptr);
++            if(author)
++            {
++                m_styles = author->for_document(this);
++            } else if(styles_cacheable)
+             {
+                 styles_key.push_back(static_cast<char>('0' + static_cast<int>(m_mode)));
+                 for(const auto& css : m_css)
+@@ -2508,7 +2545,7 @@ namespace litehtml
+                     styles_hit = true;
+                 }
+             }
+-            if(!styles_hit)
++            if(!styles_hit || (author && !m_css.empty()))
+             {
+                 // parse style sheets linked in document
+                 for(const auto& css : m_css)
+@@ -2524,7 +2561,7 @@ namespace litehtml
+                 }
+                 // Sort css selectors using CSS rules.
+                 m_styles.sort_selectors();
+-                if(styles_cacheable)
++                if(styles_cacheable && !author)
+                 {
+                     std::lock_guard<std::mutex> lock(styles_cache_mutex);
+                     if(styles_cache.size() > 128)
+diff --git a/litehtml/src/stylesheet.cpp b/litehtml/src/stylesheet.cpp
+index ae9128330f2eb6689e39d9db252b793a77dcc11d..ed9d67a44084bc5d60f3077bdc0a72c57eeef6d4 100644
+--- a/litehtml/src/stylesheet.cpp
++++ b/litehtml/src/stylesheet.cpp
+@@ -3,10 +3,31 @@
+ #include "css_parser.h"
+ #include "document.h"
+ #include "document_container.h"
++#include <map>
+ 
+ namespace litehtml
+ {
+ 
++    css css::for_document(document* doc) const
++    {
++        css result = *this;
++        std::map<const media_query_list_list*, media_query_list_list::ptr> media;
++        for(auto& selector : result.m_selectors)
++        {
++            if(!selector->m_media_query)
++                continue;
++            auto& copy = media[selector->m_media_query.get()];
++            if(!copy)
++            {
++                copy = std::make_shared<media_query_list_list>(*selector->m_media_query);
++                doc->add_media_list(copy);
++            }
++            selector = std::make_shared<css_selector>(*selector);
++            selector->m_media_query = copy;
++        }
++        return result;
++    }
++
+     // ( <declaration> )  https://drafts.csswg.org/css-conditional-3/#typedef-supports-decl
+     static bool eval_supports_declaration(const css_token_vector& tokens, document_container* container)
+     {

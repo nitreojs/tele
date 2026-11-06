@@ -23,10 +23,10 @@ Subject: [PATCH] feat: filter stickers and emoji by format
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_formats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c189778882727fbe36cdd5fe07da35f0b16735c9..3fec07fe44e3cdb7095ca92bd501caa5c4a35156 100644
+index a11bf1b0fabe6bc26158d6a47131c55b71238263..34de9b570ff669bea245cd79d1a61331f5c3f04f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2970,6 +2970,8 @@ PRIVATE
+@@ -3112,6 +3112,8 @@ PRIVATE
      tele/tele_start_param.h
      tele/tele_sticker_captions.cpp
      tele/tele_sticker_captions.h
@@ -615,7 +615,7 @@ index 499383002033b0286df7ec97aefc09fdb18c957c..ff041f38f9f67ff0802e01bf59fdc54c
  	const int _staticCount = 0;
  	StickersListFooter *_footer = nullptr;
 diff --git a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
-index 27f96de01a41e1ddc9974dba6ff9a2804826f9eb..1c1aa88269dcede68f547726d748256e8e620af4 100644
+index 849892f1d30ebc20e2620f80dd02c54d6a833430..6b2937950608d068ebca3af253cef442c2681e1a 100644
 --- a/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/stickers_list_widget.cpp
 @@ -60,6 +60,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -634,7 +634,7 @@ index 27f96de01a41e1ddc9974dba6ff9a2804826f9eb..1c1aa88269dcede68f547726d748256e
  	if (!cloudSets && _searchNextQuery.isEmpty()) {
  		showStickerSet(!_mySets.empty()
  			? _mySets[0].id
-@@ -2903,6 +2905,9 @@ base::unique_qptr<Ui::PopupMenu> FillStickerSetContextMenu(
+@@ -2910,6 +2912,9 @@ base::unique_qptr<Ui::PopupMenu> FillStickerSetContextMenu(
  		},
  		&icons.menuSetCopyLink);
  	Tele::AddViewTlAction(menu.get(), show, set->identifier());
@@ -644,7 +644,7 @@ index 27f96de01a41e1ddc9974dba6ff9a2804826f9eb..1c1aa88269dcede68f547726d748256e
  	if (installed) {
  		menu->addSeparator();
  		menu->addAction(
-@@ -4057,6 +4062,51 @@ void StickersListWidget::setupSearch() {
+@@ -4064,6 +4069,51 @@ void StickersListWidget::setupSearch() {
  	_search = MakeSearch(this, st(), [=](std::vector<QString> &&query) {
  		applySearchQuery(std::move(query));
  	}, session, type);

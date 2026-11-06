@@ -17,10 +17,10 @@ Subject: [PATCH] feat: bigger video messages while playing
  create mode 100644 Telegram/SourceFiles/tele/tele_round_videos.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d49d8ac5a5edde2cb59ad072a92b222b045d5f32..eb28368bf74461ad6895ca987b99d06516ed32d6 100644
+index 75cba322edd1a90d650e6c3b67f54bd14711dfe3..ac38f06e8551cdd188cff9e06ab0e40002097e7d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2936,6 +2936,8 @@ PRIVATE
+@@ -3078,6 +3078,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_rmb_beside_bubble.cpp
      tele/tele_rmb_beside_bubble.h
@@ -30,7 +30,7 @@ index d49d8ac5a5edde2cb59ad072a92b222b045d5f32..eb28368bf74461ad6895ca987b99d065
      tele/tele_screen_capture.h
      tele/tele_scroll_layer.cpp
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 0c8e585af0d136b47bc810903356c4e68ab1bd40..04a25972f6aa17d66971dba8c763d85f2c42a2b9 100644
+index 15f4814aebb1a1988cb170aeae905206756dd4d2..a1ad04a2ae70e8b878853ca93482c96ab54f9fc3 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,7 +41,7 @@ index 0c8e585af0d136b47bc810903356c4e68ab1bd40..04a25972f6aa17d66971dba8c763d85f
  #include "styles/style_chat.h"
  #include "styles/style_chat_style.h"
  
-@@ -378,11 +379,18 @@ QSize Gif::countThumbSize(int &inOutWidthMax) const {
+@@ -377,11 +378,18 @@ QSize Gif::countThumbSize(int &inOutWidthMax) const {
  		} else if (_data->isVideoFile()) {
  			return st::maxMediaSize;
  		} else if (_data->isVideoMessage()) {
@@ -62,7 +62,7 @@ index 0c8e585af0d136b47bc810903356c4e68ab1bd40..04a25972f6aa17d66971dba8c763d85f
  	if (hostedInstantView) {
  		inOutWidthMax = std::max(inOutWidthMax, 1);
  	} else {
-@@ -456,6 +464,21 @@ QSize Gif::countCurrentSize(int newWidth) {
+@@ -455,6 +463,21 @@ QSize Gif::countCurrentSize(int newWidth) {
  
  	const auto hostedInstantView = IsHostedInstantViewMedia(_parent);
  	auto thumbMaxWidth = newWidth;
@@ -84,7 +84,7 @@ index 0c8e585af0d136b47bc810903356c4e68ab1bd40..04a25972f6aa17d66971dba8c763d85f
  	const auto scaled = countThumbSize(thumbMaxWidth);
  	const auto minWidthByInfo = hostedInstantView
  		? _parent->minWidthForMedia()
-@@ -2395,6 +2418,10 @@ bool Gif::enforceBubbleWidth() const {
+@@ -2394,6 +2417,10 @@ bool Gif::enforceBubbleWidth() const {
  }
  
  int Gif::bubbleWidthLimit() const {

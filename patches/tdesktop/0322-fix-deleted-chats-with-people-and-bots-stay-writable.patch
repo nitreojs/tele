@@ -4032,7 +4032,7 @@ index e9abfd45d7163b5ac148ff49ff2375ab489c409c..c86425a145444c0677a7e7cd8b3b9870
  			]
  		}
 diff --git a/Telegram/SourceFiles/data/data_chat_participant_status.cpp b/Telegram/SourceFiles/data/data_chat_participant_status.cpp
-index e48a7cd056dbd49f441af0111c725e68feca6897..d3b05cef86e84ed455b534610b998795fbeea3a9 100644
+index 62d1974f56a80470b5962467ddeee72c2df77baf..3b6df0d400972d48273f780555ad12f33fc835a8 100644
 --- a/Telegram/SourceFiles/data/data_chat_participant_status.cpp
 +++ b/Telegram/SourceFiles/data/data_chat_participant_status.cpp
 @@ -231,7 +231,7 @@ bool CanSendAnyOf(
@@ -4063,10 +4063,10 @@ index e48a7cd056dbd49f441af0111c725e68feca6897..d3b05cef86e84ed455b534610b998795
  	} else if (const auto restricted = peer->amRestricted(restriction)) {
  		if (const auto user = peer->asUser()) {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 71e357108df471498864cefdc4b17c70b53ef3df..8e553b9acc42c0564c43a85e93ad608000427db1 100644
+index 1be6c32da168893ca549e9c621fe98eac5027fc1..4144d836749a0a924e9128f4b586aae3f287c7fe 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -7106,10 +7106,7 @@ bool HistoryWidget::isReportMessages() const {
+@@ -7215,10 +7215,7 @@ bool HistoryWidget::isReportMessages() const {
  }
  
  bool HistoryWidget::isBlocked() const {

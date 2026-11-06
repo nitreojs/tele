@@ -17,10 +17,10 @@ Subject: [PATCH] feat: record voice without fading
  create mode 100644 Telegram/SourceFiles/tele/tele_voice_fade.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c0c65904c48487df22478e28047cb65174a1cf6b..8a8597f7014bdeb8f93d17f5180c2ab1ec62870e 100644
+index 51538c6917f693096b2145e4dacec9e67e9dd11d..104c00cbcfa645645c60754b999486f674ac430f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2670,6 +2670,8 @@ PRIVATE
+@@ -2816,6 +2816,8 @@ PRIVATE
      tele/tele_verify_details.h
      tele/tele_view_tl.cpp
      tele/tele_view_tl.h

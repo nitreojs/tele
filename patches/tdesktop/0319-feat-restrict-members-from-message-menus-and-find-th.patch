@@ -21,10 +21,10 @@ Subject: [PATCH] feat: restrict members from message menus and find them by id
  create mode 100644 Telegram/SourceFiles/tele/tele_restrict.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d6d36169af7311a3cd50abab6c0f80ee76ef4a5d..4ddf847865a9fbf73d9e7b8707054bf940693c0a 100644
+index 713bf6d514dc6d6e22061fec3a64f712ad1a5c8c..aaea8564e37a2cdd98ca6aaca293cfa1b5800361 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2920,6 +2920,8 @@ PRIVATE
+@@ -3062,6 +3062,8 @@ PRIVATE
      tele/tele_regex_search.h
      tele/tele_remove_mine.cpp
      tele/tele_remove_mine.h
@@ -60,10 +60,10 @@ index 7ab48a7fc7a42faaff200d7049045e9734954b8d..0c1e7d082523055eac085b94514ec8c9
  			_timer.callOnce(AutoSearchTimeout);
  		} else {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index b454789ac84e93e37178710dbff40814454e5cec..c6931af709f0f4e67688ea2c849b8f4202408dad 100644
+index b1b3a855393b7dc91eee32d4729321e806c60b01..5cbb46ced3c32553028fc2900e2abd945dd36c1c 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -135,6 +135,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_changes.h"
  #include "dialogs/ui/dialogs_video_userpic.h"
  #include "tele/scripting/tele_script_local.h"
@@ -71,7 +71,7 @@ index b454789ac84e93e37178710dbff40814454e5cec..c6931af709f0f4e67688ea2c849b8f42
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -3693,6 +3694,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3787,6 +3788,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderItem(itemId);
  				}, &st::menuIconBlock);
  			}
@@ -81,7 +81,7 @@ index b454789ac84e93e37178710dbff40814454e5cec..c6931af709f0f4e67688ea2c849b8f42
  		}
  	} else { // maybe cursor on some text history item?
  		const auto albumPartItem = _dragStateItem;
-@@ -4017,6 +4021,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4120,6 +4124,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderAsGroup(itemId);
  				}, &st::menuIconBlock);
  			}
@@ -92,18 +92,18 @@ index b454789ac84e93e37178710dbff40814454e5cec..c6931af709f0f4e67688ea2c849b8f42
  			addSelectMessageAction(Element::Moused()->data());
  		}
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 90170328cee5ece2093870d0a67e5881dd266ea7..367e9ee02212f99e3c52a44f144b94875e6a802a 100644
+index 438c509598c485c70f786614f3cf7344c881b64c..a3769ef7c9ddf580f30c2c417a6fa6b4e386c409 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "spellcheck/spellcheck_types.h"
+@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tgw/tgw_selection.h"
  #include "apiwrap.h"
  #include "tele/secret/secret_chats.h"
 +#include "tele/tele_restrict.h"
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -1444,6 +1445,9 @@ void AddMessageActions(
+@@ -1440,6 +1441,9 @@ void AddMessageActions(
  	AddSaveRichHtmlAction(menu, request, list);
  	AddReportAction(menu, request, list);
  	AddBlockSenderAction(menu, request, list);
@@ -452,7 +452,7 @@ index cbac5896798ea967f2d12784c427c4e21618a4d6..e35dbceb0403a9a1875c5ef8eae87595
  		Toggle(kOptionRmbBesideBubble),
  		Toggle(kOptionShot),
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 4d5995b1852bc126ea7a4dc3fdf661d45c4649a9..6ff2fb7663605350ee717c2efcc5c0fe2f67c353 100644
+index 2419868fda07e71022976d7465c58dab411dfcf0..5228b6ce4864ed8774577b470ed5a1b7f25704b9 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
 @@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -463,7 +463,7 @@ index 4d5995b1852bc126ea7a4dc3fdf661d45c4649a9..6ff2fb7663605350ee717c2efcc5c0fe
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_changelog_chat.h"
  #include "tele/tele_chat_backgrounds.h"
-@@ -4601,6 +4602,7 @@ void FillSenderUserpicMenu(
+@@ -4610,6 +4611,7 @@ void FillSenderUserpicMenu(
  		}
  	}
  	Tele::AddIgnoreAction(peer, addAction);

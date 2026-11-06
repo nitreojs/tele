@@ -13,10 +13,10 @@ Subject: [PATCH] feat: copy links to wallet transactions
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_links.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 36cf966f62f8ac7de9631ad3f4fc02d26950ea67..831dbb5b4a5919d2a20c357bdc1b21d2587735b8 100644
+index c5fcd6056e207b7d06e8a541c4b66ace2c06aaf3..94b42aeaa779383ef543ba4c795656ab55ef3e09 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2896,6 +2896,8 @@ PRIVATE
+@@ -3042,6 +3042,8 @@ PRIVATE
      tele/tele_voice_fade.h
      tele/tele_voice_quality.cpp
      tele/tele_voice_quality.h
@@ -140,7 +140,7 @@ index 0000000000000000000000000000000000000000..8a2c4e498fe8fc53f0a2db87dde15576
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index 719f5900e3d9368d997499261b28a532729e1745..6e249c959918e7cbace90af8873ddd9fd9fb63d6 100644
+index 8f93c36dd78ee7b3a87c009b72d137fd1460aa43..9e72283e2385d9714e98ca0970eecc5db22c4e18 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
 @@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

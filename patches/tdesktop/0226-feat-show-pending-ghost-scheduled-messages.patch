@@ -20,10 +20,10 @@ Subject: [PATCH] feat: show pending ghost-scheduled messages
  create mode 100644 Telegram/SourceFiles/tele/tele_ghost_pending.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4bf9756b82e537ff99d13569938d248433935f77..e755fafc9c476bd0ca0add9f28a1b0f89c74964c 100644
+index 75edc231956180a283ef815f257bc5dc12d77894..06d6752691b09c801d24fbdf1c06c59926ae90d3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2640,6 +2640,8 @@ PRIVATE
+@@ -2786,6 +2786,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ghost.cpp
      tele/tele_ghost.h
@@ -33,10 +33,10 @@ index 4bf9756b82e537ff99d13569938d248433935f77..e755fafc9c476bd0ca0add9f28a1b0f8
      tele/tele_hidden_words.h
      tele/tele_ignored.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index f304f3f11c07a34d16220b9c5226acc7bc5b610c..07afd229e05e8a5c865bc2e5d375a719e938eb32 100644
+index 05d0f29c2799ae08135d0adc2a85f6d99f89c9b2..97cb17465b26ba5714ff4e730fa963d4965f0217 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -136,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -140,6 +140,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_edit_history.h"
  #include "tele/tele_failed_sends.h"
  #include "tele/tele_ghost.h"
@@ -44,7 +44,7 @@ index f304f3f11c07a34d16220b9c5226acc7bc5b610c..07afd229e05e8a5c865bc2e5d375a719
  #include "tele/tele_gif_video.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
-@@ -3927,6 +3928,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4030,6 +4031,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	Tele::AddSendHeldNowAction(
  		_menu.get(),
  		(isUponSelected != -2) ? _dragStateItem : nullptr);
@@ -55,10 +55,10 @@ index f304f3f11c07a34d16220b9c5226acc7bc5b610c..07afd229e05e8a5c865bc2e5d375a719
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 9b335d9be4a478aaf0b72579e106e19410f65981..9f558b3a32ba05a333a5f29179a5f228a79ae875 100644
+index 36a64bf8891ca1c7cca0e602881d7838c904b87e..df37a6db6b19d0190d4456b139c28415e07205c5 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -129,6 +129,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_message_menu.h"
  #include "tele/tele_menu_apply.h"
  #include "tele/tele_ghost.h"
@@ -66,7 +66,7 @@ index 9b335d9be4a478aaf0b72579e106e19410f65981..9f558b3a32ba05a333a5f29179a5f228
  #include "tele/tele_protected.h"
  #include "tele/tele_read_log.h"
  #include "tele/tele_rich_quote.h"
-@@ -2020,6 +2021,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2035,6 +2036,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  	Tele::AddRetryFailedActions(result.get(), item);
  	Tele::AddResendAsGifAction(result.get(), list->controller(), item);
  	Tele::AddSendHeldNowAction(result.get(), item);

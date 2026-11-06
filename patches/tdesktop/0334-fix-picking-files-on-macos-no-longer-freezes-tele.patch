@@ -13,10 +13,10 @@ Subject: [PATCH] fix: picking files on macos no longer freezes tele
  create mode 100644 Telegram/SourceFiles/tele/tele_file_dialog.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index eb28368bf74461ad6895ca987b99d06516ed32d6..af4dfd16771f55186dea52ca4f0bdd654fb02be9 100644
+index ac38f06e8551cdd188cff9e06ab0e40002097e7d..e50684f49d6e85a888c1977b0bfb06e71dcfc93b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2705,6 +2705,8 @@ PRIVATE
+@@ -2847,6 +2847,8 @@ PRIVATE
      tele/tele_failed_sends.h
      tele/tele_field_resize.cpp
      tele/tele_field_resize.h
@@ -26,18 +26,18 @@ index eb28368bf74461ad6895ca987b99d06516ed32d6..af4dfd16771f55186dea52ca4f0bdd65
      tele/tele_folders.cpp
      tele/tele_folders.h
 diff --git a/Telegram/SourceFiles/core/file_utilities.cpp b/Telegram/SourceFiles/core/file_utilities.cpp
-index de12878ce01c6ac8a274e0fd473d3cbc738d8384..c8b427972a6e98afd352e99c9c9f6888f529bcd0 100644
+index f7faeae603899c205c74029bb6a1c37aa6d12c12..394d1a15fcef8f8d0e4a4f9c4d6eade4bdf440a6 100644
 --- a/Telegram/SourceFiles/core/file_utilities.cpp
 +++ b/Telegram/SourceFiles/core/file_utilities.cpp
-@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
- #include "main/main_session.h"
+@@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/delayed_activation.h"
  #include "mainwindow.h"
  #include "tele/tele_download_paths.h"
 +#include "tele/tele_file_dialog.h"
  
- #include <QtWidgets/QFileDialog>
  #include <QtCore/QCoreApplication>
-@@ -215,6 +216,9 @@ void GetOpenPath(
+ #include <QtCore/QStandardPaths>
+@@ -275,6 +276,9 @@ void GetOpenPath(
  		Fn<void(OpenResult &&result)> callback,
  		Fn<void()> failed) {
  	InvokeQueued(QCoreApplication::instance(), [=] {
@@ -47,7 +47,7 @@ index de12878ce01c6ac8a274e0fd473d3cbc738d8384..c8b427972a6e98afd352e99c9c9f6888
  		auto files = QStringList();
  		auto remoteContent = QByteArray();
  		Ui::PreventDelayedActivation();
-@@ -249,6 +253,9 @@ void GetOpenPaths(
+@@ -309,6 +313,9 @@ void GetOpenPaths(
  		Fn<void(OpenResult &&result)> callback,
  		Fn<void()> failed) {
  	InvokeQueued(QCoreApplication::instance(), [=] {
@@ -57,7 +57,7 @@ index de12878ce01c6ac8a274e0fd473d3cbc738d8384..c8b427972a6e98afd352e99c9c9f6888
  		auto files = QStringList();
  		auto remoteContent = QByteArray();
  		Ui::PreventDelayedActivation();
-@@ -280,6 +287,15 @@ void GetWritePath(
+@@ -340,6 +347,15 @@ void GetWritePath(
  		Fn<void(QString &&result)> callback,
  		Fn<void()> failed) {
  	InvokeQueued(QCoreApplication::instance(), [=] {
@@ -73,7 +73,7 @@ index de12878ce01c6ac8a274e0fd473d3cbc738d8384..c8b427972a6e98afd352e99c9c9f6888
  		auto file = QString();
  		if (filedialogGetSaveFile(parent, file, caption, filter, initialPath)) {
  			if (callback) {
-@@ -298,6 +314,14 @@ void GetFolder(
+@@ -358,6 +374,14 @@ void GetFolder(
  		Fn<void(QString &&result)> callback,
  		Fn<void()> failed) {
  	InvokeQueued(QCoreApplication::instance(), [=] {

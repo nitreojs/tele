@@ -13,10 +13,10 @@ Subject: [PATCH] feat: copy and open transaction links from money transfer
  5 files changed, 75 insertions(+), 11 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index bed589ffb1ce3e848a7754ca607940785c847f10..a3f5dd0ce12a21e4b2a557d2397096895c09ceea 100644
+index 8d8d275d3f96f6e786566d7baf5aa7dd09e73544..d194d7881d93cd6ed4c573276b2fb3c4f4ed648b 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -149,6 +149,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -153,6 +153,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_rmb_beside_bubble.h"
  #include "tele/tele_select_service.h"
  #include "tele/tele_send_order.h"
@@ -24,7 +24,7 @@ index bed589ffb1ce3e848a7754ca607940785c847f10..a3f5dd0ce12a21e4b2a557d239709689
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -3711,6 +3712,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3811,6 +3812,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  							Ui::Menu::CreateAddActionCallback(_menu));
  					}
  				}
@@ -36,10 +36,10 @@ index bed589ffb1ce3e848a7754ca607940785c847f10..a3f5dd0ce12a21e4b2a557d239709689
  					const auto hasRestriction = hasCopyRestriction(item);
  					if (!hasRestriction
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index d69527558c5675b34a84a014c50c9b59172f0d0e..90170328cee5ece2093870d0a67e5881dd266ea7 100644
+index 60000a936f4a28227fddd7361b2b34fbbb6716fd..438c509598c485c70f786614f3cf7344c881b64c 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -135,6 +135,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_read_log.h"
  #include "tele/tele_rich_quote.h"
  #include "tele/tele_send_order.h"
@@ -47,7 +47,7 @@ index d69527558c5675b34a84a014c50c9b59172f0d0e..90170328cee5ece2093870d0a67e5881
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_layers.h"
-@@ -1907,6 +1908,10 @@ void FillContextMenuItems(
+@@ -1921,6 +1922,10 @@ void FillContextMenuItems(
  					Ui::Menu::CreateAddActionCallback(result));
  			}
  		}

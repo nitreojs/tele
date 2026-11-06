@@ -29,7 +29,7 @@ index bbf81a5a6c343f1776b9bc902ddf3fe2d4620265..e43acddc1a6d0556c03b594216d5e1c5
  		builder,
  		::Tele::kOptionGifVideo,
 diff --git a/Telegram/SourceFiles/storage/localimageloader.cpp b/Telegram/SourceFiles/storage/localimageloader.cpp
-index f87aa2f23193b5e8bb3360d7593eef4f723d554c..4bd091e04239c413cce00890b41476383c2735cb 100644
+index d7579e222779a97a6d9d9b4a6a1b686016ec73c3..8d6f6670f8470f8d0f397be392096f2d0d591e05 100644
 --- a/Telegram/SourceFiles/storage/localimageloader.cpp
 +++ b/Telegram/SourceFiles/storage/localimageloader.cpp
 @@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -106,11 +106,11 @@ index dc26bb53596c44be863d69d03aa591f2ee500db3..e00f2e39a250422a40957b8ff986d14e
  [[nodiscard]] QString SilentVideoAs();
  void SetSilentVideoAs(const QString &value);
 diff --git a/Telegram/SourceFiles/tele/tele_send_files.cpp b/Telegram/SourceFiles/tele/tele_send_files.cpp
-index 094acfc1aaa5bbd3478bd28da3f5932a81a04cda..42daa907674e67d57f78e76f9e51df6fdaa50700 100644
+index f7ee7fa9e3370aa747194686980a93eb9a7d02ac..8dd69134af79aabd1f6eb3f6dbf619236f27b1ec 100644
 --- a/Telegram/SourceFiles/tele/tele_send_files.cpp
 +++ b/Telegram/SourceFiles/tele/tele_send_files.cpp
-@@ -138,4 +138,8 @@ Ui::SendFilesWay DefaultSendFilesWay() {
- 	return result;
+@@ -211,4 +211,8 @@ void SendVenue(Api::SendAction action, MTPInputMedia venue) {
+ 	api->finishForwarding(action);
  }
  
 +int PhotoJpegQuality(int quality) {
@@ -119,13 +119,13 @@ index 094acfc1aaa5bbd3478bd28da3f5932a81a04cda..42daa907674e67d57f78e76f9e51df6f
 +
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_send_files.h b/Telegram/SourceFiles/tele/tele_send_files.h
-index 1b5fd54d94e221dbd9a3925a5f35a86559e21ec7..c6366027612079870e53acf4a57eb3278fed0d3e 100644
+index 824e3676e2ae02f96ffc56afb631f9dde59148d9..400b1d0826e214cbfec2f43db8a903436fab4069 100644
 --- a/Telegram/SourceFiles/tele/tele_send_files.h
 +++ b/Telegram/SourceFiles/tele/tele_send_files.h
-@@ -27,5 +27,6 @@ void ShowSendFilesBox(
- 	Fn<void()> sent = nullptr);
+@@ -32,5 +32,6 @@ void ShowSendFilesBox(
  
  [[nodiscard]] Ui::SendFilesWay DefaultSendFilesWay();
+ void SendVenue(Api::SendAction action, MTPInputMedia venue);
 +[[nodiscard]] int PhotoJpegQuality(int quality);
  
  } // namespace Tele

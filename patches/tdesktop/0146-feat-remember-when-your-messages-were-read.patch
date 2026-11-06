@@ -14,10 +14,10 @@ Subject: [PATCH] feat: remember when your messages were read
  create mode 100644 Telegram/SourceFiles/tele/tele_read_log.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5a5db0574757394b7ed8fb4a7462096f9b38b2d9..66f68e63a9da61be5176f86772c27e5834ff8379 100644
+index 788f3c176a83ef424281b1860f14777af266ba82..b8aedbb49511b8d89e806047c988ce866bffa841 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2633,6 +2633,8 @@ PRIVATE
+@@ -2779,6 +2779,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h
@@ -27,10 +27,10 @@ index 5a5db0574757394b7ed8fb4a7462096f9b38b2d9..66f68e63a9da61be5176f86772c27e58
      tele/tele_recent_emoji.h
      tele/tele_rich_timestamps.cpp
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index a835fee32cf54f7630c48935056ee39880380216..2f011be449dc62dd9c64aa2538ef6ebdc05c7c7d 100644
+index 8f6b5021803f2bbe0edda0a241772085848a5118..440237caadd132922105218947d35f31b09e196a 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
-@@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted.h"
  #include "tele/tele_local_drafts.h"
  #include "tele/tele_options.h"
@@ -38,7 +38,7 @@ index a835fee32cf54f7630c48935056ee39880380216..2f011be449dc62dd9c64aa2538ef6ebd
  #include "styles/style_dialogs.h"
  
  namespace {
-@@ -3841,6 +3842,7 @@ void History::setInboxReadTill(MsgId upTo) {
+@@ -3843,6 +3844,7 @@ void History::setInboxReadTill(MsgId upTo) {
  
  void History::setOutboxReadTill(MsgId upTo) {
  	if (_outboxReadBefore) {
@@ -47,10 +47,10 @@ index a835fee32cf54f7630c48935056ee39880380216..2f011be449dc62dd9c64aa2538ef6ebd
  	} else {
  		_outboxReadBefore = upTo + 1;
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index e73d1b218da78e5d35953fedf49625a6b15fcd4b..e2713465cc953168de53c4fc94ba71f0911f591e 100644
+index a72769edf0d91d4aab50b6eb061c9e7e41044074..0ff123a610dc670a92be9e06763267a0a65c008e 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_message_menu.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_protected.h"
@@ -58,7 +58,7 @@ index e73d1b218da78e5d35953fedf49625a6b15fcd4b..e2713465cc953168de53c4fc94ba71f0
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_layers.h"
-@@ -2614,7 +2615,11 @@ void AddWhoReactedAction(
+@@ -2632,7 +2633,11 @@ void AddWhoReactedAction(
  			false);
  		menu->addAction(Ui::WhenReadContextAction(
  			menu.get(),
@@ -71,7 +71,7 @@ index e73d1b218da78e5d35953fedf49625a6b15fcd4b..e2713465cc953168de53c4fc94ba71f0
  			showOrPremium));
  	} else {
  		menu->addAction(Ui::WhoReactedContextAction(
-@@ -2636,7 +2641,16 @@ void MaybeAddWhenEditedForwardedAction(
+@@ -2654,7 +2659,16 @@ void MaybeAddWhenEditedForwardedAction(
  		not_null<Ui::PopupMenu*> menu,
  		not_null<HistoryItem*> item,
  		not_null<Window::SessionController*> controller) {

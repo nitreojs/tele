@@ -9,7 +9,7 @@ Subject: [PATCH] feat: let picked fonts use their real metrics on windows
  2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/ui/style/style_core_font.cpp b/ui/style/style_core_font.cpp
-index 0b12a6c42540e46564026cb219541f7e65effd4c..bb59d70b13d45152e0c3bd7a02fcbdb0bd594ca8 100644
+index a8d68eda5dbf77c44fcee64ac506e4535c289125..b9cee6f28845dbe6bab335c104933869667ac462 100644
 --- a/ui/style/style_core_font.cpp
 +++ b/ui/style/style_core_font.cpp
 @@ -44,6 +44,7 @@ namespace {
@@ -31,7 +31,7 @@ index 0b12a6c42540e46564026cb219541f7e65effd4c..bb59d70b13d45152e0c3bd7a02fcbdb0
  namespace internal {
  
  struct ResolvedFont {
-@@ -246,7 +251,10 @@ struct Metrics {
+@@ -218,7 +223,10 @@ struct Metrics {
  
  		auto heights = std::array<float64, kCount>{};
  		for (auto i = 0; i != kCount; ++i) {
@@ -43,7 +43,7 @@ index 0b12a6c42540e46564026cb219541f7e65effd4c..bb59d70b13d45152e0c3bd7a02fcbdb0
  		}
  		ranges::sort(heights);
  		//return heights[kCount / 2];
-@@ -349,6 +357,13 @@ struct Metrics {
+@@ -321,6 +329,13 @@ struct Metrics {
  	font.setPixelSize(size);
  
  	const auto adjust = (overriden || system);

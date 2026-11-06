@@ -28,10 +28,10 @@ Subject: [PATCH] feat: your own reaction strip
  create mode 100644 Telegram/SourceFiles/tele/tele_reaction_strip.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4b594e1ab5c9b1749acef603cd38fd09cceddcc0..1cd33ec2d0f6322fcf0f8fc974b0dba1de6584d4 100644
+index 352afbab5d728fe4bd3efc2103dfc3ce07f5e51e..4024799fcdfea4c3b8382680f66e8b93e482c9ae 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2746,6 +2746,12 @@ PRIVATE
+@@ -2892,6 +2892,12 @@ PRIVATE
      tele/tele_punctual_scheduled.h
      tele/tele_rate_limits.cpp
      tele/tele_rate_limits.h

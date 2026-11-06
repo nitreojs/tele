@@ -16,10 +16,10 @@ Subject: [PATCH] fix: hide the upgraded gift's number and model until the spin
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_roll_number.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8fc793fb650d5f4cbe765e092fc8fcd42e5def70..41f9ca95abac3b80bca4b2ef9d4a2238760c9f7f 100644
+index 96d10fdb9aa046321ef080afdbcc9edefa6c27c0..e79174c8f97867edb2ce7efcf631761b6cbff37a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2587,6 +2587,8 @@ PRIVATE
+@@ -2733,6 +2733,8 @@ PRIVATE
      tele/tele_gift_fake_upgrade.h
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
@@ -74,7 +74,7 @@ index 1ef2073c6acbdb32fcdded72dc23592e589863bf..5beff9ab7aab10e96aec946e664eb081
  		.subtitleClick = hasAll ? showAll : Fn<void()>(),
  		.subtitleLinkColored = hasAll,
 diff --git a/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp b/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
-index 5c2a1c9804faeb213cda63e1fadb042a41809068..0d352dd1b86688076503a1c3ad2788e6f0aae558 100644
+index d48cd512567d333effc596e8ebdae7d7e0d484bf..c35b52fb345052de4a1fc3510d2d753d9cd580cc 100644
 --- a/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
 +++ b/Telegram/SourceFiles/boxes/star_gift_cover_box.cpp
 @@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -116,7 +116,7 @@ index 5c2a1c9804faeb213cda63e1fadb042a41809068..0d352dd1b86688076503a1c3ad2788e6
  	) | rpl::map([](
  			TextWithEntities custom,
  			CreditsAmount resalePrice,
-@@ -1683,6 +1690,15 @@ void UniqueGiftCoverWidget::paintSpinnerAnimation(
+@@ -1679,6 +1686,15 @@ void UniqueGiftCoverWidget::paintSpinnerAnimation(
  	}
  	paintOneModel(modelNow, nowProgress);
  	paintOneModel(modelWill, willProgress);

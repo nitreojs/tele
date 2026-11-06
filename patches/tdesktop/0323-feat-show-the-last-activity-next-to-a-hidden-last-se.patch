@@ -21,10 +21,10 @@ Subject: [PATCH] feat: show the last activity next to a hidden last seen
  create mode 100644 Telegram/SourceFiles/tele/tele_observed_activity.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a4833233ba54244f221f37f1b0e54c2c56319b95..c047834761e69b8d11a688805b5679981be5d762 100644
+index 030b795f02a06f8f8ba6f6f569f5f6b19c2a7599..f7cab9b0547564d39040c7665e224ef3a848fcc6 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2858,6 +2858,8 @@ PRIVATE
+@@ -3000,6 +3000,8 @@ PRIVATE
      tele/tele_notices_mentions.h
      tele/tele_notices_section.cpp
      tele/tele_notices_section.h
@@ -34,7 +34,7 @@ index a4833233ba54244f221f37f1b0e54c2c56319b95..c047834761e69b8d11a688805b567998
      tele/tele_online_notify.h
      tele/tele_onlines.cpp
 diff --git a/Telegram/SourceFiles/data/data_message_reactions.cpp b/Telegram/SourceFiles/data/data_message_reactions.cpp
-index bd65570cecf33ae0ee752c554cc35f8b26afa474..2e47d1c81fffdaf4178de52eb4115c2aa5893b04 100644
+index 5f1328451c1e443f351a01d08aefb905966ed7fb..190bb73e5f5dd4c5ccf43981895559db6e6ea812 100644
 --- a/Telegram/SourceFiles/data/data_message_reactions.cpp
 +++ b/Telegram/SourceFiles/data/data_message_reactions.cpp
 @@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index bd65570cecf33ae0ee752c554cc35f8b26afa474..2e47d1c81fffdaf4178de52eb4115c2a
  #include "tele/tele_who_reacted.h"
  #include "styles/style_chat.h"
  
-@@ -2254,6 +2255,10 @@ bool MessageReactions::change(
+@@ -2236,6 +2237,10 @@ bool MessageReactions::change(
  	auto parsed = base::flat_map<ReactionId, std::vector<RecentReaction>>();
  	for (const auto &reaction : recent) {
  		reaction.match([&](const MTPDmessagePeerReaction &data) {
@@ -57,7 +57,7 @@ index bd65570cecf33ae0ee752c554cc35f8b26afa474..2e47d1c81fffdaf4178de52eb4115c2a
  			const auto i = ranges::find(_list, id, &MessageReaction::id);
  			if (i == end(_list)) {
 diff --git a/Telegram/SourceFiles/data/data_user.cpp b/Telegram/SourceFiles/data/data_user.cpp
-index 37394e40e4827ca81b44a2e348dfbeea43215a74..16965e5d9d51f5b93f69625475ea0c0622c65414 100644
+index 1e03f41358dd465af257c2fc6bc2f283ae65487a..505f82f71d10503ebff99f33d548978bef2e923e 100644
 --- a/Telegram/SourceFiles/data/data_user.cpp
 +++ b/Telegram/SourceFiles/data/data_user.cpp
 @@ -44,6 +44,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -68,7 +68,7 @@ index 37394e40e4827ca81b44a2e348dfbeea43215a74..16965e5d9d51f5b93f69625475ea0c06
  #include "wallet/wallet_own_card.h"
  #include "wallet/wallet_session.h"
  #include "window/notifications_manager.h"
-@@ -571,6 +572,7 @@ void UserData::madeAction(TimeId when) {
+@@ -580,6 +581,7 @@ void UserData::madeAction(TimeId when) {
  	if (isBot() || isServiceUser() || when <= 0) {
  		return;
  	}
@@ -77,7 +77,7 @@ index 37394e40e4827ca81b44a2e348dfbeea43215a74..16965e5d9d51f5b93f69625475ea0c06
  	if (till < when + 1
  		&& updateLastseen(
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index d9e0f585475aaf046e7027dbdb07a86ac7453f68..580fc4c92a3515b49cdb901caaa1520dc13d576e 100644
+index 7b74a7285116032adb7871aeae1783d5e9b48f19..f0d1029c5d1edcebe8af763ca31339b1300726a8 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 @@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -88,7 +88,7 @@ index d9e0f585475aaf046e7027dbdb07a86ac7453f68..580fc4c92a3515b49cdb901caaa1520d
  #include "tele/tele_onlines.h"
  #include "tele/tele_peek.h"
  #include "tele/tele_phones.h"
-@@ -1963,7 +1964,10 @@ void TopBarWidget::updateOnlineDisplay() {
+@@ -1974,7 +1975,10 @@ void TopBarWidget::updateOnlineDisplay() {
  		} else {
  			text = Tele::WithPeekedStatus(
  				user,
@@ -125,10 +125,10 @@ index abc32cad4a0ee7f292517414d88663bf556a5623..b39a6975f7e31c65cf43a63a6ddaa801
  				user,
  				currentTime);
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index e03958924daa6facbcee675bb8edf23a539cdec9..68c5de5bc3ffca5b38e480cfbdaa9603b9d9ff26 100644
+index 853274c056f4826d0d68add8a7bfb21733a4b484..fcd4205f1d2ce7bb8b8a847cb9076aa909466e45 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
-@@ -72,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_mute.h"
  #include "tele/tele_no_ai.h"
  #include "tele/tele_notices.h"
@@ -136,7 +136,7 @@ index e03958924daa6facbcee675bb8edf23a539cdec9..68c5de5bc3ffca5b38e480cfbdaa9603
  #include "tele/tele_online_notify.h"
  #include "tele/tele_past_limit.h"
  #include "tele/tele_peek.h"
-@@ -303,6 +304,7 @@ Session::Session(
+@@ -305,6 +306,7 @@ Session::Session(
  	Tele::SetupNoAi(this);
  	Tele::SetupOnlineNotify(this);
  	Tele::SetupPeekLastSeen(this);

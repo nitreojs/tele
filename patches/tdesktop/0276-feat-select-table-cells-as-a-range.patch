@@ -19,10 +19,10 @@ Subject: [PATCH] feat: select table cells as a range
  create mode 100644 Telegram/SourceFiles/tele/tele_table_selection.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d5845d5781a78a52b9959f722553b8089221fbf8..6e1dddfb4a352a11e75c6c7896ed426c91a5183c 100644
+index ed82a5695d3be900504827748b28407298e0940f..d98aef513488bcdf7efb228787814a324ed954cd 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2830,6 +2830,8 @@ PRIVATE
+@@ -2976,6 +2976,8 @@ PRIVATE
      tele/tele_sticker_captions.h
      tele/tele_sticker_truth.cpp
      tele/tele_sticker_truth.h
@@ -32,10 +32,10 @@ index d5845d5781a78a52b9959f722553b8089221fbf8..6e1dddfb4a352a11e75c6c7896ed426c
      tele/tele_tgs_rules.h
      tele/tele_streamer_mode.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index aa26ca0bd5aa636c071ab08549be1618f6daed79..f93c85bb2f70c46937b644c019bf29564bb40440 100644
+index 7cef89823060c7fe2415c92747ce61dea9c4566a..70b90df3ccfb5105c0d8dcb61be89cb37e23d963 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -3297,7 +3297,8 @@ Iv::RichPageBlocksSlice Element::selectedRichBlocks(
+@@ -3313,7 +3313,8 @@ Iv::RichPageBlocksSlice Element::selectedRichBlocks(
  	}
  	return {
  		.blocks = rich->article.richPageSliceForSelection(
@@ -46,7 +46,7 @@ index aa26ca0bd5aa636c071ab08549be1618f6daed79..f93c85bb2f70c46937b644c019bf2956
  	};
  }
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
-index 2648a13ebf13c36e15df4a24162f9c25754284a8..8d531135b4bb48f2577873d22af28e0ecc572efb 100644
+index 0914ca7de8b39b51f34eaedf9f56ebe0a1691080..a9f82a7310ae5e63fac841eaa4270dd8d44fac34 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
 @@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -98,7 +98,7 @@ index 2648a13ebf13c36e15df4a24162f9c25754284a8..8d531135b4bb48f2577873d22af28e0e
  }
  
  bool MarkdownArticle::Impl::richPageRtl() const {
-@@ -7442,8 +7451,9 @@ TextForMimeData MarkdownArticle::textForSelection(
+@@ -7440,8 +7449,9 @@ TextForMimeData MarkdownArticle::textForSelection(
  }
  
  std::vector<RichPage::Block> MarkdownArticle::richPageSliceForSelection(
@@ -125,7 +125,7 @@ index 7e6a051cf5d2a7f13894bcbd0a4575bd1fd04899..290aaf405f2348bc035d6094f956dbf0
  	[[nodiscard]] bool highlightProcessDone(
  		Spellchecker::HighlightProcessId processId);
 diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
-index bd04a3cee3439c71ef103cd5647e533c54e75fed..8d87c35b2daeaf57fb8099ef2275bc54c7658a26 100644
+index 6c808874df63728099cf9fce2a38fba889c7b225..15cc311ae7db16d05fc8912cc39bfbc1f859a708 100644
 --- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
 +++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
 @@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
