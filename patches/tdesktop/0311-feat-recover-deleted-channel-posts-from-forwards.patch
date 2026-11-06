@@ -25,10 +25,10 @@ Subject: [PATCH] feat: recover deleted channel posts from forwards
  create mode 100644 Telegram/SourceFiles/tele/tele_recover_forwarded.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 635411b1a3dc045ef468108c1af9752353303116..a11bf1b0fabe6bc26158d6a47131c55b71238263 100644
+index 473b8751085b3b18daac72a86d6fb4d11fc873aa..aad98ba3d39880f4c3fbc8e34b18d0879035a0e4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3052,6 +3052,8 @@ PRIVATE
+@@ -3040,6 +3040,8 @@ PRIVATE
      tele/tele_read_log.h
      tele/tele_recent_emoji.cpp
      tele/tele_recent_emoji.h
@@ -129,10 +129,10 @@ index 49e5eb03fb8f580da9e3e8000187053caeb86f99..a136402711867fae9dcc31f0b6dc1dc6
  	).contains(position);
  	if (inTime) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index dec0b408979f11dcfff8e6d8c91fc66886a42c1d..16e2ab0c98dbbcd4c3f3df667967f96d6a6481de 100644
+index 084285099e1d412da819f5eb60cd609b68751df7..818d103a4e5379074855d9dc39d5f131b1d14579 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
-@@ -81,6 +81,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -80,6 +80,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ignored.h"
  #include "tele/tele_invisible.h"
  #include "tele/tele_options.h"
@@ -140,7 +140,7 @@ index dec0b408979f11dcfff8e6d8c91fc66886a42c1d..16e2ab0c98dbbcd4c3f3df667967f96d
  #include "tele/tele_send_order.h"
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
-@@ -772,6 +773,9 @@ QString DateTooltipText(not_null<Element*> view) {
+@@ -771,6 +772,9 @@ QString DateTooltipText(not_null<Element*> view) {
  	if (const auto held = Tele::HeldBehindMediaText(item); !held.isEmpty()) {
  		dateText += '\n' + held;
  	}
@@ -171,7 +171,7 @@ index ecc225eb6463e97efb191477119c716b7574259c..eb84e81e5723ae9564d71627d06a546a
  					savedFromPeer,
  					Window::SectionShow::Way::Forward,
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 221b6b8cd37be03bf7582f954eff96b3f74e71cf..328fcbbff5226488f7272bf0757e8482d8f80b47 100644
+index 5ef027dc78f396e29f998bcb833db7aa8c517516..7f3cd82669c347ffd89e8faa45366013a10ef121 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -3079,6 +3079,11 @@ void FillMessages(SectionBuilder &builder) {
@@ -319,10 +319,10 @@ index 60f9ad67c63d540b683c880eb897adc4cd7b20cf..01b39db88c5bf23570ce44905502f57f
  
  [[nodiscard]] QByteArray SerializeEdits(const KeptEditRecord &record) {
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 8166a529050b60776863ea16239bf146fc03ab07..2a7913ccf9dc5f2d526df2245b8cb2148aace144 100644
+index 691a3e1ec5faf8f649964d2f1e6d5d9074e6c7a6..d58c6a5c0fd3ba02211c356d2245d03c28b9846b 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -113,6 +113,7 @@ const char kOptionKeepDeletedBots[] = "tele-keep-deleted-bots";
+@@ -112,6 +112,7 @@ const char kOptionKeepDeletedBots[] = "tele-keep-deleted-bots";
  const char kOptionKeepDeletedSaved[] = "tele-keep-deleted-saved";
  const char kOptionKeepDeletedOwn[] = "tele-keep-deleted-own";
  const char kOptionKeepDeletedChats[] = "tele-keep-deleted-chats";
@@ -330,7 +330,7 @@ index 8166a529050b60776863ea16239bf146fc03ab07..2a7913ccf9dc5f2d526df2245b8cb214
  const char kOptionKeepDeletedPersist[] = "tele-keep-deleted-persist";
  const char kOptionDeletedIcon[] = "tele-deleted-icon";
  const char kOptionDeletedOutOfLists[] = "tele-deleted-out-of-lists";
-@@ -922,6 +923,13 @@ base::options::toggle KeepDeletedChatsOption({
+@@ -914,6 +915,13 @@ base::options::toggle KeepDeletedChatsOption({
  	.description = "They stay in the list until you delete them again.",
  });
  
@@ -344,7 +344,7 @@ index 8166a529050b60776863ea16239bf146fc03ab07..2a7913ccf9dc5f2d526df2245b8cb214
  base::options::toggle KeepDeletedPersistOption({
  	.id = kOptionKeepDeletedPersist,
  	.name = "Keep after restart",
-@@ -2665,6 +2673,10 @@ bool KeepDeletedChats() {
+@@ -2643,6 +2651,10 @@ bool KeepDeletedChats() {
  	return KeepDeletedOption.value() && KeepDeletedChatsOption.value();
  }
  
@@ -356,10 +356,10 @@ index 8166a529050b60776863ea16239bf146fc03ab07..2a7913ccf9dc5f2d526df2245b8cb214
  	return rpl::single(
  		rpl::empty
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index d989240c44dca502aab9ebac6cc799e35937604d..d2825c6fd6eb0a7ccdb18685ca247adcbf89c99c 100644
+index ce9340be836d4d41bf7dcf194cb0dc2d337187a2..f3e7f58ae938793cb3c6ae68aff5f8e7a10512c1 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -108,6 +108,7 @@ extern const char kOptionKeepDeletedBots[];
+@@ -107,6 +107,7 @@ extern const char kOptionKeepDeletedBots[];
  extern const char kOptionKeepDeletedSaved[];
  extern const char kOptionKeepDeletedOwn[];
  extern const char kOptionKeepDeletedChats[];
@@ -367,7 +367,7 @@ index d989240c44dca502aab9ebac6cc799e35937604d..d2825c6fd6eb0a7ccdb18685ca247adc
  extern const char kOptionKeepDeletedPersist[];
  extern const char kOptionDeletedIcon[];
  extern const char kOptionDeletedOutOfLists[];
-@@ -416,6 +417,7 @@ void SetHiddenWords(const QString &value);
+@@ -413,6 +414,7 @@ void SetHiddenWords(const QString &value);
  [[nodiscard]] bool KeepDeletedOwn();
  [[nodiscard]] bool KeepDeletedChats();
  [[nodiscard]] rpl::producer<bool> KeepDeletedChatsValue();
@@ -764,10 +764,10 @@ index 0000000000000000000000000000000000000000..b5c7efc42ef03e8c6d2cb8abebd046ff
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index 3c314f34f9b8170944c1d664d83eb8f4a4a1cd3c..eb6fe4581079227877a768f8adf968d24a09699c 100644
+index 8a58b351cc34139d406915c3ea4537eae992eba7..859cbb2c39f1dc84b932b200fd89cb7d4d735648 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -200,6 +200,7 @@ struct Spec {
+@@ -199,6 +199,7 @@ struct Spec {
  		Toggle(kOptionKeepDeletedSaved),
  		Toggle(kOptionKeepDeletedOwn),
  		Toggle(kOptionKeepDeletedChats),

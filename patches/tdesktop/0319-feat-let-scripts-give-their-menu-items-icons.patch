@@ -35,7 +35,7 @@ Subject: [PATCH] feat: let scripts give their menu items icons
  create mode 100644 Telegram/SourceFiles/tele/tele_menu_icon.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index aaea8564e37a2cdd98ca6aaca293cfa1b5800361..e31246cb1894403886d8160382ea69aeb42812c4 100644
+index e5c76f28bd532553a0c755257f5ee4f1cbba782d..0422389b917cd137948da071daa537977b003e92 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
 @@ -2688,6 +2688,8 @@ PRIVATE
@@ -47,7 +47,7 @@ index aaea8564e37a2cdd98ca6aaca293cfa1b5800361..e31246cb1894403886d8160382ea69ae
      tele/scripting/tele_script_sound.cpp
      tele/scripting/tele_script_sound.h
      tele/scripting/tele_script_miniapps.cpp
-@@ -2966,6 +2968,8 @@ PRIVATE
+@@ -2954,6 +2956,8 @@ PRIVATE
      tele/tele_menu_apply.h
      tele/tele_menu_editor.cpp
      tele/tele_menu_editor.h
@@ -1843,10 +1843,10 @@ index 0000000000000000000000000000000000000000..34017698066992a1df954d8d263fb9ee
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 92419affa2562d677c775c1814d2b3f7967d166f..98df0b979200593d89dbaefcf5c249fa47baf70a 100644
+index 32f0c1921a809c66b3f9064c605843057a96f6c1..fe224be8f5bdc22b81958cb554a8dc9da8d6f37b 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-@@ -1648,7 +1648,8 @@ void SetScriptMenuItem(
+@@ -1640,7 +1640,8 @@ void SetScriptMenuItem(
  		MenuKind kind,
  		const QString &key,
  		const QString &text,
@@ -1856,7 +1856,7 @@ index 92419affa2562d677c775c1814d2b3f7967d166f..98df0b979200593d89dbaefcf5c249fa
  	auto &menus = Menus();
  	const auto menu = ranges::find(menus, kind, &MenuInfo::kind);
  	if (menu == end(menus) || !IsScriptMenuKey(key)) {
-@@ -1659,8 +1660,15 @@ void SetScriptMenuItem(
+@@ -1651,8 +1652,15 @@ void SetScriptMenuItem(
  	if (i != end(items)) {
  		i->text = text;
  		i->active = active;

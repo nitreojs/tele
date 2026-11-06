@@ -6,8 +6,8 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
 ---
  Telegram/CMakeLists.txt                       |    4 +
  Telegram/Resources/qrc/telegram/telegram.qrc  |    2 +
- Telegram/Resources/tele/translations/ru.json  | 2884 +++++++++++++++++
- Telegram/Resources/tele/translations/uk.json  | 2884 +++++++++++++++++
+ Telegram/Resources/tele/translations/ru.json  | 2858 +++++++++++++++++
+ Telegram/Resources/tele/translations/uk.json  | 2858 +++++++++++++++++
  .../SourceFiles/info/info_wrap_widget.cpp     |    6 +
  Telegram/SourceFiles/lang/lang_instance.cpp   |    2 +-
  .../SourceFiles/settings/settings_tele.cpp    |  221 +-
@@ -84,7 +84,7 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  .../SourceFiles/tele/tele_upload_retry.cpp    |    7 +-
  .../tele/tele_username_aliases.cpp            |   27 +-
  .../wallet/wallet_key_protection.cpp          |    4 +-
- 80 files changed, 7099 insertions(+), 512 deletions(-)
+ 80 files changed, 7047 insertions(+), 512 deletions(-)
  create mode 100644 Telegram/Resources/tele/translations/ru.json
  create mode 100644 Telegram/Resources/tele/translations/uk.json
  create mode 100644 Telegram/SourceFiles/tele/tele_settings_language.cpp
@@ -93,10 +93,10 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  create mode 100644 Telegram/SourceFiles/tele/tele_translations.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e50684f49d6e85a888c1977b0bfb06e71dcfc93b..90f7c4cdcbb9322d576ab0c2c8ddf870d8c63e53 100644
+index 086c2e30a57067e44ccd405e81ae4251dcafd344..a9a4e84c96ef783e8e64add49a49f97bd5554867 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3106,6 +3106,8 @@ PRIVATE
+@@ -3094,6 +3094,8 @@ PRIVATE
      tele/tele_settings_io.h
      tele/tele_settings_io_box.cpp
      tele/tele_settings_io_box.h
@@ -105,7 +105,7 @@ index e50684f49d6e85a888c1977b0bfb06e71dcfc93b..90f7c4cdcbb9322d576ab0c2c8ddf870
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
      tele/tele_shot.cpp
-@@ -3152,6 +3154,8 @@ PRIVATE
+@@ -3140,6 +3142,8 @@ PRIVATE
      tele/tele_tl_runtime.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h
@@ -129,10 +129,10 @@ index 3a6a3f0043c66dfd107fc78e810edc53d5e6cad5..9dc8d87002dd0b7617750a466bdd5405
      <file alias="scripting/inline.js">../../tele/scripting/inline.js</file>
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36fe9e37dd
+index 0000000000000000000000000000000000000000..d8faae359dd09586a99222034afd7dddf590d634
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/ru.json
-@@ -0,0 +1,2884 @@
+@@ -0,0 +1,2858 @@
 +{
 +	"language": "ru",
 +	"strings": {
@@ -771,7 +771,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Cancelled after %1 of %2.": "Отменено после %1 из %2.",
 +		"Cancelled.": "Отменено.",
 +		"Card": "Карточка",
-+		"Card %1": "Карточка %1",
 +		"Change": "Изменить",
 +		"Change any of tele's settings, including ghost mode, link rewrites and the checkmark server, and your ignore list, local names and per-chat ghost mode.": "Менять любые настройки tele, включая режим призрака, замену ссылок и сервер галочек, а также ваш список игнорируемых, имена для меня и режим призрака в отдельных чатах.",
 +		"Change folder": "Изменить папку",
@@ -972,14 +971,12 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Couldn't save your privacy rules, nothing changed": "Не удалось сохранить правила конфиденциальности, ничего не изменилось",
 +		"Couldn't search the wallet's history.": "Не удалось выполнить поиск по истории кошелька.",
 +		"Couldn't send a scheduled message on time: %1": "Не удалось вовремя отправить отложенное сообщение: %1",
-+		"Couldn't send the .tgw file.": "Не удалось отправить файл .tgw.",
 +		"Couldn't send the file: %1": "Не удалось отправить файл: %1",
 +		"Couldn't start the secret chat.": "Не удалось начать секретный чат.",
 +		"Couldn't start the secret chat: %1": "Не удалось начать секретный чат: %1",
 +		"Couldn't unpack the .tgs file.": "Не удалось распаковать файл .tgs.",
 +		"Couldn't upload %1: %2": "Не удалось загрузить %1: %2",
 +		"Couldn't upload the file: %1": "Не удалось загрузить файл: %1",
-+		"Couldn't write the .tgw file.": "Не удалось записать файл .tgw.",
 +		"Couldn't write the file.": "Не удалось записать файл.",
 +		"Counts down Telegram's waits when you send, react, join, search or pay too fast, with a bar above the chat list from a minute.": "Показывает обратный отсчёт ограничений Telegram, когда вы слишком часто отправляете, реагируете, вступаете, ищете или платите. Если ждать минуту и дольше, над списком чатов появляется полоса.",
 +		"Cover": "Обложка",
@@ -1245,9 +1242,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"HH:mm": "HH:mm",
 +		"HH:mm:ss": "HH:mm:ss",
 +		"HH:mm:ss.zzz": "HH:mm:ss.zzz",
-+		"HTML bubbles β": "Сообщения с HTML β",
-+		"HTML playground": "Песочница HTML",
-+		"HTML, with <style> and <script>": "HTML с <style> и <script>",
 +		"Height": "Высота",
 +		"Hidden from the profile": "Скрыт из профиля",
 +		"Hidden words": "Скрытые слова",
@@ -1402,7 +1396,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Load older messages": "Загрузить более ранние сообщения",
 +		"Loaded %1 · now at %2": "Загружено %1 · дошли до %2",
 +		"Loading %1...": "Загрузка %1...",
-+		"Loading %1…": "Загрузка %1…",
 +		"Loading gifts…": "Загрузка подарков…",
 +		"Loading gifts… %1": "Загрузка подарков… %1",
 +		"Loading gifts… %1 of %2": "Загрузка подарков… %1 из %2",
@@ -1415,7 +1408,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Loading...": "Загрузка...",
 +		"Loading…": "Загрузка…",
 +		"Local": "Локальная",
-+		"Local HTML cards": "Локальные HTML-карточки",
 +		"Local builds don't update themselves.": "Локальные сборки не обновляются сами.",
 +		"Local password": "Локальный пароль",
 +		"Local password changed.": "Локальный пароль изменён.",
@@ -1844,9 +1836,7 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Reset": "Сбросить",
 +		"Reset (%1)": "Сбросить (%1)",
 +		"Reset local password": "Сбросить локальный пароль",
-+		"Reset the HTML playground? Your cards here will be deleted.": "Сбросить песочницу HTML? Ваши карточки в ней будут удалены.",
 +		"Reset the folder? This chat's files will go to the main download folder.": "Сбросить папку? Файлы этого чата будут сохраняться в основную папку загрузок.",
-+		"Reset the playground": "Сбросить песочницу",
 +		"Reset to default": "Вернуть стандартный значок",
 +		"Resizable message field": "Менять высоту поля ввода",
 +		"Resolving %1": "Поиск %1",
@@ -1945,7 +1935,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Script %1 asks for more grants, review them in Settings > tele > Scripts.": "Скрипт %1 запрашивает новые разрешения, проверьте их в разделе Настройки > tele > Скрипты.",
 +		"Script %1 kept failing and was turned off.": "Скрипт %1 отключён из-за повторяющихся ошибок.",
 +		"Script %1: %2": "Скрипт %1: %2",
-+		"Script log": "Журнал скрипта",
 +		"Script permissions": "Разрешения скрипта",
 +		"Scripts": "Скрипты",
 +		"Scripts (*.ts *.js)": "Скрипты (*.ts *.js)",
@@ -2012,8 +2001,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Send GIFs as videos and videos as GIFs": "Отправлять GIF как видео и видео как GIF",
 +		"Send and remove draft": "Отправить и удалить черновик",
 +		"Send any request as you, except dangerous ones.": "Отправлять любые запросы от вашего имени, кроме опасных.",
-+		"Send as .tgw to": "Куда отправить файл .tgw",
-+		"Send as .tgw to…": "Отправить файлом .tgw в…",
 +		"Send as GIF": "Отправить как GIF",
 +		"Send as GIF or video": "Отправить как GIF или видео",
 +		"Send as text": "Отправить как текст",
@@ -2063,7 +2050,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +			"few": "Отправлено %1 из %2 подарков",
 +			"many": "Отправлено %1 из %2 подарков"
 +		},
-+		"Sent as a .tgw file.": "Отправлено файлом .tgw.",
 +		"Sent as ordinary messages, without keyboards and effects.": "Отправляются как обычные сообщения, без кнопок и эффектов.",
 +		"Separator": "Разделитель",
 +		"Server": "Сервер",
@@ -2108,7 +2094,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"Showing %1 and %2.": "Показаны %1 и %2.",
 +		"Shown in the strip": "Показывать в ряду",
 +		"Shown in the taskbar and Alt+Tab, empty keeps the default title.": "Виден на панели задач и в Alt+Tab; если оставить пустым, заголовок будет обычным.",
-+		"Shows .tgw files as cards and adds an HTML playground chat.": "Показывает файлы .tgw как карточки и добавляет чат-песочницу HTML.",
 +		"Silence chats completely": "Полностью отключать уведомления в чатах",
 +		"Silence completely": "Полностью отключить уведомления",
 +		"Silent message...": "Сообщение без звука...",
@@ -2227,7 +2212,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"The background is still loading.": "Фон ещё загружается.",
 +		"The bot's buttons are dropped too.": "Кнопки бота тоже убираются.",
 +		"The canvas is empty.": "Холст пуст.",
-+		"The card is gone.": "Карточки больше нет.",
 +		"The chat changed, the voice message wasn't sent.": "Открыт другой чат, голосовое сообщение не отправлено.",
 +		"The chat list opens on your first folder.": "Список чатов открывается на первой папке.",
 +		"The clipboard has no layout for this menu.": "В буфере обмена нет макета для этого меню.",
@@ -2565,7 +2549,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"an earlier message": "более раннее сообщение",
 +		"an update": "обновлением",
 +		"an update or new_message, edit_message, delete_message": "обновлением или new_message, edit_message, delete_message",
-+		"animation frame": "кадр анимации",
 +		"application/x-qt-windows-mime;value=\"%1\"": "application/x-qt-windows-mime;value=\"%1\"",
 +		"asks for your password": "запрашивает ваш пароль",
 +		"async code": "асинхронный код",
@@ -2632,7 +2615,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"command /%1": "команда /%1",
 +		"context menu": "контекстное меню",
 +		"copies: ": "копирует: ",
-+		"copyText() works only from onAction()": "copyText() работает только из onAction()",
 +		"couldn't load this quick reply": "не удалось загрузить этот быстрый ответ",
 +		"couldn't refresh the server data: %1": "не удалось обновить данные сервера: %1",
 +		"create, change and delete any file on your computer": "создавать, изменять и удалять любые файлы на вашем компьютере",
@@ -2660,7 +2642,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"downloaded archive doesn't match the feed": "скачанный архив не совпадает с фидом",
 +		"earlier messages": "более ранние сообщения",
 +		"edit messages": "изменять сообщения",
-+		"elements nested deeper than %1": "вложенность элементов глубже %1",
 +		"emoji is a string": "emoji — строка",
 +		"emoji status": "эмодзи-статус",
 +		"empty file": "пустой файл",
@@ -2771,7 +2752,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"messages that were never sent": "сообщения, которые никогда не отправлялись",
 +		"mini app": "мини-приложение",
 +		"model %1, zoom %2": "модель %1, масштаб %2",
-+		"more than %1 elements": "больше %1 элементов",
 +		"mouse 4": "кнопка мыши 4",
 +		"mp4 size %1 is too big": "mp4 size %1 is too big",
 +		"multiple accounts": "несколько аккаунтов",
@@ -2799,7 +2779,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"open -a \"{app}\" {uri}": "open -a \"{app}\" {uri}",
 +		"open in gift studio": "открыть в студии подарков",
 +		"option %1": "option %1",
-+		"out of memory": "out of memory",
 +		"package '": "пакет '",
 +		"page down": "page down",
 +		"page up": "page up",
@@ -2819,7 +2798,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"read receipt": "отметка о прочтении",
 +		"recovery phrase": "фраза восстановления",
 +		"regular expression": "регулярное выражение",
-+		"render() output is too complex (%1)": "вывод render() слишком сложный (%1)",
 +		"replying (it reads the chat)": "ответ (отмечает чат прочитанным)",
 +		"request timed out": "время ожидания запроса истекло",
 +		"requests a chat": "запрашивает чат",
@@ -2925,10 +2903,6 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +		"the message has no chat": "у сообщения нет чата",
 +		"the returned result is wrong, ignoring it: ": "возвращённый результат некорректен и проигнорирован: ",
 +		"the runtime": "среда выполнения",
-+		"the script is using too much CPU, slowing down": "скрипт слишком нагружает процессор, замедляем его",
-+		"the script kept using too much CPU and was stopped": "скрипт продолжал слишком нагружать процессор и был остановлен",
-+		"the script ran out of memory in %1 and was stopped": "скрипту не хватило памяти (%1), и он был остановлен",
-+		"the script ran out of time in %1 and was stopped": "скрипт превысил лимит времени (%1) и был остановлен",
 +		"the server chose an extension that was not offered": "сервер выбрал расширение, которое не предлагалось",
 +		"the server chose the subprotocol '%1' that was not offered": "сервер выбрал подпротокол «%1», который не предлагался",
 +		"the server closed the connection during the handshake": "сервер закрыл соединение во время рукопожатия",
@@ -3019,10 +2993,10 @@ index 0000000000000000000000000000000000000000..dfcf81a0e0e71c44cc6a7c1136f0aa36
 +}
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
 new file mode 100644
-index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3405ba2a4
+index 0000000000000000000000000000000000000000..a081457c7689fa8a370d87518304af4415e0644d
 --- /dev/null
 +++ b/Telegram/Resources/tele/translations/uk.json
-@@ -0,0 +1,2884 @@
+@@ -0,0 +1,2858 @@
 +{
 +	"language": "uk",
 +	"strings": {
@@ -3661,7 +3635,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Cancelled after %1 of %2.": "Скасовано після %1 з %2.",
 +		"Cancelled.": "Скасовано.",
 +		"Card": "Картка",
-+		"Card %1": "Картка %1",
 +		"Change": "Змінити",
 +		"Change any of tele's settings, including ghost mode, link rewrites and the checkmark server, and your ignore list, local names and per-chat ghost mode.": "Змінювати будь-які налаштування tele, зокрема режим привида, заміну посилань і сервер галочок, а також ваш список ігнорованих, імена для мене й режим привида в окремих чатах.",
 +		"Change folder": "Змінити папку",
@@ -3862,14 +3835,12 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Couldn't save your privacy rules, nothing changed": "Не вдалося зберегти правила конфіденційності, нічого не змінилося",
 +		"Couldn't search the wallet's history.": "Не вдалося виконати пошук в історії гаманця.",
 +		"Couldn't send a scheduled message on time: %1": "Не вдалося вчасно надіслати заплановане повідомлення: %1",
-+		"Couldn't send the .tgw file.": "Не вдалося надіслати файл .tgw.",
 +		"Couldn't send the file: %1": "Не вдалося надіслати файл: %1",
 +		"Couldn't start the secret chat.": "Не вдалося почати секретний чат.",
 +		"Couldn't start the secret chat: %1": "Не вдалося почати секретний чат: %1",
 +		"Couldn't unpack the .tgs file.": "Не вдалося розпакувати файл .tgs.",
 +		"Couldn't upload %1: %2": "Не вдалося завантажити %1: %2",
 +		"Couldn't upload the file: %1": "Не вдалося завантажити файл: %1",
-+		"Couldn't write the .tgw file.": "Не вдалося записати файл .tgw.",
 +		"Couldn't write the file.": "Не вдалося записати файл.",
 +		"Counts down Telegram's waits when you send, react, join, search or pay too fast, with a bar above the chat list from a minute.": "Відлічує очікування Telegram, коли ви надто швидко надсилаєте, реагуєте, вступаєте, шукаєте або платите; від хвилини — смугою над списком чатів.",
 +		"Cover": "Обкладинка",
@@ -4135,9 +4106,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"HH:mm": "HH:mm",
 +		"HH:mm:ss": "HH:mm:ss",
 +		"HH:mm:ss.zzz": "HH:mm:ss.zzz",
-+		"HTML bubbles β": "HTML-бульбашки β",
-+		"HTML playground": "Пісочниця HTML",
-+		"HTML, with <style> and <script>": "HTML з <style> і <script>",
 +		"Height": "Висота",
 +		"Hidden from the profile": "Приховано в профілі",
 +		"Hidden words": "Приховані слова",
@@ -4292,7 +4260,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Load older messages": "Завантажити давніші повідомлення",
 +		"Loaded %1 · now at %2": "Завантажено %1 · дійшли до %2",
 +		"Loading %1...": "Завантаження %1...",
-+		"Loading %1…": "Завантаження %1…",
 +		"Loading gifts…": "Завантаження подарунків…",
 +		"Loading gifts… %1": "Завантаження подарунків… %1",
 +		"Loading gifts… %1 of %2": "Завантаження подарунків… %1 з %2",
@@ -4305,7 +4272,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Loading...": "Завантаження...",
 +		"Loading…": "Завантаження…",
 +		"Local": "Локальна",
-+		"Local HTML cards": "Локальні HTML-картки",
 +		"Local builds don't update themselves.": "Локальні збірки не оновлюються самі.",
 +		"Local password": "Локальний пароль",
 +		"Local password changed.": "Локальний пароль змінено.",
@@ -4734,9 +4700,7 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Reset": "Скинути",
 +		"Reset (%1)": "Скинути (%1)",
 +		"Reset local password": "Скинути локальний пароль",
-+		"Reset the HTML playground? Your cards here will be deleted.": "Скинути пісочницю HTML? Ваші картки в ній буде видалено.",
 +		"Reset the folder? This chat's files will go to the main download folder.": "Скинути папку? Файли цього чату зберігатимуться в основній папці завантажень.",
-+		"Reset the playground": "Скинути пісочницю",
 +		"Reset to default": "Скинути до типових",
 +		"Resizable message field": "Змінний розмір поля введення",
 +		"Resolving %1": "Пошук %1",
@@ -4835,7 +4799,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Script %1 asks for more grants, review them in Settings > tele > Scripts.": "Скрипт %1 просить нові дозволи, перегляньте їх у розділі Налаштування > tele > Скрипти.",
 +		"Script %1 kept failing and was turned off.": "Скрипт %1 раз у раз завершувався з помилкою, тому його вимкнено.",
 +		"Script %1: %2": "Скрипт %1: %2",
-+		"Script log": "Журнал скрипта",
 +		"Script permissions": "Дозволи скрипта",
 +		"Scripts": "Скрипти",
 +		"Scripts (*.ts *.js)": "Скрипти (*.ts *.js)",
@@ -4902,8 +4865,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Send GIFs as videos and videos as GIFs": "Надсилати GIF як відео і відео як GIF",
 +		"Send and remove draft": "Надіслати й видалити чернетку",
 +		"Send any request as you, except dangerous ones.": "Надсилати будь-які запити від вашого імені, крім небезпечних.",
-+		"Send as .tgw to": "Надіслати як .tgw до",
-+		"Send as .tgw to…": "Надіслати як .tgw до…",
 +		"Send as GIF": "Надіслати як GIF",
 +		"Send as GIF or video": "Надіслати як GIF або відео",
 +		"Send as text": "Надіслати як текст",
@@ -4953,7 +4914,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +			"few": "Надіслано %1 з %2 подарунків",
 +			"many": "Надіслано %1 з %2 подарунків"
 +		},
-+		"Sent as a .tgw file.": "Надіслано як файл .tgw.",
 +		"Sent as ordinary messages, without keyboards and effects.": "Надсилаються як звичайні повідомлення, без клавіатур та ефектів.",
 +		"Separator": "Роздільник",
 +		"Server": "Сервер",
@@ -4998,7 +4958,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"Showing %1 and %2.": "Показано %1 і %2.",
 +		"Shown in the strip": "Видно в стрічці",
 +		"Shown in the taskbar and Alt+Tab, empty keeps the default title.": "Показується на панелі завдань і в Alt+Tab; якщо поле порожнє, буде заголовок за замовчуванням.",
-+		"Shows .tgw files as cards and adds an HTML playground chat.": "Показує файли .tgw як картки й додає чат-пісочницю HTML.",
 +		"Silence chats completely": "Повністю вимикати звук чатів",
 +		"Silence completely": "Повна тиша",
 +		"Silent message...": "Тихе повідомлення...",
@@ -5117,7 +5076,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"The background is still loading.": "Фон ще завантажується.",
 +		"The bot's buttons are dropped too.": "Кнопки бота теж прибираються.",
 +		"The canvas is empty.": "Полотно порожнє.",
-+		"The card is gone.": "Картки більше немає.",
 +		"The chat changed, the voice message wasn't sent.": "Чат змінився, голосове повідомлення не надіслано.",
 +		"The chat list opens on your first folder.": "Список чатів відкривається на першій папці.",
 +		"The clipboard has no layout for this menu.": "У буфері обміну немає макета для цього меню.",
@@ -5455,7 +5413,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"an earlier message": "давніше повідомлення",
 +		"an update": "оновленням",
 +		"an update or new_message, edit_message, delete_message": "оновленням або new_message, edit_message, delete_message",
-+		"animation frame": "кадр анімації",
 +		"application/x-qt-windows-mime;value=\"%1\"": "application/x-qt-windows-mime;value=\"%1\"",
 +		"asks for your password": "запитує ваш пароль",
 +		"async code": "асинхронний код",
@@ -5522,7 +5479,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"command /%1": "команда /%1",
 +		"context menu": "контекстне меню",
 +		"copies: ": "копіює: ",
-+		"copyText() works only from onAction()": "copyText() працює лише з onAction()",
 +		"couldn't load this quick reply": "не вдалося завантажити цю швидку відповідь",
 +		"couldn't refresh the server data: %1": "не вдалося оновити дані сервера: %1",
 +		"create, change and delete any file on your computer": "створювати, змінювати й видаляти будь-які файли на вашому комп'ютері",
@@ -5550,7 +5506,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"downloaded archive doesn't match the feed": "завантажений архів не збігається з фідом",
 +		"earlier messages": "давніші повідомлення",
 +		"edit messages": "редагувати повідомлення",
-+		"elements nested deeper than %1": "вкладеність елементів глибша за %1",
 +		"emoji is a string": "emoji — рядок",
 +		"emoji status": "емодзі-статус",
 +		"empty file": "порожній файл",
@@ -5661,7 +5616,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"messages that were never sent": "повідомлення, які ніколи не надсилалися",
 +		"mini app": "міні-застосунок",
 +		"model %1, zoom %2": "модель %1, масштаб %2",
-+		"more than %1 elements": "понад %1 елементів",
 +		"mouse 4": "кнопка миші 4",
 +		"mp4 size %1 is too big": "mp4 size %1 is too big",
 +		"multiple accounts": "кілька акаунтів",
@@ -5689,7 +5643,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"open -a \"{app}\" {uri}": "open -a \"{app}\" {uri}",
 +		"open in gift studio": "відкрити в студії подарунків",
 +		"option %1": "option %1",
-+		"out of memory": "out of memory",
 +		"package '": "пакет '",
 +		"page down": "page down",
 +		"page up": "page up",
@@ -5709,7 +5662,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"read receipt": "позначка про прочитання",
 +		"recovery phrase": "фраза відновлення",
 +		"regular expression": "регулярний вираз",
-+		"render() output is too complex (%1)": "вивід render() надто складний (%1)",
 +		"replying (it reads the chat)": "відповідь (позначає чат прочитаним)",
 +		"request timed out": "час очікування запиту минув",
 +		"requests a chat": "запитує чат",
@@ -5815,10 +5767,6 @@ index 0000000000000000000000000000000000000000..c396a2157c6f8f1756e32d7f29a4c1b3
 +		"the message has no chat": "повідомлення не має чату",
 +		"the returned result is wrong, ignoring it: ": "повернений результат некоректний, його проігноровано: ",
 +		"the runtime": "середовище виконання",
-+		"the script is using too much CPU, slowing down": "скрипт надто навантажує процесор, сповільнюємо його",
-+		"the script kept using too much CPU and was stopped": "скрипт і далі надто навантажував процесор, тому його зупинено",
-+		"the script ran out of memory in %1 and was stopped": "скрипту забракло пам'яті (%1), і його зупинено",
-+		"the script ran out of time in %1 and was stopped": "скрипт перевищив ліміт часу (%1), і його зупинено",
 +		"the server chose an extension that was not offered": "сервер вибрав розширення, яке не пропонувалося",
 +		"the server chose the subprotocol '%1' that was not offered": "сервер вибрав підпротокол «%1», який не пропонувався",
 +		"the server closed the connection during the handshake": "сервер закрив з'єднання під час рукостискання",
@@ -5945,7 +5893,7 @@ index 9de52ee1a37e686528037df0af90c80a07f1caf2..836cbe5d6360e5133106f8ace8e6dddb
  
  rpl::producer<QString> Value(ushort key) {
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c38965e339f4d 100644
+index 7693e77ee0a2dd1b2333d6f4790adbc4f8f230f8..0a505def133f56b5668cf23f362a5e38b03844e3 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -59,6 +59,7 @@
@@ -6508,7 +6456,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c3896
  		},
  	});
  	if (button) {
-@@ -4188,6 +4294,7 @@ void AddBackup(SectionBuilder &builder) {
+@@ -4184,6 +4290,7 @@ void AddBackup(SectionBuilder &builder) {
  			const QString &title,
  			void (*box)(not_null<Ui::GenericBox*>),
  			QStringList keywords) {
@@ -6516,7 +6464,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c3896
  		const auto button = AddButton(builder, {
  			.id = id,
  			.title = rpl::single(::Tele::Lower(title)),
-@@ -4368,6 +4475,7 @@ void FillRoot(SectionBuilder &builder) {
+@@ -4364,6 +4471,7 @@ void FillRoot(SectionBuilder &builder) {
  			.icon = &icon,
  			.titleText = [=] { return ::Tele::Lower(title); },
  		};
@@ -6524,7 +6472,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c3896
  		result.push_back({
  			.path = std::move(path),
  			.title = std::move(title),
-@@ -4721,9 +4829,10 @@ void AddNewRelease(
+@@ -4717,9 +4825,10 @@ void AddNewRelease(
  	}
  	const auto addTitle = [&](const QString &text) {
  		AddNewGroupDivider(builder, first);
@@ -6538,7 +6486,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c3896
  	};
  	if (!blocks.empty()) {
  		addTitle(u"Settings"_q);
-@@ -4833,14 +4942,14 @@ void AddFreshSettings(
+@@ -4829,14 +4938,14 @@ void AddFreshSettings(
  		}
  		AddNewGroupDivider(builder, first);
  		builder.addSubsectionTitle(rpl::single(
@@ -6555,7 +6503,7 @@ index 0c5be48c73615f40fd42f4620a0257848a3447d8..d375adad9258b7ec47a7902f9b2c3896
  			.st = &st::settingsButtonLightNoIcon,
  			.onClick = [=] {
  				controller->setHighlightControlId(highlight);
-@@ -5029,7 +5138,7 @@ void NewSection::refreshTabs() {
+@@ -5025,7 +5134,7 @@ void NewSection::refreshTabs() {
  	for (const auto &release : ::Tele::ChangelogHistory()) {
  		tabs.push_back({
  			.id = QString::number(release.version),
@@ -8362,7 +8310,7 @@ index 2d836619cdcdf3cb355f391d64fc439fb6f11e57..5906a6b41eb3d56f02e1a538fe85c353
  		if (const auto item = LookupMenuItem(kind, entry.key)) {
  			return MenuItemLabel(*item);
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 98df0b979200593d89dbaefcf5c249fa47baf70a..f9b83376fe032139de771f39406070a26f80e805 100644
+index fe224be8f5bdc22b81958cb554a8dc9da8d6f37b..e83893e37396a5731824e017edf0722429d8d3f4 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 @@ -380,8 +380,9 @@ constexpr auto kFieldText = uint32(1 << 0);
@@ -8390,10 +8338,10 @@ index 98df0b979200593d89dbaefcf5c249fa47baf70a..f9b83376fe032139de771f39406070a2
  		Tagged(
  			u"alias_copy"_q,
 diff --git a/Telegram/SourceFiles/tele/tele_message_menu.cpp b/Telegram/SourceFiles/tele/tele_message_menu.cpp
-index 3888ed63c70549eaa7617d77a369cf9994a8ede4..520746dc2b97b35365e5b97f203c64a7beec6522 100644
+index 323a0226169e4e791eceb134f4ce72b6d7cff131..c45c1fc5f6ac5af14856512bc0a21c743702f240 100644
 --- a/Telegram/SourceFiles/tele/tele_message_menu.cpp
 +++ b/Telegram/SourceFiles/tele/tele_message_menu.cpp
-@@ -56,7 +56,7 @@ void CopyMessageId(std::shared_ptr<Main::SessionShow> show, MsgId id) {
+@@ -55,7 +55,7 @@ void CopyMessageId(std::shared_ptr<Main::SessionShow> show, MsgId id) {
  	const auto parent = menu->menu();
  	const auto action = Ui::Menu::CreateAction(
  		parent,
@@ -8564,10 +8512,10 @@ index 57f74fe873e3dd7dfc50061ed33e592afe96240e..0365538c133fc122bdc024a951981e12
  }
  
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 9776eb2f24cccf2f5dc00eeeeaa048fb3e58c637..31b2784c0a9cbf266a7b3b3efc5721d50b9304fd 100644
+index 8af285946d97abf61cf406e8a8e08079287c930a..2331dafc4a813c5a57190106b367b0e7817415f0 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -216,6 +216,7 @@ const char kOptionLocalNames[] = "tele-local-names";
+@@ -215,6 +215,7 @@ const char kOptionLocalNames[] = "tele-local-names";
  const char kOptionLocalNameMenu[] = "tele-local-name-menu";
  const char kOptionAppIcon[] = "tele-app-icon";
  const char kOptionTrayIcon[] = "tele-tray-icon";
@@ -8575,7 +8523,7 @@ index 9776eb2f24cccf2f5dc00eeeeaa048fb3e58c637..31b2784c0a9cbf266a7b3b3efc5721d5
  const char kOptionLocalDrafts[] = "tele-local-drafts";
  const char kOptionDraftsMenu[] = "tele-drafts-menu";
  const char kOptionLocalPins[] = "tele-local-pins";
-@@ -1571,6 +1572,12 @@ base::options::option<QString> TrayIconOption({
+@@ -1563,6 +1564,12 @@ base::options::option<QString> TrayIconOption({
  	.description = "The monochrome tray icon setting takes priority.",
  });
  
@@ -8588,7 +8536,7 @@ index 9776eb2f24cccf2f5dc00eeeeaa048fb3e58c637..31b2784c0a9cbf266a7b3b3efc5721d5
  base::options::toggle LocalDraftsOption({
  	.id = kOptionLocalDrafts,
  	.name = "Keep drafts on this device",
-@@ -3502,6 +3509,24 @@ rpl::producer<QString> TrayIconValue() {
+@@ -3480,6 +3487,24 @@ rpl::producer<QString> TrayIconValue() {
  	});
  }
  
@@ -8614,10 +8562,10 @@ index 9776eb2f24cccf2f5dc00eeeeaa048fb3e58c637..31b2784c0a9cbf266a7b3b3efc5721d5
  	return LocalDraftsOption.value();
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index 9642b4171fdb6aa39ebc2218a49c4e8263ad537e..52904953044139cbd6019de1865ea387000e4493 100644
+index 3e5ca90b728a05f9a006d181e96cb367840eb7e9..6c142bde4dd236f569420e0b26958f22936f40e3 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -211,6 +211,7 @@ extern const char kOptionLocalNames[];
+@@ -210,6 +210,7 @@ extern const char kOptionLocalNames[];
  extern const char kOptionLocalNameMenu[];
  extern const char kOptionAppIcon[];
  extern const char kOptionTrayIcon[];
@@ -8625,7 +8573,7 @@ index 9642b4171fdb6aa39ebc2218a49c4e8263ad537e..52904953044139cbd6019de1865ea387
  extern const char kOptionLocalDrafts[];
  extern const char kOptionDraftsMenu[];
  extern const char kOptionLocalPins[];
-@@ -580,6 +581,9 @@ void SetAppIcon(const QString &value);
+@@ -577,6 +578,9 @@ void SetAppIcon(const QString &value);
  [[nodiscard]] QString TrayIcon();
  void SetTrayIcon(const QString &value);
  [[nodiscard]] rpl::producer<QString> TrayIconValue();
@@ -8940,7 +8888,7 @@ index b6c5a1c2d38ef3243756c8e9489674e7a6951c3b..50ea47be1903e8780f2d9d700326141d
  		return text + u"\n\n"_q + warning;
  	});
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398a9051a8e 100644
+index a6e2cdc335c05b778262df96bfa9481c4420abd1..cca5bba1ecd704a57374f37e514dbaa20603f6dd 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
 @@ -20,6 +20,7 @@
@@ -8951,7 +8899,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  #include "tele/tele_username_aliases.h"
  
  #include <QtCore/QJsonArray>
-@@ -368,6 +369,7 @@ struct Spec {
+@@ -367,6 +368,7 @@ struct Spec {
  		People(kOptionChatBackgrounds, Kind::Backgrounds),
  		Device(kOptionAppIcon, Kind::AppIcon),
  		Device(kOptionTrayIcon, Kind::TrayIcon),
@@ -8959,7 +8907,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  		Internal(kOptionChangelogShown),
  		Internal(kOptionChangelogAccounts),
  		Internal(kOptionKnownSettings),
-@@ -649,7 +651,10 @@ public:
+@@ -648,7 +650,10 @@ public:
  	void parse(const Spec &spec, const QJsonValue &value);
  
  private:
@@ -8971,7 +8919,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  	void add(const Spec &spec, SettingsImportEntry entry);
  	void parseText(const Spec &spec, const QString &value);
  	void parseList(const Spec &spec, const QString &value);
-@@ -657,7 +662,12 @@ private:
+@@ -656,7 +661,12 @@ private:
  	void parseLinkRewrites(const Spec &spec, const QString &value);
  	void parseAppLinks(const Spec &spec, const QString &value);
  	void parseIcon(const Spec &spec, const QString &value);
@@ -8985,7 +8933,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  
  	SettingsImport &_result;
  	const QJsonObject &_icons;
-@@ -674,8 +684,15 @@ Parser::Parser(
+@@ -673,8 +683,15 @@ Parser::Parser(
  , _backgrounds(backgrounds) {
  }
  
@@ -9003,7 +8951,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  }
  
  void Parser::add(const Spec &spec, SettingsImportEntry entry) {
-@@ -708,7 +725,10 @@ void Parser::parseText(const Spec &spec, const QString &value) {
+@@ -707,7 +724,10 @@ void Parser::parseText(const Spec &spec, const QString &value) {
  		if (spec.choices.contains(value)) {
  			text(value);
  		} else {
@@ -9015,7 +8963,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  		}
  		return;
  	case Kind::Title:
-@@ -750,12 +770,17 @@ void Parser::parseText(const Spec &spec, const QString &value) {
+@@ -749,12 +769,17 @@ void Parser::parseText(const Spec &spec, const QString &value) {
  	Unexpected("Kind in Tele::Parser::parseText.");
  }
  
@@ -9038,7 +8986,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  	}
  }
  
-@@ -767,7 +792,12 @@ void Parser::parseList(const Spec &spec, const QString &value) {
+@@ -766,7 +791,12 @@ void Parser::parseList(const Spec &spec, const QString &value) {
  		skip(spec, u"No valid entries."_q);
  		return;
  	}
@@ -9052,7 +9000,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  	add(spec, { .group = spec.group, .text = normalized });
  }
  
-@@ -788,7 +818,12 @@ void Parser::parseBackgrounds(const Spec &spec, const QString &value) {
+@@ -787,7 +817,12 @@ void Parser::parseBackgrounds(const Spec &spec, const QString &value) {
  		skip(spec, u"No valid backgrounds, images may be missing."_q);
  		return;
  	}
@@ -9066,7 +9014,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  	const auto used = ChatBackgroundFiles(normalized);
  	for (auto i = begin(files); i != end(files);) {
  		if (used.contains(i->first)) {
-@@ -819,7 +854,12 @@ void Parser::parseLinkRewrites(const Spec &spec, const QString &value) {
+@@ -818,7 +853,12 @@ void Parser::parseLinkRewrites(const Spec &spec, const QString &value) {
  		skip(spec, u"No valid rules."_q);
  		return;
  	}
@@ -9080,7 +9028,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  	add(spec, { .group = spec.group, .text = SerializeLinkRewrites(rules) });
  }
  
-@@ -844,7 +884,10 @@ void Parser::parseAppLinks(const Spec &spec, const QString &value) {
+@@ -843,7 +883,10 @@ void Parser::parseAppLinks(const Spec &spec, const QString &value) {
  		const auto choice = i.value().toString();
  		const auto group = AppLinkGroup(choice);
  		if (!group) {
@@ -9092,7 +9040,7 @@ index 77713a333f9630c381eb43e1087ca928accba68e..e903ab216834e412c182795c30586398
  		} else {
  			((*group == SettingsGroup::Device) ? device : settings).insert(
  				i.key(),
-@@ -868,7 +911,10 @@ void Parser::parseIcon(const Spec &spec, const QString &value) {
+@@ -867,7 +910,10 @@ void Parser::parseIcon(const Spec &spec, const QString &value) {
  		? QStringList{ QString(), custom }
  		: QStringList{ QString(), custom, u"default"_q };
  	if (!allowed.contains(value)) {

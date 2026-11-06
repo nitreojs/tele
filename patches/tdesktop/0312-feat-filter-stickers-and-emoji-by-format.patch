@@ -23,10 +23,10 @@ Subject: [PATCH] feat: filter stickers and emoji by format
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_formats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a11bf1b0fabe6bc26158d6a47131c55b71238263..34de9b570ff669bea245cd79d1a61331f5c3f04f 100644
+index aad98ba3d39880f4c3fbc8e34b18d0879035a0e4..8a25542a7ce3991adb5fa924fca2605b189a0384 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3112,6 +3112,8 @@ PRIVATE
+@@ -3100,6 +3100,8 @@ PRIVATE
      tele/tele_start_param.h
      tele/tele_sticker_captions.cpp
      tele/tele_sticker_captions.h
@@ -748,7 +748,7 @@ index 6c34fac3f55ae969225f5cd5528efc25688725eb..4ee0ce651fd09fc6697402ae597d9321
  	const auto emojiSetsButton = AddButtonWithIcon(
  		container,
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 328fcbbff5226488f7272bf0757e8482d8f80b47..6bd3b5f27bb82b0195dcd4a4f5e2bb99c6cdfbfc 100644
+index 7f3cd82669c347ffd89e8faa45366013a10ef121..c778c7abccd6be9dd56ffcc2621ad1c20ee79645 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -2878,6 +2878,10 @@ void FillChats(SectionBuilder &builder) {
@@ -763,10 +763,10 @@ index 328fcbbff5226488f7272bf0757e8482d8f80b47..6bd3b5f27bb82b0195dcd4a4f5e2bb99
  	AddGroupTitle(builder, u"Reactions"_q);
  	AddReactionsMenu(builder);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 2a7913ccf9dc5f2d526df2245b8cb2148aace144..934c20139964853334f945ed867b1a3702f57459 100644
+index d58c6a5c0fd3ba02211c356d2245d03c28b9846b..b848f1c0ed0c9e56f79eaee2385dd166f9113639 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -80,6 +80,7 @@ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
+@@ -79,6 +79,7 @@ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
  const char kOptionAttachMenuClick[] = "tele-attach-menu-click";
  const char kOptionPinSets[] = "tele-pin-sets";
  const char kOptionMediaPastLimit[] = "tele-media-past-limit";
@@ -774,7 +774,7 @@ index 2a7913ccf9dc5f2d526df2245b8cb2148aace144..934c20139964853334f945ed867b1a37
  const char kOptionShowGiftIds[] = "tele-show-gift-ids";
  const char kOptionShowRegularGiftIds[] = "tele-show-regular-gift-ids";
  const char kOptionGiftQuantity[] = "tele-gift-quantity";
-@@ -727,6 +728,12 @@ base::options::toggle MediaPastLimitOption({
+@@ -719,6 +720,12 @@ base::options::toggle MediaPastLimitOption({
  	.description = "Extra ones stay on this device.",
  });
  
@@ -787,7 +787,7 @@ index 2a7913ccf9dc5f2d526df2245b8cb2148aace144..934c20139964853334f945ed867b1a37
  base::options::toggle ShowGiftIdsOption({
  	.id = kOptionShowGiftIds,
  	.name = "IDs on collectible gifts",
-@@ -2454,6 +2461,20 @@ rpl::producer<> MediaPastLimitChanges() {
+@@ -2432,6 +2439,20 @@ rpl::producer<> MediaPastLimitChanges() {
  	return MediaPastLimitOption.changes();
  }
  
@@ -809,10 +809,10 @@ index 2a7913ccf9dc5f2d526df2245b8cb2148aace144..934c20139964853334f945ed867b1a37
  	return ShowGiftIdsOption.value();
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index d2825c6fd6eb0a7ccdb18685ca247adcbf89c99c..9a92052a1a90d1268dbbc40f568f94b97f23d909 100644
+index f3e7f58ae938793cb3c6ae68aff5f8e7a10512c1..68013a3737159c4aca1d6dd2f9449b7a9b9ffd53 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -75,6 +75,7 @@ extern const char kOptionEmojiPanelClick[];
+@@ -74,6 +74,7 @@ extern const char kOptionEmojiPanelClick[];
  extern const char kOptionAttachMenuClick[];
  extern const char kOptionPinSets[];
  extern const char kOptionMediaPastLimit[];
@@ -820,7 +820,7 @@ index d2825c6fd6eb0a7ccdb18685ca247adcbf89c99c..9a92052a1a90d1268dbbc40f568f94b9
  extern const char kOptionShowGiftIds[];
  extern const char kOptionShowRegularGiftIds[];
  extern const char kOptionGiftQuantity[];
-@@ -374,6 +375,8 @@ void SetMoneyHideBalances(bool hidden);
+@@ -371,6 +372,8 @@ void SetMoneyHideBalances(bool hidden);
  [[nodiscard]] rpl::producer<> PinSetsChanges();
  [[nodiscard]] bool MediaPastLimit();
  [[nodiscard]] rpl::producer<> MediaPastLimitChanges();
@@ -830,10 +830,10 @@ index d2825c6fd6eb0a7ccdb18685ca247adcbf89c99c..9a92052a1a90d1268dbbc40f568f94b9
  [[nodiscard]] bool ShowRegularGiftIds();
  [[nodiscard]] bool GiftQuantity();
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index eb6fe4581079227877a768f8adf968d24a09699c..bd002a535e3079763b6d21c888529fb1c70998db 100644
+index 859cbb2c39f1dc84b932b200fd89cb7d4d735648..2208059cb6ea62637f72ec91ca6d21e1a636e342 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -168,6 +168,7 @@ struct Spec {
+@@ -167,6 +167,7 @@ struct Spec {
  		Toggle(kOptionAttachMenuClick),
  		Toggle(kOptionPinSets),
  		Toggle(kOptionMediaPastLimit),

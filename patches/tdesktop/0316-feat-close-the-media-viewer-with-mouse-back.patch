@@ -28,7 +28,7 @@ index 9931e4670410f2ae6b44e6ad714531574a087c4e..46b39d87968c8f82ea7a5f5699aa50f2
  
  	if (button == Qt::LeftButton) {
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 6bd3b5f27bb82b0195dcd4a4f5e2bb99c6cdfbfc..9d2b9fb2aa6e968661ad51ed0190ac5f7a2ebfc8 100644
+index c778c7abccd6be9dd56ffcc2621ad1c20ee79645..7f80ee65ab9f734788296720271a2a4a84d85b90 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -2793,10 +2793,16 @@ void FillInterface(SectionBuilder &builder) {
@@ -49,10 +49,10 @@ index 6bd3b5f27bb82b0195dcd4a4f5e2bb99c6cdfbfc..9d2b9fb2aa6e968661ad51ed0190ac5f
  	AddGroupTitle(builder, u"Chat list"_q);
  	AddOptionToggle(builder, ::Tele::kOptionHideAllChats);
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 934c20139964853334f945ed867b1a3702f57459..3bd926e9f351db5ad6f694b23baff2c9d7445b5c 100644
+index b848f1c0ed0c9e56f79eaee2385dd166f9113639..b395bb8e7ac27e621df7228215f0de78a6aca2c9 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -68,6 +68,7 @@ const char kOptionListKeys[] = "tele-list-keys";
+@@ -67,6 +67,7 @@ const char kOptionListKeys[] = "tele-list-keys";
  const char kOptionSmoothScroll[] = "tele-smooth-scroll";
  const char kOptionScrollStats[] = "tele-scroll-stats";
  const char kOptionScrollZoom[] = "tele-scroll-zoom";
@@ -60,7 +60,7 @@ index 934c20139964853334f945ed867b1a3702f57459..3bd926e9f351db5ad6f694b23baff2c9
  const char kOptionStaticUserpicsChats[] = "tele-static-userpics-chats";
  const char kOptionHideMentionsButton[] = "tele-hide-mentions-button";
  const char kOptionHideReactionsButton[] = "tele-hide-reactions-button";
-@@ -658,6 +659,11 @@ base::options::toggle ScrollZoomOption({
+@@ -650,6 +651,11 @@ base::options::toggle ScrollZoomOption({
  	.description = "Hold Ctrl or Cmd while scrolling to switch photos.",
  });
  
@@ -72,7 +72,7 @@ index 934c20139964853334f945ed867b1a3702f57459..3bd926e9f351db5ad6f694b23baff2c9
  base::options::toggle StaticUserpicsChatsOption({
  	.id = kOptionStaticUserpicsChats,
  	.name = "Static userpics in chats and profiles",
-@@ -3623,6 +3629,10 @@ bool ScrollZoom() {
+@@ -3601,6 +3607,10 @@ bool ScrollZoom() {
  	return ScrollZoomOption.value();
  }
  
@@ -84,10 +84,10 @@ index 934c20139964853334f945ed867b1a3702f57459..3bd926e9f351db5ad6f694b23baff2c9
  	ViewerLoopOption.set(enabled);
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index 9a92052a1a90d1268dbbc40f568f94b97f23d909..48f2610fe0aa3fe90f86ed4a8e7b190416e61bfd 100644
+index 68013a3737159c4aca1d6dd2f9449b7a9b9ffd53..1d8d21dc00dd80534cc3163b6f7592e8b442be07 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -62,6 +62,7 @@ extern const char kOptionListKeys[];
+@@ -61,6 +61,7 @@ extern const char kOptionListKeys[];
  extern const char kOptionSmoothScroll[];
  extern const char kOptionScrollStats[];
  extern const char kOptionScrollZoom[];
@@ -95,7 +95,7 @@ index 9a92052a1a90d1268dbbc40f568f94b97f23d909..48f2610fe0aa3fe90f86ed4a8e7b1904
  extern const char kOptionGhostInMenu[];
  extern const char kOptionStaticUserpicsChats[];
  extern const char kOptionHideMentionsButton[];
-@@ -350,6 +351,7 @@ void SetReduceMotionSaved(const QString &value);
+@@ -347,6 +348,7 @@ void SetReduceMotionSaved(const QString &value);
  [[nodiscard]] rpl::producer<bool> SmoothScrollValue();
  [[nodiscard]] bool ScrollStats();
  [[nodiscard]] bool ScrollZoom();
@@ -104,10 +104,10 @@ index 9a92052a1a90d1268dbbc40f568f94b97f23d909..48f2610fe0aa3fe90f86ed4a8e7b1904
  [[nodiscard]] rpl::producer<> StaticUserpicsChatsChanges();
  [[nodiscard]] bool HideMentionsButton();
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index bd002a535e3079763b6d21c888529fb1c70998db..cbac5896798ea967f2d12784c427c4e21618a4d6 100644
+index 2208059cb6ea62637f72ec91ca6d21e1a636e342..b7d9c439af7317e4234b84e564737b9924ebd5a0 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -152,6 +152,7 @@ struct Spec {
+@@ -151,6 +151,7 @@ struct Spec {
  		Toggle(kOptionSmoothScroll),
  		Toggle(kOptionScrollStats),
  		Toggle(kOptionScrollZoom),

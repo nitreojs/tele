@@ -650,7 +650,7 @@
     "import wallets from private keys": "584949295f95fd35ab5057a5272a75c0cc1bf40d8e4e8192d56963093ba71478",
     "copy secret words without waiting": "9b224b1b3e79a3ad587084df6fb1ccb2c10b4afc428f8abf2ee5e6b2f93d0db3",
     "hide the other balances above the money card": "5ba1f2d24b0679e921c97e0c1c9fe9124597a5bd94bed2e7dbef981f59451632",
-    "accept cached stylesheets in litehtml documents": "a9bf894a475018c8141c73b65554fb318ad19ec1db8240719a791bea3df8abdf",
+    "fetch litehtml for html bubbles": "a9bf894a475018c8141c73b65554fb318ad19ec1db8240719a791bea3df8abdf",
     "render html cards with litehtml and run their scripts in quickjs": "4ed50090f8cce8a8ea8fbcb6151833f4c1fd9e2b515e234d56e0763f77fcf09a",
     "confirm stickers sent from sticker set boxes": "1c5e84bd6564880859435ef6258bb6b30e5a782f3412a6cd6f8f71be1ffe7f56",
     "recover deleted channel posts from forwards": "1be8b461274621b5e1452e7c8bd6347333fbf077ac10a76af071a158f383a646",

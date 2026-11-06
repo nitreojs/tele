@@ -14,10 +14,10 @@ Subject: [PATCH] feat: update buttons open tele's updates
  create mode 100644 Telegram/SourceFiles/tele/tele_update_buttons.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f7cab9b0547564d39040c7665e224ef3a848fcc6..75cba322edd1a90d650e6c3b67f54bd14711dfe3 100644
+index 11f38dccdcc3208f669b5cbc5746cdede6a16813..3aea3718c17741cbec303eac5d35d77ccce28e3d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3150,6 +3150,8 @@ PRIVATE
+@@ -3138,6 +3138,8 @@ PRIVATE
      tele/tele_translate_out.h
      tele/tele_unsorted_folder.cpp
      tele/tele_unsorted_folder.h

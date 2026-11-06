@@ -21,10 +21,10 @@ Subject: [PATCH] feat: show the last activity next to a hidden last seen
  create mode 100644 Telegram/SourceFiles/tele/tele_observed_activity.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 030b795f02a06f8f8ba6f6f569f5f6b19c2a7599..f7cab9b0547564d39040c7665e224ef3a848fcc6 100644
+index 39e95a1fd24085cd7238259dc05ca03259a95344..11f38dccdcc3208f669b5cbc5746cdede6a16813 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3000,6 +3000,8 @@ PRIVATE
+@@ -2988,6 +2988,8 @@ PRIVATE
      tele/tele_notices_mentions.h
      tele/tele_notices_section.cpp
      tele/tele_notices_section.h
@@ -125,7 +125,7 @@ index abc32cad4a0ee7f292517414d88663bf556a5623..b39a6975f7e31c65cf43a63a6ddaa801
  				user,
  				currentTime);
 diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
-index 853274c056f4826d0d68add8a7bfb21733a4b484..fcd4205f1d2ce7bb8b8a847cb9076aa909466e45 100644
+index dbc5c649f8735ebaa0152e10596a00ec2ab37d04..f82bfa7d102cdd1b47ba6adb54a088edf150f17c 100644
 --- a/Telegram/SourceFiles/main/main_session.cpp
 +++ b/Telegram/SourceFiles/main/main_session.cpp
 @@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -136,7 +136,7 @@ index 853274c056f4826d0d68add8a7bfb21733a4b484..fcd4205f1d2ce7bb8b8a847cb9076aa9
  #include "tele/tele_online_notify.h"
  #include "tele/tele_past_limit.h"
  #include "tele/tele_peek.h"
-@@ -305,6 +306,7 @@ Session::Session(
+@@ -304,6 +305,7 @@ Session::Session(
  	Tele::SetupNoAi(this);
  	Tele::SetupOnlineNotify(this);
  	Tele::SetupPeekLastSeen(this);
@@ -145,7 +145,7 @@ index 853274c056f4826d0d68add8a7bfb21733a4b484..fcd4205f1d2ce7bb8b8a847cb9076aa9
  	Tele::SetupMute(this);
  	Tele::SetupMediaPastLimit(this);
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 7d7cdd596db2d727f2259ee64b9b5a37308f2620..2d1ab549007fde48aba8353936fcbdcadfce7e92 100644
+index 952077986cc6c5a7d5f915c60bc2f7c8d0eabca8..2e48bf9eab3a6bbf34cde52d3638d4e58d7bf927 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -3768,6 +3768,10 @@ void FillProfiles(SectionBuilder &builder) {
@@ -497,10 +497,10 @@ index 0000000000000000000000000000000000000000..ab40d4f71dbf49fb9d8b629d251c2b2c
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 44cb5cd7cc453746c999535f0340dffa7474e750..1f9c80e6a3034e5448688098cae63787ed7ef6e1 100644
+index 2103240aadf10d67d44645a7f84ccef1be75f217..bb617469fa572d8bc20c6743dff9bd911e3c16ce 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -174,6 +174,7 @@ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+@@ -173,6 +173,7 @@ const char kOptionSilentByDefault[] = "tele-silent-by-default";
  const char kOptionSilentPerChat[] = "tele-silent-per-chat";
  const char kOptionOnlineNotify[] = "tele-online-notify";
  const char kOptionPeekLastSeen[] = "tele-peek-last-seen";
@@ -508,7 +508,7 @@ index 44cb5cd7cc453746c999535f0340dffa7474e750..1f9c80e6a3034e5448688098cae63787
  const char kOptionNotices[] = "tele-notices";
  const char kOptionNoticesLimits[] = "tele-notices-limits";
  const char kOptionNoticesLogLimits[] = "tele-notices-log-limits";
-@@ -1300,6 +1301,13 @@ base::options::toggle PeekLastSeenOption({
+@@ -1292,6 +1293,13 @@ base::options::toggle PeekLastSeenOption({
  		"then undoes it.",
  });
  
@@ -522,7 +522,7 @@ index 44cb5cd7cc453746c999535f0340dffa7474e750..1f9c80e6a3034e5448688098cae63787
  base::options::toggle NoticesOption({
  	.id = kOptionNotices,
  	.name = "Notification centre",
-@@ -3178,6 +3186,20 @@ bool PeekLastSeen() {
+@@ -3156,6 +3164,20 @@ bool PeekLastSeen() {
  	return PeekLastSeenOption.value();
  }
  
@@ -544,10 +544,10 @@ index 44cb5cd7cc453746c999535f0340dffa7474e750..1f9c80e6a3034e5448688098cae63787
  	return NoticesOption.value();
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index 82a014bb72637ba537bcab978559189cb84c23c1..0caf4e81ee32cfea450a8aac97197da1d61292d9 100644
+index b54954388520d5e03206f01517121d16716e5e9c..84244e52d7a400d0b4c051539ec550913a35dbf9 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -169,6 +169,7 @@ extern const char kOptionSilentByDefault[];
+@@ -168,6 +168,7 @@ extern const char kOptionSilentByDefault[];
  extern const char kOptionSilentPerChat[];
  extern const char kOptionOnlineNotify[];
  extern const char kOptionPeekLastSeen[];
@@ -555,7 +555,7 @@ index 82a014bb72637ba537bcab978559189cb84c23c1..0caf4e81ee32cfea450a8aac97197da1
  extern const char kOptionNotices[];
  extern const char kOptionNoticesLimits[];
  extern const char kOptionNoticesLogLimits[];
-@@ -518,6 +519,8 @@ void ClearMessageMenuLegacy();
+@@ -515,6 +516,8 @@ void ClearMessageMenuLegacy();
  [[nodiscard]] rpl::producer<> SilentPerChatChanges();
  [[nodiscard]] bool OnlineNotify();
  [[nodiscard]] bool PeekLastSeen();
@@ -565,10 +565,10 @@ index 82a014bb72637ba537bcab978559189cb84c23c1..0caf4e81ee32cfea450a8aac97197da1
  [[nodiscard]] rpl::producer<bool> NoticesCentreValue();
  [[nodiscard]] bool NoticesLimits();
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index 2d69c6789142b97f08cf69b5eaa1bf342b62d3a3..b21478920e69dc5c6d7dc36fd133e91e011453d8 100644
+index fe75787fae0d12e534a595962b11483642bf34df..a833a2574759483afcccfd0dd7f9dae2def4d557 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -252,6 +252,7 @@ struct Spec {
+@@ -251,6 +251,7 @@ struct Spec {
  		Toggle(kOptionSilentPerChat),
  		Toggle(kOptionOnlineNotify),
  		Toggle(kOptionPeekLastSeen),

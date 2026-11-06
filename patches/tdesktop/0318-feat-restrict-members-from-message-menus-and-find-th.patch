@@ -21,10 +21,10 @@ Subject: [PATCH] feat: restrict members from message menus and find them by id
  create mode 100644 Telegram/SourceFiles/tele/tele_restrict.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 713bf6d514dc6d6e22061fec3a64f712ad1a5c8c..aaea8564e37a2cdd98ca6aaca293cfa1b5800361 100644
+index c36d9bf5493ddbfb8726c48e549026003d02ba0e..e5c76f28bd532553a0c755257f5ee4f1cbba782d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3062,6 +3062,8 @@ PRIVATE
+@@ -3050,6 +3050,8 @@ PRIVATE
      tele/tele_regex_search.h
      tele/tele_remove_mine.cpp
      tele/tele_remove_mine.h
@@ -114,7 +114,7 @@ index 438c509598c485c70f786614f3cf7344c881b64c..a3769ef7c9ddf580f30c2c417a6fa6b4
  		AddEphemeralMessageActions(
  			menu,
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 9d2b9fb2aa6e968661ad51ed0190ac5f7a2ebfc8..7413254e51d98e8b02124f5267553a6b7496429e 100644
+index 7f80ee65ab9f734788296720271a2a4a84d85b90..d695e0ecbe5877596b46943179b4013398db6299 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -3487,6 +3487,10 @@ void FillMenus(SectionBuilder &builder) {
@@ -129,10 +129,10 @@ index 9d2b9fb2aa6e968661ad51ed0190ac5f7a2ebfc8..7413254e51d98e8b02124f5267553a6b
  		builder,
  		::Tele::kOptionRmbBesideBubble,
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 7106d645e4a8e881349779810e6286b241622fe6..92419affa2562d677c775c1814d2b3f7967d166f 100644
+index b9aecdc2db677e1f5f51f8b16d93a95d840b3f09..32f0c1921a809c66b3f9064c605843057a96f6c1 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-@@ -721,6 +721,10 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -714,6 +714,10 @@ constexpr auto kFieldText = uint32(1 << 0);
  			P([](int) { return tr::lng_profile_block_user(tr::now); },
  				st::menuIconBlock),
  		}, .contexts = kOthers },
@@ -143,16 +143,16 @@ index 7106d645e4a8e881349779810e6286b241622fe6..92419affa2562d677c775c1814d2b3f7
  		{ .key = u"select"_q, .phrases = {
  			P([](int) { return tr::lng_context_select_msg(tr::now); },
  				st::menuIconSelect),
-@@ -815,7 +819,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -808,7 +812,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"[tele#tele:[Bookmark#bookmark:bookmark,rename_bookmark],mark_read,"
- 		"edit_history,shot,mark_viewed,html_send_tgw,html_script_log],|,"
+ 		"edit_history,shot,mark_viewed],|,"
  		"select,select_up_to,clear_selection,|,"
 -		"delete,report,block_user,|,"
 +		"delete,report,block_user,restrict,|,"
  		"[Tools#tools:view_as_tl,mtp_inspector],|,"
  		"info.packs,info.restriction,info.read,info.forwarded,info.edited,"
  		"info.author,info.id"_q;
-@@ -834,7 +838,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -827,7 +831,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"copy_button_data,copy_message_link,"
  		"forward,add_offer,send_now,ghost_cancel,edit_caption,cancel_upload,"
  		"delete,"
@@ -160,10 +160,10 @@ index 7106d645e4a8e881349779810e6286b241622fe6..92419affa2562d677c775c1814d2b3f7
 +		"download_selected,save_html,report,block_user,restrict,select,"
  		"select_up_to,clear_selection,reschedule,|,"
  		"info.packs,info.restriction,info.read,info.forwarded,info.edited,"
- 		"info.author,shot,send_as_gif,html_send_tgw,html_script_log,|,"
-@@ -866,7 +870,7 @@ constexpr auto kFieldText = uint32(1 << 0);
- 		"bookmark,rename_bookmark,mark_read,edit_history,shot,mark_viewed,"
- 		"html_send_tgw,html_script_log,|,"
+ 		"info.author,shot,send_as_gif,|,"
+@@ -858,7 +862,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+ 		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
+ 		"bookmark,rename_bookmark,mark_read,edit_history,shot,mark_viewed,|,"
  		"select,select_up_to,clear_selection,|,"
 -		"delete,report,block_user,|,"
 +		"delete,report,block_user,restrict,|,"
@@ -171,10 +171,10 @@ index 7106d645e4a8e881349779810e6286b241622fe6..92419affa2562d677c775c1814d2b3f7
  		"info.packs,info.restriction,info.read,info.forwarded,info.edited,"
  		"info.author,info.id"_q;
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 3bd926e9f351db5ad6f694b23baff2c9d7445b5c..11e69d6b305c7128d6015af870c5b303ee357a05 100644
+index b395bb8e7ac27e621df7228215f0de78a6aca2c9..6fa32bf6ccb8b5b1c73be88053b237e05a621b1d 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -143,6 +143,7 @@ const char kOptionCalcmulaInline[] = "tele-calcmula-inline";
+@@ -142,6 +142,7 @@ const char kOptionCalcmulaInline[] = "tele-calcmula-inline";
  const char kOptionTranslateOut[] = "tele-translate-out";
  const char kOptionCopyEmojiId[] = "tele-copy-emoji-id";
  const char kOptionCopyFilePath[] = "tele-copy-file-path";
@@ -182,7 +182,7 @@ index 3bd926e9f351db5ad6f694b23baff2c9d7445b5c..11e69d6b305c7128d6015af870c5b303
  const char kOptionCopyMarkdown[] = "tele-copy-markdown";
  const char kOptionRmbBesideBubble[] = "tele-rmb-beside-bubble";
  const char kOptionShot[] = "tele-shot";
-@@ -1110,6 +1111,13 @@ base::options::toggle CopyFilePathOption({
+@@ -1102,6 +1103,13 @@ base::options::toggle CopyFilePathOption({
  	.description = "For files saved on this computer.",
  });
  
@@ -196,7 +196,7 @@ index 3bd926e9f351db5ad6f694b23baff2c9d7445b5c..11e69d6b305c7128d6015af870c5b303
  base::options::toggle CopyMarkdownOption({
  	.id = kOptionCopyMarkdown,
  	.name = "Copy as Markdown and HTML",
-@@ -2932,6 +2940,10 @@ bool CopyFilePath() {
+@@ -2910,6 +2918,10 @@ bool CopyFilePath() {
  	return CopyFilePathOption.value();
  }
  
@@ -208,10 +208,10 @@ index 3bd926e9f351db5ad6f694b23baff2c9d7445b5c..11e69d6b305c7128d6015af870c5b303
  	return CopyMarkdownOption.value();
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index 48f2610fe0aa3fe90f86ed4a8e7b190416e61bfd..d26f6e5e413e4f2bdc656b0f7233b2741ff6f0da 100644
+index 1d8d21dc00dd80534cc3163b6f7592e8b442be07..30d9b10035da27c360bee9829da0412bc95b3a64 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -138,6 +138,7 @@ extern const char kOptionCalcmulaInline[];
+@@ -137,6 +137,7 @@ extern const char kOptionCalcmulaInline[];
  extern const char kOptionTranslateOut[];
  extern const char kOptionCopyEmojiId[];
  extern const char kOptionCopyFilePath[];
@@ -219,7 +219,7 @@ index 48f2610fe0aa3fe90f86ed4a8e7b190416e61bfd..d26f6e5e413e4f2bdc656b0f7233b274
  extern const char kOptionCopyMarkdown[];
  extern const char kOptionRmbBesideBubble[];
  extern const char kOptionShot[];
-@@ -466,6 +467,7 @@ void SetStreamerMode(bool enabled);
+@@ -463,6 +464,7 @@ void SetStreamerMode(bool enabled);
  [[nodiscard]] bool TranslateOut();
  [[nodiscard]] bool CopyEmojiId();
  [[nodiscard]] bool CopyFilePath();
@@ -440,10 +440,10 @@ index 0000000000000000000000000000000000000000..df42ffda4963b81064dd752fe51bf8b2
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index cbac5896798ea967f2d12784c427c4e21618a4d6..e35dbceb0403a9a1875c5ef8eae8759501dc71bb 100644
+index b7d9c439af7317e4234b84e564737b9924ebd5a0..527378545c0fc3c0d3a0e0b01429d1df7cbaca68 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -232,6 +232,7 @@ struct Spec {
+@@ -231,6 +231,7 @@ struct Spec {
  		Toggle(kOptionTranslateOut),
  		Toggle(kOptionCopyEmojiId),
  		Toggle(kOptionCopyFilePath),

@@ -24,10 +24,10 @@ Subject: [PATCH] feat: open json, code, text and csv files in tele
  create mode 100644 Telegram/SourceFiles/tele/tele_quick_view.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e31246cb1894403886d8160382ea69aeb42812c4..030b795f02a06f8f8ba6f6f569f5f6b19c2a7599 100644
+index 0422389b917cd137948da071daa537977b003e92..39e95a1fd24085cd7238259dc05ca03259a95344 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3044,6 +3044,8 @@ PRIVATE
+@@ -3032,6 +3032,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h
@@ -185,7 +185,7 @@ index 63749cb1fc147894694c2ab65bf46b675381d98b..9a97e403198b11566cb08566aa81e9d6
  }
  
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index 7413254e51d98e8b02124f5267553a6b7496429e..7d7cdd596db2d727f2259ee64b9b5a37308f2620 100644
+index d695e0ecbe5877596b46943179b4013398db6299..952077986cc6c5a7d5f915c60bc2f7c8d0eabca8 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -2969,6 +2969,12 @@ void FillChats(SectionBuilder &builder) {
@@ -343,10 +343,10 @@ index 0e4ac6c90fc08dc519c23cb7cfc457b3b206a71e..51abd1a977bdc2192a40c62d3747a4fa
  void TrackRichCodeLines(not_null<HistoryView::Element*> view);
  void PaintRichCodeLineNumbers(
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index 11e69d6b305c7128d6015af870c5b303ee357a05..44cb5cd7cc453746c999535f0340dffa7474e750 100644
+index 6fa32bf6ccb8b5b1c73be88053b237e05a621b1d..2103240aadf10d67d44645a7f84ccef1be75f217 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -203,6 +203,7 @@ const char kOptionUsernameAliases[] = "tele-username-aliases";
+@@ -202,6 +202,7 @@ const char kOptionUsernameAliases[] = "tele-username-aliases";
  const char kOptionAliasMenu[] = "tele-alias-menu";
  const char kOptionPinnedBarMenu[] = "tele-pinned-bar-menu";
  const char kOptionSelectMany[] = "tele-select-many";
@@ -354,7 +354,7 @@ index 11e69d6b305c7128d6015af870c5b303ee357a05..44cb5cd7cc453746c999535f0340dffa
  const char kOptionNoPhoneInHeader[] = "tele-no-phone-in-header";
  const char kOptionNftPurchasePrice[] = "tele-nft-purchase-price";
  const char kOptionLinkRewrites[] = "tele-link-rewrites";
-@@ -1487,6 +1488,13 @@ base::options::toggle SelectManyOption({
+@@ -1479,6 +1480,13 @@ base::options::toggle SelectManyOption({
  		"of 100.",
  });
  
@@ -368,7 +368,7 @@ index 11e69d6b305c7128d6015af870c5b303ee357a05..44cb5cd7cc453746c999535f0340dffa
  base::options::toggle NoPhoneInHeaderOption({
  	.id = kOptionNoPhoneInHeader,
  	.name = "Names instead of phone numbers in chats",
-@@ -3334,6 +3342,10 @@ bool SelectMany() {
+@@ -3312,6 +3320,10 @@ bool SelectMany() {
  	return SelectManyOption.value();
  }
  
@@ -380,10 +380,10 @@ index 11e69d6b305c7128d6015af870c5b303ee357a05..44cb5cd7cc453746c999535f0340dffa
  	return NoPhoneInHeaderOption.value();
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index d26f6e5e413e4f2bdc656b0f7233b2741ff6f0da..82a014bb72637ba537bcab978559189cb84c23c1 100644
+index 30d9b10035da27c360bee9829da0412bc95b3a64..b54954388520d5e03206f01517121d16716e5e9c 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -198,6 +198,7 @@ extern const char kOptionUsernameAliases[];
+@@ -197,6 +197,7 @@ extern const char kOptionUsernameAliases[];
  extern const char kOptionAliasMenu[];
  extern const char kOptionPinnedBarMenu[];
  extern const char kOptionSelectMany[];
@@ -391,7 +391,7 @@ index d26f6e5e413e4f2bdc656b0f7233b2741ff6f0da..82a014bb72637ba537bcab978559189c
  extern const char kOptionNoPhoneInHeader[];
  extern const char kOptionNftPurchasePrice[];
  extern const char kOptionLinkRewrites[];
-@@ -552,6 +553,7 @@ void SetUsernameAliases(const QString &value);
+@@ -549,6 +550,7 @@ void SetUsernameAliases(const QString &value);
  [[nodiscard]] bool AliasMenu();
  [[nodiscard]] bool PinnedBarMenu();
  [[nodiscard]] bool SelectMany();
@@ -934,10 +934,10 @@ index 0000000000000000000000000000000000000000..30b3a6b12fe9e705c09f42cc483e3a07
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index e35dbceb0403a9a1875c5ef8eae8759501dc71bb..2d69c6789142b97f08cf69b5eaa1bf342b62d3a3 100644
+index 527378545c0fc3c0d3a0e0b01429d1df7cbaca68..fe75787fae0d12e534a595962b11483642bf34df 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -290,6 +290,7 @@ struct Spec {
+@@ -289,6 +289,7 @@ struct Spec {
  		Toggle(kOptionAliasMenu),
  		Toggle(kOptionPinnedBarMenu),
  		Toggle(kOptionSelectMany),

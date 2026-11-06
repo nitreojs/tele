@@ -17,10 +17,10 @@ Subject: [PATCH] feat: bigger video messages while playing
  create mode 100644 Telegram/SourceFiles/tele/tele_round_videos.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 75cba322edd1a90d650e6c3b67f54bd14711dfe3..ac38f06e8551cdd188cff9e06ab0e40002097e7d 100644
+index 3aea3718c17741cbec303eac5d35d77ccce28e3d..5eb5a6351b5f3435a60fe40e33c5f27714ea2d5c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3078,6 +3078,8 @@ PRIVATE
+@@ -3066,6 +3066,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_rmb_beside_bubble.cpp
      tele/tele_rmb_beside_bubble.h
@@ -96,7 +96,7 @@ index 15f4814aebb1a1988cb170aeae905206756dd4d2..a1ad04a2ae70e8b878853ca93482c96a
  		|| !_data->isVideoMessage()
  		|| !isUnwrapped()) {
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index c2f84991ecf957ec53c67676e2c4fe6a2b639279..ee43cbab5038744a8e2b137555d29feabdb0bd7a 100644
+index 09c2b10421d9e967e9c3aadf619e15ce6f24afc1..b2e5a63e6e1b2c8637273d9f01fc51486b576813 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
 @@ -3170,6 +3170,12 @@ void FillMessages(SectionBuilder &builder) {
@@ -113,10 +113,10 @@ index c2f84991ecf957ec53c67676e2c4fe6a2b639279..ee43cbab5038744a8e2b137555d29fea
  	AddOptionToggle(
  		builder,
 diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
-index f2c5acf80b3746facf8bc840e369b0d441890d27..c1f3c7750574cdd5801da5ea4910ebbc96ff545b 100644
+index b0075fdc6c880259298e5832e77163afdf4afdb9..5ab2ff2c50495f75a7115dc4411d2dd40beb3c54 100644
 --- a/Telegram/SourceFiles/tele/tele_options.cpp
 +++ b/Telegram/SourceFiles/tele/tele_options.cpp
-@@ -127,6 +127,7 @@ const char kOptionCodeLineNumbers[] = "tele-code-line-numbers";
+@@ -126,6 +126,7 @@ const char kOptionCodeLineNumbers[] = "tele-code-line-numbers";
  const char kOptionHideBubbleTails[] = "tele-hide-bubble-tails";
  const char kOptionBubblePadding[] = "tele-bubble-padding";
  const char kOptionNoEmojiOutline[] = "tele-no-emoji-outline";
@@ -124,7 +124,7 @@ index f2c5acf80b3746facf8bc840e369b0d441890d27..c1f3c7750574cdd5801da5ea4910ebbc
  const char kOptionCopyProtected[] = "tele-copy-protected";
  const char kOptionRichQuote[] = "tele-rich-quote";
  const char kOptionMultiQuote[] = "tele-multi-quote";
-@@ -1010,6 +1011,11 @@ base::options::toggle NoEmojiOutlineOption({
+@@ -1002,6 +1003,11 @@ base::options::toggle NoEmojiOutlineOption({
  	.name = "No outline on large emoji",
  });
  
@@ -136,7 +136,7 @@ index f2c5acf80b3746facf8bc840e369b0d441890d27..c1f3c7750574cdd5801da5ea4910ebbc
  base::options::toggle CopyProtectedOption({
  	.id = kOptionCopyProtected,
  	.name = "Forward protected messages as copies",
-@@ -2880,6 +2886,20 @@ rpl::producer<> NoEmojiOutlineChanges() {
+@@ -2858,6 +2864,20 @@ rpl::producer<> NoEmojiOutlineChanges() {
  	return NoEmojiOutlineOption.changes() | rpl::to_empty;
  }
  
@@ -158,10 +158,10 @@ index f2c5acf80b3746facf8bc840e369b0d441890d27..c1f3c7750574cdd5801da5ea4910ebbc
  	return CopyProtectedOption.value();
  }
 diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
-index be2def0d53de46f6c49b7d0a10dec52de879598f..ea8414325c0b12d486e4c5c28334da5ae0ab4464 100644
+index d76a5d102e2ab7629322fe762143d0caa8d8af8c..fd0cff8aaa5a3887620eafc9fdff5776a3c50d61 100644
 --- a/Telegram/SourceFiles/tele/tele_options.h
 +++ b/Telegram/SourceFiles/tele/tele_options.h
-@@ -122,6 +122,7 @@ extern const char kOptionCodeLineNumbers[];
+@@ -121,6 +121,7 @@ extern const char kOptionCodeLineNumbers[];
  extern const char kOptionHideBubbleTails[];
  extern const char kOptionBubblePadding[];
  extern const char kOptionNoEmojiOutline[];
@@ -169,7 +169,7 @@ index be2def0d53de46f6c49b7d0a10dec52de879598f..ea8414325c0b12d486e4c5c28334da5a
  extern const char kOptionCopyProtected[];
  extern const char kOptionRichQuote[];
  extern const char kOptionMultiQuote[];
-@@ -450,6 +451,8 @@ void SetSavedHistoryPeriod(const QString &value);
+@@ -447,6 +448,8 @@ void SetSavedHistoryPeriod(const QString &value);
  [[nodiscard]] bool BubblePadding();
  [[nodiscard]] bool NoEmojiOutline();
  [[nodiscard]] rpl::producer<> NoEmojiOutlineChanges();
@@ -499,10 +499,10 @@ index 0000000000000000000000000000000000000000..f5f698bb24a473792e98ef29c8c97090
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-index db083aed834d7ca8ebcc5c3acfb7cf39d662bb08..00c20768b0a8bdede7096be58f501ad58801d6a2 100644
+index 79a88a8449225231fe097c7f3a1444abdea93a3b..35ad956d1a4f18d55ed8a969c58bc8eb3ac33edf 100644
 --- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
 +++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
-@@ -211,6 +211,7 @@ struct Spec {
+@@ -210,6 +210,7 @@ struct Spec {
  		Toggle(kOptionHideBubbleTails),
  		Toggle(kOptionBubblePadding),
  		Toggle(kOptionNoEmojiOutline),
