@@ -5875,7 +5875,7 @@ index 0000000000000000000000000000000000000000..ee5e8b02854c805c11846dcea1415b5f
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
-index 612214c1e4b8ebecb48cab4bae2e86120e3bb255..df6086906fe0033c03545ad1a2a3bd0cc96a21c2 100644
+index d73d10d2869e8325362461fd3a2999b0465c36ee..d22a97ca9cfcd3069bbd25685e12e96b99345453 100644
 --- a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 +++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 @@ -47,34 +47,11 @@ constexpr auto kPrefix = std::string_view("tele-mtp/");
@@ -5899,7 +5899,7 @@ index 612214c1e4b8ebecb48cab4bae2e86120e3bb255..df6086906fe0033c03545ad1a2a3bd0c
 -		{ "scroll-bar-bg-over", &st::scrollBarBgOver },
 -		{ "attention-button-fg", &st::attentionButtonFg },
 -	};
--	return Ui::ComputeStyles(map, {}, 100, Window::Theme::IsNightMode());
+-	return Ui::ComputeStyles(map, 100, Window::Theme::IsNightMode());
 -}
 -
 -[[nodiscard]] QByteArray Resource(const QString &name) {
@@ -5961,7 +5961,7 @@ index 612214c1e4b8ebecb48cab4bae2e86120e3bb255..df6086906fe0033c03545ad1a2a3bd0c
 +		{ "scroll-bar-bg-over", &st::scrollBarBgOver },
 +		{ "attention-button-fg", &st::attentionButtonFg },
 +	};
-+	return Ui::ComputeStyles(map, {}, 100, Window::Theme::IsNightMode());
++	return Ui::ComputeStyles(map, 100, Window::Theme::IsNightMode());
 +}
 +
 +QByteArray MtpWebviewResource(const QString &name) {

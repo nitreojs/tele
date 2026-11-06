@@ -3662,7 +3662,7 @@ index 0000000000000000000000000000000000000000..40d8eedb0a7b89749a607b5779e8f110
 +} // namespace Tele::MtpDump
 diff --git a/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..089f4dad0ee1d6c57e8a8f460f8e7dbd486a0fb9
+index 0000000000000000000000000000000000000000..19127202249ab56da3ff4e6c574ccf1ea6759b06
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_mtp_inspector.cpp
 @@ -0,0 +1,525 @@
@@ -3732,7 +3732,7 @@ index 0000000000000000000000000000000000000000..089f4dad0ee1d6c57e8a8f460f8e7dbd
 +		{ "scroll-bar-bg-over", &st::scrollBarBgOver },
 +		{ "attention-button-fg", &st::attentionButtonFg },
 +	};
-+	return Ui::ComputeStyles(map, {}, 100, Window::Theme::IsNightMode());
++	return Ui::ComputeStyles(map, 100, Window::Theme::IsNightMode());
 +}
 +
 +[[nodiscard]] QByteArray Resource(const QString &name) {

@@ -15190,7 +15190,7 @@ export type MenuIconName =
   | 'reactions'
   | 'reply'
   | 'copy'
-  // … every icon of tele's own menus: tele.d.ts lists all 222
+  // … tele.d.ts lists the current built-in menu icons
 export type MenuIcon = MenuIconName | (string & {}) | bigint | Uint8Array
 ```
 
@@ -15203,6 +15203,7 @@ the icon of a menu item, a drawer item or a settings entry: `icon` in `ActionOpt
   - an image: a `.png`, `.jpg` / `.jpeg` or `.webp` file, or its bytes as a `Uint8Array`. drawn as it is, scaled down to the icon size.
   - a custom emoji: its document id as a `bigint` (the `documentId` of a `messageEntityCustomEmoji` or an `emojiStatus`). drawn like in messages: animated (power saving stops it), and in the icon color when it's a text-colored emoji.
 - **notes:**
+  - built-in names follow the current client. `tTLAny` was removed with telegram desktop 7.4.0; use `tTL`.
   - file paths are relative to the script's folder (the scripts folder for a single-file script); absolute paths work too. the file is read once, when the item is registered. files and bytes are limited to 1 MB.
   - the icon sits in the menu's icon column, at the same size as tele's icons. menus without an icon column, like the tray menu, show the item without it.
   - in the media viewer's and the story viewer's dark menus, tele icons and SVGs take the menu's light text color.

@@ -9,7 +9,7 @@ Subject: [PATCH] feat: let scripts give their menu items icons
  Telegram/Resources/tele/scripting/runtime.js  |   2 +-
  Telegram/Resources/tele/scripting/stories.js  |   2 +-
  .../tele/scripting/tele_script_hooks.cpp      |  21 +-
- .../tele/scripting/tele_script_icons.cpp      | 599 ++++++++++++++++++
+ .../tele/scripting/tele_script_icons.cpp      | 597 ++++++++++++++++++
  .../tele/scripting/tele_script_icons.h        |  28 +
  .../tele/scripting/tele_script_instance.cpp   |  45 +-
  .../tele/scripting/tele_script_instance.h     |   4 +
@@ -28,7 +28,7 @@ Subject: [PATCH] feat: let scripts give their menu items icons
  Telegram/SourceFiles/tele/tele_menu_icon.h    |  77 +++
  .../SourceFiles/tele/tele_menu_registry.cpp   |  12 +-
  .../SourceFiles/tele/tele_menu_registry.h     |   3 +-
- 24 files changed, 1284 insertions(+), 26 deletions(-)
+ 24 files changed, 1282 insertions(+), 26 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_icons.cpp
  create mode 100644 Telegram/SourceFiles/tele/scripting/tele_script_icons.h
  create mode 100644 Telegram/SourceFiles/tele/tele_menu_icon.cpp
@@ -142,10 +142,10 @@ index 5d0539cb78c89c66da1d148e8b4bb81ea58cf443..6c534dff5001ecdb467f4e1968f47c1c
  }
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_icons.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_icons.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..6c8b019498faf03c5069f0add0aae6c7e22cd700
+index 0000000000000000000000000000000000000000..0f343e43339907ee0149d530ead03bfc4387c4fd
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_icons.cpp
-@@ -0,0 +1,599 @@
+@@ -0,0 +1,597 @@
 +#include "tele/scripting/tele_script_icons.h"
 +
 +#include "tele/scripting/tele_script_instance.h"
@@ -370,7 +370,6 @@ index 0000000000000000000000000000000000000000..6c8b019498faf03c5069f0add0aae6c7
 +		{ u"removedUsers"_q, &st::menuIconRemovedUsers },
 +		{ u"welcomeMessage"_q, &st::menuIconWelcomeMessage },
 +		{ u"star"_q, &st::menuIconStar },
-+		{ u"tTLAny"_q, &st::menuIconTTLAny },
 +		{ u"tTL"_q, &st::menuIconTTL },
 +		{ u"muteForAny"_q, &st::menuIconMuteForAny },
 +		{ u"deleteAttention"_q, &st::menuIconDeleteAttention },
@@ -722,7 +721,6 @@ index 0000000000000000000000000000000000000000..6c8b019498faf03c5069f0add0aae6c7
 +    | 'removedUsers'
 +    | 'welcomeMessage'
 +    | 'star'
-+    | 'tTLAny'
 +    | 'tTL'
 +    | 'muteForAny'
 +    | 'deleteAttention'
