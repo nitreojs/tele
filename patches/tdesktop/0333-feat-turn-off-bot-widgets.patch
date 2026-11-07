@@ -4,17 +4,3268 @@ Date: Sat, 7 Nov 2026 22:29:19 +0300
 Subject: [PATCH] feat: turn off bot widgets
 
 ---
- Telegram/Resources/tele/translations/ru.json  |  2 ++
- Telegram/Resources/tele/translations/uk.json  |  2 ++
- .../media/history_view_unsupported_widget.cpp | 19 ++++++++++++++-----
- .../SourceFiles/settings/settings_tele.cpp    |  4 ++++
- Telegram/SourceFiles/tele/tele_options.cpp    | 11 +++++++++++
- Telegram/SourceFiles/tele/tele_options.h      |  2 ++
- .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
- Telegram/SourceFiles/tgw/tgw_media.cpp        |  4 ++++
- .../ui/chat/unsupported_notice.cpp            | 16 +++++++++++-----
- 9 files changed, 51 insertions(+), 10 deletions(-)
+ .../Resources/tele/changelog_history.json     | 845 +++++++++---------
+ Telegram/Resources/tele/translations/ru.json  |   2 +
+ Telegram/Resources/tele/translations/uk.json  |   2 +
+ .../media/history_view_unsupported_widget.cpp |  19 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  11 +
+ Telegram/SourceFiles/tele/tele_options.h      |   2 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ Telegram/SourceFiles/tgw/tgw_media.cpp        |   4 +
+ .../ui/chat/unsupported_notice.cpp            |  16 +-
+ 10 files changed, 468 insertions(+), 438 deletions(-)
 
+diff --git a/Telegram/Resources/tele/changelog_history.json b/Telegram/Resources/tele/changelog_history.json
+index c86425a145444c0677a7e7cd8b3b9870d363b9cf..96247be06c39000ebf65484f3d3ab1ad31c401a3 100644
+--- a/Telegram/Resources/tele/changelog_history.json
++++ b/Telegram/Resources/tele/changelog_history.json
+@@ -1,5 +1,61 @@
+ {
+ 	"releases": [
++		{
++			"version": 24,
++			"tag": "v7.4.0-tele.24",
++			"title": "tele 24",
++			"url": "https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.24",
++			"items": [
++				{
++					"number": 330,
++					"text": "tele's own settings, menus, boxes and messages come in russian and ukrainian. by default they follow telegram's language, or pick one for tele alone with the translate button in the header of tele's settings; anything not translated yet stays english",
++					"where": "always on",
++					"category": "everywhere",
++					"options": [
++						"tele-language"
++					],
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0330-feat-translate-tele-into-russian-and-ukrainian.patch"
++				},
++				{
++					"number": 331,
++					"text": "saving or copying a shot with a playing gif or video no longer crashes tele, and its corners are rounded like in the chat instead of far more",
++					"where": "tele → menus",
++					"category": "menus",
++					"options": [
++						"tele-shot"
++					],
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0331-fix-saving-or-copying-a-shot-of-a-gif-no-longer-cras.patch"
++				},
++				{
++					"number": 332,
++					"text": "turning off money also hides wallet balances in every profile, without leaving an empty space",
++					"where": "tele → chats",
++					"category": "chats",
++					"options": [
++						"tele-no-money"
++					],
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0332-fix-turning-off-money-hides-profile-balances.patch"
++				},
++				{
++					"number": 333,
++					"text": "turn off bot widgets: after restarting, they show a static notice and keep their captions, without running scripts or making widget requests",
++					"where": "tele → chats, off, needs a restart",
++					"category": "chats",
++					"options": [
++						"tele-no-widgets"
++					],
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0333-feat-turn-off-bot-widgets.patch"
++				},
++				{
++					"number": 1008,
++					"text": "topic and direct message tabs no longer crash after you move them to the top, bottom or side and then scroll them. the cause was in the library that passes events around, so anything else that lost updates the same way is fixed too",
++					"where": "always on",
++					"category": "everywhere",
++					"options": [],
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_rpl/0001-fix-topic-tabs-no-longer-crash-after-you-move-them.patch"
++				}
++			]
++		},
+ 		{
+ 			"version": 23,
+ 			"tag": "v7.3.3-tele.23",
+@@ -7,127 +63,98 @@
+ 			"url": "https://github.com/nitreojs/tele/releases/tag/v7.3.3-tele.23",
+ 			"items": [
+ 				{
+-					"number": 324,
++					"number": 320,
+ 					"text": "kept chats with people and bots stay writable: the message box, unblock and restart bot work as usual, and the first new message turns the chat back into a normal one. kept groups and channels stay read-only",
+ 					"where": "tele → messages",
+ 					"category": "messages",
+ 					"options": [
+ 						"tele-keep-deleted-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0324-fix-deleted-chats-with-people-and-bots-stay-writable.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0320-fix-deleted-chats-with-people-and-bots-stay-writable.patch"
+ 				},
+ 				{
+-					"number": 325,
++					"number": 321,
+ 					"text": "for people whose last seen is hidden, the chat header and profile show when tele last saw them write, type, read your messages or react: last seen recently (14:32). remembered across restarts",
+ 					"where": "tele → profiles and ids, off",
+ 					"category": "profiles and ids",
+ 					"options": [
+ 						"tele-observed-activity"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0325-feat-show-the-last-activity-next-to-a-hidden-last-se.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0321-feat-show-the-last-activity-next-to-a-hidden-last-se.patch"
+ 				},
+ 				{
+-					"number": 326,
++					"number": 322,
+ 					"text": "telegram's update buttons (unsupported messages, rich pages, stories, login) open tele's updates and check for a new version instead of telegram's download site. builds that can't update themselves open gettele.app, and so does the link in older unsupported messages",
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0326-feat-update-buttons-open-tele-s-updates.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0322-feat-update-buttons-open-tele-s-updates.patch"
+ 				},
+ 				{
+-					"number": 327,
++					"number": 323,
+ 					"text": "with quote rich messages on, quoting part of a rich message from its menu or by swiping to reply puts it into your message as a blockquote, as before. turn it off to get telegram's own rich reply quotes, new in telegram desktop 7.3.2",
+ 					"where": "tele → messages",
+ 					"category": "messages",
+ 					"options": [
+ 						"tele-rich-quote"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0327-fix-quote-rich-messages-chooses-tele-s-or-telegram-s.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0323-fix-quote-rich-messages-chooses-tele-s-or-telegram-s.patch"
+ 				},
+ 				{
+-					"number": 328,
+-					"text": "in topics, comments and saved messages chats, enter sends the media attached above the field even when there's no text, instead of only marking the chat as read",
+-					"where": "tele → sending",
+-					"category": "sending",
+-					"options": [
+-						"tele-docked-attachments",
+-						"tele-docked-grid"
+-					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0328-fix-enter-sends-attached-media-with-an-empty-field-i.patch"
+-				},
+-				{
+-					"number": 329,
++					"number": 324,
+ 					"text": "chat list rows show typing, recording and choosing a sticker for people whose last seen is hidden, which telegram only shows in the open chat. bots stay as they are",
+ 					"where": "tele → profiles and ids, off",
+ 					"category": "profiles and ids",
+ 					"options": [
+ 						"tele-typing-hidden-last-seen"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0329-feat-show-typing-in-the-chat-list-with-a-hidden-last.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0324-feat-show-typing-in-the-chat-list-with-a-hidden-last.patch"
+ 				},
+ 				{
+-					"number": 330,
++					"number": 325,
+ 					"text": "messages kept because you left or deleted the whole chat no longer count as deleted messages: while the chat is kept they have no trash icon or fade, and the chat's deleted messages page and its count only list messages deleted one by one. when a deleted chat with a person or bot comes back, its old messages get the mark but stay off the page",
+ 					"where": "tele → messages",
+ 					"category": "messages",
+ 					"options": [
+ 						"tele-keep-deleted-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0330-fix-deleted-messages-only-lists-messages-deleted-one.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0325-fix-deleted-messages-only-lists-messages-deleted-one.patch"
+ 				},
+ 				{
+-					"number": 331,
++					"number": 326,
+ 					"text": "video messages grow to 400 px while they play or are paused, as far as the chat's width allows, and shrink back when they stop",
+ 					"where": "tele → messages, off",
+ 					"category": "messages",
+ 					"options": [
+ 						"tele-bigger-round-videos"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0331-feat-bigger-video-messages-while-playing.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0326-feat-bigger-video-messages-while-playing.patch"
+ 				},
+ 				{
+-					"number": 332,
++					"number": 327,
+ 					"text": "drag anywhere on a video message except its middle to seek, not only along its edge",
+ 					"where": "tele → messages, off",
+ 					"category": "messages",
+ 					"options": [
+ 						"tele-round-seek-anywhere"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0332-feat-seek-anywhere-on-video-messages.patch"
+-				},
+-				{
+-					"number": 333,
+-					"text": "the chat list and the chat no longer go blank or black in places while the other one scrolls smoothly: they keep painting during the glide",
+-					"where": "tele → interface",
+-					"category": "interface",
+-					"options": [
+-						"tele-scroll-stats"
+-					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0333-fix-smooth-scrolling-no-longer-leaves-blank-areas.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0327-feat-seek-anywhere-on-video-messages.patch"
+ 				},
+ 				{
+-					"number": 334,
++					"number": 328,
+ 					"text": "on macos, tele no longer crashes when the window a file picker was opened from closes while the picker is open",
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0334-fix-file-pickers-on-macos-no-longer-crash-when-their.patch"
+-				},
+-				{
+-					"number": 335,
+-					"text": "the telegram service chat shows telegram's logo until its photo loads, not tele's icon",
+-					"where": "always on",
+-					"category": "everywhere",
+-					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0335-fix-the-telegram-chat-shows-telegram-s-logo.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0328-fix-file-pickers-on-macos-no-longer-crash-when-their.patch"
+ 				},
+ 				{
+-					"number": 336,
++					"number": 329,
+ 					"text": "on macos, picking files to send or open and choosing folders opens a sheet on the window, so tele keeps running until you close it instead of freezing",
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0336-fix-picking-files-on-macos-no-longer-freezes-tele.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0329-fix-picking-files-on-macos-no-longer-freezes-tele.patch"
+ 				}
+ 			]
+ 		},
+@@ -138,90 +165,72 @@
+ 			"url": "https://github.com/nitreojs/tele/releases/tag/v7.3.1-tele.22",
+ 			"items": [
+ 				{
+-					"number": 315,
+-					"text": "on macos, an update replaces what's inside tele.app instead of the whole app, so tele stays on its dock icon instead of showing up as a second one. the update to this version still makes one duplicate",
+-					"where": "tele → updates",
+-					"category": "updates",
+-					"options": [
+-						"tele-auto-update"
+-					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0315-fix-updates-on-macos-keep-the-dock-icon.patch"
+-				},
+-				{
+-					"number": 316,
++					"number": 313,
+ 					"text": "tele no longer crashes at startup with two or more accounts when a script lists your accounts as soon as it starts",
+ 					"where": "tele → scripts β",
+ 					"category": "other",
+ 					"options": [
+ 						"tele-notices-scripts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0316-fix-listing-accounts-from-a-script-no-longer-crashes.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0313-fix-listing-accounts-from-a-script-no-longer-crashes.patch"
+ 				},
+ 				{
+-					"number": 317,
++					"number": 314,
+ 					"text": "telegram gifts in money are drawn sharp at their real size, with the full backdrop pattern around the model. the model plays in the transaction and collectible windows",
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0317-fix-gifts-in-money-look-like-gift-cards-instead-of-a.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0314-fix-gifts-in-money-look-like-gift-cards-instead-of-a.patch"
+ 				},
+ 				{
+-					"number": 318,
++					"number": 315,
+ 					"text": "the mouse back button (mouse 4) closes the media viewer: photos, videos, the windowed viewer and stories",
+ 					"where": "tele → interface, off",
+ 					"category": "interface",
+ 					"options": [
+ 						"tele-viewer-mouse-back"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0318-feat-close-the-media-viewer-with-mouse-back.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0315-feat-close-the-media-viewer-with-mouse-back.patch"
+ 				},
+ 				{
+-					"number": 319,
++					"number": 316,
+ 					"text": "a shot of messages that aren't next to each other can show how many were skipped between them, as a \"2 messages skipped\" badge",
+ 					"where": "tele → menus",
+ 					"category": "menus",
+ 					"options": [
+ 						"tele-shot"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0319-feat-show-skipped-messages-in-shots.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0316-feat-show-skipped-messages-in-shots.patch"
+ 				},
+ 				{
+-					"number": 320,
++					"number": 317,
+ 					"text": "group admins can restrict someone from their message or userpic menu without deleting the message, and the add exception, add admin and remove user pickers find people tele already knows by their numeric id, members or not",
+ 					"where": "tele → menus, on",
+ 					"category": "menus",
+ 					"options": [
+ 						"tele-restrict-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0320-feat-restrict-members-from-message-menus-and-find-th.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0317-feat-restrict-members-from-message-menus-and-find-th.patch"
+ 				},
+ 				{
+-					"number": 321,
++					"number": 318,
+ 					"text": "scripts can give their menu items, drawer items and settings entries an icon: one of tele's own, an emoji, a custom emoji, an svg or an image, see scripting",
+ 					"where": "tele → scripts β",
+ 					"category": "other",
+ 					"options": [
+ 						"tele-notices-scripts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0321-feat-let-scripts-give-their-menu-items-icons.patch"
+-				},
+-				{
+-					"number": 322,
+-					"text": "code blocks in rich messages and the markdown viewer keep the indent of their first line, and copying part of such a block copies exactly what you selected",
+-					"where": "always on",
+-					"category": "everywhere",
+-					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0322-fix-code-blocks-keep-the-indent-of-their-first-line.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0318-feat-let-scripts-give-their-menu-items-icons.patch"
+ 				},
+ 				{
+-					"number": 323,
++					"number": 319,
+ 					"text": "json, code, text, log and csv files up to 1 mb open in tele's markdown viewer instead of another app: json is pretty-printed, code is highlighted, csv and tsv show as tables. long files come in parts of about 2,000 lines with continuing line numbers",
+ 					"where": "tele → chats, on",
+ 					"category": "chats",
+ 					"options": [
+ 						"tele-quick-view"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0323-feat-open-json-code-text-and-csv-files-in-tele.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0319-feat-open-json-code-text-and-csv-files-in-tele.patch"
+ 				}
+ 			]
+ 		},
+@@ -239,7 +248,7 @@
+ 					"options": [
+ 						"tele-profile-photo-bg-whole"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0302-feat-fill-the-whole-profile-with-the-blurred-photo-s.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0302-feat-fill-the-whole-profile-with-the-blurred-photo-s.patch"
+ 				},
+ 				{
+ 					"number": 303,
+@@ -249,7 +258,7 @@
+ 					"options": [
+ 						"tele-scroll-zoom"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0303-feat-scroll-to-zoom-in-the-media-viewer.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0303-feat-scroll-to-zoom-in-the-media-viewer.patch"
+ 				},
+ 				{
+ 					"number": 304,
+@@ -259,7 +268,7 @@
+ 					"options": [
+ 						"tele-scroll-stats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0304-feat-smoother-wheel-glides-in-chats.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0304-feat-smoother-wheel-glides-in-chats.patch"
+ 				},
+ 				{
+ 					"number": 305,
+@@ -267,7 +276,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0305-fix-quote-the-fee-of-a-wallet-key-update-again.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0305-fix-quote-the-fee-of-a-wallet-key-update-again.patch"
+ 				},
+ 				{
+ 					"number": 306,
+@@ -277,7 +286,7 @@
+ 					"options": [
+ 						"tele-wallet-private-keys"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0306-build-take-wallet-engine-from-gettele-money-for-priv.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0306-build-take-wallet-engine-from-gettele-money-for-priv.patch"
+ 				},
+ 				{
+ 					"number": 307,
+@@ -287,7 +296,7 @@
+ 					"options": [
+ 						"tele-wallet-private-keys"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0307-feat-import-wallets-from-private-keys.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0307-feat-import-wallets-from-private-keys.patch"
+ 				},
+ 				{
+ 					"number": 308,
+@@ -297,7 +306,7 @@
+ 					"options": [
+ 						"tele-wallet-copy-words"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0308-feat-copy-secret-words-without-waiting.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0308-feat-copy-secret-words-without-waiting.patch"
+ 				},
+ 				{
+ 					"number": 309,
+@@ -307,30 +316,10 @@
+ 					"options": [
+ 						"tele-money-hide-balances"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0309-feat-hide-the-other-balances-above-the-money-card.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0309-feat-hide-the-other-balances-above-the-money-card.patch"
+ 				},
+ 				{
+ 					"number": 310,
+-					"text": "tele downloads litehtml, the html engine of html bubbles, while it builds",
+-					"where": "tele → debug",
+-					"category": "debug",
+-					"options": [
+-						"tele-html-bubbles"
+-					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0310-build-fetch-litehtml-for-html-bubbles.patch"
+-				},
+-				{
+-					"number": 311,
+-					"text": "html bubbles β: .tgw files show as html cards that can run their own scripts, for everyone using tele with the option on; other apps see a file. an html playground chat shows what you type there as an html card",
+-					"where": "tele → debug, off",
+-					"category": "debug",
+-					"options": [
+-						"tele-html-bubbles"
+-					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0311-feat-render-html-cards-with-litehtml-and-run-their-s.patch"
+-				},
+-				{
+-					"number": 312,
+ 					"text": "stickers sent from a sticker set's box also wait for a second click",
+ 					"where": "tele → sending",
+ 					"category": "sending",
+@@ -340,27 +329,27 @@
+ 						"tele-confirm-gifs",
+ 						"tele-confirm-voice"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0312-fix-confirm-stickers-sent-from-sticker-set-boxes.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0310-fix-confirm-stickers-sent-from-sticker-set-boxes.patch"
+ 				},
+ 				{
+-					"number": 313,
++					"number": 311,
+ 					"text": "open a deleted channel post from a forward of it and tele shows it again: it rebuilds the post from the forward in its place in the channel, marked like other kept deleted messages, and the time's tooltip says which forward it came from",
+ 					"where": "tele → messages",
+ 					"category": "messages",
+ 					"options": [
+ 						"tele-recover-forwarded"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0313-feat-recover-deleted-channel-posts-from-forwards.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0311-feat-recover-deleted-channel-posts-from-forwards.patch"
+ 				},
+ 				{
+-					"number": 314,
++					"number": 312,
+ 					"text": "filter your sticker and emoji sets by format (static, animated, video or mixed), sort them, and archive or remove every shown set at once. the panel's search filters by format too, and custom emoji sets get their own list under stickers you have",
+ 					"where": "tele → chats, off",
+ 					"category": "chats",
+ 					"options": [
+ 						"tele-sticker-formats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0314-feat-filter-stickers-and-emoji-by-format.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0312-feat-filter-stickers-and-emoji-by-format.patch"
+ 				},
+ 				{
+ 					"number": 1007,
+@@ -370,7 +359,7 @@
+ 					"options": [
+ 						"tele-smooth-scroll"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0007-feat-glide-at-the-screen-refresh-rate.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0007-feat-glide-at-the-screen-refresh-rate.patch"
+ 				}
+ 			]
+ 		},
+@@ -388,7 +377,7 @@
+ 					"options": [
+ 						"tele-wallet-rotate"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0284-feat-update-the-secret-phrase-of-wallets-without-a-b.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0284-feat-update-the-secret-phrase-of-wallets-without-a-b.patch"
+ 				},
+ 				{
+ 					"number": 285,
+@@ -396,7 +385,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0285-feat-copy-links-to-wallet-transactions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0285-feat-copy-links-to-wallet-transactions.patch"
+ 				},
+ 				{
+ 					"number": 286,
+@@ -406,7 +395,7 @@
+ 					"options": [
+ 						"tele-wallet-keep-old"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0286-feat-send-while-an-old-wallet-stays-on-this-device.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0286-feat-send-while-an-old-wallet-stays-on-this-device.patch"
+ 				},
+ 				{
+ 					"number": 287,
+@@ -416,7 +405,7 @@
+ 					"options": [
+ 						"tele-no-money"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0287-feat-turn-off-money.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0287-feat-turn-off-money.patch"
+ 				},
+ 				{
+ 					"number": 288,
+@@ -424,7 +413,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0288-feat-say-that-the-money-passcode-is-tele-s-passcode.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0288-feat-say-that-the-money-passcode-is-tele-s-passcode.patch"
+ 				},
+ 				{
+ 					"number": 289,
+@@ -432,7 +421,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0289-feat-dim-every-other-address-group-like-ios.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0289-feat-dim-every-other-address-group-like-ios.patch"
+ 				},
+ 				{
+ 					"number": 290,
+@@ -440,7 +429,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0290-fix-clicking-another-collage-item-switches-the-open-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0290-fix-clicking-another-collage-item-switches-the-open-.patch"
+ 				},
+ 				{
+ 					"number": 291,
+@@ -448,7 +437,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0291-fix-double-click-selects-words-in-service-messages-a.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0291-fix-double-click-selects-words-in-service-messages-a.patch"
+ 				},
+ 				{
+ 					"number": 292,
+@@ -458,7 +447,7 @@
+ 					"options": [
+ 						"tele-local-drafts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0292-fix-closing-the-rich-editor-keeps-drafts-on-this-dev.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0292-fix-closing-the-rich-editor-keeps-drafts-on-this-dev.patch"
+ 				},
+ 				{
+ 					"number": 293,
+@@ -466,7 +455,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0293-fix-dismissing-the-draft-save-box-no-longer-blocks-c.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0293-fix-dismissing-the-draft-save-box-no-longer-blocks-c.patch"
+ 				},
+ 				{
+ 					"number": 294,
+@@ -474,7 +463,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0294-feat-copy-the-text-of-service-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0294-feat-copy-the-text-of-service-messages.patch"
+ 				},
+ 				{
+ 					"number": 295,
+@@ -482,7 +471,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0295-feat-copy-and-open-transaction-links-from-money-tran.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0295-feat-copy-and-open-transaction-links-from-money-tran.patch"
+ 				},
+ 				{
+ 					"number": 296,
+@@ -490,7 +479,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0296-feat-resize-the-money-window.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0296-feat-resize-the-money-window.patch"
+ 				},
+ 				{
+ 					"number": 297,
+@@ -498,7 +487,7 @@
+ 					"where": "tele → debug",
+ 					"category": "debug",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0297-feat-open-the-mtproto-inspector-and-console-as-panel.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0297-feat-open-the-mtproto-inspector-and-console-as-panel.patch"
+ 				},
+ 				{
+ 					"number": 298,
+@@ -508,7 +497,7 @@
+ 					"options": [
+ 						"tele-profile-photo-bg"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0298-feat-use-the-blurred-profile-photo-as-the-profile-ba.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0298-feat-use-the-blurred-profile-photo-as-the-profile-ba.patch"
+ 				},
+ 				{
+ 					"number": 299,
+@@ -518,7 +507,7 @@
+ 					"options": [
+ 						"tele-compact-folders"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0299-feat-compact-icon-only-folders.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0299-feat-compact-icon-only-folders.patch"
+ 				},
+ 				{
+ 					"number": 300,
+@@ -528,7 +517,7 @@
+ 					"options": [
+ 						"tele-remove-my-messages"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0300-feat-remove-all-your-messages-from-a-chat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0300-feat-remove-all-your-messages-from-a-chat.patch"
+ 				},
+ 				{
+ 					"number": 1005,
+@@ -536,7 +525,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0005-fix-the-maximize-button-follows-the-real-window-stat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0005-fix-the-maximize-button-follows-the-real-window-stat.patch"
+ 				},
+ 				{
+ 					"number": 301,
+@@ -546,7 +535,7 @@
+ 					"options": [
+ 						"tele-notices-scripts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0301-feat-scripting-prototype.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0301-feat-scripting-prototype.patch"
+ 				},
+ 				{
+ 					"number": 1006,
+@@ -556,7 +545,7 @@
+ 					"options": [
+ 						"tele-notices-scripts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0006-feat-let-scripts-swap-label-texts-and-find-full-widt.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0006-feat-let-scripts-swap-label-texts-and-find-full-widt.patch"
+ 				}
+ 			]
+ 		},
+@@ -574,7 +563,7 @@
+ 					"options": [
+ 						"tele-bubble-badges"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0275-feat-badges-on-forwarded-and-reply-headers.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0275-feat-badges-on-forwarded-and-reply-headers.patch"
+ 				},
+ 				{
+ 					"number": 276,
+@@ -582,7 +571,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0276-feat-select-table-cells-as-a-range.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0276-feat-select-table-cells-as-a-range.patch"
+ 				},
+ 				{
+ 					"number": 277,
+@@ -592,7 +581,7 @@
+ 					"options": [
+ 						"tele-force-wallet"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0277-feat-turn-on-the-wallet-before-telegram-does.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0277-feat-turn-on-the-wallet-before-telegram-does.patch"
+ 				},
+ 				{
+ 					"number": 278,
+@@ -602,7 +591,7 @@
+ 					"options": [
+ 						"tele-hide-birthdays"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0278-feat-hide-birthday-banners-and-effects.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0278-feat-hide-birthday-banners-and-effects.patch"
+ 				},
+ 				{
+ 					"number": 279,
+@@ -612,7 +601,7 @@
+ 					"options": [
+ 						"tele-chain-mentions"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0279-feat-mention-several-people-in-a-row.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0279-feat-mention-several-people-in-a-row.patch"
+ 				},
+ 				{
+ 					"number": 280,
+@@ -622,7 +611,7 @@
+ 					"options": [
+ 						"tele-search-types"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0280-feat-filter-chat-search-by-message-type.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0280-feat-filter-chat-search-by-message-type.patch"
+ 				},
+ 				{
+ 					"number": 281,
+@@ -632,7 +621,7 @@
+ 					"options": [
+ 						"tele-peek-last-seen"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0281-feat-peek-at-a-hidden-last-seen.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0281-feat-peek-at-a-hidden-last-seen.patch"
+ 				},
+ 				{
+ 					"number": 282,
+@@ -642,7 +631,7 @@
+ 					"options": [
+ 						"tele-keep-deleted-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0282-feat-keep-deleted-chats-and-topics.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0282-feat-keep-deleted-chats-and-topics.patch"
+ 				},
+ 				{
+ 					"number": 283,
+@@ -652,7 +641,7 @@
+ 					"options": [
+ 						"tele-secret-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0283-feat-secret-chats-prototype.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0283-feat-secret-chats-prototype.patch"
+ 				}
+ 			]
+ 		},
+@@ -668,7 +657,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0249-fix-unbreakable-characters-no-longer-push-message-te.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0249-fix-unbreakable-characters-no-longer-push-message-te.patch"
+ 				},
+ 				{
+ 					"number": 250,
+@@ -676,7 +665,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0250-fix-the-failed-send-badge-is-clock-sized-and-no-long.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0250-fix-the-failed-send-badge-is-clock-sized-and-no-long.patch"
+ 				},
+ 				{
+ 					"number": 251,
+@@ -684,7 +673,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0251-fix-messages-with-relative-dates-no-longer-freeze-te.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0251-fix-messages-with-relative-dates-no-longer-freeze-te.patch"
+ 				},
+ 				{
+ 					"number": 252,
+@@ -695,7 +684,7 @@
+ 						"tele-peer-ids-without-spaces",
+ 						"tele-bot-api-peer-ids"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0252-fix-copy-peer-ids-as-plain-digits.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0252-fix-copy-peer-ids-as-plain-digits.patch"
+ 				},
+ 				{
+ 					"number": 253,
+@@ -705,7 +694,7 @@
+ 					"options": [
+ 						"tele-quick-replies-by-name"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0253-feat-send-quick-replies-by-their-exact-name.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0253-feat-send-quick-replies-by-their-exact-name.patch"
+ 				},
+ 				{
+ 					"number": 254,
+@@ -715,7 +704,7 @@
+ 					"options": [
+ 						"tele-copy-file-path"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0254-feat-copy-file-paths-from-the-message-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0254-feat-copy-file-paths-from-the-message-menu.patch"
+ 				},
+ 				{
+ 					"number": 255,
+@@ -725,7 +714,7 @@
+ 					"options": [
+ 						"tele-deleted-out-of-lists"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0255-feat-leave-kept-deleted-messages-out-of-the-chat-lis.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0255-feat-leave-kept-deleted-messages-out-of-the-chat-lis.patch"
+ 				},
+ 				{
+ 					"number": 256,
+@@ -733,7 +722,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0256-fix-a-line-under-every-open-group-of-tele-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0256-fix-a-line-under-every-open-group-of-tele-settings.patch"
+ 				},
+ 				{
+ 					"number": 257,
+@@ -743,7 +732,7 @@
+ 					"options": [
+ 						"tele-title"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0257-feat-lowercase-the-default-title-bar-label.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0257-feat-lowercase-the-default-title-bar-label.patch"
+ 				},
+ 				{
+ 					"number": 258,
+@@ -753,7 +742,7 @@
+ 					"options": [
+ 						"tele-forward-one-by-one"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0258-feat-forward-messages-one-by-one.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0258-feat-forward-messages-one-by-one.patch"
+ 				},
+ 				{
+ 					"number": 259,
+@@ -763,7 +752,7 @@
+ 					"options": [
+ 						"tele-voice-quality"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0259-feat-record-voice-in-higher-quality.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0259-feat-record-voice-in-higher-quality.patch"
+ 				},
+ 				{
+ 					"number": 260,
+@@ -773,7 +762,7 @@
+ 					"options": [
+ 						"tele-photo-quality"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0260-feat-compress-photos-less.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0260-feat-compress-photos-less.patch"
+ 				},
+ 				{
+ 					"number": 261,
+@@ -783,7 +772,7 @@
+ 					"options": [
+ 						"tele-thin-brush"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0261-feat-thinner-brush-in-the-photo-editor.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0261-feat-thinner-brush-in-the-photo-editor.patch"
+ 				},
+ 				{
+ 					"number": 262,
+@@ -793,7 +782,7 @@
+ 					"options": [
+ 						"tele-big-export"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0262-feat-bigger-faster-chat-export.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0262-feat-bigger-faster-chat-export.patch"
+ 				},
+ 				{
+ 					"number": 263,
+@@ -803,7 +792,7 @@
+ 					"options": [
+ 						"tele-small-window"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0263-feat-smaller-minimum-window-size.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0263-feat-smaller-minimum-window-size.patch"
+ 				},
+ 				{
+ 					"number": 264,
+@@ -813,7 +802,7 @@
+ 					"options": [
+ 						"tele-media-upload-date"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0264-feat-show-when-media-was-uploaded-in-the-media-viewe.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0264-feat-show-when-media-was-uploaded-in-the-media-viewe.patch"
+ 				},
+ 				{
+ 					"number": 265,
+@@ -823,7 +812,7 @@
+ 					"options": [
+ 						"tele-sticker-set-owner"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0265-feat-copy-the-owner-id-of-sticker-sets.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0265-feat-copy-the-owner-id-of-sticker-sets.patch"
+ 				},
+ 				{
+ 					"number": 266,
+@@ -833,7 +822,7 @@
+ 					"options": [
+ 						"tele-hide-bubble-tails"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0266-feat-hide-bubble-tails.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0266-feat-hide-bubble-tails.patch"
+ 				},
+ 				{
+ 					"number": 267,
+@@ -843,7 +832,7 @@
+ 					"options": [
+ 						"tele-online-in-big-groups"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0267-feat-show-online-members-in-big-groups.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0267-feat-show-online-members-in-big-groups.patch"
+ 				},
+ 				{
+ 					"number": 268,
+@@ -853,7 +842,7 @@
+ 					"options": [
+ 						"tele-select-many"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0268-feat-select-more-than-100-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0268-feat-select-more-than-100-messages.patch"
+ 				},
+ 				{
+ 					"number": 269,
+@@ -863,7 +852,7 @@
+ 					"options": [
+ 						"tele-no-emoji-outline"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0269-feat-no-outline-on-large-emoji.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0269-feat-no-outline-on-large-emoji.patch"
+ 				},
+ 				{
+ 					"number": 270,
+@@ -871,7 +860,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0270-feat-add-tele-to-the-start-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0270-feat-add-tele-to-the-start-menu.patch"
+ 				},
+ 				{
+ 					"number": 271,
+@@ -881,7 +870,7 @@
+ 					"options": [
+ 						"tele-bubble-padding"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0271-feat-classic-text-padding-in-bubbles.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0271-feat-classic-text-padding-in-bubbles.patch"
+ 				},
+ 				{
+ 					"number": 272,
+@@ -891,7 +880,7 @@
+ 					"options": [
+ 						"tele-font-fix"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0272-feat-fix-fonts-picked-in-chat-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0272-feat-fix-fonts-picked-in-chat-settings.patch"
+ 				},
+ 				{
+ 					"number": 273,
+@@ -901,7 +890,7 @@
+ 					"options": [
+ 						"tele-shot"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0273-fix-sharp-boost-icons-and-button-emoji-in-scaled-sho.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0273-fix-sharp-boost-icons-and-button-emoji-in-scaled-sho.patch"
+ 				},
+ 				{
+ 					"number": 274,
+@@ -911,7 +900,7 @@
+ 					"options": [
+ 						"tele-smooth-scroll"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0274-feat-smooth-wheel-scrolling.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0274-feat-smooth-wheel-scrolling.patch"
+ 				},
+ 				{
+ 					"number": 1001,
+@@ -919,7 +908,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0001-fix-unbreakable-characters-no-longer-scroll-text-fie.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0001-fix-unbreakable-characters-no-longer-scroll-text-fie.patch"
+ 				},
+ 				{
+ 					"number": 1002,
+@@ -929,7 +918,7 @@
+ 					"options": [
+ 						"tele-font-fix"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0002-feat-let-picked-fonts-use-their-real-metrics-on-wind.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0002-feat-let-picked-fonts-use-their-real-metrics-on-wind.patch"
+ 				},
+ 				{
+ 					"number": 1003,
+@@ -939,7 +928,7 @@
+ 					"options": [
+ 						"tele-shot"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0003-fix-icon-emoji-stay-sharp-in-renders-at-a-higher-rat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0003-fix-icon-emoji-stay-sharp-in-renders-at-a-higher-rat.patch"
+ 				},
+ 				{
+ 					"number": 1004,
+@@ -949,7 +938,7 @@
+ 					"options": [
+ 						"tele-smooth-scroll"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/Telegram/lib_ui/0004-feat-ease-mouse-wheel-steps-in-scroll-areas.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/Telegram/lib_ui/0004-feat-ease-mouse-wheel-steps-in-scroll-areas.patch"
+ 				}
+ 			]
+ 		},
+@@ -976,7 +965,7 @@
+ 						"tele-invisible-names-fallback",
+ 						"tele-invisible-names-phrase"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0207-feat-show-usernames-for-invisible-names.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0207-feat-show-usernames-for-invisible-names.patch"
+ 				},
+ 				{
+ 					"number": 208,
+@@ -986,7 +975,7 @@
+ 					"options": [
+ 						"tele-show-hidden-chars"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0208-feat-show-hidden-characters.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0208-feat-show-hidden-characters.patch"
+ 				},
+ 				{
+ 					"number": 209,
+@@ -996,7 +985,7 @@
+ 					"options": [
+ 						"tele-multi-quote"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0209-feat-multiple-quotes-in-one-reply.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0209-feat-multiple-quotes-in-one-reply.patch"
+ 				},
+ 				{
+ 					"number": 210,
+@@ -1004,7 +993,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0210-feat-quote-voice-message-transcriptions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0210-feat-quote-voice-message-transcriptions.patch"
+ 				},
+ 				{
+ 					"number": 211,
+@@ -1014,7 +1003,7 @@
+ 					"options": [
+ 						"tele-notices-log-limits"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0211-fix-rate-limit-notices-for-slowmode-and-download-thr.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0211-fix-rate-limit-notices-for-slowmode-and-download-thr.patch"
+ 				},
+ 				{
+ 					"number": 212,
+@@ -1025,7 +1014,7 @@
+ 						"tele-gift-hidden-dim",
+ 						"tele-gift-select"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0212-fix-gift-batches-survive-flood-waits-and-bad-items.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0212-fix-gift-batches-survive-flood-waits-and-bad-items.patch"
+ 				},
+ 				{
+ 					"number": 213,
+@@ -1033,7 +1022,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0213-fix-say-why-a-download-couldn-t-be-saved.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0213-fix-say-why-a-download-couldn-t-be-saved.patch"
+ 				},
+ 				{
+ 					"number": 214,
+@@ -1041,7 +1030,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0214-fix-retry-failed-upload-parts.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0214-fix-retry-failed-upload-parts.patch"
+ 				},
+ 				{
+ 					"number": 215,
+@@ -1049,7 +1038,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0215-fix-teleoffline-keeps-features-that-only-use-telegra.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0215-fix-teleoffline-keeps-features-that-only-use-telegra.patch"
+ 				},
+ 				{
+ 					"number": 216,
+@@ -1060,7 +1049,7 @@
+ 						"tele-local-password-paid-messages",
+ 						"tele-local-password-bot-payments"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0216-feat-local-password-for-bot-payments-and-paid-messag.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0216-feat-local-password-for-bot-payments-and-paid-messag.patch"
+ 				},
+ 				{
+ 					"number": 217,
+@@ -1068,7 +1057,7 @@
+ 					"where": "tele → debug, ctrl+alt+m",
+ 					"category": "debug",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0217-fix-confirm-more-irreversible-methods-in-the-mtproto.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0217-fix-confirm-more-irreversible-methods-in-the-mtproto.patch"
+ 				},
+ 				{
+ 					"number": 218,
+@@ -1076,7 +1065,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0218-fix-deletions-that-fail-on-the-server-come-back.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0218-fix-deletions-that-fail-on-the-server-come-back.patch"
+ 				},
+ 				{
+ 					"number": 219,
+@@ -1084,7 +1073,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0219-feat-retry-failed-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0219-feat-retry-failed-messages.patch"
+ 				},
+ 				{
+ 					"number": 220,
+@@ -1092,7 +1081,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0220-feat-find-any-group-member-when-mentioning.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0220-feat-find-any-group-member-when-mentioning.patch"
+ 				},
+ 				{
+ 					"number": 221,
+@@ -1100,7 +1089,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0221-fix-load-the-call-log-in-the-right-page-sizes.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0221-fix-load-the-call-log-in-the-right-page-sizes.patch"
+ 				},
+ 				{
+ 					"number": 222,
+@@ -1108,7 +1097,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0222-fix-read-archived-stickers-from-cache-for-every-acco.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0222-fix-read-archived-stickers-from-cache-for-every-acco.patch"
+ 				},
+ 				{
+ 					"number": 223,
+@@ -1116,7 +1105,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0223-fix-retry-loading-gift-collections.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0223-fix-retry-loading-gift-collections.patch"
+ 				},
+ 				{
+ 					"number": 224,
+@@ -1124,7 +1113,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0224-fix-shared-media-calendar-follows-the-open-sublist.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0224-fix-shared-media-calendar-follows-the-open-sublist.patch"
+ 				},
+ 				{
+ 					"number": 225,
+@@ -1134,7 +1123,7 @@
+ 					"options": [
+ 						"tele-queue-behind-media"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0225-feat-see-and-release-messages-queued-behind-an-uploa.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0225-feat-see-and-release-messages-queued-behind-an-uploa.patch"
+ 				},
+ 				{
+ 					"number": 226,
+@@ -1144,7 +1133,7 @@
+ 					"options": [
+ 						"tele-ghost-schedule-pending"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0226-feat-show-pending-ghost-scheduled-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0226-feat-show-pending-ghost-scheduled-messages.patch"
+ 				},
+ 				{
+ 					"number": 227,
+@@ -1154,7 +1143,7 @@
+ 					"options": [
+ 						"tele-mute-ignored"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0227-feat-ignored-users-and-hidden-words-can-stay-silent.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0227-feat-ignored-users-and-hidden-words-can-stay-silent.patch"
+ 				},
+ 				{
+ 					"number": 228,
+@@ -1164,7 +1153,7 @@
+ 					"options": [
+ 						"tele-invisible-stories"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0228-fix-invisible-stories-follow-ghost-settings-and-surv.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0228-fix-invisible-stories-follow-ghost-settings-and-surv.patch"
+ 				},
+ 				{
+ 					"number": 229,
+@@ -1172,7 +1161,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0229-fix-tgs-stickers-telegram-would-reject.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0229-fix-tgs-stickers-telegram-would-reject.patch"
+ 				},
+ 				{
+ 					"number": 230,
+@@ -1182,7 +1171,7 @@
+ 					"options": [
+ 						"tele-start-param"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0230-feat-show-the-start-parameter-on-the-start-button.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0230-feat-show-the-start-parameter-on-the-start-button.patch"
+ 				},
+ 				{
+ 					"number": 231,
+@@ -1192,7 +1181,7 @@
+ 					"options": [
+ 						"tele-notices-mentions"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0231-feat-mentions-and-replies-in-the-notification-centre.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0231-feat-mentions-and-replies-in-the-notification-centre.patch"
+ 				},
+ 				{
+ 					"number": 232,
+@@ -1202,7 +1191,7 @@
+ 					"options": [
+ 						"tele-hide-bot-edited"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0232-feat-no-edited-mark-on-bot-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0232-feat-no-edited-mark-on-bot-messages.patch"
+ 				},
+ 				{
+ 					"number": 233,
+@@ -1213,7 +1202,7 @@
+ 						"tele-gift-studio-menu",
+ 						"tele-gift-studio-main-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0233-feat-more-gifts-and-models-in-the-gift-studio.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0233-feat-more-gifts-and-models-in-the-gift-studio.patch"
+ 				},
+ 				{
+ 					"number": 234,
+@@ -1224,7 +1213,7 @@
+ 						"tele-reactions-strip-count",
+ 						"tele-reactions-order"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0234-feat-your-own-reaction-strip.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0234-feat-your-own-reaction-strip.patch"
+ 				},
+ 				{
+ 					"number": 235,
+@@ -1235,7 +1224,7 @@
+ 						"tele-docked-attachments",
+ 						"tele-docked-grid"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0235-feat-captioned-stickers-go-to-the-docked-media.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0235-feat-captioned-stickers-go-to-the-docked-media.patch"
+ 				},
+ 				{
+ 					"number": 236,
+@@ -1245,7 +1234,7 @@
+ 					"options": [
+ 						"tele-known-settings"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0236-feat-browse-every-tele-version-s-changes.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0236-feat-browse-every-tele-version-s-changes.patch"
+ 				},
+ 				{
+ 					"number": 237,
+@@ -1253,7 +1242,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0237-fix-late-sent-messages-show-their-real-sent-time.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0237-fix-late-sent-messages-show-their-real-sent-time.patch"
+ 				},
+ 				{
+ 					"number": 238,
+@@ -1265,7 +1254,7 @@
+ 						"tele-notices-limits",
+ 						"tele-notices-tele-toasts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0238-fix-notification-centre-shows-whole-entries.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0238-fix-notification-centre-shows-whole-entries.patch"
+ 				},
+ 				{
+ 					"number": 239,
+@@ -1275,7 +1264,7 @@
+ 					"options": [
+ 						"tele-notices-copies"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0239-feat-copied-values-in-the-notification-centre.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0239-feat-copied-values-in-the-notification-centre.patch"
+ 				},
+ 				{
+ 					"number": 240,
+@@ -1285,7 +1274,7 @@
+ 					"options": [
+ 						"tele-known-settings"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0240-feat-what-s-new-as-a-settings-page-with-live-toggles.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0240-feat-what-s-new-as-a-settings-page-with-live-toggles.patch"
+ 				},
+ 				{
+ 					"number": 241,
+@@ -1295,7 +1284,7 @@
+ 					"options": [
+ 						"tele-silent-video-as"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0241-feat-choose-how-silent-videos-are-sent.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0241-feat-choose-how-silent-videos-are-sent.patch"
+ 				},
+ 				{
+ 					"number": 242,
+@@ -1305,7 +1294,7 @@
+ 					"options": [
+ 						"tele-trusted-app-links"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0242-feat-skip-the-mini-app-terms-box-for-trusted-apps.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0242-feat-skip-the-mini-app-terms-box-for-trusted-apps.patch"
+ 				},
+ 				{
+ 					"number": 243,
+@@ -1313,7 +1302,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0243-feat-live-previews-in-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0243-feat-live-previews-in-settings.patch"
+ 				},
+ 				{
+ 					"number": 244,
+@@ -1323,7 +1312,7 @@
+ 					"options": [
+ 						"tele-live-markdown"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0244-feat-markdown-renders-as-you-type.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0244-feat-markdown-renders-as-you-type.patch"
+ 				},
+ 				{
+ 					"number": 245,
+@@ -1333,7 +1322,7 @@
+ 					"options": [
+ 						"tele-notices-mentions"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0245-feat-reply-and-mention-badges-in-the-notification-ce.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0245-feat-reply-and-mention-badges-in-the-notification-ce.patch"
+ 				},
+ 				{
+ 					"number": 246,
+@@ -1341,7 +1330,7 @@
+ 					"where": "tele → profiles and ids",
+ 					"category": "profiles and ids",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0246-feat-open-anyone-s-gifts-in-the-gift-grid.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0246-feat-open-anyone-s-gifts-in-the-gift-grid.patch"
+ 				},
+ 				{
+ 					"number": 247,
+@@ -1352,7 +1341,7 @@
+ 						"tele-gift-studio-menu",
+ 						"tele-gift-studio-main-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0247-feat-rarity-tiers-and-pills-in-the-gift-studio.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0247-feat-rarity-tiers-and-pills-in-the-gift-studio.patch"
+ 				},
+ 				{
+ 					"number": 248,
+@@ -1362,15 +1351,15 @@
+ 					"options": [
+ 						"tele-webapps-no-fullscreen"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0248-feat-never-open-web-apps-in-fullscreen.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0248-feat-never-open-web-apps-in-fullscreen.patch"
+ 				}
+ 			]
+ 		},
+ 		{
+ 			"version": 15,
+-			"tag": "v7.3.3-tele.15",
++			"tag": "v7.4.0-tele.15",
+ 			"title": "tele 15",
+-			"url": "https://github.com/nitreojs/tele/releases/tag/v7.3.3-tele.15",
++			"url": "https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.15",
+ 			"items": [
+ 				{
+ 					"number": 201,
+@@ -1378,7 +1367,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0201-feat-gift-studio.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0201-feat-gift-studio.patch"
+ 				}
+ 			]
+ 		},
+@@ -1394,7 +1383,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0193-fix-show-oversized-stickers-as-files-like-the-server.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0193-fix-show-oversized-stickers-as-files-like-the-server.patch"
+ 				},
+ 				{
+ 					"number": 194,
+@@ -1402,7 +1391,7 @@
+ 					"where": "tele → debug, ctrl+alt+m",
+ 					"category": "debug",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0194-feat-mtproto-console.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0194-feat-mtproto-console.patch"
+ 				},
+ 				{
+ 					"number": 195,
+@@ -1412,7 +1401,7 @@
+ 					"options": [
+ 						"tele-show-dc"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0195-feat-show-the-media-s-data-center-in-the-media-viewe.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0195-feat-show-the-media-s-data-center-in-the-media-viewe.patch"
+ 				},
+ 				{
+ 					"number": 196,
+@@ -1423,7 +1412,7 @@
+ 						"tele-gift-studio-menu",
+ 						"tele-gift-studio-main-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0196-feat-gift-studio.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0196-feat-gift-studio.patch"
+ 				},
+ 				{
+ 					"number": 197,
+@@ -1433,7 +1422,7 @@
+ 					"options": [
+ 						"tele-gift-fake-upgrade"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0197-feat-fake-gift-upgrades.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0197-feat-fake-gift-upgrades.patch"
+ 				},
+ 				{
+ 					"number": 198,
+@@ -1443,7 +1432,7 @@
+ 					"options": [
+ 						"tele-rich-quote"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0198-feat-quote-rich-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0198-feat-quote-rich-messages.patch"
+ 				},
+ 				{
+ 					"number": 199,
+@@ -1451,7 +1440,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0199-feat-select-service-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0199-feat-select-service-messages.patch"
+ 				},
+ 				{
+ 					"number": 200,
+@@ -1459,7 +1448,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0200-fix-hide-the-upgraded-gift-s-number-and-model-until-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0200-fix-hide-the-upgraded-gift-s-number-and-model-until-.patch"
+ 				},
+ 				{
+ 					"number": 201,
+@@ -1467,7 +1456,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0201-feat-send-crash-reports-without-a-dump.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0201-feat-send-crash-reports-without-a-dump.patch"
+ 				},
+ 				{
+ 					"number": 202,
+@@ -1475,7 +1464,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0202-feat-report-freezes.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0202-feat-report-freezes.patch"
+ 				},
+ 				{
+ 					"number": 203,
+@@ -1483,7 +1472,7 @@
+ 					"where": "tele → profiles and ids",
+ 					"category": "profiles and ids",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0203-feat-gift-grid-builder.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0203-feat-gift-grid-builder.patch"
+ 				},
+ 				{
+ 					"number": 204,
+@@ -1495,7 +1484,7 @@
+ 						"tele-notices-limits",
+ 						"tele-notices-tele-toasts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0204-feat-notification-centre.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0204-feat-notification-centre.patch"
+ 				},
+ 				{
+ 					"number": 205,
+@@ -1505,7 +1494,7 @@
+ 					"options": [
+ 						"tele-notices-server"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0205-feat-server-notices.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0205-feat-server-notices.patch"
+ 				},
+ 				{
+ 					"number": 206,
+@@ -1513,7 +1502,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0206-feat-copy-a-gift-collection-s-link.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0206-feat-copy-a-gift-collection-s-link.patch"
+ 				}
+ 			]
+ 		},
+@@ -1532,7 +1521,7 @@
+ 						"tele-sticker-captions-show",
+ 						"tele-sticker-captions-send"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0174-feat-sticker-captions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0174-feat-sticker-captions.patch"
+ 				},
+ 				{
+ 					"number": 175,
+@@ -1542,7 +1531,7 @@
+ 					"options": [
+ 						"tele-calcmula-inline"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0175-feat-inline-calcmula-results-after.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0175-feat-inline-calcmula-results-after.patch"
+ 				},
+ 				{
+ 					"number": 176,
+@@ -1550,7 +1539,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0176-fix-stop-the-chat-list-repainting-while-idle.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0176-fix-stop-the-chat-list-repainting-while-idle.patch"
+ 				},
+ 				{
+ 					"number": 177,
+@@ -1558,7 +1547,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0177-fix-send-large-crash-dumps-zipped.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0177-fix-send-large-crash-dumps-zipped.patch"
+ 				},
+ 				{
+ 					"number": 178,
+@@ -1568,7 +1557,7 @@
+ 					"options": [
+ 						"tele-username-aliases"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0178-feat-copy-or-delete-aliases-from-their-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0178-feat-copy-or-delete-aliases-from-their-menu.patch"
+ 				},
+ 				{
+ 					"number": 179,
+@@ -1576,7 +1565,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0179-fix-userpics-in-compact-chat-list-rows.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0179-fix-userpics-in-compact-chat-list-rows.patch"
+ 				},
+ 				{
+ 					"number": 180,
+@@ -1586,7 +1575,7 @@
+ 					"options": [
+ 						"tele-full-chat-preview"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0180-feat-preview-chats-in-the-chat-area.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0180-feat-preview-chats-in-the-chat-area.patch"
+ 				},
+ 				{
+ 					"number": 181,
+@@ -1598,7 +1587,7 @@
+ 						"tele-keep-deleted-persist",
+ 						"tele-saved-history-period"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0181-feat-keep-deleted-messages-and-edit-history-after-a-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0181-feat-keep-deleted-messages-and-edit-history-after-a-.patch"
+ 				},
+ 				{
+ 					"number": 182,
+@@ -1606,7 +1595,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0182-fix-who-reacted-list-matches-the-reaction-count.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0182-fix-who-reacted-list-matches-the-reaction-count.patch"
+ 				},
+ 				{
+ 					"number": 183,
+@@ -1616,7 +1605,7 @@
+ 					"options": [
+ 						"tele-gift-quantity"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0183-feat-send-several-gifts-at-once.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0183-feat-send-several-gifts-at-once.patch"
+ 				},
+ 				{
+ 					"number": 184,
+@@ -1627,7 +1616,7 @@
+ 						"tele-gift-hidden-dim",
+ 						"tele-gift-select"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0184-feat-dim-hidden-gifts-and-select-several.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0184-feat-dim-hidden-gifts-and-select-several.patch"
+ 				},
+ 				{
+ 					"number": 185,
+@@ -1637,7 +1626,7 @@
+ 					"options": [
+ 						"tele-gift-search"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0185-feat-search-gifts.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0185-feat-search-gifts.patch"
+ 				},
+ 				{
+ 					"number": 186,
+@@ -1656,7 +1645,7 @@
+ 						"tele-local-password-paid-media",
+ 						"tele-local-password-subscriptions"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0186-feat-local-password-for-stars-and-gift-actions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0186-feat-local-password-for-stars-and-gift-actions.patch"
+ 				},
+ 				{
+ 					"number": 187,
+@@ -1664,7 +1653,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0187-fix-who-read-list-follows-the-read-state.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0187-fix-who-read-list-follows-the-read-state.patch"
+ 				},
+ 				{
+ 					"number": 188,
+@@ -1674,7 +1663,7 @@
+ 					"options": [
+ 						"tele-show-dc"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0188-fix-show-a-chat-s-data-center-from-its-first-photo.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0188-fix-show-a-chat-s-data-center-from-its-first-photo.patch"
+ 				},
+ 				{
+ 					"number": 189,
+@@ -1685,7 +1674,7 @@
+ 						"tele-gift-hidden-dim",
+ 						"tele-gift-select"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0189-feat-more-bulk-gift-actions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0189-feat-more-bulk-gift-actions.patch"
+ 				},
+ 				{
+ 					"number": 190,
+@@ -1695,7 +1684,7 @@
+ 					"options": [
+ 						"tele-list-keys"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0190-feat-page-keys-in-lists-and-safer-box-edges.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0190-feat-page-keys-in-lists-and-safer-box-edges.patch"
+ 				},
+ 				{
+ 					"number": 191,
+@@ -1705,7 +1694,7 @@
+ 					"options": [
+ 						"tele-stars-tools"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0191-feat-search-filter-and-export-star-transactions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0191-feat-search-filter-and-export-star-transactions.patch"
+ 				},
+ 				{
+ 					"number": 192,
+@@ -1715,7 +1704,7 @@
+ 					"options": [
+ 						"tele-list-dates"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0192-feat-filter-long-lists-by-date.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0192-feat-filter-long-lists-by-date.patch"
+ 				}
+ 			]
+ 		},
+@@ -1733,7 +1722,7 @@
+ 					"options": [
+ 						"tele-hide-gift-button"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0124-feat-hide-the-gift-button-in-the-message-field.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0124-feat-hide-the-gift-button-in-the-message-field.patch"
+ 				},
+ 				{
+ 					"number": 125,
+@@ -1744,7 +1733,7 @@
+ 						"tele-bookmarks",
+ 						"tele-return-point"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0125-feat-bookmark-messages-and-return-to-where-you-were-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0125-feat-bookmark-messages-and-return-to-where-you-were-.patch"
+ 				},
+ 				{
+ 					"number": 126,
+@@ -1754,7 +1743,7 @@
+ 					"options": [
+ 						"tele-pin-sets"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0126-feat-pin-sticker-and-emoji-sets.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0126-feat-pin-sticker-and-emoji-sets.patch"
+ 				},
+ 				{
+ 					"number": 127,
+@@ -1765,7 +1754,7 @@
+ 						"tele-silent-by-default",
+ 						"tele-silent-per-chat"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0127-feat-send-silently-by-default.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0127-feat-send-silently-by-default.patch"
+ 				},
+ 				{
+ 					"number": 128,
+@@ -1775,7 +1764,7 @@
+ 					"options": [
+ 						"tele-hide-list-previews"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0128-feat-hide-message-previews-in-the-chat-list.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0128-feat-hide-message-previews-in-the-chat-list.patch"
+ 				},
+ 				{
+ 					"number": 129,
+@@ -1788,7 +1777,7 @@
+ 						"tele-confirm-gifs",
+ 						"tele-confirm-voice"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0129-feat-confirm-stickers-gifs-and-voice-messages-before.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0129-feat-confirm-stickers-gifs-and-voice-messages-before.patch"
+ 				},
+ 				{
+ 					"number": 130,
+@@ -1800,7 +1789,7 @@
+ 						"tele-no-swipe-reply",
+ 						"tele-no-swipe-back"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0130-feat-turn-off-touchpad-gestures.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0130-feat-turn-off-touchpad-gestures.patch"
+ 				},
+ 				{
+ 					"number": 131,
+@@ -1812,7 +1801,7 @@
+ 						"tele-hide-similar-join",
+ 						"tele-hide-similar-profile"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0131-feat-hide-similar-channels.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0131-feat-hide-similar-channels.patch"
+ 				},
+ 				{
+ 					"number": 132,
+@@ -1826,7 +1815,7 @@
+ 						"tele-counter-skip-archive",
+ 						"tele-uncounted-accounts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0132-feat-hide-unread-counters.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0132-feat-hide-unread-counters.patch"
+ 				},
+ 				{
+ 					"number": 133,
+@@ -1834,7 +1823,7 @@
+ 					"where": "tele → chats, on",
+ 					"category": "chats",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0133-feat-hide-and-show-the-pinned-bar-from-the-chat-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0133-feat-hide-and-show-the-pinned-bar-from-the-chat-menu.patch"
+ 				},
+ 				{
+ 					"number": 134,
+@@ -1844,7 +1833,7 @@
+ 					"options": [
+ 						"tele-voice-no-fade"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0134-feat-record-voice-without-fading.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0134-feat-record-voice-without-fading.patch"
+ 				},
+ 				{
+ 					"number": 135,
+@@ -1852,7 +1841,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0135-fix-close-the-tele-chat-profile-card-after-a-resize.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0135-fix-close-the-tele-chat-profile-card-after-a-resize.patch"
+ 				},
+ 				{
+ 					"number": 136,
+@@ -1862,7 +1851,7 @@
+ 					"options": [
+ 						"tele-no-ai"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0136-feat-turn-off-ai-features.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0136-feat-turn-off-ai-features.patch"
+ 				},
+ 				{
+ 					"number": 137,
+@@ -1870,7 +1859,7 @@
+ 					"where": "tele → messages → open links in apps",
+ 					"category": "messages",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0137-feat-choose-the-map-service-for-locations.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0137-feat-choose-the-map-service-for-locations.patch"
+ 				},
+ 				{
+ 					"number": 138,
+@@ -1880,7 +1869,7 @@
+ 					"options": [
+ 						"tele-copy-markdown"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0138-feat-copy-messages-as-markdown-or-html.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0138-feat-copy-messages-as-markdown-or-html.patch"
+ 				},
+ 				{
+ 					"number": 139,
+@@ -1890,7 +1879,7 @@
+ 					"options": [
+ 						"tele-viewer-loop"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0139-feat-loop-videos-in-the-media-viewer.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0139-feat-loop-videos-in-the-media-viewer.patch"
+ 				},
+ 				{
+ 					"number": 140,
+@@ -1898,7 +1887,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0140-fix-count-typed-emoji-in-recent-emoji.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0140-fix-count-typed-emoji-in-recent-emoji.patch"
+ 				},
+ 				{
+ 					"number": 141,
+@@ -1908,7 +1897,7 @@
+ 					"options": [
+ 						"tele-code-line-numbers"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0141-feat-number-the-lines-of-long-code-blocks.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0141-feat-number-the-lines-of-long-code-blocks.patch"
+ 				},
+ 				{
+ 					"number": 142,
+@@ -1918,7 +1907,7 @@
+ 					"options": [
+ 						"tele-no-collectible-tooltip"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0142-feat-hide-the-collectible-status-tooltip-in-profiles.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0142-feat-hide-the-collectible-status-tooltip-in-profiles.patch"
+ 				},
+ 				{
+ 					"number": 143,
+@@ -1928,7 +1917,7 @@
+ 					"options": [
+ 						"tele-rewrite-preview-only"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0143-feat-rewrite-only-the-link-preview.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0143-feat-rewrite-only-the-link-preview.patch"
+ 				},
+ 				{
+ 					"number": 144,
+@@ -1938,7 +1927,7 @@
+ 					"options": [
+ 						"tele-rmb-beside-bubble"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0144-feat-open-the-message-menu-next-to-the-bubble.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0144-feat-open-the-message-menu-next-to-the-bubble.patch"
+ 				},
+ 				{
+ 					"number": 145,
+@@ -1946,7 +1935,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0145-fix-taller-shot-box-docked-shot-sending-and-a-center.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0145-fix-taller-shot-box-docked-shot-sending-and-a-center.patch"
+ 				},
+ 				{
+ 					"number": 146,
+@@ -1954,7 +1943,7 @@
+ 					"where": "tele → messages, on",
+ 					"category": "messages",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0146-feat-remember-when-your-messages-were-read.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0146-feat-remember-when-your-messages-were-read.patch"
+ 				},
+ 				{
+ 					"number": 147,
+@@ -1964,7 +1953,7 @@
+ 					"options": [
+ 						"tele-calcmula-preview"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0147-feat-calcmula-suggestions-and-sending-without-calcul.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0147-feat-calcmula-suggestions-and-sending-without-calcul.patch"
+ 				},
+ 				{
+ 					"number": 148,
+@@ -1974,7 +1963,7 @@
+ 					"options": [
+ 						"tele-view-as-tl"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0148-feat-open-view-as-tl-inside-tele.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0148-feat-open-view-as-tl-inside-tele.patch"
+ 				},
+ 				{
+ 					"number": 149,
+@@ -1984,7 +1973,7 @@
+ 					"options": [
+ 						"tele-title-build-hash"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0149-feat-make-build-the-bare-build-number.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0149-feat-make-build-the-bare-build-number.patch"
+ 				},
+ 				{
+ 					"number": 150,
+@@ -1996,7 +1985,7 @@
+ 						"tele-keep-deleted-saved",
+ 						"tele-keep-deleted-own"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0150-feat-choose-which-deleted-messages-to-keep.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0150-feat-choose-which-deleted-messages-to-keep.patch"
+ 				},
+ 				{
+ 					"number": 151,
+@@ -2006,7 +1995,7 @@
+ 					"options": [
+ 						"tele-scale-1"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0151-feat-interface-scale-in-1-steps.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0151-feat-interface-scale-in-1-steps.patch"
+ 				},
+ 				{
+ 					"number": 152,
+@@ -2014,7 +2003,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0152-fix-send-mkv-files-as-videos.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0152-fix-send-mkv-files-as-videos.patch"
+ 				},
+ 				{
+ 					"number": 153,
+@@ -2025,7 +2014,7 @@
+ 						"tele-reduce-motion",
+ 						"tele-reduce-motion-saved"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0153-feat-reduce-motion.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0153-feat-reduce-motion.patch"
+ 				},
+ 				{
+ 					"number": 154,
+@@ -2035,7 +2024,7 @@
+ 					"options": [
+ 						"tele-online-notify"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0154-feat-notify-when-people-come-online.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0154-feat-notify-when-people-come-online.patch"
+ 				},
+ 				{
+ 					"number": 155,
+@@ -2043,7 +2032,7 @@
+ 					"where": "tele → notifications, on",
+ 					"category": "notifications",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0155-feat-mute-folders-and-silence-chats-completely.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0155-feat-mute-folders-and-silence-chats-completely.patch"
+ 				},
+ 				{
+ 					"number": 156,
+@@ -2051,7 +2040,7 @@
+ 					"where": "tele → sending, on",
+ 					"category": "sending",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0156-feat-send-an-audio-file-as-a-voice-message.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0156-feat-send-an-audio-file-as-a-voice-message.patch"
+ 				},
+ 				{
+ 					"number": 157,
+@@ -2061,7 +2050,7 @@
+ 					"options": [
+ 						"tele-downloads-per-chat"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0157-feat-download-folders-per-chat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0157-feat-download-folders-per-chat.patch"
+ 				},
+ 				{
+ 					"number": 158,
+@@ -2072,7 +2061,7 @@
+ 						"tele-resizable-field",
+ 						"tele-field-height"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0158-feat-resize-the-message-field.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0158-feat-resize-the-message-field.patch"
+ 				},
+ 				{
+ 					"number": 159,
+@@ -2083,7 +2072,7 @@
+ 						"tele-streamer-mode",
+ 						"tele-streamer-mode-in-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0159-feat-streamer-mode.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0159-feat-streamer-mode.patch"
+ 				},
+ 				{
+ 					"number": 160,
+@@ -2093,7 +2082,7 @@
+ 					"options": [
+ 						"tele-translate-out-to"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0160-feat-translate-your-message-before-sending.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0160-feat-translate-your-message-before-sending.patch"
+ 				},
+ 				{
+ 					"number": 161,
+@@ -2103,7 +2092,7 @@
+ 					"options": [
+ 						"tele-unsorted-folder"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0161-feat-unsorted-folder.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0161-feat-unsorted-folder.patch"
+ 				},
+ 				{
+ 					"number": 162,
+@@ -2111,7 +2100,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0162-fix-gif-frame-timing-and-same-name-downloads.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0162-fix-gif-frame-timing-and-same-name-downloads.patch"
+ 				},
+ 				{
+ 					"number": 163,
+@@ -2121,7 +2110,7 @@
+ 					"options": [
+ 						"tele-media-past-limit"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0163-feat-keep-saved-gifs-and-stickers-past-the-limit.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0163-feat-keep-saved-gifs-and-stickers-past-the-limit.patch"
+ 				},
+ 				{
+ 					"number": 164,
+@@ -2131,7 +2120,7 @@
+ 					"options": [
+ 						"tele-select-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0164-feat-select-several-chats-in-the-list.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0164-feat-select-several-chats-in-the-list.patch"
+ 				},
+ 				{
+ 					"number": 165,
+@@ -2141,7 +2130,7 @@
+ 					"options": [
+ 						"tele-hidden-words"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0165-feat-hide-messages-by-keyword-or-regex.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0165-feat-hide-messages-by-keyword-or-regex.patch"
+ 				},
+ 				{
+ 					"number": 166,
+@@ -2166,7 +2155,7 @@
+ 						"tele-drafts-menu",
+ 						"tele-counter-accounts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0166-fix-show-tele-menu-items-only-when-their-feature-is-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0166-fix-show-tele-menu-items-only-when-their-feature-is-.patch"
+ 				},
+ 				{
+ 					"number": 167,
+@@ -2176,7 +2165,7 @@
+ 					"options": [
+ 						"tele-regex-search"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0167-feat-regex-search-in-loaded-history.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0167-feat-regex-search-in-loaded-history.patch"
+ 				},
+ 				{
+ 					"number": 168,
+@@ -2184,7 +2173,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0168-feat-regroup-tele-settings-pages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0168-feat-regroup-tele-settings-pages.patch"
+ 				},
+ 				{
+ 					"number": 169,
+@@ -2192,7 +2181,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0169-feat-collapsible-sub-toggles-in-tele-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0169-feat-collapsible-sub-toggles-in-tele-settings.patch"
+ 				},
+ 				{
+ 					"number": 170,
+@@ -2203,7 +2192,7 @@
+ 						"tele-menu-layouts",
+ 						"tele-message-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0170-feat-rearrange-menus-with-groups-and-submenus-in-a-m.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0170-feat-rearrange-menus-with-groups-and-submenus-in-a-m.patch"
+ 				},
+ 				{
+ 					"number": 171,
+@@ -2213,7 +2202,7 @@
+ 					"options": [
+ 						"tele-hide-phone-in-profile"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0171-feat-hide-phone-numbers-in-profiles.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0171-feat-hide-phone-numbers-in-profiles.patch"
+ 				},
+ 				{
+ 					"number": 172,
+@@ -2223,7 +2212,7 @@
+ 					"options": [
+ 						"tele-deleted-quote-name"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0172-feat-choose-how-quoted-names-of-deleted-messages-lin.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0172-feat-choose-how-quoted-names-of-deleted-messages-lin.patch"
+ 				},
+ 				{
+ 					"number": 173,
+@@ -2231,7 +2220,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0173-fix-land-the-send-animation-where-the-message-really.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0173-fix-land-the-send-animation-where-the-message-really.patch"
+ 				}
+ 			]
+ 		},
+@@ -2243,14 +2232,14 @@
+ 			"items": [
+ 				{
+ 					"number": 106,
+-					"text": "attach media above the input field instead of in a full-window box: reorder, remove, group or send as files right there, edit photos, see the album as a grid, and the unsent media stays in the chat. attached media above the field get a caption each and everything the send box has: self-destruct timer, caption above, hd, price, effects and the send menu. they can be saved as drafts, which keep video edits and price, and an edited draft video says its edits apply when sent.",
++					"text": "attach media above the input field instead of in a full-window box: reorder, remove, group or send as files right there, edit photos, see the album as a grid, and the unsent media stays in the chat. attached media above the field get a caption each and everything the send box has: self-destruct timer, caption above, hd, price, effects and the send menu. they can be saved as drafts, which keep video edits and price, and an edited draft video says its edits apply when sent",
+ 					"where": "tele → sending, off",
+ 					"category": "sending",
+ 					"options": [
+ 						"tele-docked-attachments",
+ 						"tele-docked-grid"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0106-feat-attach-media-above-the-field-beta.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0106-feat-attach-media-above-the-field-beta.patch"
+ 				},
+ 				{
+ 					"number": 107,
+@@ -2258,7 +2247,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0107-fix-show-server-badges-on-the-personal-channel-in-pr.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0107-fix-show-server-badges-on-the-personal-channel-in-pr.patch"
+ 				},
+ 				{
+ 					"number": 108,
+@@ -2266,7 +2255,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0108-fix-explain-a-missing-changelog-instead-of-doing-not.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0108-fix-explain-a-missing-changelog-instead-of-doing-not.patch"
+ 				},
+ 				{
+ 					"number": 109,
+@@ -2276,7 +2265,7 @@
+ 					"options": [
+ 						"tele-known-settings"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0109-feat-show-new-settings-after-an-update.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0109-feat-show-new-settings-after-an-update.patch"
+ 				},
+ 				{
+ 					"number": 110,
+@@ -2286,7 +2275,7 @@
+ 					"options": [
+ 						"tele-allow-screen-capture"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0110-feat-never-block-screen-capture.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0110-feat-never-block-screen-capture.patch"
+ 				},
+ 				{
+ 					"number": 111,
+@@ -2296,7 +2285,7 @@
+ 					"options": [
+ 						"tele-shot-view"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0111-feat-choose-what-shots-show.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0111-feat-choose-what-shots-show.patch"
+ 				},
+ 				{
+ 					"number": 112,
+@@ -2304,7 +2293,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0112-fix-trim-settings-descriptions.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0112-fix-trim-settings-descriptions.patch"
+ 				},
+ 				{
+ 					"number": 113,
+@@ -2314,7 +2303,7 @@
+ 					"options": [
+ 						"tele-copy-protected"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0113-feat-forward-protected-messages-as-copies.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0113-feat-forward-protected-messages-as-copies.patch"
+ 				},
+ 				{
+ 					"number": 114,
+@@ -2322,7 +2311,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0114-fix-stop-videos-at-their-end.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0114-fix-stop-videos-at-their-end.patch"
+ 				},
+ 				{
+ 					"number": 115,
+@@ -2330,7 +2319,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0115-feat-hide-settings-until-their-parent-is-on.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0115-feat-hide-settings-until-their-parent-is-on.patch"
+ 				},
+ 				{
+ 					"number": 116,
+@@ -2340,7 +2329,7 @@
+ 					"options": [
+ 						"tele-hide-communities"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0116-feat-hide-communities.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0116-feat-hide-communities.patch"
+ 				},
+ 				{
+ 					"number": 117,
+@@ -2350,7 +2339,7 @@
+ 					"options": [
+ 						"tele-send-older-replies"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0117-feat-send-replies-to-older-messages-past-the-queue.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0117-feat-send-replies-to-older-messages-past-the-queue.patch"
+ 				},
+ 				{
+ 					"number": 118,
+@@ -2360,7 +2349,7 @@
+ 					"options": [
+ 						"tele-double-enter-send"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0118-feat-send-right-away-on-double-enter.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0118-feat-send-right-away-on-double-enter.patch"
+ 				},
+ 				{
+ 					"number": 119,
+@@ -2368,7 +2357,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0119-feat-regroup-the-sending-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0119-feat-regroup-the-sending-settings.patch"
+ 				},
+ 				{
+ 					"number": 120,
+@@ -2378,7 +2367,7 @@
+ 					"options": [
+ 						"tele-username-aliases"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0120-feat-use-aliases-for-inline-bots.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0120-feat-use-aliases-for-inline-bots.patch"
+ 				},
+ 				{
+ 					"number": 121,
+@@ -2389,7 +2378,7 @@
+ 						"tele-hide-mentions-button",
+ 						"tele-hide-reactions-button"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0121-feat-hide-mention-and-reaction-badges-in-the-chat-li.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0121-feat-hide-mention-and-reaction-badges-in-the-chat-li.patch"
+ 				},
+ 				{
+ 					"number": 122,
+@@ -2399,7 +2388,7 @@
+ 					"options": [
+ 						"tele-local-pins"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0122-feat-pin-chats-past-the-limit.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0122-feat-pin-chats-past-the-limit.patch"
+ 				},
+ 				{
+ 					"number": 123,
+@@ -2409,7 +2398,7 @@
+ 					"options": [
+ 						"tele-local-folders"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0123-feat-folders-past-the-limit.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0123-feat-folders-past-the-limit.patch"
+ 				}
+ 			]
+ 		},
+@@ -2427,7 +2416,7 @@
+ 					"options": [
+ 						"tele-chat-list-no-reorder-animation"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0081-feat-move-chats-instantly-in-the-chat-list.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0081-feat-move-chats-instantly-in-the-chat-list.patch"
+ 				},
+ 				{
+ 					"number": 82,
+@@ -2437,7 +2426,7 @@
+ 					"options": [
+ 						"tele-nft-purchase-price"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0082-feat-show-collectible-prices-at-the-purchase-date.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0082-feat-show-collectible-prices-at-the-purchase-date.patch"
+ 				},
+ 				{
+ 					"number": 83,
+@@ -2448,7 +2437,7 @@
+ 						"tele-app-icon",
+ 						"tele-tray-icon"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0083-feat-set-your-own-app-and-tray-icons.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0083-feat-set-your-own-app-and-tray-icons.patch"
+ 				},
+ 				{
+ 					"number": 84,
+@@ -2458,7 +2447,7 @@
+ 					"options": [
+ 						"tele-link-previews"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0084-feat-choose-when-links-get-previews-and-set-your-own.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0084-feat-choose-when-links-get-previews-and-set-your-own.patch"
+ 				},
+ 				{
+ 					"number": 85,
+@@ -2466,7 +2455,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0085-feat-turn-username-into-a-t.me-link-in-the-link-box.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0085-feat-turn-username-into-a-t.me-link-in-the-link-box.patch"
+ 				},
+ 				{
+ 					"number": 86,
+@@ -2476,7 +2465,7 @@
+ 					"options": [
+ 						"tele-shot"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0086-feat-save-messages-as-a-picture.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0086-feat-save-messages-as-a-picture.patch"
+ 				},
+ 				{
+ 					"number": 87,
+@@ -2484,15 +2473,15 @@
+ 					"where": "tele → debug",
+ 					"category": "debug",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0087-feat-debug-logs-and-an-mtproto-inspector.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0087-feat-debug-logs-and-an-mtproto-inspector.patch"
+ 				},
+ 				{
+ 					"number": 88,
+-					"text": "tele's own app and tray icons",
++					"text": "tele's own app and tray icons. the telegram service chat shows telegram's logo until its photo loads, not tele's icon",
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0088-feat-new-tele-app-and-tray-icons.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0088-feat-new-tele-app-and-tray-icons.patch"
+ 				},
+ 				{
+ 					"number": 89,
+@@ -2500,7 +2489,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0089-fix-name-the-item-Copy-Callback-Data-like-telegram-d.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0089-fix-name-the-item-Copy-Callback-Data-like-telegram-d.patch"
+ 				},
+ 				{
+ 					"number": 90,
+@@ -2510,7 +2499,7 @@
+ 					"options": [
+ 						"tele-server-usernames"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0090-feat-usernames-from-the-tele-server.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0090-feat-usernames-from-the-tele-server.patch"
+ 				},
+ 				{
+ 					"number": 91,
+@@ -2518,7 +2507,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0091-fix-open-custom-emoji-in-rich-and-emoji-only-message.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0091-fix-open-custom-emoji-in-rich-and-emoji-only-message.patch"
+ 				},
+ 				{
+ 					"number": 92,
+@@ -2526,7 +2515,7 @@
+ 					"where": "tele → sending, on",
+ 					"category": "sending",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0092-feat-send-gifs-as-videos-and-videos-as-gifs.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0092-feat-send-gifs-as-videos-and-videos-as-gifs.patch"
+ 				},
+ 				{
+ 					"number": 93,
+@@ -2536,7 +2525,7 @@
+ 					"options": [
+ 						"tele-local-drafts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0093-feat-keep-drafts-on-this-device.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0093-feat-keep-drafts-on-this-device.patch"
+ 				},
+ 				{
+ 					"number": 94,
+@@ -2546,7 +2535,7 @@
+ 					"options": [
+ 						"tele-punctual-scheduled"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0094-feat-send-scheduled-messages-on-time.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0094-feat-send-scheduled-messages-on-time.patch"
+ 				},
+ 				{
+ 					"number": 95,
+@@ -2556,7 +2545,7 @@
+ 					"options": [
+ 						"tele-merge-id-dc"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0095-feat-show-id-and-dc-in-one-row.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0095-feat-show-id-and-dc-in-one-row.patch"
+ 				},
+ 				{
+ 					"number": 96,
+@@ -2566,7 +2555,7 @@
+ 					"options": [
+ 						"tele-title"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0096-feat-redesign-the-title-template-editor.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0096-feat-redesign-the-title-template-editor.patch"
+ 				},
+ 				{
+ 					"number": 97,
+@@ -2574,7 +2563,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0097-fix-ignore-reply-counters-on-scheduled-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0097-fix-ignore-reply-counters-on-scheduled-messages.patch"
+ 				},
+ 				{
+ 					"number": 98,
+@@ -2582,7 +2571,7 @@
+ 					"where": "tele → sending → drafts",
+ 					"category": "sending",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0098-feat-save-drafts-for-later.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0098-feat-save-drafts-for-later.patch"
+ 				},
+ 				{
+ 					"number": 99,
+@@ -2592,7 +2581,7 @@
+ 					"options": [
+ 						"tele-hd-photos"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0099-feat-send-photos-in-hd-by-default.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0099-feat-send-photos-in-hd-by-default.patch"
+ 				},
+ 				{
+ 					"number": 100,
+@@ -2602,7 +2591,7 @@
+ 					"options": [
+ 						"tele-username-aliases"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0100-feat-find-chats-by-their-aliases.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0100-feat-find-chats-by-their-aliases.patch"
+ 				},
+ 				{
+ 					"number": 101,
+@@ -2610,7 +2599,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0101-fix-show-seen-and-reacted-counts-separately.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0101-fix-show-seen-and-reacted-counts-separately.patch"
+ 				},
+ 				{
+ 					"number": 102,
+@@ -2618,7 +2607,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0102-feat-send-an-inline-bot-query-as-text.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0102-feat-send-an-inline-bot-query-as-text.patch"
+ 				},
+ 				{
+ 					"number": 103,
+@@ -2628,7 +2617,7 @@
+ 					"options": [
+ 						"tele-app-links"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0103-feat-choose-which-app-opens-each-service.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0103-feat-choose-which-app-opens-each-service.patch"
+ 				},
+ 				{
+ 					"number": 104,
+@@ -2638,7 +2627,7 @@
+ 					"options": [
+ 						"tele-shot"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0104-feat-scale-shots-up-to-4x-and-show-your-messages-as-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0104-feat-scale-shots-up-to-4x-and-show-your-messages-as-.patch"
+ 				},
+ 				{
+ 					"number": 105,
+@@ -2646,7 +2635,7 @@
+ 					"where": "tele → backup",
+ 					"category": "backup",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0105-feat-export-and-import-tele-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0105-feat-export-and-import-tele-settings.patch"
+ 				}
+ 			]
+ 		},
+@@ -2665,7 +2654,7 @@
+ 						"tele-keep-deleted",
+ 						"tele-deleted-icon"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0057-feat-keep-messages-you-delete-yourself.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0057-feat-keep-messages-you-delete-yourself.patch"
+ 				},
+ 				{
+ 					"number": 58,
+@@ -2673,7 +2662,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0058-feat-show-server-and-updates-on-the-tele-settings-pa.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0058-feat-show-server-and-updates-on-the-tele-settings-pa.patch"
+ 				},
+ 				{
+ 					"number": 59,
+@@ -2681,7 +2670,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0059-feat-pick-brush-colors-from-the-image.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0059-feat-pick-brush-colors-from-the-image.patch"
+ 				},
+ 				{
+ 					"number": 60,
+@@ -2691,7 +2680,7 @@
+ 					"options": [
+ 						"tele-edit-history"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0060-feat-show-edit-history-as-a-chat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0060-feat-show-edit-history-as-a-chat.patch"
+ 				},
+ 				{
+ 					"number": 61,
+@@ -2702,7 +2691,7 @@
+ 						"tele-call-button",
+ 						"tele-group-call-button"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0061-feat-hide-or-confirm-call-and-voice-chat-buttons.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0061-feat-hide-or-confirm-call-and-voice-chat-buttons.patch"
+ 				},
+ 				{
+ 					"number": 62,
+@@ -2710,7 +2699,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0062-feat-group-the-tele-interface-and-profile-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0062-feat-group-the-tele-interface-and-profile-settings.patch"
+ 				},
+ 				{
+ 					"number": 63,
+@@ -2720,7 +2709,7 @@
+ 					"options": [
+ 						"tele-ghost-in-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0063-feat-more-ghost-mode-options.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0063-feat-more-ghost-mode-options.patch"
+ 				},
+ 				{
+ 					"number": 64,
+@@ -2730,7 +2719,7 @@
+ 					"options": [
+ 						"tele-show-regular-gift-ids"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0064-feat-show-ids-on-regular-gifts.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0064-feat-show-ids-on-regular-gifts.patch"
+ 				},
+ 				{
+ 					"number": 65,
+@@ -2740,7 +2729,7 @@
+ 					"options": [
+ 						"tele-inline-without-via"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0065-feat-send-inline-results-without-via.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0065-feat-send-inline-results-without-via.patch"
+ 				},
+ 				{
+ 					"number": 66,
+@@ -2750,7 +2739,7 @@
+ 					"options": [
+ 						"tele-no-rich-paste-prompt"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0066-feat-skip-the-rich-message-prompt-on-paste.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0066-feat-skip-the-rich-message-prompt-on-paste.patch"
+ 				},
+ 				{
+ 					"number": 67,
+@@ -2760,7 +2749,7 @@
+ 					"options": [
+ 						"tele-chat-backgrounds"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0067-feat-set-or-remove-chat-backgrounds-only-for-you.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0067-feat-set-or-remove-chat-backgrounds-only-for-you.patch"
+ 				},
+ 				{
+ 					"number": 68,
+@@ -2770,7 +2759,7 @@
+ 					"options": [
+ 						"tele-deleted-reply"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0068-feat-skip-or-quote-deleted-messages-when-replying.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0068-feat-skip-or-quote-deleted-messages-when-replying.patch"
+ 				},
+ 				{
+ 					"number": 69,
+@@ -2778,7 +2767,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0069-feat-add-test-server-accounts-with-a-plain-right-cli.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0069-feat-add-test-server-accounts-with-a-plain-right-cli.patch"
+ 				},
+ 				{
+ 					"number": 70,
+@@ -2788,7 +2777,7 @@
+ 					"options": [
+ 						"tele-username-aliases"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0070-feat-link-usernames-to-profiles-locally.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0070-feat-link-usernames-to-profiles-locally.patch"
+ 				},
+ 				{
+ 					"number": 71,
+@@ -2799,7 +2788,7 @@
+ 						"tele-hide-mentions-button",
+ 						"tele-hide-reactions-button"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0071-feat-hide-the-mentions-and-reactions-buttons.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0071-feat-hide-the-mentions-and-reactions-buttons.patch"
+ 				},
+ 				{
+ 					"number": 72,
+@@ -2807,7 +2796,7 @@
+ 					"where": "tele → privacy",
+ 					"category": "privacy",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0072-feat-pick-ignored-users-and-ghost-chats-like-privacy.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0072-feat-pick-ignored-users-and-ghost-chats-like-privacy.patch"
+ 				},
+ 				{
+ 					"number": 73,
+@@ -2817,7 +2806,7 @@
+ 					"options": [
+ 						"tele-changelog-accounts"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0073-feat-show-what-s-new-in-a-local-tele-chat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0073-feat-show-what-s-new-in-a-local-tele-chat.patch"
+ 				},
+ 				{
+ 					"number": 74,
+@@ -2827,7 +2816,7 @@
+ 					"options": [
+ 						"tele-no-phone-in-header"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0074-feat-show-names-instead-of-phone-numbers-in-chat-hea.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0074-feat-show-names-instead-of-phone-numbers-in-chat-hea.patch"
+ 				},
+ 				{
+ 					"number": 75,
+@@ -2838,7 +2827,7 @@
+ 						"tele-emoji-panel-click",
+ 						"tele-attach-menu-click"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0075-feat-open-the-emoji-panel-and-attach-menu-by-click-o.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0075-feat-open-the-emoji-panel-and-attach-menu-by-click-o.patch"
+ 				},
+ 				{
+ 					"number": 76,
+@@ -2848,7 +2837,7 @@
+ 					"options": [
+ 						"tele-link-rewrites"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0076-feat-rewrite-pasted-links-with-your-own-rules.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0076-feat-rewrite-pasted-links-with-your-own-rules.patch"
+ 				},
+ 				{
+ 					"number": 77,
+@@ -2858,7 +2847,7 @@
+ 					"options": [
+ 						"tele-local-names"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0077-feat-name-people-only-for-you.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0077-feat-name-people-only-for-you.patch"
+ 				},
+ 				{
+ 					"number": 78,
+@@ -2866,7 +2855,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0078-feat-add-launch-flags-to-turn-off-tele-s-own-network.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0078-feat-add-launch-flags-to-turn-off-tele-s-own-network.patch"
+ 				},
+ 				{
+ 					"number": 79,
+@@ -2876,7 +2865,7 @@
+ 					"options": [
+ 						"tele-calcmula-preview"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0079-feat-preview-calcmula-results-while-typing.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0079-feat-preview-calcmula-results-while-typing.patch"
+ 				},
+ 				{
+ 					"number": 80,
+@@ -2884,7 +2873,7 @@
+ 					"where": "tele → server → clear cached data",
+ 					"category": "server",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0080-feat-clear-server-data-and-explain-custom-verificati.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0080-feat-clear-server-data-and-explain-custom-verificati.patch"
+ 				}
+ 			]
+ 		},
+@@ -2903,7 +2892,7 @@
+ 						"tele-static-userpics-list",
+ 						"tele-static-userpics-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0037-feat-turn-off-animated-userpics.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0037-feat-turn-off-animated-userpics.patch"
+ 				},
+ 				{
+ 					"number": 38,
+@@ -2914,7 +2903,7 @@
+ 						"tele-show-changelog",
+ 						"tele-changelog-shown"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0038-feat-show-what-s-new-in-tele-after-an-update.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0038-feat-show-what-s-new-in-tele-after-an-update.patch"
+ 				},
+ 				{
+ 					"number": 39,
+@@ -2922,7 +2911,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0039-feat-call-the-app-tele-everywhere.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0039-feat-call-the-app-tele-everywhere.patch"
+ 				},
+ 				{
+ 					"number": 40,
+@@ -2932,7 +2921,7 @@
+ 					"options": [
+ 						"tele-window-title"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0040-feat-customize-the-window-title-and-format-template-.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0040-feat-customize-the-window-title-and-format-template-.patch"
+ 				},
+ 				{
+ 					"number": 41,
+@@ -2940,7 +2929,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0041-feat-group-and-search-tele-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0041-feat-group-and-search-tele-settings.patch"
+ 				},
+ 				{
+ 					"number": 42,
+@@ -2950,7 +2939,7 @@
+ 					"options": [
+ 						"tele-parallel-uploads"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0042-feat-upload-media-in-several-chats-at-once.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0042-feat-upload-media-in-several-chats-at-once.patch"
+ 				},
+ 				{
+ 					"number": 43,
+@@ -2958,7 +2947,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0043-feat-reply-timestamps-for-media-in-rich-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0043-feat-reply-timestamps-for-media-in-rich-messages.patch"
+ 				},
+ 				{
+ 					"number": 44,
+@@ -2968,7 +2957,7 @@
+ 					"options": [
+ 						"tele-calcmula"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0044-feat-compute-messages-starting-with-via-calcmula.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0044-feat-compute-messages-starting-with-via-calcmula.patch"
+ 				},
+ 				{
+ 					"number": 45,
+@@ -2976,7 +2965,7 @@
+ 					"where": "tele → profiles and ids",
+ 					"category": "profiles and ids",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0045-feat-move-show-peer-ids-into-tele-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0045-feat-move-show-peer-ids-into-tele-settings.patch"
+ 				},
+ 				{
+ 					"number": 46,
+@@ -2984,7 +2973,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0046-feat-show-the-tele-build-in-the-main-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0046-feat-show-the-tele-build-in-the-main-menu.patch"
+ 				},
+ 				{
+ 					"number": 47,
+@@ -2994,7 +2983,7 @@
+ 					"options": [
+ 						"tele-seetg-button"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0047-feat-open-collectible-gifts-in-see.tg.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0047-feat-open-collectible-gifts-in-see.tg.patch"
+ 				},
+ 				{
+ 					"number": 48,
+@@ -3004,7 +2993,7 @@
+ 					"options": [
+ 						"tele-sent-to-bottom"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0048-feat-move-late-sent-messages-to-the-bottom.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0048-feat-move-late-sent-messages-to-the-bottom.patch"
+ 				},
+ 				{
+ 					"number": 49,
+@@ -3014,7 +3003,7 @@
+ 					"options": [
+ 						"tele-queue-behind-media"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0049-feat-queue-messages-behind-an-uploading-media.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0049-feat-queue-messages-behind-an-uploading-media.patch"
+ 				},
+ 				{
+ 					"number": 50,
+@@ -3024,7 +3013,7 @@
+ 					"options": [
+ 						"tele-open-links-in-apps"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0050-feat-open-links-in-their-desktop-apps.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0050-feat-open-links-in-their-desktop-apps.patch"
+ 				},
+ 				{
+ 					"number": 51,
+@@ -3035,7 +3024,7 @@
+ 						"tele-clean-opened-links",
+ 						"tele-clean-sent-links"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0051-feat-clean-tracking-parameters-from-links.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0051-feat-clean-tracking-parameters-from-links.patch"
+ 				},
+ 				{
+ 					"number": 52,
+@@ -3045,7 +3034,7 @@
+ 					"options": [
+ 						"tele-reveal-spoilers"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0052-feat-reveal-spoilers-automatically.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0052-feat-reveal-spoilers-automatically.patch"
+ 				},
+ 				{
+ 					"number": 53,
+@@ -3053,7 +3042,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0053-feat-move-tele-tools-to-the-bottom-of-the-message-me.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0053-feat-move-tele-tools-to-the-bottom-of-the-message-me.patch"
+ 				},
+ 				{
+ 					"number": 54,
+@@ -3063,7 +3052,7 @@
+ 					"options": [
+ 						"tele-copy-emoji-id"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0054-feat-copy-custom-emoji-ids-from-the-message-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0054-feat-copy-custom-emoji-ids-from-the-message-menu.patch"
+ 				},
+ 				{
+ 					"number": 55,
+@@ -3071,7 +3060,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0055-fix-change-the-speed-instead-of-moving-the-media-vie.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0055-fix-change-the-speed-instead-of-moving-the-media-vie.patch"
+ 				},
+ 				{
+ 					"number": 56,
+@@ -3081,7 +3070,7 @@
+ 					"options": [
+ 						"tele-message-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0056-feat-reorder-and-hide-message-menu-items.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0056-feat-reorder-and-hide-message-menu-items.patch"
+ 				}
+ 			]
+ 		},
+@@ -3099,7 +3088,7 @@
+ 					"options": [
+ 						"tele-message-seconds"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0017-feat-show-seconds-in-message-times.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0017-feat-show-seconds-in-message-times.patch"
+ 				},
+ 				{
+ 					"number": 18,
+@@ -3109,7 +3098,7 @@
+ 					"options": [
+ 						"tele-edit-history"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0018-feat-keep-the-edit-history-of-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0018-feat-keep-the-edit-history-of-messages.patch"
+ 				},
+ 				{
+ 					"number": 19,
+@@ -3120,7 +3109,7 @@
+ 						"tele-keep-deleted",
+ 						"tele-deleted-icon"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0019-feat-keep-deleted-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0019-feat-keep-deleted-messages.patch"
+ 				},
+ 				{
+ 					"number": 20,
+@@ -3128,7 +3117,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0020-fix-fade-every-unsupported-experimental-option.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0020-fix-fade-every-unsupported-experimental-option.patch"
+ 				},
+ 				{
+ 					"number": 21,
+@@ -3138,7 +3127,7 @@
+ 					"options": [
+ 						"tele-hide-calls"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0021-feat-hide-call-buttons.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0021-feat-hide-call-buttons.patch"
+ 				},
+ 				{
+ 					"number": 22,
+@@ -3148,7 +3137,7 @@
+ 					"options": [
+ 						"tele-lowercase"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0022-feat-lowercase-every-interface-text.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0022-feat-lowercase-every-interface-text.patch"
+ 				},
+ 				{
+ 					"number": 23,
+@@ -3158,7 +3147,7 @@
+ 					"options": [
+ 						"tele-show-dc"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0023-feat-show-the-data-center-in-profiles.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0023-feat-show-the-data-center-in-profiles.patch"
+ 				},
+ 				{
+ 					"number": 24,
+@@ -3168,7 +3157,7 @@
+ 					"options": [
+ 						"tele-hide-sponsored"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0024-feat-hide-sponsored-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0024-feat-hide-sponsored-messages.patch"
+ 				},
+ 				{
+ 					"number": 25,
+@@ -3178,7 +3167,7 @@
+ 					"options": [
+ 						"tele-no-link-warning"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0025-feat-open-links-without-confirmation.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0025-feat-open-links-without-confirmation.patch"
+ 				},
+ 				{
+ 					"number": 26,
+@@ -3188,7 +3177,7 @@
+ 					"options": [
+ 						"tele-keep-secret-media"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0026-feat-open-disappearing-media-without-burning-it.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0026-feat-open-disappearing-media-without-burning-it.patch"
+ 				},
+ 				{
+ 					"number": 27,
+@@ -3198,7 +3187,7 @@
+ 					"options": [
+ 						"tele-screenshot-secret-media"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0027-feat-allow-screenshots-of-disappearing-media.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0027-feat-allow-screenshots-of-disappearing-media.patch"
+ 				},
+ 				{
+ 					"number": 28,
+@@ -3206,7 +3195,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0028-feat-copy-the-callback-data-of-bot-buttons.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0028-feat-copy-the-callback-data-of-bot-buttons.patch"
+ 				},
+ 				{
+ 					"number": 29,
+@@ -3216,7 +3205,7 @@
+ 					"options": [
+ 						"tele-message-id-menu"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0029-feat-show-the-message-id-in-the-message-menu.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0029-feat-show-the-message-id-in-the-message-menu.patch"
+ 				},
+ 				{
+ 					"number": 33,
+@@ -3226,7 +3215,7 @@
+ 					"options": [
+ 						"tele-view-as-tl"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0033-feat-view-messages-and-telegram-objects-as-tl.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0033-feat-view-messages-and-telegram-objects-as-tl.patch"
+ 				},
+ 				{
+ 					"number": 30,
+@@ -3236,7 +3225,7 @@
+ 					"options": [
+ 						"tele-hide-all-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0030-feat-hide-the-all-chats-folder.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0030-feat-hide-the-all-chats-folder.patch"
+ 				},
+ 				{
+ 					"number": 31,
+@@ -3246,7 +3235,7 @@
+ 					"options": [
+ 						"tele-jump-to-first"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0031-feat-jump-to-the-first-message-of-a-chat.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0031-feat-jump-to-the-first-message-of-a-chat.patch"
+ 				},
+ 				{
+ 					"number": 32,
+@@ -3263,7 +3252,7 @@
+ 						"tele-ghost-stories",
+ 						"tele-ghost-chats"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0032-feat-add-ghost-mode.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0032-feat-add-ghost-mode.patch"
+ 				},
+ 				{
+ 					"number": 34,
+@@ -3273,7 +3262,7 @@
+ 					"options": [
+ 						"tele-hide-proxy-sponsor"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0034-feat-hide-the-mtproxy-sponsor-channel.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0034-feat-hide-the-mtproxy-sponsor-channel.patch"
+ 				},
+ 				{
+ 					"number": 35,
+@@ -3283,7 +3272,7 @@
+ 					"options": [
+ 						"tele-lowercase"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0035-feat-lowercase-tele-s-own-texts-too.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0035-feat-lowercase-tele-s-own-texts-too.patch"
+ 				},
+ 				{
+ 					"number": 36,
+@@ -3291,7 +3280,7 @@
+ 					"where": "tele → server, on with the server",
+ 					"category": "server",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0036-feat-send-crash-reports-to-the-tele-server.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0036-feat-send-crash-reports-to-the-tele-server.patch"
+ 				}
+ 			]
+ 		},
+@@ -3309,7 +3298,7 @@
+ 					"options": [
+ 						"tele-show-gift-ids"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0013-feat-show-gift-ids.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0013-feat-show-gift-ids.patch"
+ 				},
+ 				{
+ 					"number": 14,
+@@ -3320,7 +3309,7 @@
+ 						"tele-peer-ids-without-spaces",
+ 						"tele-bot-api-peer-ids"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0014-feat-show-the-peer-id-as-its-own-profile-row.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0014-feat-show-the-peer-id-as-its-own-profile-row.patch"
+ 				},
+ 				{
+ 					"number": 15,
+@@ -3328,7 +3317,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0015-feat-copy-links-to-tele-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0015-feat-copy-links-to-tele-settings.patch"
+ 				},
+ 				{
+ 					"number": 16,
+@@ -3339,7 +3328,7 @@
+ 						"tele-hide-ignored",
+ 						"tele-ignored-users"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0016-feat-ignore-users-by-hiding-or-fading-their-messages.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0016-feat-ignore-users-by-hiding-or-fading-their-messages.patch"
+ 				}
+ 			]
+ 		},
+@@ -3357,7 +3346,7 @@
+ 					"options": [
+ 						"tele-group-quick-replies"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0008-feat-send-quick-replies-in-groups-and-channels.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0008-feat-send-quick-replies-in-groups-and-channels.patch"
+ 				},
+ 				{
+ 					"number": 9,
+@@ -3367,7 +3356,7 @@
+ 					"options": [
+ 						"tele-server-url"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0009-feat-apply-verification-and-marks-from-the-tele-serv.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0009-feat-apply-verification-and-marks-from-the-tele-serv.patch"
+ 				},
+ 				{
+ 					"number": 10,
+@@ -3377,7 +3366,7 @@
+ 					"options": [
+ 						"tele-title"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0010-feat-make-the-title-bar-label-a-live-template.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0010-feat-make-the-title-bar-label-a-live-template.patch"
+ 				},
+ 				{
+ 					"number": 11,
+@@ -3385,7 +3374,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0011-feat-remove-the-account-limit.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0011-feat-remove-the-account-limit.patch"
+ 				},
+ 				{
+ 					"number": 12,
+@@ -3395,7 +3384,7 @@
+ 					"options": [
+ 						"tele-bubble-badges"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0012-feat-show-checkmarks-and-custom-verification-everywh.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0012-feat-show-checkmarks-and-custom-verification-everywh.patch"
+ 				}
+ 			]
+ 		},
+@@ -3411,7 +3400,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0001-feat-show-the-tele-build-number-in-the-title-bar.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0001-feat-show-the-tele-build-number-in-the-title-bar.patch"
+ 				},
+ 				{
+ 					"number": 2,
+@@ -3419,7 +3408,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0002-feat-add-a-tele-section-to-the-settings.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0002-feat-add-a-tele-section-to-the-settings.patch"
+ 				},
+ 				{
+ 					"number": 3,
+@@ -3429,7 +3418,7 @@
+ 					"options": [
+ 						"tele-hide-stories"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0003-feat-add-an-option-to-hide-stories-everywhere.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0003-feat-add-an-option-to-hide-stories-everywhere.patch"
+ 				},
+ 				{
+ 					"number": 4,
+@@ -3439,7 +3428,7 @@
+ 					"options": [
+ 						"tele-invisible-stories"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0004-feat-add-an-option-to-watch-stories-invisibly.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0004-feat-add-an-option-to-watch-stories-invisibly.patch"
+ 				},
+ 				{
+ 					"number": 5,
+@@ -3449,17 +3438,17 @@
+ 					"options": [
+ 						"tele-button-payloads"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0005-feat-show-bot-button-payloads-in-tooltips.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0005-feat-show-bot-button-payloads-in-tooltips.patch"
+ 				},
+ 				{
+ 					"number": 6,
+-					"text": "self-updates from these releases on windows, linux and macos, signed with ed25519. a failed update is retried sooner and a broken download continues where it stopped",
++					"text": "self-updates from these releases on windows, linux and macos, signed with ed25519. a failed update is retried sooner and a broken download continues where it stopped. macos updates preserve the app's dock pin",
+ 					"where": "tele → updates, on",
+ 					"category": "updates",
+ 					"options": [
+ 						"tele-auto-update"
+ 					],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0006-feat-update-from-the-tele-github-releases.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0006-feat-update-from-the-tele-github-releases.patch"
+ 				},
+ 				{
+ 					"number": 7,
+@@ -3467,7 +3456,7 @@
+ 					"where": "always on",
+ 					"category": "everywhere",
+ 					"options": [],
+-					"url": "https://github.com/nitreojs/tele/blob/4d6a56bf8859b6985b34c5e1539df1647946393c/patches/tdesktop/0007-feat-rename-the-app-to-tele.patch"
++					"url": "https://github.com/nitreojs/tele/blob/46d4e9bd7bf38b014c9bc51a99846cd82973b699/patches/tdesktop/0007-feat-rename-the-app-to-tele.patch"
+ 				}
+ 			]
+ 		}
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
 index d8faae359dd09586a99222034afd7dddf590d634..7777a51d95ceafe4d6177ce07ad15debd16b1034 100644
 --- a/Telegram/Resources/tele/translations/ru.json
