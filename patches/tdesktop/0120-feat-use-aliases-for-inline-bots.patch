@@ -55,7 +55,7 @@ index fa279129d15880b409f8a86edfc976c56b531ead..f60d8ff8609b7e61efa43383a4a072e6
  			).done([=](const MTPcontacts_ResolvedPeer &result) {
  				const auto &data = result.data();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 06a8a69f342df12179beeeb7b10f47359202560e..61c8c73daffcae5d26c3685eed0a98684b08058b 100644
+index 435134d667a8fcd8247d702f195e6f02afd24529..a99a4360335adc515e77f770e4c4b5cf5b89a978 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -66,7 +66,7 @@ index 06a8a69f342df12179beeeb7b10f47359202560e..61c8c73daffcae5d26c3685eed0a9868
  #include "support/support_helper.h"
  #include "ui/item_text_options.h"
  #include "ui/text/text_options.h"
-@@ -6598,7 +6599,7 @@ void ComposeControls::updateInlineBotQuery() {
+@@ -6599,7 +6600,7 @@ void ComposeControls::updateInlineBotQuery() {
  			_inlineBotResolveRequestId = api.request(
  				MTPcontacts_ResolveUsername(
  					MTP_flags(0),

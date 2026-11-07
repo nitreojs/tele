@@ -25,10 +25,10 @@ index 6920aa0f60d4fb7ffb3b0afc19cff3eefd751736..c7d26272f5dbb41048952694761b116d
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index e8cad415ee81c6eafed69a89b8e9351547270e15..5d151e424a6b11921f00e48f1d591032b5d66626 100644
+index 2a1261052d58e12cc3d2b7862bc358baead87839..ea04b9210cd5b670ec06e78e1c4fad6317f6a0d2 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -5101,6 +5101,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5102,6 +5102,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  	}
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  	Tele::ComposeDockedMenu(_teleDocked.get(), result);

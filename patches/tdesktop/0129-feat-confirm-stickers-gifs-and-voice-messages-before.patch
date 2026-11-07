@@ -160,7 +160,7 @@ index 48be7e2eda62fbf9b80ecea17b81329582e779dc..6920aa0f60d4fb7ffb3b0afc19cff3ee
  	base::install_event_filter(this, selector, [=](not_null<QEvent*> e) {
  		if (_tabbedPanel && e->type() == QEvent::ParentChange) {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index d54f7fc0566b300ec502866f9b3419368c8dadf8..e8cad415ee81c6eafed69a89b8e9351547270e15 100644
+index 67e96b19fc466d11a7ae806fb1e17299b34a4ca8..2a1261052d58e12cc3d2b7862bc358baead87839 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -171,7 +171,7 @@ index d54f7fc0566b300ec502866f9b3419368c8dadf8..e8cad415ee81c6eafed69a89b8e93515
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
  #include "tele/tele_emoji_panel.h"
-@@ -4143,6 +4144,7 @@ void ComposeControls::initTabbedSelector() {
+@@ -4144,6 +4145,7 @@ void ComposeControls::initTabbedSelector() {
  		return base::EventFilterResult::Continue;
  	});
  

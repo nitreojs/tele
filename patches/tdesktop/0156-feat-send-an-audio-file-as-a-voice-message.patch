@@ -93,7 +93,7 @@ index c7d26272f5dbb41048952694761b116db1dd97be..2739472e4b2a94e18d2a790434a5acc2
  		sendVoice(data);
  	}, lifetime());
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 5d151e424a6b11921f00e48f1d591032b5d66626..36fb2e016c987ddd2c41ffba7fd2ed7512746795 100644
+index ea04b9210cd5b670ec06e78e1c4fad6317f6a0d2..842aecfd2ce389fbb6623f838365fe36cc7de851 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

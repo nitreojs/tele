@@ -10,7 +10,7 @@ Subject: [PATCH] feat: attach media above the field (beta)
  .../SourceFiles/dialogs/ui/dialogs_layout.cpp |    3 +
  .../SourceFiles/history/history_widget.cpp    |   57 +-
  Telegram/SourceFiles/history/history_widget.h |    2 +
- .../history_view_compose_controls.cpp         |   65 +-
+ .../history_view_compose_controls.cpp         |   68 +-
  .../controls/history_view_compose_controls.h  |    4 +
  .../view/history_view_chat_section.cpp        |    3 +
  .../view/history_view_scheduled_section.cpp   |    3 +
@@ -27,7 +27,7 @@ Subject: [PATCH] feat: attach media above the field (beta)
  Telegram/SourceFiles/tele/tele_options.cpp    |   34 +
  Telegram/SourceFiles/tele/tele_options.h      |    7 +
  .../SourceFiles/tele/tele_settings_io.cpp     |    2 +
- 23 files changed, 5478 insertions(+), 89 deletions(-)
+ 23 files changed, 5480 insertions(+), 90 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_docked_media.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_docked_media.h
 
@@ -281,7 +281,7 @@ index 77d93e84a40e567bd3223207e844611c3b7e478a..e43bdf6dfddf6e62c74c61abfc2e6f48
  
  };
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d34463267596 100644
+index 97c063bcc6157449c069869bbd0d2523aa4dc500..4df338744436d2d9197d845c63c044c38b21057c 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -346,7 +346,17 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  		if (!_chosenStarsCount) {
  			return true;
  		}
-@@ -3456,6 +3495,8 @@ void ComposeControls::updateFieldPlaceholder() {
+@@ -3276,7 +3315,8 @@ void ComposeControls::initField() {
+ 		if (_mode == Mode::Normal
+ 			&& !isEditingMessage()
+ 			&& !_voiceRecordBar->isListenState()
+-			&& getTextWithAppliedMarkdown().text.isEmpty()) {
++			&& getTextWithAppliedMarkdown().text.isEmpty()
++			&& !Tele::ComposeDockedHasFiles(_teleDocked.get())) {
+ 			_scrollToMaxRequests.fire(adjustedSupportSendOptions(modifiers));
+ 		} else {
+ 			_fieldSubmits.fire_copy(modifiers);
+@@ -3456,6 +3496,8 @@ void ComposeControls::updateFieldPlaceholder() {
  			return tr::lng_edit_message_text();
  		} else if (!peer) {
  			return tr::lng_message_ph();
@@ -355,7 +365,7 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  		} else if (const auto stars = ephemeralReply
  			? 0
  			: peer->starsPerMessageChecked()) {
-@@ -4223,7 +4264,9 @@ void ComposeControls::setupSendMenu(
+@@ -4223,7 +4265,9 @@ void ComposeControls::setupSendMenu(
  		Fn<void(Api::SendOptions)> send) {
  	using namespace SendMenu;
  	const auto sendAction = [=](Action action, Details details) {
@@ -366,7 +376,7 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  			_chosenStarsCount = details.price.value_or(0);
  			updateSendButtonType();
  		} else if (action.type == ActionType::CaptionUp
-@@ -5029,6 +5072,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5029,6 +5073,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  	if (type == Ui::SendButton::Type::Save) {
  		auto result = saveMenuDetails();
  		Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
@@ -374,7 +384,7 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  		return result;
  	} else if (type == Ui::SendButton::Type::Cancel) {
  		auto result = sendMenuDetails();
-@@ -5044,6 +5088,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5044,6 +5089,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  		result.effectAllowed = false;
  	}
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
@@ -382,7 +392,7 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  	return result;
  }
  
-@@ -5223,12 +5268,17 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+@@ -5223,12 +5269,17 @@ void ComposeControls::updateControlsGeometry(QSize size) {
  	_header->moveToLeft(
  		0,
  		fieldTop - _st.padding.top() - _header->height());
@@ -403,7 +413,7 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  
  	auto right = 0;
  	if (_starsReaction) {
-@@ -5623,7 +5673,9 @@ bool ComposeControls::hasVisibleSendText() const {
+@@ -5623,7 +5674,9 @@ bool ComposeControls::hasVisibleSendText() const {
  }
  
  bool ComposeControls::hasSendableContent() const {
@@ -414,7 +424,7 @@ index 97c063bcc6157449c069869bbd0d2523aa4dc500..1064b3d31f271e30af98e14e0276d344
  }
  
  bool ComposeControls::hideExtraButtons() const {
-@@ -5965,6 +6017,7 @@ int ComposeControls::composeFieldHeight() const {
+@@ -5965,6 +6018,7 @@ int ComposeControls::composeFieldHeight() const {
  void ComposeControls::updateHeight() {
  	const auto height = (_header->isDisplayed() ? _header->height() : 0)
  		+ Tele::ComposeDraftsBarHeight(_teleDrafts.get())

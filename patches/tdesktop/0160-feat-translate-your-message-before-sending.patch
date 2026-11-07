@@ -58,7 +58,7 @@ index b2b12bbe7f967116aa7845009c4845e3ef55785e..2f8fa7021df7fde52d9b26fe8276c3da
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 54815a02221133318b94c9e228c0783d7a76784e..2250dbd549f4d1f71d9b2c9445fb0db839eb56c8 100644
+index f15cfc77050fd78fdb178d943d203c413f69469a..40c921b419ad2a69a50383cae8928735c689ef3d 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -69,7 +69,7 @@ index 54815a02221133318b94c9e228c0783d7a76784e..2250dbd549f4d1f71d9b2c9445fb0db8
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_confirm_send.h"
  #include "tele/tele_drafts_compose.h"
-@@ -3401,6 +3402,7 @@ void ComposeControls::initField() {
+@@ -3402,6 +3403,7 @@ void ComposeControls::initField() {
  		.processor = [=] { return _preview.get(); },
  		.editing = [=] { return _header->editMsgId(); },
  	});
@@ -77,7 +77,7 @@ index 54815a02221133318b94c9e228c0783d7a76784e..2250dbd549f4d1f71d9b2c9445fb0db8
  	Data::AmPremiumValue(&session()) | rpl::on_next([=] {
  		checkCharsLimitation();
  		updateAiButtonVisibility();
-@@ -5127,6 +5129,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
+@@ -5128,6 +5130,7 @@ SendMenu::Details ComposeControls::sendButtonMenuDetails() const {
  	Tele::ComposeDraftsMenu(_teleDrafts.get(), result);
  	Tele::ComposeDockedMenu(_teleDocked.get(), result);
  	Tele::CalcmulaMenu(_field, result);

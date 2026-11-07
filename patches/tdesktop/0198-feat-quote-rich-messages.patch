@@ -92,7 +92,7 @@ index 0d51e11843f2d5ebf379f7cc9ef9d71afcdb8e38..64218d11590570f3a7904ff23a96e97d
  
  void HistoryWidget::editMessage(
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 4d543a8033538baf32c1e7630a5fa0cc0fb0506a..6e8ca7a002dbbc694d6438eda4fec436e1a7a034 100644
+index cc538432709a80fbf7cfa1ae297cdac43b74f365..d3d29d09c1330547d0a5bf3358d631a595eb15ce 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -103,7 +103,7 @@ index 4d543a8033538baf32c1e7630a5fa0cc0fb0506a..6e8ca7a002dbbc694d6438eda4fec436
  #include "tele/tele_confirm_send.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
-@@ -6259,6 +6260,12 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
+@@ -6260,6 +6261,12 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
  		_header->replyToMessage(id);
  	}
  	saveDraftWithTextNow();

@@ -893,7 +893,7 @@ index 6789c2c3ec98af929c74aa5dff6730f29d79ebb2..4c6317f887bcdd01d4db58562f7601e7
  		return QString::fromLatin1(AppVersionStr);
  	} else if (name == u"time"_q) {
 diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
-index cfd5973173fa6874fc424992085ae0f9e50c1669..c984fb94636b25b33e788dd8fd009a7210c1c870 100644
+index 8addc40a778e5cf0dbfbb2201f414a180f290a00..1887dbe665cb89cf7c48044e0f9b6c322c5eafe1 100644
 --- a/Telegram/SourceFiles/tele/tele_updater.cpp
 +++ b/Telegram/SourceFiles/tele/tele_updater.cpp
 @@ -8,6 +8,7 @@
@@ -904,7 +904,7 @@ index cfd5973173fa6874fc424992085ae0f9e50c1669..c984fb94636b25b33e788dd8fd009a72
  #include "tele/tele_options.h"
  
  #include <QtCore/QCoreApplication>
-@@ -530,8 +531,8 @@ void Updater::verifyFeed(const QByteArray &envelope) {
+@@ -545,8 +546,8 @@ void Updater::verifyFeed(const QByteArray &envelope) {
  		finish({ .state = UpdateState::Latest });
  		return;
  	} else if (!CanWriteNextToInstall()) {

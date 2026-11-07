@@ -37,10 +37,10 @@ index 64218d11590570f3a7904ff23a96e97d35f486a2..e4f918409d7fd1bea2092c71c88d99a9
  			replyToMessage(item, id);
  		} else if (item->allowsForward()) {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 6e8ca7a002dbbc694d6438eda4fec436e1a7a034..a08750263161161d62464ebe5b6959c95486e619 100644
+index d3d29d09c1330547d0a5bf3358d631a595eb15ce..7968179b540b4a55e4bdc73fe66e1cc918d7ed55 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -6233,6 +6233,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
+@@ -6234,6 +6234,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
  	} else if (const auto item = _history->owner().message(id.messageId)
  		; item && Tele::SkipReplyTo(item)) {
  		return;

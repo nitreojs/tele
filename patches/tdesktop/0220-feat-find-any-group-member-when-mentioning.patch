@@ -131,10 +131,10 @@ index 5e6ea4874936cce92198cbdafbc022c542c1e0b5..1d2346ffff24193f7ccaee18486f5e75
  void InitFieldAutocomplete(
  	std::unique_ptr<FieldAutocomplete> &autocomplete,
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index a08750263161161d62464ebe5b6959c95486e619..715376d8c78394c8f861f0dccb6ed014c923f6c9 100644
+index 7968179b540b4a55e4bdc73fe66e1cc918d7ed55..c437dcbb51bccdf8bb40c9e4bfa31ba27670d7d1 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -3507,6 +3507,7 @@ void ComposeControls::initFieldAutocomplete() {
+@@ -3508,6 +3508,7 @@ void ComposeControls::initFieldAutocomplete() {
  				return _moderateKeyActivateCallback(key);
  			})
  			: nullptr),

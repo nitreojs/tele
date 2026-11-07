@@ -123,7 +123,7 @@ index f9f92b3705f0cc8d00c341707e588bcfd827e7ca..124c4a157a48d25886be4f710c965c57
  			const auto from = data.messageSendingFrom;
  			Ui::SendGifWithCaption(
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 715376d8c78394c8f861f0dccb6ed014c923f6c9..3d5dc4d8fd6367997786d70ce7d97cb7927811ea 100644
+index c437dcbb51bccdf8bb40c9e4bfa31ba27670d7d1..c5567a5685b87876a50597c18de89a82b2e5f781 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -1641,6 +1641,16 @@ void ComposeControls::setupTeleDocked() {
@@ -143,7 +143,7 @@ index 715376d8c78394c8f861f0dccb6ed014c923f6c9..3d5dc4d8fd6367997786d70ce7d97cb7
  			.sendMenuDetails = [=] { return sendMenuDetails(); },
  			.scheduled = (_mode == Mode::Scheduled),
  		});
-@@ -4206,6 +4216,12 @@ void ComposeControls::initTabbedSelector() {
+@@ -4207,6 +4217,12 @@ void ComposeControls::initTabbedSelector() {
  				Data::InsertCustomEmoji(_field, data.document);
  			}
  		} else if (data.needsCaption && _history) {

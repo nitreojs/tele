@@ -391,7 +391,7 @@ index 0000000000000000000000000000000000000000..382e853364dfdaea8aa9addeb06e7bb8
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
-index c984fb94636b25b33e788dd8fd009a7210c1c870..b5f807b837c4c4947e9960ffee2ce72a30b21037 100644
+index 1887dbe665cb89cf7c48044e0f9b6c322c5eafe1..3989dd630c127fededee9358b35f241437a42f42 100644
 --- a/Telegram/SourceFiles/tele/tele_updater.cpp
 +++ b/Telegram/SourceFiles/tele/tele_updater.cpp
 @@ -8,6 +8,7 @@
@@ -402,7 +402,7 @@ index c984fb94636b25b33e788dd8fd009a7210c1c870..b5f807b837c4c4947e9960ffee2ce72a
  #include "tele/tele_lowercase.h"
  #include "tele/tele_options.h"
  
-@@ -415,6 +416,13 @@ Updater::Updater()
+@@ -430,6 +431,13 @@ Updater::Updater()
  	QFile::remove(InstallPath() + u".old"_q);
  	QFile::remove(InstallPath() + u".new"_q);
  #endif

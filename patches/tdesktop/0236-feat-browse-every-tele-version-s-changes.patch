@@ -34,10 +34,10 @@ index 4024799fcdfea4c3b8382680f66e8b93e482c9ae..5127867174ec29d59f1e49ef69db9033
      tele/tele_changelog_section.h
      tele/tele_chat_backgrounds.cpp
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index 9151a27685004ba85ee2776591d7b92a4783c724..782809408f0cc27414a5c542bd5fbc6762cceb32 100644
+index 35b7ac2e2c757686d22728eac48e6283b89fd597..13214863698eb14f8fa75bded93544ecbbf68ff0 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -98,6 +98,7 @@
+@@ -99,6 +99,7 @@
    <qresource prefix="/tele">
      <file alias="api.tl">../../../SourceFiles/mtproto/scheme/api.tl</file>
      <file alias="mtproto.tl">../../../SourceFiles/mtproto/scheme/mtproto.tl</file>

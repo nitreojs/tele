@@ -87,7 +87,7 @@ index d4688404bf21072c74d82a6226bff353a8aab444..af6b2b59674074adbd4c0058baea159c
  
  void ChatData::applyEditAdmin(not_null<UserData*> user, bool isAdmin) {
 diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
-index 9ad32fb85cb825a3143c013cbab741980c638c91..660fa65baaedfe6441da8aab7bb5ce750e7aac02 100644
+index 6b45f2ff66ebcb50e7dc137a7bc9f981a902cef3..d86c151991d91f7c9b7a8cdca8a5881adb2e211a 100644
 --- a/Telegram/SourceFiles/data/data_peer.cpp
 +++ b/Telegram/SourceFiles/data/data_peer.cpp
 @@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

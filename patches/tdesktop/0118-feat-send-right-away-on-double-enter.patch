@@ -38,7 +38,7 @@ index 7f35c6c7c672ce20aafd5efbc107052698aa4baa..fa279129d15880b409f8a86edfc976c5
  	_field->cancelled(
  	) | rpl::on_next([=] {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 1064b3d31f271e30af98e14e0276d34463267596..06a8a69f342df12179beeeb7b10f47359202560e 100644
+index 4df338744436d2d9197d845c63c044c38b21057c..435134d667a8fcd8247d702f195e6f02afd24529 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

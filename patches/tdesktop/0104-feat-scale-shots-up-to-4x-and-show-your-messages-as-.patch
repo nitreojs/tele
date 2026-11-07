@@ -60,7 +60,7 @@ index 1f60e37f0388f0bddeb9142f79357fee2f3b18e2..e73c6922b3e15d88ed93de64c1e66960
      tele/tele_spoilers.h
      tele/tele_time.cpp
 diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
-index e25296cbc6a78c084890fe88a5748674f0219e81..9ad32fb85cb825a3143c013cbab741980c638c91 100644
+index 4511e525b53be77eec1a92720a26ae798586d476..6b45f2ff66ebcb50e7dc137a7bc9f981a902cef3 100644
 --- a/Telegram/SourceFiles/data/data_peer.cpp
 +++ b/Telegram/SourceFiles/data/data_peer.cpp
 @@ -56,6 +56,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

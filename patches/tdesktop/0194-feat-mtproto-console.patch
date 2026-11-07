@@ -57,10 +57,10 @@ index 1d8a19a5fbf212590c33e25f2555a966b1a5e2dd..c55c0b37e5b7ff832465d184327afa7f
      tele/tele_translate_out.h
      tele/tele_unsorted_folder.cpp
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index 17e00060aaa4b2dbe698e130e07cd82ea0fa4e9e..9151a27685004ba85ee2776591d7b92a4783c724 100644
+index f22f29b4d582366c79f7c380886065567fdac86f..35b7ac2e2c757686d22728eac48e6283b89fd597 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -98,6 +98,9 @@
+@@ -99,6 +99,9 @@
    <qresource prefix="/tele">
      <file alias="api.tl">../../../SourceFiles/mtproto/scheme/api.tl</file>
      <file alias="mtproto.tl">../../../SourceFiles/mtproto/scheme/mtproto.tl</file>

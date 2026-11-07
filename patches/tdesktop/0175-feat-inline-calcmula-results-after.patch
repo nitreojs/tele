@@ -56,7 +56,7 @@ index 0486982ebe22620bf984995044335ac3b9d52f44..0d51e11843f2d5ebf379f7cc9ef9d71a
  		_field.data(),
  		[=] { return _isInlineBot; },
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 2250dbd549f4d1f71d9b2c9445fb0db839eb56c8..4d543a8033538baf32c1e7630a5fa0cc0fb0506a 100644
+index 40c921b419ad2a69a50383cae8928735c689ef3d..cc538432709a80fbf7cfa1ae297cdac43b74f365 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -67,7 +67,7 @@ index 2250dbd549f4d1f71d9b2c9445fb0db839eb56c8..4d543a8033538baf32c1e7630a5fa0cc
  #include "tele/tele_link_previews.h"
  #include "tele/tele_translate_out.h"
  #include "tele/tele_deleted_reply.h"
-@@ -3392,6 +3393,12 @@ void ComposeControls::initField() {
+@@ -3393,6 +3394,12 @@ void ComposeControls::initField() {
  		},
  		.send = [=] { _fieldSubmits.fire({}); },
  	});

@@ -173,7 +173,7 @@ index e43bdf6dfddf6e62c74c61abfc2e6f484a67cc82..b6e28a4e4bdfebc78626242176108d29
  
  };
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 36fb2e016c987ddd2c41ffba7fd2ed7512746795..54815a02221133318b94c9e228c0783d7a76784e 100644
+index 842aecfd2ce389fbb6623f838365fe36cc7de851..f15cfc77050fd78fdb178d943d203c413f69469a 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -228,7 +228,7 @@ index 36fb2e016c987ddd2c41ffba7fd2ed7512746795..54815a02221133318b94c9e228c0783d
  	initTabbedSelector();
  	initSendButton();
  	initAiButton();
-@@ -5236,7 +5258,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+@@ -5237,7 +5259,7 @@ void ComposeControls::updateControlsGeometry(QSize size) {
  				= _richDraftPreview->resizeGetHeight(
  				fieldWidth,
  				_st.field.heightMin,

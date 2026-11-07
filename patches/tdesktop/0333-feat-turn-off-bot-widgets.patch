@@ -1,0 +1,240 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 7 Nov 2026 22:29:19 +0300
+Subject: [PATCH] feat: turn off bot widgets
+
+---
+ Telegram/Resources/tele/translations/ru.json  |  2 ++
+ Telegram/Resources/tele/translations/uk.json  |  2 ++
+ .../media/history_view_unsupported_widget.cpp | 19 ++++++++++++++-----
+ .../SourceFiles/settings/settings_tele.cpp    |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 11 +++++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ Telegram/SourceFiles/tgw/tgw_media.cpp        |  4 ++++
+ .../ui/chat/unsupported_notice.cpp            | 16 +++++++++++-----
+ 9 files changed, 51 insertions(+), 10 deletions(-)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index d8faae359dd09586a99222034afd7dddf590d634..7777a51d95ceafe4d6177ce07ad15debd16b1034 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -2228,6 +2228,7 @@
+ 		"Turn off AI features": "Отключить функции ИИ",
+ 		"Turn off Money": "Отключить кошелёк «Деньги»",
+ 		"Turn off touchpad gestures": "Отключить жесты тачпада",
++		"Turn off widgets": "Отключить виджеты",
+ 		"Turn on \"%1\" to see \"%2\".": "Включите «%1», чтобы увидеть «%2».",
+ 		"Turn on %1": "Включить «%1»",
+ 		"Turned off after failing 5 times in a row.": "Выключен после 5 ошибок подряд.",
+@@ -2333,6 +2334,7 @@
+ 		"When a slow upload finishes after newer messages.": "Когда медленная загрузка завершается после появления новых сообщений.",
+ 		"When off, they are shown faded.": "Если выключено, они показываются полупрозрачными.",
+ 		"When you open one from a forward.": "Когда вы открываете удалённый пост из пересланного сообщения.",
++		"Widgets are turned off.": "Виджеты отключены.",
+ 		"Width": "Ширина",
+ 		"Will change %1 settings.": {
+ 			"one": "Будет изменён %1 параметр.",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index a081457c7689fa8a370d87518304af4415e0644d..1912747f40ae7079a2b4f8439ccd65f8879a439f 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -2228,6 +2228,7 @@
+ 		"Turn off AI features": "Вимкнути функції ШІ",
+ 		"Turn off Money": "Вимкнути Money",
+ 		"Turn off touchpad gestures": "Вимкнути жести тачпада",
++		"Turn off widgets": "Вимкнути віджети",
+ 		"Turn on \"%1\" to see \"%2\".": "Увімкніть «%1», щоб побачити «%2».",
+ 		"Turn on %1": "Увімкнути «%1»",
+ 		"Turned off after failing 5 times in a row.": "Вимкнено після 5 помилок поспіль.",
+@@ -2333,6 +2334,7 @@
+ 		"When a slow upload finishes after newer messages.": "Коли повільне завантаження завершується після новіших повідомлень.",
+ 		"When off, they are shown faded.": "Якщо вимкнено, вони показуються блідими.",
+ 		"When you open one from a forward.": "Коли ви відкриваєте такий допис із пересилання.",
++		"Widgets are turned off.": "Віджети вимкнені.",
+ 		"Width": "Ширина",
+ 		"Will change %1 settings.": {
+ 			"one": "Буде змінено %1 параметр.",
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_unsupported_widget.cpp b/Telegram/SourceFiles/history/view/media/history_view_unsupported_widget.cpp
+index d1f461b4be8d2878e46171b912d94cec4cb7ec50..89e1d612bc6f2a188c4a241c79383e9258b2a325 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_unsupported_widget.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_unsupported_widget.cpp
+@@ -11,6 +11,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/view/history_view_cursor_state.h"
+ #include "history/view/history_view_element.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_options.h"
+ #include "ui/chat/chat_style.h"
+ #include "ui/effects/ripple_animation.h"
+ #include "ui/painter.h"
+@@ -20,10 +22,17 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ namespace HistoryView {
+ 
+ UnsupportedWidget::UnsupportedWidget(not_null<Element*> parent)
+-: Media(parent)
+-, _link(std::make_shared<LambdaClickHandler>([] {
+-	Core::UpdateApplication();
+-})) {
++: Media(parent) {
++	if (Tele::NoWidgets()) {
++		_card.setTexts(
++			tr::lng_in_dlg_widget(tr::now),
++			Tele::Lower(u"Widgets are turned off."_q),
++			QString());
++		return;
++	}
++	_link = std::make_shared<LambdaClickHandler>([] {
++		Core::UpdateApplication();
++	});
+ 	_card.setTexts(
+ 		tr::lng_unsupported_message_title(tr::now),
+ 		tr::lng_unsupported_message_text(tr::now),
+@@ -76,7 +85,7 @@ bool UnsupportedWidget::dragItemByHandler(const ClickHandlerPtr &p) const {
+ void UnsupportedWidget::clickHandlerPressedChanged(
+ 		const ClickHandlerPtr &handler,
+ 		bool pressed) {
+-	if (handler == _link) {
++	if (_link && handler == _link) {
+ 		_card.buttonPressedChanged(
+ 			_ripple,
+ 			pressed,
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 0a505def133f56b5668cf23f362a5e38b03844e3..6651cc39f6d418a83e511583476629a7aef4decf 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3024,6 +3024,10 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionMoneyHideBalances,
+ 		{ u"wallet"_q, u"balance"_q, u"earnings"_q, u"walt"_q },
+ 		{ Off(::Tele::kOptionNoMoney) });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionNoWidgets,
++		{ u"html"_q, u"widget"_q, u"bot"_q });
+ 	AddOptionToggle(builder, ::Tele::kOptionGroupQuickReplies);
+ 	AddOptionToggle(
+ 		builder,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 2331dafc4a813c5a57190106b367b0e7817415f0..cf54185f57845560f3facf097561a7ec7ef85229 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -75,6 +75,7 @@ const char kOptionReactionsStripCount[] = "tele-reactions-strip-count";
+ const char kOptionReactionsOrder[] = "tele-reactions-order";
+ const char kOptionNoAi[] = "tele-no-ai";
+ const char kOptionNoMoney[] = "tele-no-money";
++const char kOptionNoWidgets[] = "tele-no-widgets";
+ const char kOptionMoneyHideBalances[] = "tele-money-hide-balances";
+ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
+ const char kOptionAttachMenuClick[] = "tele-attach-menu-click";
+@@ -704,6 +705,12 @@ base::options::toggle NoMoneyOption({
+ 	.restartRequired = true,
+ });
+ 
++base::options::toggle NoWidgetsOption({
++	.id = kOptionNoWidgets,
++	.name = "Turn off widgets",
++	.restartRequired = true,
++});
++
+ base::options::toggle MoneyHideBalancesOption({
+ 	.id = kOptionMoneyHideBalances,
+ 	.name = "Hide other balances",
+@@ -2443,6 +2450,10 @@ bool NoMoney() {
+ 	return NoMoneyOption.value();
+ }
+ 
++bool NoWidgets() {
++	return NoWidgetsOption.value();
++}
++
+ rpl::producer<bool> MoneyHideBalancesValue() {
+ 	return rpl::single(
+ 		rpl::empty
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 6c142bde4dd236f569420e0b26958f22936f40e3..432557271839d5d2d5593c1201331006d1e0cc8c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -70,6 +70,7 @@ extern const char kOptionReactionsStripCount[];
+ extern const char kOptionReactionsOrder[];
+ extern const char kOptionNoAi[];
+ extern const char kOptionNoMoney[];
++extern const char kOptionNoWidgets[];
+ extern const char kOptionMoneyHideBalances[];
+ extern const char kOptionEmojiPanelClick[];
+ extern const char kOptionAttachMenuClick[];
+@@ -370,6 +371,7 @@ void SetReactionsOrder(const QString &value);
+ [[nodiscard]] rpl::producer<QString> ReactionsOrderValue();
+ [[nodiscard]] bool NoAi();
+ [[nodiscard]] bool NoMoney();
++[[nodiscard]] bool NoWidgets();
+ [[nodiscard]] rpl::producer<bool> MoneyHideBalancesValue();
+ void SetMoneyHideBalances(bool hidden);
+ [[nodiscard]] rpl::producer<bool> MoneyBalanceRowShown(
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index cca5bba1ecd704a57374f37e514dbaa20603f6dd..7cc83a6ceea468e812d41e0eff999e4e53f1c4d4 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -164,6 +164,7 @@ struct Spec {
+ 		Toggle(kOptionHideReactionsButton),
+ 		Toggle(kOptionNoAi),
+ 		Toggle(kOptionNoMoney),
++		Toggle(kOptionNoWidgets),
+ 		Toggle(kOptionMoneyHideBalances),
+ 		Toggle(kOptionEmojiPanelClick),
+ 		Toggle(kOptionAttachMenuClick),
+diff --git a/Telegram/SourceFiles/tgw/tgw_media.cpp b/Telegram/SourceFiles/tgw/tgw_media.cpp
+index 2bdd2611d6349cb0547a5235eac27a952c2f3de3..2b62f55ec65477642d6a3ce7458fe43080d1c6cb 100644
+--- a/Telegram/SourceFiles/tgw/tgw_media.cpp
++++ b/Telegram/SourceFiles/tgw/tgw_media.cpp
+@@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_options.h"
+ #include "tgw/tgw_state.h"
+ #include "ui/text/text_utilities.h"
+ #include "wallet/wallet_panel.h"
+@@ -237,6 +238,9 @@ std::unique_ptr<HistoryView::Media> WidgetMedia::createView(
+ 		not_null<HistoryView::Element*> message,
+ 		not_null<HistoryItem*> realParent,
+ 		HistoryView::Element *replacing) {
++	if (Tele::NoWidgets()) {
++		return std::make_unique<HistoryView::UnsupportedWidget>(message);
++	}
+ 	const auto &html = this->html();
+ 	if (!html.isEmpty()) {
+ 		return std::make_unique<HistoryView::HtmlWidget>(
+diff --git a/Telegram/SourceFiles/ui/chat/unsupported_notice.cpp b/Telegram/SourceFiles/ui/chat/unsupported_notice.cpp
+index 57b2d4634b33f0ff3afe1458f1fe8f80927bdd96..4df854dc1fca58fe6da635a0238bdde7be8f455c 100644
+--- a/Telegram/SourceFiles/ui/chat/unsupported_notice.cpp
++++ b/Telegram/SourceFiles/ui/chat/unsupported_notice.cpp
+@@ -54,11 +54,13 @@ void UnsupportedNoticeCard::setTexts(
+ 		kDefaultTextOptions,
+ 		st::msgMinWidth);
+ 	_button = Text::String(st::semiboldTextStyle, button);
+-	_buttonSize = QSize(
+-		(_button.maxWidth()
+-			+ st::unsupportedNoticeButtonPadding.left()
+-			+ st::unsupportedNoticeButtonPadding.right()),
+-		st::unsupportedNoticeButtonHeight);
++	_buttonSize = button.isEmpty()
++		? QSize(0, 0)
++		: QSize(
++			(_button.maxWidth()
++				+ st::unsupportedNoticeButtonPadding.left()
++				+ st::unsupportedNoticeButtonPadding.right()),
++			st::unsupportedNoticeButtonHeight);
+ }
+ 
+ int UnsupportedNoticeCard::resizeGetHeight(int availableWidth) {
+@@ -167,6 +169,10 @@ void UnsupportedNoticeCard::paintColored(
+ 			_textLines);
+ 	}
+ 
++	if (_buttonSize.isEmpty()) {
++		return;
++	}
++
+ 	const auto button = buttonRect().translated(cardRect.topLeft());
+ 	const auto buttonRadius = button.height() / 2.;
+ 	p.setPen(Qt::NoPen);

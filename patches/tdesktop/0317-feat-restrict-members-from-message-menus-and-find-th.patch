@@ -60,7 +60,7 @@ index 7ab48a7fc7a42faaff200d7049045e9734954b8d..0c1e7d082523055eac085b94514ec8c9
  			_timer.callOnce(AutoSearchTimeout);
  		} else {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index b1b3a855393b7dc91eee32d4729321e806c60b01..5cbb46ced3c32553028fc2900e2abd945dd36c1c 100644
+index 99715a809a5fb80939d2c1456d4f234dc21cc3a7..43992225ac86ffc7bdfa100b0492307c8ae2ff0c 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -135,6 +135,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71,7 +71,7 @@ index b1b3a855393b7dc91eee32d4729321e806c60b01..5cbb46ced3c32553028fc2900e2abd94
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -3787,6 +3788,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3785,6 +3786,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderItem(itemId);
  				}, &st::menuIconBlock);
  			}
@@ -81,7 +81,7 @@ index b1b3a855393b7dc91eee32d4729321e806c60b01..5cbb46ced3c32553028fc2900e2abd94
  		}
  	} else { // maybe cursor on some text history item?
  		const auto albumPartItem = _dragStateItem;
-@@ -4120,6 +4124,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4118,6 +4122,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderAsGroup(itemId);
  				}, &st::menuIconBlock);
  			}

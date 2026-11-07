@@ -85,7 +85,7 @@ index c34d06a26eab9dea343c040ad0d93dbfa73a1a1e..a56a4d5d45cce63fb44d2f08dd4595b4
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 61c8c73daffcae5d26c3685eed0a98684b08058b..b227d208eaec9f2aba9a0c01f6e8d3b3b4b45116 100644
+index a99a4360335adc515e77f770e4c4b5cf5b89a978..5417b6ac0e885ccb05afcae5b2e654c2399f0247 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -106,7 +106,7 @@ index 61c8c73daffcae5d26c3685eed0a98684b08058b..b227d208eaec9f2aba9a0c01f6e8d3b3
  
  	_hidden.changes(
  	) | rpl::on_next([=] {
-@@ -5800,6 +5804,7 @@ void ComposeControls::refreshSendGiftToggle() {
+@@ -5801,6 +5805,7 @@ void ComposeControls::refreshSendGiftToggle() {
  	const auto has = _regularWindow
  		&& user
  		&& !_writeRestriction.current()

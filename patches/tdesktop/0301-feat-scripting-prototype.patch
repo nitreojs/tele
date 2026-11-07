@@ -454,10 +454,10 @@ index 8e0ea81ce496f2a9af128035a93a084056d0b71b..13533d6526f10963ba4364a5d164b271
      tele/tele_reaction_editor.h
      tele/tele_reaction_order.cpp
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index 782809408f0cc27414a5c542bd5fbc6762cceb32..72355671bad7ae8c31f32e4e27b47d14c06da4c3 100644
+index 13214863698eb14f8fa75bded93544ecbbf68ff0..3a6a3f0043c66dfd107fc78e810edc53d5e6cad5 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -99,12 +99,43 @@
+@@ -100,12 +100,43 @@
      <file alias="api.tl">../../../SourceFiles/mtproto/scheme/api.tl</file>
      <file alias="mtproto.tl">../../../SourceFiles/mtproto/scheme/mtproto.tl</file>
      <file alias="changelog_history.json">../../tele/changelog_history.json</file>
@@ -70955,7 +70955,7 @@ index 030c089c08cff37af1c279933340edb150ee3ffe..a078d191a13b9af8135dbc9c8c60099b
  	}
  	for (const auto &[peer, ids] : scheduledIdsByPeer) {
 diff --git a/Telegram/SourceFiles/data/data_peer.cpp b/Telegram/SourceFiles/data/data_peer.cpp
-index f8d0799d5d883817d8012d9922d3a84c12427ff0..c21afb502f8096c360973d7df110caa8d8d5fee7 100644
+index 9d10682b096494722d7c66d6a56764c9b23588bc..c67603cc19da09aac6069a421a687d06e1de5d07 100644
 --- a/Telegram/SourceFiles/data/data_peer.cpp
 +++ b/Telegram/SourceFiles/data/data_peer.cpp
 @@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71738,7 +71738,7 @@ index b6e28a4e4bdfebc78626242176108d29518c4e81..b1d4f3feb9109a492bfef03beee97734
  	const std::shared_ptr<Ui::SendButton> _send;
  	rpl::event_stream<bool> _sendLockBadge;
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 038d4ae74ce5897f2ca571f1f6409d3ff6a5abac..99dc9bb1a3a9f847ce469a5526e78efaa32f8e69 100644
+index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8d54332c3 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -113,6 +113,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71783,7 +71783,7 @@ index 038d4ae74ce5897f2ca571f1f6409d3ff6a5abac..99dc9bb1a3a9f847ce469a5526e78efa
  }
  
  void ComposeControls::setPasteToastParent(not_null<QWidget*> parent) {
-@@ -3441,6 +3451,52 @@ void ComposeControls::initField() {
+@@ -3442,6 +3452,52 @@ void ComposeControls::initField() {
  		_field->setEnabled(shown);
  	}, _field->lifetime());
  #endif // Q_OS_MAC
@@ -71836,7 +71836,7 @@ index 038d4ae74ce5897f2ca571f1f6409d3ff6a5abac..99dc9bb1a3a9f847ce469a5526e78efa
  	_chatStyle = InitMessageField(_show, _field, [=](not_null<DocumentData*> emoji) {
  		if (_history
  			&& Data::AllowEmojiWithoutPremium(_history->peer, emoji)) {
-@@ -5281,6 +5337,9 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+@@ -5282,6 +5338,9 @@ void ComposeControls::updateControlsGeometry(QSize size) {
  			? _scheduled->width()
  			: 0)
  		- Tele::ComposeDraftsWidth(_teleDrafts.get())
@@ -71846,7 +71846,7 @@ index 038d4ae74ce5897f2ca571f1f6409d3ff6a5abac..99dc9bb1a3a9f847ce469a5526e78efa
  		- (_botKeyboardShow ? _botKeyboardShow->width() : 0)
  		- (_botKeyboardHide ? _botKeyboardHide->width() : 0)
  		- ((_ttlInfo && _ttlInfo->isVisible()) ? _ttlInfo->width() : 0)
-@@ -5418,6 +5477,12 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+@@ -5419,6 +5478,12 @@ void ComposeControls::updateControlsGeometry(QSize size) {
  		}
  	}
  	right += Tele::ComposeDraftsMove(_teleDrafts.get(), right, buttonsTop);
@@ -71859,7 +71859,7 @@ index 038d4ae74ce5897f2ca571f1f6409d3ff6a5abac..99dc9bb1a3a9f847ce469a5526e78efa
  	if (_ttlInfo) {
  		_ttlInfo->move(size.width() - right - _ttlInfo->width(), buttonsTop);
  	}
-@@ -6671,7 +6736,9 @@ void ComposeControls::updateInlineBotQuery() {
+@@ -6672,7 +6737,9 @@ void ComposeControls::updateInlineBotQuery() {
  	if (!_history || !_regularWindow) {
  		return;
  	}

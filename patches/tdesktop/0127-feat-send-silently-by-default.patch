@@ -126,7 +126,7 @@ index 2b3e22560b4543d4f0c5c9cd6eb9dc1a3120f32a..48be7e2eda62fbf9b80ecea17b813295
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index b227d208eaec9f2aba9a0c01f6e8d3b3b4b45116..d54f7fc0566b300ec502866f9b3419368c8dadf8 100644
+index 5417b6ac0e885ccb05afcae5b2e654c2399f0247..67e96b19fc466d11a7ae806fb1e17299b34a4ca8 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -137,7 +137,7 @@ index b227d208eaec9f2aba9a0c01f6e8d3b3b4b45116..d54f7fc0566b300ec502866f9b341936
  #include "tele/tele_username_aliases.h"
  #include "tele/tele_options.h"
  #include "support/support_helper.h"
-@@ -3498,7 +3499,7 @@ void ComposeControls::updateFieldPlaceholder() {
+@@ -3499,7 +3500,7 @@ void ComposeControls::updateFieldPlaceholder() {
  
  	const auto ephemeralReply = session().ephemeralMessages()
  		.isEphemeralBotReply(replyingToMessage().messageId);
@@ -146,7 +146,7 @@ index b227d208eaec9f2aba9a0c01f6e8d3b3b4b45116..d54f7fc0566b300ec502866f9b341936
  		const auto peer = _history ? _history->peer.get() : nullptr;
  		if (isEditingMessage()) {
  			return tr::lng_edit_message_text();
-@@ -3562,7 +3563,7 @@ void ComposeControls::updateFieldPlaceholder() {
+@@ -3563,7 +3564,7 @@ void ComposeControls::updateFieldPlaceholder() {
  		} else {
  			return tr::lng_message_ph();
  		}

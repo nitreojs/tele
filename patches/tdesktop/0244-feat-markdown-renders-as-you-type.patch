@@ -232,7 +232,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  		return;
  	}
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 3d5dc4d8fd6367997786d70ce7d97cb7927811ea..7e504f5ca7a2fb1d1e6b54be4849c06d7eb43e11 100644
+index c5567a5685b87876a50597c18de89a82b2e5f781..3a69db7d5776630b23715eeba74feeabf85f6910 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -252,7 +252,7 @@ index 3d5dc4d8fd6367997786d70ce7d97cb7927811ea..7e504f5ca7a2fb1d1e6b54be4849c06d
  }
  
  void ComposeControls::clear(bool keepReply) {
-@@ -3446,6 +3447,7 @@ void ComposeControls::initField() {
+@@ -3447,6 +3448,7 @@ void ComposeControls::initField() {
  		}
  		return false;
  	});
