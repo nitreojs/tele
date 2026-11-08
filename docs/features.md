@@ -169,6 +169,7 @@ settings → tele → sending.
 | [261](../patches/tdesktop/0261-feat-thinner-brush-in-the-photo-editor.patch) | the photo editor's brush goes down to 1 px instead of 3.4 px | tele → sending, off |
 | [279](../patches/tdesktop/0279-feat-mention-several-people-in-a-row.patch) | right-click or tab in the @ list adds the person and opens the list again for the next one, and ctrl+click mentions by name instead of @username | tele → sending, off |
 | [310](../patches/tdesktop/0310-fix-confirm-stickers-sent-from-sticker-set-boxes.patch) | stickers sent from a sticker set's box also wait for a second click | with 129 |
+| [334](../patches/tdesktop/0334-feat-turn-off-text-sending-animation.patch) | turn off the text sending animation immediately, without changing media animations or the order messages are sent in | tele → sending, off |
 
 ## notifications
 

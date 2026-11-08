@@ -1,0 +1,140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 8 Nov 2026 17:10:29 +0300
+Subject: [PATCH] feat: turn off text sending animation
+
+---
+ Telegram/Resources/tele/translations/ru.json           |  1 +
+ Telegram/Resources/tele/translations/uk.json           |  1 +
+ Telegram/SourceFiles/settings/settings_tele.cpp        |  1 +
+ Telegram/SourceFiles/tele/tele_options.cpp             | 10 ++++++++++
+ Telegram/SourceFiles/tele/tele_options.h               |  2 ++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp         |  1 +
+ .../ui/effects/message_sending_text_flight.cpp         |  4 ++++
+ 7 files changed, 20 insertions(+)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 7777a51d95ceafe4d6177ce07ad15debd16b1034..89792b20c07883ccaac129b77d24639be0557440 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -2227,6 +2227,7 @@
+ 		"Turn off \"%1\" to see \"%2\".": "Выключите «%1», чтобы увидеть «%2».",
+ 		"Turn off AI features": "Отключить функции ИИ",
+ 		"Turn off Money": "Отключить кошелёк «Деньги»",
++		"Turn off text sending animation": "Отключить анимацию отправки текста",
+ 		"Turn off touchpad gestures": "Отключить жесты тачпада",
+ 		"Turn off widgets": "Отключить виджеты",
+ 		"Turn on \"%1\" to see \"%2\".": "Включите «%1», чтобы увидеть «%2».",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index 1912747f40ae7079a2b4f8439ccd65f8879a439f..20a0b61780587624210731288f953ccde75750e9 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -2227,6 +2227,7 @@
+ 		"Turn off \"%1\" to see \"%2\".": "Вимкніть «%1», щоб побачити «%2».",
+ 		"Turn off AI features": "Вимкнути функції ШІ",
+ 		"Turn off Money": "Вимкнути Money",
++		"Turn off text sending animation": "Вимкнути анімацію надсилання тексту",
+ 		"Turn off touchpad gestures": "Вимкнути жести тачпада",
+ 		"Turn off widgets": "Вимкнути віджети",
+ 		"Turn on \"%1\" to see \"%2\".": "Увімкніть «%1», щоб побачити «%2».",
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 6651cc39f6d418a83e511583476629a7aef4decf..33ef5ff9d721412ed88b3dcc4285d13ad3735023 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3334,6 +3334,7 @@ void FillSending(SectionBuilder &builder) {
+ 				::Tele::kOptionQueueBehindMedia);
+ 		});
+ 	AddOptionToggle(builder, ::Tele::kOptionSentToBottom);
++	AddOptionToggle(builder, ::Tele::kOptionNoTextSendingAnimation);
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionForwardOneByOne,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index cf54185f57845560f3facf097561a7ec7ef85229..9b74df767a1990749510d2daaa924b249a153d95 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -159,6 +159,7 @@ const char kOptionTitleBuildHash[] = "tele-title-build-hash";
+ const char kOptionMenuLayouts[] = "tele-menu-layouts";
+ const char kOptionMessageMenuLegacy[] = "tele-message-menu";
+ const char kOptionSentToBottom[] = "tele-sent-to-bottom";
++const char kOptionNoTextSendingAnimation[] = "tele-no-text-sending-animation";
+ const char kOptionQueueBehindMedia[] = "tele-queue-behind-media";
+ const char kOptionSendOlderReplies[] = "tele-send-older-replies";
+ const char kOptionDoubleEnterSend[] = "tele-double-enter-send";
+@@ -1214,6 +1215,11 @@ base::options::toggle SentToBottomOption({
+ 	.description = "When a slow upload finishes after newer messages.",
+ });
+ 
++base::options::toggle NoTextSendingAnimationOption({
++	.id = kOptionNoTextSendingAnimation,
++	.name = "Turn off text sending animation",
++});
++
+ base::options::toggle QueueBehindMediaOption({
+ 	.id = kOptionQueueBehindMedia,
+ 	.name = "Queue messages behind uploading media",
+@@ -3112,6 +3118,10 @@ bool SentToBottom() {
+ 	return SentToBottomOption.value();
+ }
+ 
++bool NoTextSendingAnimation() {
++	return NoTextSendingAnimationOption.value();
++}
++
+ bool QueueBehindMedia() {
+ 	return QueueBehindMediaOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 432557271839d5d2d5593c1201331006d1e0cc8c..77e1e9ee97649097a2723118f9656839eff6cf82 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -154,6 +154,7 @@ extern const char kOptionTitleBuildHash[];
+ extern const char kOptionMenuLayouts[];
+ extern const char kOptionMessageMenuLegacy[];
+ extern const char kOptionSentToBottom[];
++extern const char kOptionNoTextSendingAnimation[];
+ extern const char kOptionQueueBehindMedia[];
+ extern const char kOptionSendOlderReplies[];
+ extern const char kOptionDoubleEnterSend[];
+@@ -500,6 +501,7 @@ void SetMenuLayouts(const QString &value);
+ [[nodiscard]] QString MessageMenuLegacy();
+ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool SentToBottom();
++[[nodiscard]] bool NoTextSendingAnimation();
+ [[nodiscard]] bool QueueBehindMedia();
+ [[nodiscard]] rpl::producer<> QueueBehindMediaChanges();
+ [[nodiscard]] bool SendOlderReplies();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 7cc83a6ceea468e812d41e0eff999e4e53f1c4d4..ec9235f8b280debf6ab7fc0a978eb497b3a3d5b4 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -242,6 +242,7 @@ struct Spec {
+ 		Toggle(kOptionServerUsernames),
+ 		Toggle(kOptionNoticesServer),
+ 		Toggle(kOptionSentToBottom),
++		Toggle(kOptionNoTextSendingAnimation),
+ 		Toggle(kOptionForwardOneByOne),
+ 		Toggle(kOptionQueueBehindMedia),
+ 		Toggle(kOptionSendOlderReplies),
+diff --git a/Telegram/SourceFiles/ui/effects/message_sending_text_flight.cpp b/Telegram/SourceFiles/ui/effects/message_sending_text_flight.cpp
+index c8f0cd8570152c8e48e44a3f5d8eb2350966ea2b..59b7867453c232b0408d0718a8f741c46c88b288 100644
+--- a/Telegram/SourceFiles/ui/effects/message_sending_text_flight.cpp
++++ b/Telegram/SourceFiles/ui/effects/message_sending_text_flight.cpp
+@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/view/history_view_element.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
++#include "tele/tele_options.h"
+ #include "ui/chat/chat_style.h"
+ #include "ui/chat/chat_style_radius.h"
+ #include "ui/effects/animation_value.h"
+@@ -538,6 +539,9 @@ std::optional<MessageSendingAnimationFrom> PrepareTextSending(
+ 		const TextWithTags &sending,
+ 		MsgId localId,
+ 		bool scheduled) {
++	if (Tele::NoTextSendingAnimation()) {
++		return std::nullopt;
++	}
+ 	auto fieldText = scheduled
+ 		? std::nullopt
+ 		: GrabSendingFieldText(field, sending);
