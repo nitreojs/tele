@@ -2,13 +2,14 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 342 patches, newest release first.
+all 343 patches, newest release first.
 
 ### tele 25 (unreleased)
 
 | # | what it does | where to toggle |
 |---|---|---|
 | [334](../patches/tdesktop/0334-feat-turn-off-text-sending-animation.patch) | turn off the text sending animation immediately, without changing media animations or the order messages are sent in | tele → sending, off |
+| [335](../patches/tdesktop/0335-fix-disabled-composer-resize-handles-stay-hidden.patch) | the message field's resize handle stays hidden when resizing is off, including after opening topics or replies | with 158 |
 
 ### [tele 24](https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.24)
 

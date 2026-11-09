@@ -170,6 +170,7 @@ settings → tele → sending.
 | [279](../patches/tdesktop/0279-feat-mention-several-people-in-a-row.patch) | right-click or tab in the @ list adds the person and opens the list again for the next one, and ctrl+click mentions by name instead of @username | tele → sending, off |
 | [310](../patches/tdesktop/0310-fix-confirm-stickers-sent-from-sticker-set-boxes.patch) | stickers sent from a sticker set's box also wait for a second click | with 129 |
 | [334](../patches/tdesktop/0334-feat-turn-off-text-sending-animation.patch) | turn off the text sending animation immediately, without changing media animations or the order messages are sent in | tele → sending, off |
+| [335](../patches/tdesktop/0335-fix-disabled-composer-resize-handles-stay-hidden.patch) | the message field's resize handle stays hidden when resizing is off, including after opening topics or replies | with 158 |
 
 ## notifications
 
