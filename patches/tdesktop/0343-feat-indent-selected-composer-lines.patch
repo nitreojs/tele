@@ -1,0 +1,335 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 11 Nov 2026 00:29:31 +0300
+Subject: [PATCH] feat: indent selected composer lines
+
+---
+ Telegram/Resources/tele/translations/ru.json  |  5 +
+ Telegram/Resources/tele/translations/uk.json  |  5 +
+ .../SourceFiles/settings/settings_tele.cpp    | 20 ++++
+ .../tele/tele_composer_editing.cpp            | 94 ++++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_options.cpp    | 37 ++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  6 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  2 +
+ 7 files changed, 168 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index e6a4fa831ecaac185f4ccb86641046098c780ea4..fe39fa84a687369e64b730e77a95f81669c199c6 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -435,8 +435,10 @@
+ 		"10000 messages per HTML file instead of 1000, files downloaded in 1 MB parts.": "10000 сообщений в HTML-файле вместо 1000, файлы скачиваются частями по 1 МБ.",
+ 		"128 kbps instead of 32, so voice messages are 4 times bigger.": "128 кбит/с вместо 32, поэтому голосовые сообщения весят в 4 раза больше.",
+ 		"13 px on the sides and 7 on top, like older Telegram Desktop.": "13 px по бокам и 7 сверху, как в старом Telegram Desktop.",
++		"2 spaces": "2 пробела",
+ 		"256x256 px instead of 380x480.": "256x256 px вместо 380x480.",
+ 		"30 days": "30 дней",
++		"4 spaces": "4 пробела",
+ 		"7 days": "7 дней",
+ 		": %1x%2 is over 100 megapixels": ": %1x%2 больше 100 мегапикселей",
+ 		": a path is a string": ": путь должен быть строкой",
+@@ -1183,6 +1185,8 @@
+ 		"Includes the gift button the message field shows on birthdays.": "Также скрывает кнопку подарка, которая появляется в поле ввода в дни рождения.",
+ 		"Including you": "Включая вас",
+ 		"Incoming": "Входящие",
++		"Indent selected lines with Tab": "Отступы в выделенных строках по Tab",
++		"Indentation": "Отступ",
+ 		"Info": "Инфо",
+ 		"Inline buttons": "Инлайн-кнопки",
+ 		"Inline query copied to clipboard.": "Инлайн-запрос скопирован в буфер обмена.",
+@@ -2054,6 +2058,7 @@
+ 		"TGS stickers can be up to %1 KB, this one is %2 KB": "TGS-стикеры могут весить до %1 КБ, этот — %2 КБ",
+ 		"TGS: %1 KB, can't be a sticker: %2.": "TGS: %1 КБ, не подходит для стикера: %2.",
+ 		"TGS: %1 KB, passes Telegram's sticker checks.": "TGS: %1 КБ, проходит проверки стикеров Telegram.",
++		"Tab": "Табуляция",
+ 		"Tag ": "Tag ",
+ 		"Tag digit ": "Tag digit ",
+ 		"Tag latin capital letter ": "Tag latin capital letter ",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index d48d93fbf83fbd45148ab3b49254d2af54d65171..2e0c0c2a61b9473be2cd9894f51da0f17abcdea5 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -435,8 +435,10 @@
+ 		"10000 messages per HTML file instead of 1000, files downloaded in 1 MB parts.": "10000 повідомлень у HTML-файлі замість 1000, файли завантажуються частинами по 1 МБ.",
+ 		"128 kbps instead of 32, so voice messages are 4 times bigger.": "128 кбіт/с замість 32, тому голосові повідомлення вчетверо більші.",
+ 		"13 px on the sides and 7 on top, like older Telegram Desktop.": "13 px з боків і 7 зверху, як у старих версіях Telegram Desktop.",
++		"2 spaces": "2 пробіли",
+ 		"256x256 px instead of 380x480.": "256x256 px замість 380x480.",
+ 		"30 days": "30 днів",
++		"4 spaces": "4 пробіли",
+ 		"7 days": "7 днів",
+ 		": %1x%2 is over 100 megapixels": ": %1x%2 — понад 100 мегапікселів",
+ 		": a path is a string": ": шлях має бути рядком",
+@@ -1183,6 +1185,8 @@
+ 		"Includes the gift button the message field shows on birthdays.": "Включно з кнопкою подарунка в полі введення в дні народження.",
+ 		"Including you": "Включно з вами",
+ 		"Incoming": "Вхідні",
++		"Indent selected lines with Tab": "Відступи у виділених рядках клавішею Tab",
++		"Indentation": "Відступ",
+ 		"Info": "Інфо",
+ 		"Inline buttons": "Інлайн-кнопки",
+ 		"Inline query copied to clipboard.": "Інлайн-запит скопійовано в буфер обміну.",
+@@ -2054,6 +2058,7 @@
+ 		"TGS stickers can be up to %1 KB, this one is %2 KB": "TGS-стікери можуть важити до %1 КБ, цей — %2 КБ",
+ 		"TGS: %1 KB, can't be a sticker: %2.": "TGS: %1 КБ, не підходить для стікера: %2.",
+ 		"TGS: %1 KB, passes Telegram's sticker checks.": "TGS: %1 КБ, проходить перевірки стікерів Telegram.",
++		"Tab": "Табуляція",
+ 		"Tag ": "Tag ",
+ 		"Tag digit ": "Tag digit ",
+ 		"Tag latin capital letter ": "Tag latin capital letter ",
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index d1a2092c2fdb2fe82ecc767aeefbebf38a243449..e5870f93db99c857c1cb540760a6e5b140e28b04 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3359,6 +3359,26 @@ void FillMessages(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionKeepIndentation,
+ 		{ u"newline"_q, u"spaces"_q, u"tabs"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionIndentSelectedLines,
++		{ u"selection"_q, u"tab"_q, u"spaces"_q },
++		{},
++		[&] {
++			AddButtonChoice(
++				builder,
++				::Tele::kOptionComposerIndentation,
++				::Tele::ComposerIndentation,
++				::Tele::SetComposerIndentation,
++				::Tele::ComposerIndentationValue,
++				{
++					{ u"2"_q, u"2 spaces"_q },
++					{ u"4"_q, u"4 spaces"_q },
++					{ u"tab"_q, u"Tab"_q },
++				},
++				{ u"tab"_q, u"spaces"_q },
++				::Tele::kOptionIndentSelectedLines);
++		});
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Spoilers"_q);
+ 	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
+diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
+index a61d7c48019f0c33c77eb80ab570bf40cb93d00a..c4c374ece8ee3014fbfbb234c7172fbdd9b06367 100644
+--- a/Telegram/SourceFiles/tele/tele_composer_editing.cpp
++++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
+@@ -49,6 +49,7 @@ private:
+ 
+ 	bool eventFilter(QObject *object, QEvent *event) override;
+ 	bool keyPress(not_null<QKeyEvent*> e);
++	bool indentSelectedLines(bool backward);
+ 	void wrap(QChar opening, QChar closing);
+ 	void insertPair(QChar opening, QChar closing);
+ 	void convertAngles(Pair pair);
+@@ -131,6 +132,19 @@ bool ComposerEditing::eventFilter(QObject *object, QEvent *event) {
+ }
+ 
+ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
++	const auto modifiers = e->modifiers();
++	if (!_preedit
++		&& !_edit->isReadOnly()
++		&& (e->key() == Qt::Key_Tab || e->key() == Qt::Key_Backtab)
++		&& !(modifiers & ~Qt::ShiftModifier)
++		&& IndentSelectedLines()
++		&& _field->textCursor().hasSelection()
++		&& indentSelectedLines(
++			e->key() == Qt::Key_Backtab
++				|| modifiers.testFlag(Qt::ShiftModifier))) {
++		e->accept();
++		return true;
++	}
+ 	const auto wrapEnabled = WrapSelectedText();
+ 	const auto pairsEnabled = AutoCloseBrackets();
+ 	const auto indentEnabled = KeepIndentation();
+@@ -149,7 +163,6 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
+ 	}
+ 	const auto cursor = _field->textCursor();
+ 	const auto position = cursor.position();
+-	const auto modifiers = e->modifiers();
+ 	const auto altGr = modifiers.testFlag(Qt::ControlModifier)
+ 		&& modifiers.testFlag(Qt::AltModifier)
+ 		&& !modifiers.testFlag(Qt::MetaModifier);
+@@ -266,6 +279,85 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
+ 	return false;
+ }
+ 
++bool ComposerEditing::indentSelectedLines(bool backward) {
++	auto cursor = _field->textCursor();
++	const auto from = cursor.selectionStart();
++	const auto till = cursor.selectionEnd();
++	const auto reverse = cursor.position() < cursor.anchor();
++	auto firstBreak = from;
++	while (firstBreak < till
++		&& !IsNewline(_document->characterAt(firstBreak))) {
++		++firstBreak;
++	}
++	if (firstBreak == till) {
++		return false;
++	}
++	auto start = from;
++	while (start > 0 && !IsNewline(_document->characterAt(start - 1))) {
++		--start;
++	}
++	auto starts = std::vector<int>{ start };
++	for (auto i = firstBreak; i + 1 < till; ++i) {
++		if (IsNewline(_document->characterAt(i))) {
++			starts.push_back(i + 1);
++		}
++	}
++	const auto mode = ComposerIndentation();
++	const auto width = (mode == u"2"_q) ? 2 : 4;
++	const auto prefix = backward
++		? QString()
++		: (mode == u"tab"_q)
++		? QString(QChar('\t'))
++		: QString(width, QChar(' '));
++	auto mappedFrom = from;
++	auto mappedTill = till;
++	_pairs.clear();
++	_handling = true;
++	cursor.beginEditBlock();
++	// Work backwards so stored line starts and selection endpoints stay in
++	// the original document's coordinates throughout the operation.
++	for (auto i = int(starts.size()); i > 0; --i) {
++		const auto at = starts[i - 1];
++		cursor.setPosition(at);
++		if (backward) {
++			auto removed = 0;
++			if (_document->characterAt(at) == QChar('\t')) {
++				removed = 1;
++			} else {
++				while (removed < width
++					&& _document->characterAt(at + removed) == QChar(' ')) {
++					++removed;
++				}
++			}
++			if (!removed) {
++				continue;
++			}
++			cursor.setPosition(at + removed, QTextCursor::KeepAnchor);
++			cursor.removeSelectedText();
++			mappedFrom -= std::min(removed, std::max(from - at, 0));
++			mappedTill -= std::min(removed, std::max(till - at, 0));
++		} else {
++			// A fresh format prevents links or custom emoji at the line's
++			// beginning from turning the indentation into tagged content.
++			cursor.insertText(prefix, QTextCharFormat());
++			if (from >= at) {
++				mappedFrom += prefix.size();
++			}
++			if (till >= at) {
++				mappedTill += prefix.size();
++			}
++		}
++	}
++	cursor.endEditBlock();
++	cursor.setPosition(reverse ? mappedTill : mappedFrom);
++	cursor.setPosition(
++		reverse ? mappedFrom : mappedTill,
++		QTextCursor::KeepAnchor);
++	_field->setTextCursor(cursor);
++	_handling = false;
++	return true;
++}
++
+ void ComposerEditing::wrap(QChar opening, QChar closing) {
+ 	_pairs.clear();
+ 	_handling = true;
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index e535446e23bbe28dcee3e51f03fa52e36d044700..cfe6a287fa79a6d73a83a30521b07dbf4511d2d4 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -174,6 +174,8 @@ const char kOptionLiveMarkdown[] = "tele-live-markdown";
+ const char kOptionWrapSelectedText[] = "tele-wrap-selected-text";
+ const char kOptionAutoCloseBrackets[] = "tele-auto-close-brackets";
+ const char kOptionKeepIndentation[] = "tele-keep-indentation";
++const char kOptionIndentSelectedLines[] = "tele-indent-selected-lines";
++const char kOptionComposerIndentation[] = "tele-composer-indentation";
+ const char kOptionHideGiftButton[] = "tele-hide-gift-button";
+ const char kOptionHideBirthdays[] = "tele-hide-birthdays";
+ const char kOptionSilentByDefault[] = "tele-silent-by-default";
+@@ -1305,6 +1307,17 @@ base::options::toggle KeepIndentationOption({
+ 	.name = "Keep indentation",
+ });
+ 
++base::options::toggle IndentSelectedLinesOption({
++	.id = kOptionIndentSelectedLines,
++	.name = "Indent selected lines with Tab",
++});
++
++base::options::option<QString> ComposerIndentationOption({
++	.id = kOptionComposerIndentation,
++	.name = "Indentation",
++	.defaultValue = u"4"_q,
++});
++
+ base::options::toggle HideGiftButtonOption({
+ 	.id = kOptionHideGiftButton,
+ 	.name = "Hide the gift button in the message field",
+@@ -3225,6 +3238,30 @@ bool KeepIndentation() {
+ 	return KeepIndentationOption.value();
+ }
+ 
++bool IndentSelectedLines() {
++	return IndentSelectedLinesOption.value();
++}
++
++QString ComposerIndentation() {
++	const auto value = ComposerIndentationOption.value();
++	return (value == u"2"_q || value == u"tab"_q) ? value : u"4"_q;
++}
++
++void SetComposerIndentation(const QString &value) {
++	ComposerIndentationOption.set(
++		(value == u"2"_q || value == u"tab"_q) ? value : u"4"_q);
++}
++
++rpl::producer<QString> ComposerIndentationValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		ComposerIndentationOption.changes()
++	) | rpl::map([] {
++		return ComposerIndentation();
++	});
++}
++
+ bool HideGiftButton() {
+ 	return HideGiftButtonOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 8406f0d68eee41967c8ca5b588866334d976357f..9d237cbf41cb1925dbbc695a7e0c59cfa75cc054 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -169,6 +169,8 @@ extern const char kOptionLiveMarkdown[];
+ extern const char kOptionWrapSelectedText[];
+ extern const char kOptionAutoCloseBrackets[];
+ extern const char kOptionKeepIndentation[];
++extern const char kOptionIndentSelectedLines[];
++extern const char kOptionComposerIndentation[];
+ extern const char kOptionHideGiftButton[];
+ extern const char kOptionHideBirthdays[];
+ extern const char kOptionSilentByDefault[];
+@@ -524,6 +526,10 @@ void ClearMessageMenuLegacy();
+ [[nodiscard]] bool WrapSelectedText();
+ [[nodiscard]] bool AutoCloseBrackets();
+ [[nodiscard]] bool KeepIndentation();
++[[nodiscard]] bool IndentSelectedLines();
++[[nodiscard]] QString ComposerIndentation();
++void SetComposerIndentation(const QString &value);
++[[nodiscard]] rpl::producer<QString> ComposerIndentationValue();
+ [[nodiscard]] bool HideGiftButton();
+ [[nodiscard]] rpl::producer<> HideGiftButtonChanges();
+ [[nodiscard]] bool HideBirthdays();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 5547f0e347ae91cdfda4fb41ba801a54e0ba5600..87bbcaa28e03ac6751e32fcf077a7841a6110f80 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -266,6 +266,8 @@ struct Spec {
+ 		Toggle(kOptionWrapSelectedText),
+ 		Toggle(kOptionAutoCloseBrackets),
+ 		Toggle(kOptionKeepIndentation),
++		Toggle(kOptionIndentSelectedLines),
++		Choice(kOptionComposerIndentation, { u"2"_q, u"4"_q, u"tab"_q }),
+ 		Toggle(kOptionHideGiftButton),
+ 		Toggle(kOptionHideBirthdays),
+ 		Toggle(kOptionSilentByDefault),

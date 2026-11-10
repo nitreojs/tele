@@ -133,6 +133,7 @@ settings → tele → messages.
 | [326](../patches/tdesktop/0326-feat-bigger-video-messages-while-playing.patch) | video messages grow to 400 px while they play or are paused, as far as the chat's width allows, and shrink back when they stop | tele → messages, off |
 | [327](../patches/tdesktop/0327-feat-seek-anywhere-on-video-messages.patch) | drag anywhere on a video message except its middle to seek, not only along its edge | tele → messages, off |
 | [337](../patches/tdesktop/0337-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions | tele → messages, off |
+| [343](../patches/tdesktop/0343-feat-indent-selected-composer-lines.patch) | Tab indents selected lines and Shift+Tab removes one level, using 2 spaces, 4 spaces or tabs. formatting, custom emoji and selection direction stay intact, and each operation undoes in one step. ordinary Tab completion and focus navigation stay unchanged; works in chats, topics, replies and captions | tele → messages, off |
 
 ## sending
 
@@ -284,6 +285,7 @@ settings → tele → profiles and ids.
 | [302](../patches/tdesktop/0302-feat-fill-the-whole-profile-with-the-blurred-photo-s.patch) | with the blurred photo background on, the whole profile takes the colour of the photo's lower edge, not only its header, with the text kept readable | with 298 |
 | [321](../patches/tdesktop/0321-feat-show-the-last-activity-next-to-a-hidden-last-se.patch) | for people whose last seen is hidden, the chat header and profile show when tele last saw them write, type, read your messages or react: last seen recently (14:32). remembered across restarts | tele → profiles and ids, off |
 | [324](../patches/tdesktop/0324-feat-show-typing-in-the-chat-list-with-a-hidden-last.patch) | chat list rows show typing, recording and choosing a sticker for people whose last seen is hidden, which telegram only shows in the open chat. bots stay as they are | tele → profiles and ids, off |
+| [342](../patches/tdesktop/0342-feat-remember-message-read-times-as-activity.patch) | opening read info also remembers the DM and group read timestamps Telegram exposes. cached results count too, older receipts never replace newer activity, and no background lookups are added | with 321 |
 
 ### gift studio
 

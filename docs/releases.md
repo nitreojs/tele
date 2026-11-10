@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 349 patches, newest release first.
+all 351 patches, newest release first.
 
 ### tele 25 (unreleased)
 
@@ -16,6 +16,8 @@ all 349 patches, newest release first.
 | [339](../patches/tdesktop/0339-fix-put-off-first-in-the-auto-delete-picker.patch) | the per-chat auto-delete picker starts with off, selected when auto-delete is disabled, instead of a separate disable button | always on |
 | [340](../patches/tdesktop/0340-feat-stop-selected-bots-without-deleting-their-chats.patch) | stop selected bots without deleting their chats, with a confirmation showing how many. people, groups and already stopped bots are skipped; narrow chat columns keep the action in an overflow menu | with 164 |
 | [341](../patches/tdesktop/0341-fix-keep-pending-sends-stable-on-confirmation.patch) | pending messages keep their place as more messages are sent and confirmed, including in topics, replies, Saved Messages and channel DMs. genuinely late sends still follow Telegram's server order, with text sending animations on or off | always on |
+| [342](../patches/tdesktop/0342-feat-remember-message-read-times-as-activity.patch) | opening read info also remembers the DM and group read timestamps Telegram exposes. cached results count too, older receipts never replace newer activity, and no background lookups are added | with 321 |
+| [343](../patches/tdesktop/0343-feat-indent-selected-composer-lines.patch) | Tab indents selected lines and Shift+Tab removes one level, using 2 spaces, 4 spaces or tabs. formatting, custom emoji and selection direction stay intact, and each operation undoes in one step. ordinary Tab completion and focus navigation stay unchanged; works in chats, topics, replies and captions | tele → messages, off |
 
 ### [tele 24](https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.24)
 
