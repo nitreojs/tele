@@ -453,7 +453,7 @@ index 4fe8d2b4789363ddf6f40694a4aad89bfe03334a..61e8c7926d5de72d89480318b005eba0
  
  	if (_ripple) {
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..6110b0a1bf2a08cbd7064f9eda0da5114999a076 100644
+index d3816be8f55500d0dcaf7cf056dade77a1439d34..9e0a3552d7a0b968adec30bc8d9022b5e38dca0d 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -464,7 +464,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..6110b0a1bf2a08cbd7064f9eda0da511
  #include "tele/tele_spoilers.h"
  #include "styles/style_chat.h"
  #include "styles/style_chat_style.h"
-@@ -1253,7 +1254,7 @@ void Gif::validateThumbCache(
+@@ -1262,7 +1263,7 @@ void Gif::validateThumbCache(
  			&& (normal->width() < kUseNonBlurredThreshold)
  			&& (normal->height() < kUseNonBlurredThreshold))
  		: !videothumb;
@@ -473,7 +473,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..6110b0a1bf2a08cbd7064f9eda0da511
  	const auto scaled = ScaledInstantViewMediaSize(
  		outer,
  		HostedInstantViewMediaPixelScale(_parent));
-@@ -1316,7 +1317,7 @@ void Gif::validateSpoilerImageCache(
+@@ -1325,7 +1326,7 @@ void Gif::validateSpoilerImageCache(
  		std::optional<Ui::BubbleRounding> rounding) const {
  	Expects(_spoiler != nullptr);
  
@@ -482,7 +482,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..6110b0a1bf2a08cbd7064f9eda0da511
  	const auto scaled = ScaledInstantViewMediaSize(
  		outer,
  		HostedInstantViewMediaPixelScale(_parent));
-@@ -2257,7 +2258,8 @@ void Gif::validateGroupedCache(
+@@ -2274,7 +2275,8 @@ void Gif::validateGroupedCache(
  		| (uint64(height) << 32)
  		| (uint64(options) << 16)
  		| (uint64(rounding.key()) << 8)
@@ -492,7 +492,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..6110b0a1bf2a08cbd7064f9eda0da511
  	if (*cacheKey == key) {
  		return;
  	}
-@@ -2268,10 +2270,10 @@ void Gif::validateGroupedCache(
+@@ -2285,10 +2287,10 @@ void Gif::validateGroupedCache(
  	const auto pixSize = Ui::GetImageScaleSizeForGeometry(
  		{ originalWidth, originalHeight },
  		{ width, height });

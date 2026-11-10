@@ -23,10 +23,10 @@ Subject: [PATCH] feat: filter stickers and emoji by format
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_formats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index aad98ba3d39880f4c3fbc8e34b18d0879035a0e4..8a25542a7ce3991adb5fa924fca2605b189a0384 100644
+index a3f96b47a6fe16db5a586ef939ba5ae78e725636..95e6e69f564b3c36c9c52003cf4a3700dcf6fcf6 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3100,6 +3100,8 @@ PRIVATE
+@@ -3104,6 +3104,8 @@ PRIVATE
      tele/tele_start_param.h
      tele/tele_sticker_captions.cpp
      tele/tele_sticker_captions.h

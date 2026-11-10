@@ -8,6 +8,7 @@ Subject: [PATCH] feat: turn off money
  Telegram/SourceFiles/history/history_item.cpp |  7 +++--
  .../history/view/history_view_element.cpp     |  6 +++--
  .../view/history_view_service_message.cpp     |  5 +++-
+ .../profile/info_profile_balance_pill.cpp     |  4 +++
  Telegram/SourceFiles/main/main_app_config.cpp |  3 ++-
  .../SourceFiles/settings/settings_tele.cpp    |  4 +++
  Telegram/SourceFiles/tele/tele_no_money.cpp   | 17 ++++++++++++
@@ -17,7 +18,7 @@ Subject: [PATCH] feat: turn off money
  .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
  Telegram/SourceFiles/wallet/wallet_panel.cpp  | 13 +++++++++
  .../SourceFiles/wallet/wallet_session.cpp     | 27 +++++++++++++++++++
- 13 files changed, 104 insertions(+), 6 deletions(-)
+ 14 files changed, 108 insertions(+), 6 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_no_money.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_no_money.h
 
@@ -113,6 +114,28 @@ index 00f468f53c101fdb1dbac31fee87988b36c8db4d..8c8a8fe0d03e3c1e6f732cb18c63020f
  	const auto sentenceSelection = !transfer
  		? selection
  		: (selection == FullSelection)
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_balance_pill.cpp b/Telegram/SourceFiles/info/profile/info_profile_balance_pill.cpp
+index 351bd26507128862a37712f7931a71c3241599d3..702724cfe96888dc0ba73a98c74fb6c7d416dd17 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_balance_pill.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_balance_pill.cpp
+@@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "info/channel_statistics/earn/earn_icons.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_options.h"
+ #include "ui/controls/ton_common.h"
+ #include "ui/painter.h"
+ #include "ui/ui_utility.h"
+@@ -54,6 +55,9 @@ BalancePill::BalancePill(
+ , _arrowTop(PillArrowTop()) {
+ 	setAttribute(Qt::WA_TransparentForMouseEvents);
+ 	hide();
++	if (Tele::NoMoney()) {
++		return;
++	}
+ 
+ 	std::move(
+ 		edgeColor
 diff --git a/Telegram/SourceFiles/main/main_app_config.cpp b/Telegram/SourceFiles/main/main_app_config.cpp
 index 3744123836f7fc48437b4bc71453ee973b263d6a..6ab8c0a4b85a0617d0c52fbc5aac300258b81e6b 100644
 --- a/Telegram/SourceFiles/main/main_app_config.cpp

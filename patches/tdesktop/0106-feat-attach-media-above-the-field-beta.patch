@@ -504,7 +504,7 @@ index 091a94535ffd7a0d33bc8a48d000ed5a43e39f32..d2824eea4a36bc696ae280d5d5e02851
  
  	auto box = Box<SendFilesBox>(
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 6110b0a1bf2a08cbd7064f9eda0da5114999a076..15f4814aebb1a1988cb170aeae905206756dd4d2 100644
+index 9e0a3552d7a0b968adec30bc8d9022b5e38dca0d..58a0496ce10b5780d5f6cb8b1e4ed14e572517b3 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -525,7 +525,7 @@ index 6110b0a1bf2a08cbd7064f9eda0da5114999a076..15f4814aebb1a1988cb170aeae905206
  		return false;
  	} else if (_realParent->isSponsored()) {
  		return true;
-@@ -2297,6 +2299,7 @@ void Gif::setStatusSize(int64 newSize) const {
+@@ -2314,6 +2316,7 @@ void Gif::setStatusSize(int64 newSize) const {
  			_data->isVideoFile() ? (_data->duration() / 1000) : -2,
  			0);
  	}

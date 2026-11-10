@@ -26,10 +26,10 @@ Subject: [PATCH] feat: smoother wheel glides in chats
  create mode 100644 Telegram/SourceFiles/tele/tele_scroll_stats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 13533d6526f10963ba4364a5d164b271406d8064..8145962e2f4a3ac95a5d61422a4447cadbcec7b1 100644
+index 1b4d36ea8c220e43b81393239e07b2d79412b332..930adecef972587ed842a6cd76d1f5feb7cc5208 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3054,6 +3054,10 @@ PRIVATE
+@@ -3058,6 +3058,10 @@ PRIVATE
      tele/tele_rmb_beside_bubble.h
      tele/tele_screen_capture.cpp
      tele/tele_screen_capture.h

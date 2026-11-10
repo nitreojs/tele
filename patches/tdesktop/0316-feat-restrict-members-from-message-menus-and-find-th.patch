@@ -21,10 +21,10 @@ Subject: [PATCH] feat: restrict members from message menus and find them by id
  create mode 100644 Telegram/SourceFiles/tele/tele_restrict.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c36d9bf5493ddbfb8726c48e549026003d02ba0e..e5c76f28bd532553a0c755257f5ee4f1cbba782d 100644
+index a8b7512b7bf80d46df4e72829ee0d0dfa52cb078..0422389b917cd137948da071daa537977b003e92 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3050,6 +3050,8 @@ PRIVATE
+@@ -3054,6 +3054,8 @@ PRIVATE
      tele/tele_regex_search.h
      tele/tele_remove_mine.cpp
      tele/tele_remove_mine.h
@@ -129,7 +129,7 @@ index 7f80ee65ab9f734788296720271a2a4a84d85b90..d695e0ecbe5877596b46943179b40133
  		builder,
  		::Tele::kOptionRmbBesideBubble,
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index b9aecdc2db677e1f5f51f8b16d93a95d840b3f09..32f0c1921a809c66b3f9064c605843057a96f6c1 100644
+index 18b59d2a85391242983965243ad3077094bce08c..fe224be8f5bdc22b81958cb554a8dc9da8d6f37b 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 @@ -714,6 +714,10 @@ constexpr auto kFieldText = uint32(1 << 0);

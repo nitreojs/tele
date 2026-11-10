@@ -30,7 +30,7 @@ index 3aea3718c17741cbec303eac5d35d77ccce28e3d..5eb5a6351b5f3435a60fe40e33c5f277
      tele/tele_screen_capture.h
      tele/tele_scroll_layer.cpp
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 15f4814aebb1a1988cb170aeae905206756dd4d2..a1ad04a2ae70e8b878853ca93482c96ab54f9fc3 100644
+index 58a0496ce10b5780d5f6cb8b1e4ed14e572517b3..541d9c833952fba64c802cc9b8186d875f4c5f5e 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -84,7 +84,7 @@ index 15f4814aebb1a1988cb170aeae905206756dd4d2..a1ad04a2ae70e8b878853ca93482c96a
  	const auto scaled = countThumbSize(thumbMaxWidth);
  	const auto minWidthByInfo = hostedInstantView
  		? _parent->minWidthForMedia()
-@@ -2394,6 +2417,10 @@ bool Gif::enforceBubbleWidth() const {
+@@ -2411,6 +2434,10 @@ bool Gif::enforceBubbleWidth() const {
  }
  
  int Gif::bubbleWidthLimit() const {

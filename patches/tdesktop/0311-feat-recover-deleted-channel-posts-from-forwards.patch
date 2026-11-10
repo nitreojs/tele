@@ -25,10 +25,10 @@ Subject: [PATCH] feat: recover deleted channel posts from forwards
  create mode 100644 Telegram/SourceFiles/tele/tele_recover_forwarded.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 473b8751085b3b18daac72a86d6fb4d11fc873aa..aad98ba3d39880f4c3fbc8e34b18d0879035a0e4 100644
+index bff1e9a7ce6e4ff5d4d2380fb148050a4e126337..a3f96b47a6fe16db5a586ef939ba5ae78e725636 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3040,6 +3040,8 @@ PRIVATE
+@@ -3044,6 +3044,8 @@ PRIVATE
      tele/tele_read_log.h
      tele/tele_recent_emoji.cpp
      tele/tele_recent_emoji.h
