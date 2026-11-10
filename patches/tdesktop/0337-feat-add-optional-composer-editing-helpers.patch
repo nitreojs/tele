@@ -13,12 +13,12 @@ Subject: [PATCH] feat: add optional composer editing helpers
  .../boxes/send_gif_with_caption_box.cpp       |   2 +
  .../chat_helpers/message_field.cpp            |   2 +
  .../SourceFiles/settings/settings_tele.cpp    |  13 +
- .../tele/tele_composer_editing.cpp            | 426 ++++++++++++++++++
+ .../tele/tele_composer_editing.cpp            | 496 ++++++++++++++++++
  .../SourceFiles/tele/tele_composer_editing.h  |  11 +
  Telegram/SourceFiles/tele/tele_options.cpp    |  30 ++
  Telegram/SourceFiles/tele/tele_options.h      |   6 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   3 +
- 14 files changed, 509 insertions(+)
+ 14 files changed, 579 insertions(+)
  create mode 100644 Telegram/SourceFiles/tele/tele_composer_editing.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_composer_editing.h
 
@@ -233,10 +233,10 @@ index 8b94a6fb2a04afb70dc03bfdf5da54683a1e4313..69a8f115ed3b635e725652c8a0658d5d
  	AddGroupDivider(builder);
 diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..ec23e82a267c93115e164ac10fdc99b0ec301817
+index 0000000000000000000000000000000000000000..a61d7c48019f0c33c77eb80ab570bf40cb93d00a
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
-@@ -0,0 +1,426 @@
+@@ -0,0 +1,496 @@
 +#include "tele/tele_composer_editing.h"
 +
 +#include "base/options.h"
@@ -290,6 +290,7 @@ index 0000000000000000000000000000000000000000..ec23e82a267c93115e164ac10fdc99b0
 +	bool keyPress(not_null<QKeyEvent*> e);
 +	void wrap(QChar opening, QChar closing);
 +	void insertPair(QChar opening, QChar closing);
++	void convertAngles(Pair pair);
 +	bool completeFence();
 +	bool angleBoundary(int position) const;
 +	bool forwardKey(not_null<QKeyEvent*> e, bool indent = false);
@@ -400,7 +401,28 @@ index 0000000000000000000000000000000000000000..ec23e82a267c93115e164ac10fdc99b0
 +	if (wrapEnabled && cursor.hasSelection()
 +		&& (!closer.isNull() || ch == QChar('"')
 +			|| ch == QChar('`') || ch == QChar('*'))) {
++		if (pairsEnabled && ch == QChar('<') && !_pairs.empty()) {
++			const auto pair = _pairs.back();
++			if (pair.opening == QChar('<') && pair.closing == QChar('>')
++				&& cursor.selectionStart() == pair.open + 1
++				&& cursor.selectionEnd() == pair.close) {
++				convertAngles(pair);
++				e->accept();
++				return true;
++			}
++		}
++		const auto from = cursor.selectionStart();
++		const auto till = cursor.selectionEnd();
 +		wrap(ch, closer.isNull() ? ch : closer);
++		if (pairsEnabled && ch == QChar('<')) {
++			_pairs.push_back({
++				from,
++				till + 1,
++				ch,
++				closer,
++				false,
++			});
++		}
 +		e->accept();
 +		return true;
 +	}
@@ -410,6 +432,28 @@ index 0000000000000000000000000000000000000000..ec23e82a267c93115e164ac10fdc99b0
 +			const auto pair = _pairs[i - 1];
 +			if (position != pair.close) {
 +				continue;
++			}
++			if (ch == QChar('<') && pair.opening == QChar('<')
++				&& pair.untouched && pair.close == pair.open + 1) {
++				convertAngles(pair);
++				e->accept();
++				return true;
++			} else if (ch == QChar('>') && pair.closing == QChar(0xBB)
++				&& position > pair.open + 1
++				&& _document->characterAt(position - 1) == QChar('>')) {
++				_pairs.erase(_pairs.begin() + i - 1);
++				_handling = true;
++				auto edit = cursor;
++				edit.beginEditBlock();
++				edit.setPosition(position - 1);
++				edit.setPosition(position, QTextCursor::KeepAnchor);
++				edit.removeSelectedText();
++				edit.setPosition(position);
++				edit.endEditBlock();
++				_field->setTextCursor(edit);
++				_handling = false;
++				e->accept();
++				return true;
 +			}
 +			if (ch == pair.closing) {
 +				_pairs.erase(_pairs.begin() + i - 1);
@@ -491,6 +535,32 @@ index 0000000000000000000000000000000000000000..ec23e82a267c93115e164ac10fdc99b0
 +	cursor.endEditBlock();
 +	_pairs.push_back({ position, position + 1, opening, closing });
 +	cursor.setPosition(position + 1);
++	_field->setTextCursor(cursor);
++	_handling = false;
++}
++
++void ComposerEditing::convertAngles(Pair pair) {
++	_handling = true;
++	auto cursor = _field->textCursor();
++	const auto anchor = cursor.anchor();
++	const auto position = cursor.position();
++	cursor.beginEditBlock();
++	cursor.setPosition(pair.close);
++	cursor.setPosition(pair.close + 1, QTextCursor::KeepAnchor);
++	cursor.insertText(QString(QChar(0xBB)), QTextCharFormat());
++	cursor.setPosition(pair.open);
++	cursor.setPosition(pair.open + 1, QTextCursor::KeepAnchor);
++	cursor.insertText(QString(QChar(0xAB)), QTextCharFormat());
++	cursor.endEditBlock();
++	_pairs.push_back({
++		pair.open,
++		pair.close,
++		QChar(0xAB),
++		QChar(0xBB),
++		pair.untouched,
++	});
++	cursor.setPosition(anchor);
++	cursor.setPosition(position, QTextCursor::KeepAnchor);
 +	_field->setTextCursor(cursor);
 +	_handling = false;
 +}
