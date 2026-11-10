@@ -196,12 +196,15 @@ the release notes and the in-app "what's new" come from the same rows in `docs/r
 |---|---|
 | `Toggle(id)` | on/off options |
 | `Choice(id, {...})` | string options with a fixed set of values |
+| `Integer(id, minimum, maximum)` | bounded integer options, represented as decimal strings |
 | `Text(id, Kind::...)` | free-form strings that need their own validation |
 | `People(id, Kind::..., normalize)` | per-account lists: aliases, ignored users, names, backgrounds (optional on import) |
 | `Device(id, Kind::...)` | settings tied to this device, like app and tray icons (optional on import) |
 | `Internal(id)` | bookkeeping that is never exported |
 
 an option missing from the table isn't exported. export logs `Tele Settings: '<id>' is not classified for export.` for every changed `tele-` option it doesn't know.
+
+integer options keep the existing text contract in exported settings and `tg.options`: values are decimal strings, not JSON numbers, and imports reject values outside the declared bounds. playback volumes use 0–10000 for 0–100%; the internal migration value `-1` is accepted for voice and round-video volumes.
 
 ## ci
 

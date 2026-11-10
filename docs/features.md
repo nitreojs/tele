@@ -45,6 +45,8 @@ settings → tele → interface.
 | [303](../patches/tdesktop/0303-feat-scroll-to-zoom-in-the-media-viewer.patch) | scroll to zoom in the media viewer. hold ctrl or cmd while scrolling to switch photos | tele → interface, off |
 | [304](../patches/tdesktop/0304-feat-smoother-wheel-glides-in-chats.patch) | wheel glides step at your monitor's refresh rate, chats move a cached image while they glide, animated stickers, emoji and gifs pause until the glide ends, and the chat list only repaints rows that changed. tele → debug → log scroll frame rate writes each glide's timings to log.txt | with 274 |
 | [315](../patches/tdesktop/0315-feat-close-the-media-viewer-with-mouse-back.patch) | the mouse back button (mouse 4) closes the media viewer: photos, videos, the windowed viewer and stories | tele → interface, off |
+| [338](../patches/tdesktop/0338-feat-separate-music-video-voice-and-round-video-volu.patch) | music, videos, voice messages and round videos have separate saved volumes and mute levels. interface → playback → volumes has four sliders; the player, viewer, picture-in-picture and system controls change only their current media's volume | tele → interface |
+| [340](../patches/tdesktop/0340-feat-stop-selected-bots-without-deleting-their-chats.patch) | stop selected bots without deleting their chats, with a confirmation showing how many. people, groups and already stopped bots are skipped; narrow chat columns keep the action in an overflow menu | with 164 |
 | [1004](../patches/Telegram/lib_ui/0004-feat-ease-mouse-wheel-steps-in-scroll-areas.patch) | the part of smooth wheel scrolling that lives in the ui library's scroll areas | with 274 |
 | [1007](../patches/Telegram/lib_ui/0007-feat-glide-at-the-screen-refresh-rate.patch) | the part of smoother glides that lives in the ui library: a glide ticks at the monitor's refresh rate while other animations keep their pace | with 274 |
 
@@ -130,6 +132,7 @@ settings → tele → messages.
 | [325](../patches/tdesktop/0325-fix-deleted-messages-only-lists-messages-deleted-one.patch) | messages kept because you left or deleted the whole chat no longer count as deleted messages: while the chat is kept they have no trash icon or fade, and the chat's deleted messages page and its count only list messages deleted one by one. when a deleted chat with a person or bot comes back, its old messages get the mark but stay off the page | with 282 |
 | [326](../patches/tdesktop/0326-feat-bigger-video-messages-while-playing.patch) | video messages grow to 400 px while they play or are paused, as far as the chat's width allows, and shrink back when they stop | tele → messages, off |
 | [327](../patches/tdesktop/0327-feat-seek-anywhere-on-video-messages.patch) | drag anywhere on a video message except its middle to seek, not only along its edge | tele → messages, off |
+| [337](../patches/tdesktop/0337-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions | tele → messages, off |
 
 ## sending
 
@@ -171,6 +174,7 @@ settings → tele → sending.
 | [310](../patches/tdesktop/0310-fix-confirm-stickers-sent-from-sticker-set-boxes.patch) | stickers sent from a sticker set's box also wait for a second click | with 129 |
 | [334](../patches/tdesktop/0334-feat-turn-off-text-sending-animation.patch) | turn off the text sending animation immediately, without changing media animations or the order messages are sent in | tele → sending, off |
 | [335](../patches/tdesktop/0335-fix-disabled-composer-resize-handles-stay-hidden.patch) | the message field's resize handle stays hidden when resizing is off, including after opening topics or replies | with 158 |
+| [336](../patches/tdesktop/0336-feat-pad-extreme-image-shapes-for-photo-sending.patch) | narrow and wide images get just enough black padding to send as photos, without stretching or cropping. the preview shows the padding; the original file stays untouched and sending as a file stays unpadded | tele → sending, off |
 
 ## notifications
 
@@ -449,6 +453,7 @@ always on, or without a switch of their own.
 | [328](../patches/tdesktop/0328-fix-file-pickers-on-macos-no-longer-crash-when-their.patch) | on macos, tele no longer crashes when the window a file picker was opened from closes while the picker is open | always on |
 | [329](../patches/tdesktop/0329-fix-picking-files-on-macos-no-longer-freezes-tele.patch) | on macos, picking files to send or open and choosing folders opens a sheet on the window, so tele keeps running until you close it instead of freezing | always on |
 | [330](../patches/tdesktop/0330-feat-translate-tele-into-russian-and-ukrainian.patch) | tele's own settings, menus, boxes and messages come in russian and ukrainian. by default they follow telegram's language, or pick one for tele alone with the translate button in the header of tele's settings; anything not translated yet stays english | always on |
+| [339](../patches/tdesktop/0339-fix-put-off-first-in-the-auto-delete-picker.patch) | the per-chat auto-delete picker starts with off, selected when auto-delete is disabled, instead of a separate disable button | always on |
 | [1001](../patches/Telegram/lib_ui/0001-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 | [1005](../patches/Telegram/lib_ui/0005-fix-the-maximize-button-follows-the-real-window-stat.patch) | the maximize button of a window shows and does the right thing after resizing or moving the window drops its maximized or full screen state | always on |
 | [1008](../patches/Telegram/lib_rpl/0001-fix-topic-tabs-no-longer-crash-after-you-move-them.patch) | topic and direct message tabs no longer crash after you move them to the top, bottom or side and then scroll them. the cause was in the library that passes events around, so anything else that lost updates the same way is fixed too | always on |
