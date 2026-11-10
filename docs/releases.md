@@ -15,7 +15,7 @@ all 349 patches, newest release first.
 | [338](../patches/tdesktop/0338-feat-separate-music-video-voice-and-round-video-volu.patch) | music, videos, voice messages and round videos have separate saved volumes and mute levels. interface → playback → volumes has four sliders; the player, viewer, picture-in-picture and system controls change only their current media's volume | tele → interface |
 | [339](../patches/tdesktop/0339-fix-put-off-first-in-the-auto-delete-picker.patch) | the per-chat auto-delete picker starts with off, selected when auto-delete is disabled, instead of a separate disable button | always on |
 | [340](../patches/tdesktop/0340-feat-stop-selected-bots-without-deleting-their-chats.patch) | stop selected bots without deleting their chats, with a confirmation showing how many. people, groups and already stopped bots are skipped; narrow chat columns keep the action in an overflow menu | with 164 |
-| [341](../patches/tdesktop/0341-fix-keep-pending-sends-stable-on-confirmation.patch) | sending confirmations keep pending messages in place, including in topics, replies and Saved Messages. genuinely late sends still follow Telegram's server order, with text sending animations on or off | always on |
+| [341](../patches/tdesktop/0341-fix-keep-pending-sends-stable-on-confirmation.patch) | pending messages keep their place as more messages are sent and confirmed, including in topics, replies, Saved Messages and channel DMs. genuinely late sends still follow Telegram's server order, with text sending animations on or off | always on |
 
 ### [tele 24](https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.24)
 
