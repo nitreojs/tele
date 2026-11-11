@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 11 Nov 2026 16:13:09 +0300
+Subject: [PATCH] fix: render auto-completed code blocks immediately
+
+---
+ Telegram/SourceFiles/tele/tele_composer_editing.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
+index c4c374ece8ee3014fbfbb234c7172fbdd9b06367..d928fd60986e82592c0f0e48817cfe958a2591b7 100644
+--- a/Telegram/SourceFiles/tele/tele_composer_editing.cpp
++++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
+@@ -471,7 +471,7 @@ bool ComposerEditing::completeFence() {
+ 	_pairs.clear();
+ 	_handling = true;
+ 	cursor.beginEditBlock();
+-	cursor.insertText(u"`\n\n```"_q, QTextCharFormat());
++	cursor.insertText(u"`\n\n```"_q);
+ 	cursor.endEditBlock();
+ 	cursor.setPosition(position + 2);
+ 	_field->setTextCursor(cursor);

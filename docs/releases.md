@@ -2,7 +2,13 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 347 patches, newest release first.
+all 348 patches, newest release first.
+
+### tele 26 (unreleased)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [340](../patches/tdesktop/0340-fix-render-auto-completed-code-blocks-immediately.patch) | auto-completed code blocks render as live markdown immediately, without deleting and undoing first. cursor placement and single-step undo stay unchanged | with 333 |
 
 ### [tele 25](https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.25)
 

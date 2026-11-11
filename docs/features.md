@@ -133,6 +133,7 @@ settings → tele → messages.
 | [325](../patches/tdesktop/0325-feat-seek-anywhere-on-video-messages.patch) | drag anywhere on a video message except its middle to seek, not only along its edge | tele → messages, off |
 | [333](../patches/tdesktop/0333-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions | tele → messages, off |
 | [339](../patches/tdesktop/0339-feat-indent-selected-composer-lines.patch) | Tab indents selected lines and Shift+Tab removes one level, using 2 spaces, 4 spaces or tabs. formatting, custom emoji and selection direction stay intact, and each operation undoes in one step. ordinary Tab completion and focus navigation stay unchanged; works in chats, topics, replies and captions | tele → messages, off |
+| [340](../patches/tdesktop/0340-fix-render-auto-completed-code-blocks-immediately.patch) | auto-completed code blocks render as live markdown immediately, without deleting and undoing first. cursor placement and single-step undo stay unchanged | with 333 |
 
 ## sending
 
