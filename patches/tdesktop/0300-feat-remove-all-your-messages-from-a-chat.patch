@@ -21,10 +21,10 @@ Subject: [PATCH] feat: remove all your messages from a chat
  create mode 100644 Telegram/SourceFiles/tele/tele_remove_mine.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4e3aec66a70daa6da47071998e297528f473dc2a..8e0ea81ce496f2a9af128035a93a084056d0b71b 100644
+index 59c68fa043bd4d79398454fbcf7605a42f8f916f..6284bfde4c41598905990deb0ae4656decef300b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2957,6 +2957,8 @@ PRIVATE
+@@ -2970,6 +2970,8 @@ PRIVATE
      tele/tele_reduce_motion.h
      tele/tele_regex_search.cpp
      tele/tele_regex_search.h
@@ -122,7 +122,7 @@ index 206b55e33f3d436f34fc22685263d919611c449e..29a41f470ced1c7766e3caa816ba8f9c
  
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f5383922abc9d2 100644
+index 3447aa28b268b50aa814116a08fea535cc2c5283..779b045c7f0daf1973d6abe21812308c745c31a1 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 @@ -277,6 +277,15 @@ constexpr auto kFieldText = uint32(1 << 0);
@@ -141,7 +141,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  [[nodiscard]] MenuItemInfo ViewTlItem(uint32 contexts = 0) {
  	return {
  		.key = u"view_as_tl"_q,
-@@ -971,6 +980,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -969,6 +978,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  			P([](int) { return tr::lng_profile_report(tr::now); },
  				st::menuIconReport),
  		}, .contexts = kChats | kBot },
@@ -149,7 +149,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  		{ .key = u"clear_history"_q, .phrases = {
  			P([](int) { return tr::lng_profile_clear_history(tr::now); },
  				st::menuIconClear),
-@@ -1000,7 +1010,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -998,7 +1008,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"download_folder],|,"
  		"manage,manage_topic,boost,story_archive,create_poll,create_todo,"
  		"theme,export,no_forwards,support_info,close_topic,|,"
@@ -158,7 +158,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  		"delete_topic,kept_delete_topic,|,"
  		"[Tools#tools:view_as_tl,mtp_inspector]"_q;
  	result.upstream = u""
-@@ -1011,7 +1021,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1009,7 +1019,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"view_as_topics,manage,story_archive,support_info,boost,"
  		"create_poll,create_todo,theme,background,download_folder,"
  		"no_forwards,discussion,direct_messages,export,deleted,translate,"
@@ -167,7 +167,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  		"close_topic,delete_topic,kept_delete_topic,"
  		"view_as_tl,mtp_inspector"_q;
  	result.minimal = u""
-@@ -1026,7 +1036,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1024,7 +1034,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"alias,local_name,hidden_words,background,download_folder,|,"
  		"manage,manage_topic,boost,story_archive,create_poll,create_todo,"
  		"theme,export,no_forwards,support_info,close_topic,|,"
@@ -176,7 +176,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  		"delete_topic,kept_delete_topic,|,"
  		"view_as_tl,mtp_inspector"_q;
  	return result;
-@@ -1085,6 +1095,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1083,6 +1093,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  			.flags = MenuItemFlag::Submenu | MenuItemFlag::TopLevel },
  		{ .key = u"block"_q, .phrases = BlockPhrases(), .contexts = kUsers },
  		{ .key = u"ban"_q, .phrases = BanPhrases(), .contexts = kPrivate },
@@ -184,7 +184,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  		{ .key = u"clear_history"_q, .phrases = {
  			P([](int) { return tr::lng_profile_clear_history(tr::now); },
  				st::menuIconClear),
-@@ -1105,14 +1116,14 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1103,14 +1114,14 @@ constexpr auto kFieldText = uint32(1 << 0);
  	result.upstream = u""
  		"new_window,|,"
  		"ungroup,hide_promotion,archive,pin,info,mute,mark_read,"
@@ -204,7 +204,7 @@ index b061beb1683e4551b7882553ac3c62788f09d509..f7747d49f3a6916a2ff3db1931f53839
  		"[Tools#tools:view_as_tl,mtp_inspector]"_q;
  	result.minimal = u""
  		"pin,mute,mark_read,|,"
-@@ -1122,8 +1133,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1120,8 +1131,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"new_window,|,"
  		"pin,mark_read,mute,archive,add_to_folder,info,|,"
  		"ungroup,hide_promotion,close_topic,|,"
@@ -916,10 +916,10 @@ index 421e7f8e6d237549c23e6ccd2a470b50a95f3aa0..fc019b841c05e26547b7c0d3192c0c02
  		Toggle(kOptionStickerCaptionsSend),
  		Toggle(kOptionChainMentions),
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index f22e9be83f42d05e60f1126041b254c054dc4a49..2419868fda07e71022976d7465c58dab411dfcf0 100644
+index 94442e7ab3b07e21931939802bea17670679f941..01b92671f1ef6895015493e563e3fe68d090a620 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -144,6 +144,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -145,6 +145,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_mtp_inspector.h"
  #include "tele/tele_online_notify.h"
  #include "tele/tele_peek.h"
@@ -927,7 +927,7 @@ index f22e9be83f42d05e60f1126041b254c054dc4a49..2419868fda07e71022976d7465c58dab
  #include "tele/tele_show_pinned.h"
  #include "tele/tele_silent.h"
  #include "tele/tele_unsorted_folder.h"
-@@ -1955,6 +1956,7 @@ void Filler::fillContextMenuActions() {
+@@ -1956,6 +1957,7 @@ void Filler::fillContextMenuActions() {
  		}
  	}
  	addBanFromChannel();
@@ -935,7 +935,7 @@ index f22e9be83f42d05e60f1126041b254c054dc4a49..2419868fda07e71022976d7465c58dab
  	addClearHistory();
  	addDeleteChat();
  	addLeaveChat();
-@@ -1994,6 +1996,7 @@ void Filler::fillHistoryActions() {
+@@ -1995,6 +1997,7 @@ void Filler::fillHistoryActions() {
  	Tele::AddDeletedActions(_controller, _thread, _addAction);
  	addTranslate();
  	addReport();
@@ -943,7 +943,7 @@ index f22e9be83f42d05e60f1126041b254c054dc4a49..2419868fda07e71022976d7465c58dab
  	addClearHistory();
  	addDeleteChat();
  	addLeaveChat();
-@@ -2051,6 +2054,9 @@ void Filler::fillRepliesActions() {
+@@ -2052,6 +2055,9 @@ void Filler::fillRepliesActions() {
  	addBoostChat();
  	addCreatePoll();
  	addCreateTodoList();

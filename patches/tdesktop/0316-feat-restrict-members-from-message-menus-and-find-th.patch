@@ -21,10 +21,10 @@ Subject: [PATCH] feat: restrict members from message menus and find them by id
  create mode 100644 Telegram/SourceFiles/tele/tele_restrict.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a8b7512b7bf80d46df4e72829ee0d0dfa52cb078..0422389b917cd137948da071daa537977b003e92 100644
+index 25ee4f803f5dbe59bbe9b62cb7d5e2e8fbbbf9d4..a5a400bb8be98b239114a489fbfcda96f6d56360 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3054,6 +3054,8 @@ PRIVATE
+@@ -3067,6 +3067,8 @@ PRIVATE
      tele/tele_regex_search.h
      tele/tele_remove_mine.cpp
      tele/tele_remove_mine.h
@@ -60,10 +60,10 @@ index 7ab48a7fc7a42faaff200d7049045e9734954b8d..0c1e7d082523055eac085b94514ec8c9
  			_timer.callOnce(AutoSearchTimeout);
  		} else {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 99715a809a5fb80939d2c1456d4f234dc21cc3a7..43992225ac86ffc7bdfa100b0492307c8ae2ff0c 100644
+index d688c3126d7d94b0feca53fec301a62a17f069f2..dacd1ac6494ac726c8158161fdede6a097d6bbe0 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -135,6 +135,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -136,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_changes.h"
  #include "dialogs/ui/dialogs_video_userpic.h"
  #include "tele/scripting/tele_script_local.h"
@@ -71,7 +71,7 @@ index 99715a809a5fb80939d2c1456d4f234dc21cc3a7..43992225ac86ffc7bdfa100b0492307c
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -3785,6 +3786,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3737,6 +3738,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderItem(itemId);
  				}, &st::menuIconBlock);
  			}
@@ -81,7 +81,7 @@ index 99715a809a5fb80939d2c1456d4f234dc21cc3a7..43992225ac86ffc7bdfa100b0492307c
  		}
  	} else { // maybe cursor on some text history item?
  		const auto albumPartItem = _dragStateItem;
-@@ -4118,6 +4122,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4070,6 +4074,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderAsGroup(itemId);
  				}, &st::menuIconBlock);
  			}
@@ -92,7 +92,7 @@ index 99715a809a5fb80939d2c1456d4f234dc21cc3a7..43992225ac86ffc7bdfa100b0492307c
  			addSelectMessageAction(Element::Moused()->data());
  		}
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 438c509598c485c70f786614f3cf7344c881b64c..a3769ef7c9ddf580f30c2c417a6fa6b4e386c409 100644
+index aa394d06c1fb66ac5fb7dae1f4a55e09d5085c3e..79d5b70b6eef0617b203881614e31a0e0755bada 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -103,7 +103,7 @@ index 438c509598c485c70f786614f3cf7344c881b64c..a3769ef7c9ddf580f30c2c417a6fa6b4
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -1440,6 +1441,9 @@ void AddMessageActions(
+@@ -1438,6 +1439,9 @@ void AddMessageActions(
  	AddSaveRichHtmlAction(menu, request, list);
  	AddReportAction(menu, request, list);
  	AddBlockSenderAction(menu, request, list);
@@ -129,10 +129,10 @@ index 7f80ee65ab9f734788296720271a2a4a84d85b90..d695e0ecbe5877596b46943179b40133
  		builder,
  		::Tele::kOptionRmbBesideBubble,
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 18b59d2a85391242983965243ad3077094bce08c..fe224be8f5bdc22b81958cb554a8dc9da8d6f37b 100644
+index 3b9b0b6f8d2d3b785cb4a085701dce1bcef46991..4dd979e87a2308a20ec86638c061f9a34614c223 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-@@ -714,6 +714,10 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -712,6 +712,10 @@ constexpr auto kFieldText = uint32(1 << 0);
  			P([](int) { return tr::lng_profile_block_user(tr::now); },
  				st::menuIconBlock),
  		}, .contexts = kOthers },
@@ -143,7 +143,7 @@ index 18b59d2a85391242983965243ad3077094bce08c..fe224be8f5bdc22b81958cb554a8dc9d
  		{ .key = u"select"_q, .phrases = {
  			P([](int) { return tr::lng_context_select_msg(tr::now); },
  				st::menuIconSelect),
-@@ -808,7 +812,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -806,7 +810,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"[tele#tele:[Bookmark#bookmark:bookmark,rename_bookmark],mark_read,"
  		"edit_history,shot,mark_viewed],|,"
  		"select,select_up_to,clear_selection,|,"
@@ -152,7 +152,7 @@ index 18b59d2a85391242983965243ad3077094bce08c..fe224be8f5bdc22b81958cb554a8dc9d
  		"[Tools#tools:view_as_tl,mtp_inspector],|,"
  		"info.packs,info.restriction,info.read,info.forwarded,info.edited,"
  		"info.author,info.id"_q;
-@@ -827,7 +831,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -825,7 +829,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"copy_button_data,copy_message_link,"
  		"forward,add_offer,send_now,ghost_cancel,edit_caption,cancel_upload,"
  		"delete,"
@@ -161,7 +161,7 @@ index 18b59d2a85391242983965243ad3077094bce08c..fe224be8f5bdc22b81958cb554a8dc9d
  		"select_up_to,clear_selection,reschedule,|,"
  		"info.packs,info.restriction,info.read,info.forwarded,info.edited,"
  		"info.author,shot,send_as_gif,|,"
-@@ -858,7 +862,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -856,7 +860,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"translate,open_uncleaned,open_username,alias_open,alias_delete,|,"
  		"bookmark,rename_bookmark,mark_read,edit_history,shot,mark_viewed,|,"
  		"select,select_up_to,clear_selection,|,"
@@ -452,10 +452,10 @@ index b7d9c439af7317e4234b84e564737b9924ebd5a0..527378545c0fc3c0d3a0e0b01429d1df
  		Toggle(kOptionRmbBesideBubble),
  		Toggle(kOptionShot),
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 2419868fda07e71022976d7465c58dab411dfcf0..5228b6ce4864ed8774577b470ed5a1b7f25704b9 100644
+index 01b92671f1ef6895015493e563e3fe68d090a620..8bb1e1e385a377dd7989062c0ab441e419030392 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -129,6 +129,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/peers/manage_community_box.h"
  #include "boxes/premium_preview_box.h"
  #include "tele/secret/secret_chats.h"
@@ -463,7 +463,7 @@ index 2419868fda07e71022976d7465c58dab411dfcf0..5228b6ce4864ed8774577b470ed5a1b7
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_changelog_chat.h"
  #include "tele/tele_chat_backgrounds.h"
-@@ -4610,6 +4611,7 @@ void FillSenderUserpicMenu(
+@@ -4611,6 +4612,7 @@ void FillSenderUserpicMenu(
  		}
  	}
  	Tele::AddIgnoreAction(peer, addAction);

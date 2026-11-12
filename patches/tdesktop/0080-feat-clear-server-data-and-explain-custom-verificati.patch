@@ -17,10 +17,10 @@ Subject: [PATCH] feat: clear server data and explain custom verifications
  create mode 100644 Telegram/SourceFiles/tele/tele_verify_details.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4be03805d38a3be0db620bb86eb6283154845033..57107589387dba61bbca5960201629e91f7f0c9b 100644
+index 2eb2269d230bd9d128ace00e59bd96367e15cd1f..89e24e7a9a8f965f657b6a7e253d0ca6517f6f6b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2730,6 +2730,8 @@ PRIVATE
+@@ -2743,6 +2743,8 @@ PRIVATE
      tele/tele_uploads.h
      tele/tele_username_aliases.cpp
      tele/tele_username_aliases.h
@@ -30,7 +30,7 @@ index 4be03805d38a3be0db620bb86eb6283154845033..57107589387dba61bbca5960201629e9
      tele/tele_view_tl.h
  )
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 9e4dfdc9ec272f49dd5bc1003828a13ad4cc8781..58d3385437c1eba657f032ea0a1b11247bd2fcd7 100644
+index 428002b192b22f5edac0b7bb3a2e853c55027daa..eec70050dc2d122db0413d35545cb0a6b2d4cc2c 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -82,6 +82,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

@@ -20,10 +20,10 @@ Subject: [PATCH] feat: show pending ghost-scheduled messages
  create mode 100644 Telegram/SourceFiles/tele/tele_ghost_pending.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 75edc231956180a283ef815f257bc5dc12d77894..06d6752691b09c801d24fbdf1c06c59926ae90d3 100644
+index 29d8bdf8fcb027545bcc530f2c4d2c7dc369b942..3e164970d6fe0512a37727fa54bdb2a0545f8e27 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2786,6 +2786,8 @@ PRIVATE
+@@ -2799,6 +2799,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ghost.cpp
      tele/tele_ghost.h
@@ -33,10 +33,10 @@ index 75edc231956180a283ef815f257bc5dc12d77894..06d6752691b09c801d24fbdf1c06c599
      tele/tele_hidden_words.h
      tele/tele_ignored.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 05d0f29c2799ae08135d0adc2a85f6d99f89c9b2..97cb17465b26ba5714ff4e730fa963d4965f0217 100644
+index 0afaf2706f391746210fa7b86a5738d16692a490..c207a0d6115ea222313d62900d91e3d7c214e61e 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -140,6 +140,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -141,6 +141,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_edit_history.h"
  #include "tele/tele_failed_sends.h"
  #include "tele/tele_ghost.h"
@@ -44,7 +44,7 @@ index 05d0f29c2799ae08135d0adc2a85f6d99f89c9b2..97cb17465b26ba5714ff4e730fa963d4
  #include "tele/tele_gif_video.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
-@@ -4030,6 +4031,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3982,6 +3983,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	Tele::AddSendHeldNowAction(
  		_menu.get(),
  		(isUponSelected != -2) ? _dragStateItem : nullptr);
@@ -55,7 +55,7 @@ index 05d0f29c2799ae08135d0adc2a85f6d99f89c9b2..97cb17465b26ba5714ff4e730fa963d4
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 36a64bf8891ca1c7cca0e602881d7838c904b87e..df37a6db6b19d0190d4456b139c28415e07205c5 100644
+index 85097afbeadcd38392c5a6663d419f9f6a2168e2..3d188907eeb75af5b08450ea327b89aaa773dfc0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -129,6 +129,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -66,7 +66,7 @@ index 36a64bf8891ca1c7cca0e602881d7838c904b87e..df37a6db6b19d0190d4456b139c28415
  #include "tele/tele_protected.h"
  #include "tele/tele_read_log.h"
  #include "tele/tele_rich_quote.h"
-@@ -2035,6 +2036,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2033,6 +2034,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  	Tele::AddRetryFailedActions(result.get(), item);
  	Tele::AddResendAsGifAction(result.get(), list->controller(), item);
  	Tele::AddSendHeldNowAction(result.get(), item);
@@ -783,10 +783,10 @@ index 0000000000000000000000000000000000000000..49f20d673a00a51c0108262b4c42e94c
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 184c2c6b6132d9cc8aab82da7da727ba49969bee..8d87bdd8eaa9d94ce05cb16f4c2f88ee493a4e7b 100644
+index d41a3f3c981390e3ebfda01222e7798776aa7702..3762709890abd8a154610e598b26179ca6119096 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-@@ -604,6 +604,11 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -602,6 +602,11 @@ constexpr auto kFieldText = uint32(1 << 0);
  			P([](int) { return tr::lng_context_send_now_selected(tr::now); },
  				st::menuIconSend),
  		}, .contexts = kOwn | kMedia | kSelection },
@@ -798,7 +798,7 @@ index 184c2c6b6132d9cc8aab82da7da727ba49969bee..8d87bdd8eaa9d94ce05cb16f4c2f88ee
  		{ .key = u"edit_caption"_q, .phrases = {
  			P([](int) {
  				return tr::lng_context_upload_edit_caption(tr::now);
-@@ -719,7 +724,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -717,7 +722,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  	};
  	result.defaults = u""
  		"reactions,"
@@ -808,7 +808,7 @@ index 184c2c6b6132d9cc8aab82da7da727ba49969bee..8d87bdd8eaa9d94ce05cb16f4c2f88ee
  		"save_as,copy_image,show_in_folder,sticker_set,fave_sticker,"
  		"attached_stickers,send_as_gif,open_gif,save_gif,save_sound,"
  		"cancel_download,edit_caption,cancel_upload,download_selected,"
-@@ -748,7 +754,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -746,7 +752,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"copy_phone,send_gift,copy_text,translate,copy_link,"
  		"open_uncleaned,open_username,alias_copy,alias_open,alias_delete,"
  		"copy_button_data,copy_message_link,"
@@ -818,7 +818,7 @@ index 184c2c6b6132d9cc8aab82da7da727ba49969bee..8d87bdd8eaa9d94ce05cb16f4c2f88ee
  		"download_selected,save_html,report,block_user,select,"
  		"select_up_to,clear_selection,reschedule,|,"
  		"info.packs,info.restriction,info.read,info.forwarded,info.edited,"
-@@ -765,7 +772,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -763,7 +770,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"info.read,info.forwarded,info.edited"_q;
  	result.power = u""
  		"reactions,"

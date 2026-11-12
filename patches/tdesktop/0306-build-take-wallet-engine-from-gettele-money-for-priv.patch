@@ -10,7 +10,7 @@ Subject: [PATCH] build: take wallet-engine from gettele/money for private key
  2 files changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/build/docker/centos_env/Dockerfile b/Telegram/build/docker/centos_env/Dockerfile
-index a5d69d1e208a74806f519b7e994f3a5f31f90878..dbbd5b6674f267581a7e499d62396acb4287305f 100644
+index 21ee7337f09d884a2c3ce0cc3cb2cdefcc21c174..e590ae95ad11cc7965543f0319dfb5efd3e19b23 100644
 --- a/Telegram/build/docker/centos_env/Dockerfile
 +++ b/Telegram/build/docker/centos_env/Dockerfile
 @@ -1017,6 +1017,8 @@ cd wallet-engine
@@ -23,10 +23,10 @@ index a5d69d1e208a74806f519b7e994f3a5f31f90878..dbbd5b6674f267581a7e499d62396acb
  cd ..
  # One archive for every Rust library. Each staticlib carries its own copy of
 diff --git a/Telegram/build/prepare/prepare.py b/Telegram/build/prepare/prepare.py
-index 23e9fd61ebfcbc2e241b781dbda42f62f1ba0190..9455743ab6b1ade0a768244060e894a0a0a88f32 100644
+index c318e1fecb682d94c81066590d63b443309b81de..e1f7f7a7e8cdab681e7685de442f2c91cc49cecf 100644
 --- a/Telegram/build/prepare/prepare.py
 +++ b/Telegram/build/prepare/prepare.py
-@@ -2068,6 +2068,8 @@ win_mac:
+@@ -2079,6 +2079,8 @@ win_mac:
      git clone https://github.com/i582/wallet-engine.git
      cd wallet-engine
      git checkout """ + walletEngineRevision + """
@@ -35,7 +35,7 @@ index 23e9fd61ebfcbc2e241b781dbda42f62f1ba0190..9455743ab6b1ade0a768244060e894a0
      git apply ../patches/wallet-engine.patch
  """)
  
-@@ -2087,7 +2089,7 @@ win_mac:
+@@ -2098,7 +2100,7 @@ win_mac:
  # flushes a cache whose generated source the CI prune had already deleted.
  # The wallet-engine patch rewrites those sources, so it is a dependency here.
  stage('tdesktop_rust', """

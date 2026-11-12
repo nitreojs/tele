@@ -12,7 +12,7 @@ Subject: [PATCH] feat: turn on the wallet before telegram does
  5 files changed, 23 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/main/main_app_config.cpp b/Telegram/SourceFiles/main/main_app_config.cpp
-index 644d493cecbb5f10fa9052dbed3adc154df34108..3744123836f7fc48437b4bc71453ee973b263d6a 100644
+index 1eb3184295c03b31ba0b2c410080729b8cce7539..c7e82aa9d9257ba8728a3cc6534af2678b36e5b4 100644
 --- a/Telegram/SourceFiles/main/main_app_config.cpp
 +++ b/Telegram/SourceFiles/main/main_app_config.cpp
 @@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -20,10 +20,10 @@ index 644d493cecbb5f10fa9052dbed3adc154df34108..3744123836f7fc48437b4bc71453ee97
  #include "main/main_account.h"
  #include "main/main_session.h"
 +#include "tele/tele_options.h"
+ #include "test/test_l10n_seams.h"
  #include "ui/chat/chat_style.h"
  
- namespace Main {
-@@ -275,7 +276,7 @@ QString AppConfig::oldWalletBotUsername() const {
+@@ -276,7 +277,7 @@ QString AppConfig::oldWalletBotUsername() const {
  }
  
  bool AppConfig::walletAvailable() const {

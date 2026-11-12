@@ -2,13 +2,18 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 348 patches, newest release first.
+all 353 patches, newest release first.
 
 ### tele 26 (unreleased)
 
 | # | what it does | where to toggle |
 |---|---|---|
 | [340](../patches/tdesktop/0340-fix-render-auto-completed-code-blocks-immediately.patch) | auto-completed code blocks render as live markdown immediately, without deleting and undoing first. cursor placement and single-step undo stay unchanged | with 333 |
+| [1009](../patches/Telegram/ThirdParty/widget-sandbox/0001-build-regenerate-widget-bundles-for-secured-QuickJS.patch) | the widget sandbox and validator's bundled bytecode is rebuilt against the secured engine, so it can't silently load with the old eval encoding | always on |
+| [1010](../patches/Telegram/ThirdParty/widget-sandbox/packages/ios/Sources/CQuickJS/quickjs/0001-fix-preserve-empty-argument-scopes-in-direct-eval.patch) | widgets and tele scripts preserve empty argument scopes in direct eval, preventing the out-of-bounds variable access behind the reported crash without breaking valid JavaScript | always on |
+| [1011](../patches/Telegram/ThirdParty/widget-sandbox/packages/ios/Sources/CQuickJS/quickjs/0002-fix-reject-await-using-outside-async-functions.patch) | invalid `await using` declarations outside async functions are rejected, and suspending bytecode can't leave a normal function's stack frame without closing its variable references | always on |
+| [1012](../patches/Telegram/ThirdParty/widget-sandbox/packages/ios/Sources/CQuickJS/quickjs/0003-fix-reject-incompatible-eval-bytecode-and-cover-scop.patch) | eval scope indexes and captured-variable counts are checked, old serialized engine data is rejected, and destructuring allocation failures stop compilation cleanly | always on |
+| [1013](../patches/Telegram/ThirdParty/widget-sandbox/packages/ios/Sources/CQuickJS/quickjs/0004-fix-preserve-generators-and-reject-pool-allocation-f.patch) | generator closures keep their owner alive during parameter initialization, and constant-pool allocation failures no longer lead to invalid bytecode writes or memory corruption | always on |
 
 ### [tele 25](https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.25)
 

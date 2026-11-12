@@ -19189,7 +19189,7 @@ index 448f6990b2b7722ab617940f386b3b2ccafb61e7..c570cb4556f5b5621e5ef3c220e56ed8
 +    <circle fill="#888888" cx="243.34" cy="411.38" r="41.13"/>
  </svg>
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index 17e00060aaa4b2dbe698e130e07cd82ea0fa4e9e..f22f29b4d582366c79f7c380886065567fdac86f 100644
+index 13236d6e81e33a16a4915b035dc857d26db6b821..79734e75e0920e5a4b3381a98ce3a5d400bb93bd 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
 @@ -10,6 +10,7 @@

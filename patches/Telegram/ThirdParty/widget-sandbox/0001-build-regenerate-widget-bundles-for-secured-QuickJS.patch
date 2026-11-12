@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Thu, 12 Nov 2026 20:59:16 +0300
+Subject: [PATCH] build: regenerate widget bundles for secured QuickJS
+
+---
+ packages/desktop/WidgetJS/sandbox-bundle.qbc  | Bin 686229 -> 686229 bytes
+ .../desktop/WidgetJS/validator-bundle.qbc     | Bin 340711 -> 340711 bytes
+ 2 files changed, 0 insertions(+), 0 deletions(-)
+
+diff --git a/packages/desktop/WidgetJS/sandbox-bundle.qbc b/packages/desktop/WidgetJS/sandbox-bundle.qbc
+index 025d038b8f2d277efe9a977835ceeb8f52ac33e7..4da4c03a796c845264896f8cbe9e4f0bff795238 100644
+GIT binary patch
+delta 44
+zcmbRGQFH1?%?T2Wa*dL$l8mjAOs$g4t&%LQlB}(gY^{>)t&$wAlAK#5xoRo^G-(V+
+
+delta 44
+zcmbRGQFH1?%?T2WvW=3hl8mjAOs$g4t&%LQlB}(gY^{>)t&$wAlAK#5xoRo^G)4?Y
+
+diff --git a/packages/desktop/WidgetJS/validator-bundle.qbc b/packages/desktop/WidgetJS/validator-bundle.qbc
+index 04f1027977615655c6bf3088a250915aba051121..8ace1d82b46d3b8b002ea91ef3425ceb3223b1dc 100644
+GIT binary patch
+delta 29
+lcmaF<ROI<nkqHuva*dL$l8mjAOs$g4t&%KTC0WlI0RX0f33mVh
+
+delta 29
+lcmaF<ROI<nkqHuvvW=3hl8mjAOs$g4t&%KTC0WlI0RX0L33dPg
+

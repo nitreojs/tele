@@ -93,10 +93,10 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  create mode 100644 Telegram/SourceFiles/tele/tele_translations.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 086c2e30a57067e44ccd405e81ae4251dcafd344..a9a4e84c96ef783e8e64add49a49f97bd5554867 100644
+index 81e8b6e00d492e36c00b4afd10b8551afa6fca74..a865c318268b4c264572d1d9d449480b723cfc2f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3094,6 +3094,8 @@ PRIVATE
+@@ -3107,6 +3107,8 @@ PRIVATE
      tele/tele_settings_io.h
      tele/tele_settings_io_box.cpp
      tele/tele_settings_io_box.h
@@ -105,7 +105,7 @@ index 086c2e30a57067e44ccd405e81ae4251dcafd344..a9a4e84c96ef783e8e64add49a49f97b
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
      tele/tele_shot.cpp
-@@ -3140,6 +3142,8 @@ PRIVATE
+@@ -3153,6 +3155,8 @@ PRIVATE
      tele/tele_tl_runtime.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h
@@ -115,10 +115,10 @@ index 086c2e30a57067e44ccd405e81ae4251dcafd344..a9a4e84c96ef783e8e64add49a49f97b
      tele/tele_unsorted_folder.h
      tele/tele_update_buttons.cpp
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index 3a6a3f0043c66dfd107fc78e810edc53d5e6cad5..9dc8d87002dd0b7617750a466bdd54056d5383ee 100644
+index 0726f0c8692385daab76b006181e8cb56f61980c..fb65eeabef16e2b2508a00ba2b3b2038ee4c7d5e 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -100,6 +100,8 @@
+@@ -102,6 +102,8 @@
      <file alias="api.tl">../../../SourceFiles/mtproto/scheme/api.tl</file>
      <file alias="mtproto.tl">../../../SourceFiles/mtproto/scheme/mtproto.tl</file>
      <file alias="changelog_history.json">../../tele/changelog_history.json</file>
@@ -5880,13 +5880,13 @@ index c2ea2e186bfd0b8b8f7b24eb2cbc84d36835e276..c5d5d1231ebc02cbbc2d4794602607e3
  	} else if (key.storiesPeer()
  		&& key.storiesPeer()->isSelf()
 diff --git a/Telegram/SourceFiles/lang/lang_instance.cpp b/Telegram/SourceFiles/lang/lang_instance.cpp
-index 9de52ee1a37e686528037df0af90c80a07f1caf2..836cbe5d6360e5133106f8ace8e6dddb96bb2be5 100644
+index 53635ce8350466015c27a28efb64bbad74432408..d3fdeeda093406455c855be4bdf2fbc22947a87d 100644
 --- a/Telegram/SourceFiles/lang/lang_instance.cpp
 +++ b/Telegram/SourceFiles/lang/lang_instance.cpp
-@@ -807,7 +807,7 @@ QString GetNonDefaultValue(const QByteArray &key) {
- namespace details {
+@@ -809,7 +809,7 @@ namespace details {
  
  QString Current(ushort key) {
+ 	Test::NoteLangRead(key);
 -	return Tele::Lower(Tele::AppName(key, GetInstance().getValue(key)));
 +	return Tele::LowerOnly(Tele::AppName(key, GetInstance().getValue(key)));
  }
@@ -8310,7 +8310,7 @@ index 2d836619cdcdf3cb355f391d64fc439fb6f11e57..5906a6b41eb3d56f02e1a538fe85c353
  		if (const auto item = LookupMenuItem(kind, entry.key)) {
  			return MenuItemLabel(*item);
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index fe224be8f5bdc22b81958cb554a8dc9da8d6f37b..e83893e37396a5731824e017edf0722429d8d3f4 100644
+index 4dd979e87a2308a20ec86638c061f9a34614c223..0508fba2f2ebb16160bb5932e765c25669473d44 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 @@ -380,8 +380,9 @@ constexpr auto kFieldText = uint32(1 << 0);
@@ -8325,7 +8325,7 @@ index fe224be8f5bdc22b81958cb554a8dc9da8d6f37b..e83893e37396a5731824e017edf07224
  		}, .contexts = kOwn | kMedia },
  		{ .key = u"retry_all_failed"_q, .phrases = {
  			P([](int) { return Lower(u"Retry all failed in this chat"_q); },
-@@ -608,8 +609,9 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -606,8 +607,9 @@ constexpr auto kFieldText = uint32(1 << 0);
  		{ .key = u"open_username"_q, .label = [] {
  			return Lower(u"Open the real @username"_q);
  		}, .phrases = {

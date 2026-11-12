@@ -622,10 +622,10 @@ index 664a9918929ddd4b6b26414cdc111de43d71c6c2..548f686a8a0a41f8ff4835de814d8ec8
  	not_null<Ui::PopupMenu*> menu,
  	const std::shared_ptr<Main::SessionShow> &show,
 diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
-index 3111fbf0527129c586adc72c66359700161635ed..a85eaa1dca6ff64facca4edb771fb09bd107886b 100644
+index 2978991c80a4f3b0dfd30a3ed061de81f3eb6892..d7f3bc2c60fc9d841f174e3940a9f7f44c2de77c 100644
 --- a/Telegram/SourceFiles/window/window_session_controller.cpp
 +++ b/Telegram/SourceFiles/window/window_session_controller.cpp
-@@ -548,7 +548,9 @@ void SessionNavigation::resolveUsername(
+@@ -576,7 +576,9 @@ void SessionNavigation::resolveUsername(
  		const QString &username,
  		Fn<void(not_null<PeerData*>)> done,
  		const QString &referral) {

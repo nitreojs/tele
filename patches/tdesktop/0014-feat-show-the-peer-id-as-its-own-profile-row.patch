@@ -16,10 +16,10 @@ Subject: [PATCH] feat: show the peer id as its own profile row
  create mode 100644 Telegram/SourceFiles/tele/tele_peer_id.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 15f7c352ac86bb3fb98f8001c8262965b068ad6e..564375b59adc78c20c2cc76d566d49a68e565582 100644
+index 1ac41831f3f4f70980b4a37aa01d185eaf10dd87..2bcedd66a1eb73bc952a75b2b1be0ec40c3692b5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2643,6 +2643,8 @@ PRIVATE
+@@ -2656,6 +2656,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -29,7 +29,7 @@ index 15f7c352ac86bb3fb98f8001c8262965b068ad6e..564375b59adc78c20c2cc76d566d49a6
      tele/tele_shortcuts.h
      tele/tele_title.cpp
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 22c6d64d015b3a7f22ffc2dd9e48d3972d402860..d6d3895e07205ba04d4f847de62f8c98a1f67edd 100644
+index 533ddfac570f0557d432f4ce83cb5720560aca2d..271db7a6d4a6662f056079bd44c5b387241e3443 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

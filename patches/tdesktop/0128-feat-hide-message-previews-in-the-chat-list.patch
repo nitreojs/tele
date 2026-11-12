@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide message previews in the chat list
  create mode 100644 Telegram/SourceFiles/tele/tele_list_previews.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b573feb7382a0a6202d09e5a5e74310edb0b8a48..31a1729b5de8f92757a8ca7877a317b632ecf2b1 100644
+index 1825d01102cf520bb6a0b4ceb5c80d9aac9aedc7..b562add2c0d7d7b9779283625505031dca3102c9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2751,6 +2751,8 @@ PRIVATE
+@@ -2764,6 +2764,8 @@ PRIVATE
      tele/tele_launch_flags.h
      tele/tele_links.cpp
      tele/tele_links.h
@@ -146,7 +146,7 @@ index 93a701aeee7d608341d9847a07adf948dacf27da..53c4562fb7b3ac0b6f5754e4901e7648
  }
  
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_row.cpp b/Telegram/SourceFiles/dialogs/dialogs_row.cpp
-index f4d5a3aef19dfb1cb54ad7aff74d89b94b553f11..e74f8e7073254fdaf4ba8c150c5237eec76ac2f4 100644
+index c557bb42c4582bbb1fa392739c7bfc9003d1991b..2dac9b468f34d8d70acd012a0fc6692a474bc91a 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_row.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_row.cpp
 @@ -36,6 +36,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

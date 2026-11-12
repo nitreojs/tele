@@ -4,14 +4,14 @@ Date: Fri, 2 Oct 2026 03:10:45 +0300
 Subject: [PATCH] fix: stop the chat list repainting while idle
 
 ---
- Telegram/SourceFiles/ui/unread_badge.cpp | 33 +++++++++++++-----------
- 1 file changed, 18 insertions(+), 15 deletions(-)
+ Telegram/SourceFiles/ui/unread_badge.cpp | 35 ++++++++++++++----------
+ 1 file changed, 20 insertions(+), 15 deletions(-)
 
 diff --git a/Telegram/SourceFiles/ui/unread_badge.cpp b/Telegram/SourceFiles/ui/unread_badge.cpp
-index 245397d3a463ce38840383de7fa71c6709f0d9a7..811a3765fd940e38aaca28e8e450afba1c42cea1 100644
+index 64858d72b35eb9036e329b333103ca0123595e7c..984c68f5138f9e3b20d7612c5c81bfb3d004a10f 100644
 --- a/Telegram/SourceFiles/ui/unread_badge.cpp
 +++ b/Telegram/SourceFiles/ui/unread_badge.cpp
-@@ -46,6 +46,7 @@ private:
+@@ -47,6 +47,7 @@ private:
  	const int _innerSize = 0;
  	const int _outerSize = 0;
  	QImage _frame;
@@ -19,24 +19,29 @@ index 245397d3a463ce38840383de7fa71c6709f0d9a7..811a3765fd940e38aaca28e8e450afba
  
  };
  
-@@ -67,25 +68,28 @@ QString ScaledBotVerifiedEmoji::entityData() {
+@@ -68,28 +69,33 @@ QString ScaledBotVerifiedEmoji::entityData() {
  }
  
  void ScaledBotVerifiedEmoji::paint(QPainter &p, const Context &context) {
 -	if (!_wrapped->ready()) {
 -		return;
 -	}
--	const auto ratio = style::DevicePixelRatio();
+ 	const auto ratio = std::max(
+ 		style::DevicePixelRatio(),
+ 		Tele::ShotSharpRatio());
 -	const auto sourcePx = Data::FrameSizeFromTag(
--		Data::CustomEmojiSizeTag::Isolated);
+-		Data::CustomEmojiSizeTag::Isolated)
+-		/ style::DevicePixelRatio() * ratio;
 -	if (_frame.width() != sourcePx) {
-+	if (_frame.isNull() || _frameColor != context.textColor) {
++	if (_frame.isNull()
++		|| _frame.devicePixelRatio() != ratio
++		|| _frameColor != context.textColor) {
 +		if (!_wrapped->ready()) {
 +			return;
 +		}
-+		const auto ratio = style::DevicePixelRatio();
 +		const auto sourcePx = Data::FrameSizeFromTag(
-+			Data::CustomEmojiSizeTag::Isolated);
++			Data::CustomEmojiSizeTag::Isolated)
++			/ style::DevicePixelRatio() * ratio;
  		_frame = QImage(
  			QSize(sourcePx, sourcePx),
  			QImage::Format_ARGB32_Premultiplied);
@@ -62,7 +67,7 @@ index 245397d3a463ce38840383de7fa71c6709f0d9a7..811a3765fd940e38aaca28e8e450afba
  	const auto skip = (_outerSize - _innerSize) / 2;
  	auto hq = PainterHighQualityEnabler(p);
  	p.drawImage(
-@@ -472,7 +476,6 @@ int PeerBadge::drawVerified(
+@@ -483,7 +489,6 @@ int PeerBadge::drawVerified(
  			.textColor = st.color->c,
  			.now = crl::now(),
  			.position = position + st.position,

@@ -18,10 +18,10 @@ Subject: [PATCH] feat: select service messages
  create mode 100644 Telegram/SourceFiles/tele/tele_select_service.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d0fc665f83ce3bf9718348c3a0a069939c61f750..96d10fdb9aa046321ef080afdbcc9edefa6c27c0 100644
+index 33f65ca3a37177cc5ce5c6725bb8a66d0525e778..f666152e81516ff88258d4ba044f678701b63efa 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2867,6 +2867,8 @@ PRIVATE
+@@ -2880,6 +2880,8 @@ PRIVATE
      tele/tele_screen_capture.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -31,10 +31,10 @@ index d0fc665f83ce3bf9718348c3a0a069939c61f750..96d10fdb9aa046321ef080afdbcc9ede
      tele/tele_send_files.h
      tele/tele_send_order.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 16a300ed6aaf0ff023b431a81e276475e99dfe57..c5a83249fc6f3b8fa70f4d7eeb150bbcfe35565f 100644
+index a523eab3e94ca5b54e93e7087c0e6dc71e966d7a..28190c31444fb4f1e91860bf0e4cad6dbaa16973 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -148,6 +148,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -149,6 +149,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_protected.h"
  #include "tele/tele_rich_quote.h"
  #include "tele/tele_rmb_beside_bubble.h"
@@ -42,7 +42,7 @@ index 16a300ed6aaf0ff023b431a81e276475e99dfe57..c5a83249fc6f3b8fa70f4d7eeb150bbc
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -4293,6 +4294,7 @@ HistorySelectedTextParts HistoryInner::getSelectedTextParts() const {
+@@ -4245,6 +4246,7 @@ HistorySelectedTextParts HistoryInner::getSelectedTextParts() const {
  	if (_mouseAction == MouseAction::Selecting && _dragSelFrom && _dragSelTo) {
  		applyDragSelection(&selected);
  	}
@@ -50,7 +50,7 @@ index 16a300ed6aaf0ff023b431a81e276475e99dfe57..c5a83249fc6f3b8fa70f4d7eeb150bbc
  
  	if (selected.empty()) {
  		if (const auto view = viewByItem(_selectedTextItem)) {
-@@ -5491,7 +5493,7 @@ MessageIdsList HistoryInner::getSelectedItems() const {
+@@ -5443,7 +5445,7 @@ MessageIdsList HistoryInner::getSelectedItems() const {
  		_selected.begin(),
  		_selected.end()
  	) | views::filter([](const auto &item) {
@@ -60,7 +60,7 @@ index 16a300ed6aaf0ff023b431a81e276475e99dfe57..c5a83249fc6f3b8fa70f4d7eeb150bbc
  		return item->fullId();
  	}) | to_vector;
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index dc2cdeaf4289f6ac800b075a8ea85acbc9fc98a5..8bfa48381ded2732053021f063b2a2ef15ef3bd1 100644
+index 306bb9c95251ccb31c79ca2c68dc99c9bf222f04..af994db2dbc34a31420700e60118524c8ab03ee5 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
 @@ -3630,7 +3630,7 @@ bool HistoryItem::canDeleteForEveryone(TimeId now) const {
@@ -73,10 +73,10 @@ index dc2cdeaf4289f6ac800b075a8ea85acbc9fc98a5..8bfa48381ded2732053021f063b2a2ef
  }
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index b5cc939422abe5ce8452a2df6fd8c4b93ca5e116..e87d366a9360e6582cbd3f1e9765f5b74f18ace2 100644
+index b8c363e638dbe6d21523f434a52a77d8196f9d32..b72ef9d61a6da3b60786a13c0e01fb28b0e95856 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-@@ -1335,7 +1335,8 @@ bool AddSelectMessageAction(
+@@ -1333,7 +1333,8 @@ bool AddSelectMessageAction(
  		return false;
  	} else if (!item
  		|| (item->isLocal() && !item->isEphemeral())
@@ -87,10 +87,10 @@ index b5cc939422abe5ce8452a2df6fd8c4b93ca5e116..e87d366a9360e6582cbd3f1e9765f5b7
  		|| list->hasSelectRestriction()) {
  		return false;
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 3a386b9061aa3bb13f2f08a137ccfe02bafa7103..0557e353e465915bd5f6aedc15d995944368c6ec 100644
+index 94071efad8d1ebb42b91a7aa6a494de5a573a15b..60d907032e98d9e629b70f5e8babed67830c42e8 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_full_preview.h"
  #include "tele/tele_protected.h"
  #include "tele/tele_rmb_beside_bubble.h"
@@ -98,7 +98,7 @@ index 3a386b9061aa3bb13f2f08a137ccfe02bafa7103..0557e353e465915bd5f6aedc15d99594
  #include "styles/style_chat.h"
  #include "styles/style_window.h" // columnMaximalWidthLeft
  
-@@ -3942,6 +3943,7 @@ HistorySelectedTextParts ListWidget::getSelectedTextParts() const {
+@@ -3943,6 +3944,7 @@ HistorySelectedTextParts ListWidget::getSelectedTextParts() const {
  	if (_mouseAction == MouseAction::Selecting && !_dragSelected.empty()) {
  		applyDragSelection(selected);
  	}

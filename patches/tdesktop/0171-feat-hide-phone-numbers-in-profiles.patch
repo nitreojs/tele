@@ -14,7 +14,7 @@ Subject: [PATCH] feat: hide phone numbers in profiles
  7 files changed, 38 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index ce3e3493cd0655422a192ee2dc545800926d26e4..50c730d34660363ccfb2e039d41bcf8e00adce8d 100644
+index 4a5799441081920511c86971947448c6e03e1537..15ab06dbbd59e1fc31b13478d0745343722b4cb7 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

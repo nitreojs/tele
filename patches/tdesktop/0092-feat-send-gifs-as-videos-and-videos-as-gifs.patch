@@ -26,10 +26,10 @@ Subject: [PATCH] feat: send gifs as videos and videos as gifs
  create mode 100644 Telegram/SourceFiles/tele/tele_send_files.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3543fdc9d4046ed1cb53f963e582858c8e4c698f..365b4e832ac3bd5412907bd1aefbb4cd5c3e028c 100644
+index 099e12cc5105e4e75fbfbceda5a34666c0ada6b1..bed0877ca2a9ef0229ece93d029810c56061e6d3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2685,6 +2685,8 @@ PRIVATE
+@@ -2698,6 +2698,8 @@ PRIVATE
      tele/tele_edit_history_section.h
      tele/tele_folders.cpp
      tele/tele_folders.h
@@ -38,7 +38,7 @@ index 3543fdc9d4046ed1cb53f963e582858c8e4c698f..365b4e832ac3bd5412907bd1aefbb4cd
      tele/tele_gifts.cpp
      tele/tele_gifts.h
      tele/tele_ghost.cpp
-@@ -2729,6 +2731,8 @@ PRIVATE
+@@ -2742,6 +2744,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -78,7 +78,7 @@ index 992735071b2b7ba9f798a6737c4a20ed746763d3..bf04500c033568b730249e4390e51317
  		const auto canSetTtl = !hasPrice()
  			&& (_sendType == Api::SendType::Normal)
 diff --git a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
-index 70688114fe2aba93c8b8ad98533200bc333abebd..089e1937d60abd6e8a2a7ec6d523f6ab9c4dc7ac 100644
+index 597af283e1169a33d50b7fc52d77f57c394bcd0a..a0760e4f88aba7870389664f8611775c4e3d72cd 100644
 --- a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
 @@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -102,10 +102,10 @@ index 70688114fe2aba93c8b8ad98533200bc333abebd..089e1937d60abd6e8a2a7ec6d523f6ab
  	}
  
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index f7fcd3dc9c5b442cd21725165818a6748b0cf334..f0bc65c7b93a2cafc662d6fa2a317dc7e605c941 100644
+index 5b16359564bad67695c3142ffb960187304fd907..0fb91e313d29340fdab658dd9813b25780353970 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ghost.h"
@@ -113,7 +113,7 @@ index f7fcd3dc9c5b442cd21725165818a6748b0cf334..f0bc65c7b93a2cafc662d6fa2a317dc7
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
-@@ -3993,6 +3994,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3945,6 +3946,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		(isUponSelected > 1) ? getSelectedItems() : MessageIdsList(),
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
  		width());
@@ -125,7 +125,7 @@ index f7fcd3dc9c5b442cd21725165818a6748b0cf334..f0bc65c7b93a2cafc662d6fa2a317dc7
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index e4c722982266f38500d5a032fe0bd9444ee1c426..ea9c43f69a9fa2ea395980131c205bdec47c442b 100644
+index 921193359fb469897c10125445b9e962054af208..02618897757629c399ae6fb36448b086a5885c4e 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -136,7 +136,7 @@ index e4c722982266f38500d5a032fe0bd9444ee1c426..ea9c43f69a9fa2ea395980131c205bde
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
  #include "tele/tele_message_menu.h"
-@@ -2010,6 +2011,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2008,6 +2009,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  		}
  	}
  	Tele::AddShotAction(result.get(), list, request);

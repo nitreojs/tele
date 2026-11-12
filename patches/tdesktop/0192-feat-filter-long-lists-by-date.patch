@@ -21,10 +21,10 @@ Subject: [PATCH] feat: filter long lists by date
  create mode 100644 Telegram/SourceFiles/tele/tele_list_dates.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 850f2614c93d9d2c4d23bf56b6bb954f36b66e55..4705ee3d336ee19918871c8a32ac411fe9e56802 100644
+index be2944d3009fd7bd2444a6cbb962ffc36eb823e3..9d786f90957171fd0a45084e7f1ae27b3f6d8960 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2801,6 +2801,8 @@ PRIVATE
+@@ -2814,6 +2814,8 @@ PRIVATE
      tele/tele_launch_flags.h
      tele/tele_links.cpp
      tele/tele_links.h
@@ -91,7 +91,7 @@ index 33901296f984d9fe8bfbc07860f30a64c5d48f1a..a5fb2f97a31c1eb9ad918adc9f3ed592
  		if (_provider->type() == Type::File) {
  			// For downloads manager.
 diff --git a/Telegram/SourceFiles/info/media/info_media_widget.cpp b/Telegram/SourceFiles/info/media/info_media_widget.cpp
-index bbd873e50b33b7e7182bd76edb75cf097d3d38c1..7427dc943e95691f10f77f0c4b096254ca38d914 100644
+index 53e5bf4b5c9ce6f85d1c5865e122e1cab5b6c254..9deba64c7610b7d443908ac1b4340be44dfd6629 100644
 --- a/Telegram/SourceFiles/info/media/info_media_widget.cpp
 +++ b/Telegram/SourceFiles/info/media/info_media_widget.cpp
 @@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -102,7 +102,7 @@ index bbd873e50b33b7e7182bd76edb75cf097d3d38c1..7427dc943e95691f10f77f0c4b096254
  #include "styles/style_menu_icons.h"
  
  namespace Info::Media {
-@@ -145,6 +146,7 @@ Widget::Widget(QWidget *parent, not_null<Controller*> controller)
+@@ -143,6 +144,7 @@ Widget::Widget(QWidget *parent, not_null<Controller*> controller)
  		return (e->modifiers() & Qt::ControlModifier)
  			&& _inner->processZoomWheel(e);
  	});
@@ -110,7 +110,7 @@ index bbd873e50b33b7e7182bd76edb75cf097d3d38c1..7427dc943e95691f10f77f0c4b096254
  }
  
  rpl::producer<SelectedItems> Widget::selectedListValue() const {
-@@ -156,6 +158,7 @@ void Widget::selectionAction(SelectionAction action) {
+@@ -154,6 +156,7 @@ void Widget::selectionAction(SelectionAction action) {
  }
  
  void Widget::fillTopBarMenu(const Ui::Menu::MenuCallback &addAction) {

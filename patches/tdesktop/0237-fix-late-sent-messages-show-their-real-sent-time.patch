@@ -10,7 +10,7 @@ Subject: [PATCH] fix: late-sent messages show their real sent time
  3 files changed, 32 insertions(+)
 
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index 8bfa48381ded2732053021f063b2a2ef15ef3bd1..5389d543f10a1e7c48995006778716e2c3321eff 100644
+index af994db2dbc34a31420700e60118524c8ab03ee5..00b811b2abd399423113ce4fd49a7818d3c04ef6 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
 @@ -90,6 +90,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

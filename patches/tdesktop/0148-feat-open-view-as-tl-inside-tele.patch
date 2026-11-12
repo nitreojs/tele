@@ -15,10 +15,10 @@ Subject: [PATCH] feat: open view as tl inside tele
  create mode 100644 Telegram/SourceFiles/tele/tele_view_tl_window.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b8aedbb49511b8d89e806047c988ce866bffa841..5c792464be810e499c4b9ad38e50e51a4d057574 100644
+index e8bebf875854c15e0bf676c6f245089be52fab5b..d0dab6eab78193f7a30731008bc4747377afc2cd 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2832,6 +2832,8 @@ PRIVATE
+@@ -2845,6 +2845,8 @@ PRIVATE
      tele/tele_viewer_loop.h
      tele/tele_view_tl.cpp
      tele/tele_view_tl.h

@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send inline results without via
  create mode 100644 Telegram/SourceFiles/tele/tele_inline_via.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d790b6a1b8ba78028bd6ec3dfb46b29f97eb106e..13639e3ee85c400867dfe01a46ab9201ef5ed4d6 100644
+index df6def221eda4823d68f545fe36eed831dde6132..d1ac0aa1c0122b0474781d571d7ecdbda9992d0d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2669,6 +2669,8 @@ PRIVATE
+@@ -2682,6 +2682,8 @@ PRIVATE
      tele/tele_ghost.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h
@@ -31,7 +31,7 @@ index d790b6a1b8ba78028bd6ec3dfb46b29f97eb106e..13639e3ee85c400867dfe01a46ab9201
      tele/tele_lowercase.h
      tele/tele_menu_order.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index dfbacbe9f006bc7d556cb3ef23c3e1bf34f85337..883812733a894b4ca4f23432c75c3f4c8ec2e5da 100644
+index 9436cce25e2d305f7d300e08143cf30ae46c5474..66464a72cdd31e374b8b30cad7dc6df9a0d55232 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

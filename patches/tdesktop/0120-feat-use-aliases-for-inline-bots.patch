@@ -34,7 +34,7 @@ index 3126e47cc4ebf9fa10f7c76faefe87f4a3b0b60f..20029075a625f64d37dfe0cef4f81824
  						result.bot = user;
  					} else {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index fa279129d15880b409f8a86edfc976c56b531ead..f60d8ff8609b7e61efa43383a4a072e63fdf9f48 100644
+index 74fc7ae2f56dfdf791d43ae2178bf43e5a4a8253..713325515602ae7422633d9527426ca3278e93f0 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -185,6 +185,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index fa279129d15880b409f8a86edfc976c56b531ead..f60d8ff8609b7e61efa43383a4a072e6
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -2227,7 +2228,7 @@ void HistoryWidget::updateInlineBotQuery() {
+@@ -2228,7 +2229,7 @@ void HistoryWidget::updateInlineBotQuery() {
  			_inlineBotResolveRequestId = _api.request(
  				MTPcontacts_ResolveUsername(
  					MTP_flags(0),
@@ -55,7 +55,7 @@ index fa279129d15880b409f8a86edfc976c56b531ead..f60d8ff8609b7e61efa43383a4a072e6
  			).done([=](const MTPcontacts_ResolvedPeer &result) {
  				const auto &data = result.data();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 435134d667a8fcd8247d702f195e6f02afd24529..a99a4360335adc515e77f770e4c4b5cf5b89a978 100644
+index cb9127e537306b360189a755172f85b7398e57a0..c240ef8b28c32f68fba8bfe410c8a0aff6dea923 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -66,7 +66,7 @@ index 435134d667a8fcd8247d702f195e6f02afd24529..a99a4360335adc515e77f770e4c4b5cf
  #include "support/support_helper.h"
  #include "ui/item_text_options.h"
  #include "ui/text/text_options.h"
-@@ -6599,7 +6600,7 @@ void ComposeControls::updateInlineBotQuery() {
+@@ -6600,7 +6601,7 @@ void ComposeControls::updateInlineBotQuery() {
  			_inlineBotResolveRequestId = api.request(
  				MTPcontacts_ResolveUsername(
  					MTP_flags(0),

@@ -4063,10 +4063,10 @@ index 62d1974f56a80470b5962467ddeee72c2df77baf..3b6df0d400972d48273f780555ad12f3
  	} else if (const auto restricted = peer->amRestricted(restriction)) {
  		if (const auto user = peer->asUser()) {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 1be6c32da168893ca549e9c621fe98eac5027fc1..4144d836749a0a924e9128f4b586aae3f287c7fe 100644
+index 41ea3f0d2df48d53025f9b14c3b6766c6a7ed582..0aab760c1621bd15cdc71199581e52a352778d55 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -7215,10 +7215,7 @@ bool HistoryWidget::isReportMessages() const {
+@@ -7216,10 +7216,7 @@ bool HistoryWidget::isReportMessages() const {
  }
  
  bool HistoryWidget::isBlocked() const {

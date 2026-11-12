@@ -24,10 +24,10 @@ Subject: [PATCH] feat: show usernames for invisible names
  create mode 100644 Telegram/SourceFiles/tele/tele_invisible.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 61e6f031853c75814f57db37c6a2b9a99e65ff5f..af273a9733ba1f92c49a91733e1eb8d0ae65a2a3 100644
+index a8e71868758bad5332f3456f88929268f690ef41..00e829bd1683b24a884772d8718d00d1d8a15eb0 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2788,6 +2788,8 @@ PRIVATE
+@@ -2801,6 +2801,8 @@ PRIVATE
      tele/tele_inline_text.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -155,10 +155,10 @@ index 2474fa2790f713175fa64775c72a3fbb75d30a9e..1a0ea00cc5d0ba5045b933870f18abd2
  			chatListName(),
  			Ui::NameTextOptions());
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index d0c423e7a5b1967fa48c625dd96e46999eea0bbc..b2ca7a57d689501d05d56036ab71f7fdec1a527b 100644
+index 5ae827334d11b17c604f48ec57ba952f5bc0254e..506b5f9d145ff6a0b5bc47e70ca280ef8743bae4 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -68,6 +68,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "api/api_chat_participants.h"
  #include "tele/tele_calls.h"
@@ -166,7 +166,7 @@ index d0c423e7a5b1967fa48c625dd96e46999eea0bbc..b2ca7a57d689501d05d56036ab71f7fd
  #include "tele/tele_phones.h"
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h"
-@@ -679,7 +680,8 @@ void TopBarWidget::paintTopBar(Painter &p) {
+@@ -680,7 +681,8 @@ void TopBarWidget::paintTopBar(Painter &p) {
  	} else if (namePeer) {
  		if (_titleNameVersion < namePeer->nameVersion()) {
  			_titleNameVersion = namePeer->nameVersion();

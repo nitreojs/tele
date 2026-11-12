@@ -21,10 +21,10 @@ Subject: [PATCH] feat: show the last activity next to a hidden last seen
  create mode 100644 Telegram/SourceFiles/tele/tele_observed_activity.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 39e95a1fd24085cd7238259dc05ca03259a95344..11f38dccdcc3208f669b5cbc5746cdede6a16813 100644
+index 7088f258fb170e6bcd4e7b29ebe8faa5092c056f..31a4a117331536aa90afaf28cb4385917fe30707 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2988,6 +2988,8 @@ PRIVATE
+@@ -3001,6 +3001,8 @@ PRIVATE
      tele/tele_notices_mentions.h
      tele/tele_notices_section.cpp
      tele/tele_notices_section.h
@@ -77,10 +77,10 @@ index 1e03f41358dd465af257c2fc6bc2f283ae65487a..505f82f71d10503ebff99f33d548978b
  	if (till < when + 1
  		&& updateLastseen(
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index 7b74a7285116032adb7871aeae1783d5e9b48f19..f0d1029c5d1edcebe8af763ca31339b1300726a8 100644
+index 397383a975454308257c8cb91405ffe00369621c..289e12ec5901a19711ed41ad3ceeac3841c90b86 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/scripting/tele_script_buttons.h"
  #include "tele/tele_calls.h"
  #include "tele/tele_invisible.h"
@@ -88,7 +88,7 @@ index 7b74a7285116032adb7871aeae1783d5e9b48f19..f0d1029c5d1edcebe8af763ca31339b1
  #include "tele/tele_onlines.h"
  #include "tele/tele_peek.h"
  #include "tele/tele_phones.h"
-@@ -1974,7 +1975,10 @@ void TopBarWidget::updateOnlineDisplay() {
+@@ -1975,7 +1976,10 @@ void TopBarWidget::updateOnlineDisplay() {
  		} else {
  			text = Tele::WithPeekedStatus(
  				user,

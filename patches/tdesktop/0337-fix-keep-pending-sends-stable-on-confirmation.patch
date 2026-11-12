@@ -180,7 +180,7 @@ index ebfe069e3de7128b3086285773abca1f401b9eef..626360f91bc58731c712c69b68c4040f
  
  		return lifetime;
 diff --git a/Telegram/SourceFiles/data/data_replies_list.cpp b/Telegram/SourceFiles/data/data_replies_list.cpp
-index fd01b2a23767d3834065c0523df44366a992fe0b..06ae01e66acf0a3fd32f795d52e1f4a6d76490b3 100644
+index 4b17c67aa68b40a4058eef29b147eed7795be29f..8e43f704d7a1c2da5bbf1abed4fc201a16b305e1 100644
 --- a/Telegram/SourceFiles/data/data_replies_list.cpp
 +++ b/Telegram/SourceFiles/data/data_replies_list.cpp
 @@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -260,10 +260,10 @@ index 37e534df12a57865b42d45e19c58a3c42b1aeec8..050b7522fff4a2708767f855f0f69bfe
  		return lifetime;
  	};
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index e660c9de85a9478f009e88b603b18e28ec8e4dfa..3da07df57348b7fa55cd2a84dbba16cb5e75609a 100644
+index 37050377cefa265a265cb5622456e123b5630a02..018952316a067920e3378a528c8ee8cc7852e5b5 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_rmb_beside_bubble.h"
  #include "tele/tele_select_many.h"
  #include "tele/tele_select_service.h"
@@ -271,7 +271,7 @@ index e660c9de85a9478f009e88b603b18e28ec8e4dfa..3da07df57348b7fa55cd2a84dbba16cb
  #include "styles/style_chat.h"
  #include "styles/style_window.h" // columnMaximalWidthLeft
  
-@@ -618,6 +619,7 @@ ListWidget::ListWidget(
+@@ -619,6 +620,7 @@ ListWidget::ListWidget(
  		[=](const QCursor &cursor) { setCursor(cursor); },
  		[=] { mouseActionUpdate(QCursor::pos()); setCursor(_cursor); },
  		[=] { return window()->isActiveWindow(); }) {
@@ -279,7 +279,7 @@ index e660c9de85a9478f009e88b603b18e28ec8e4dfa..3da07df57348b7fa55cd2a84dbba16cb
  	setAttribute(Qt::WA_AcceptTouchEvents);
  	setMouseTracking(true);
  	setAccessibleName(tr::lng_sr_message_list(tr::now));
-@@ -827,8 +829,25 @@ not_null<ListDelegate*> ListWidget::delegate() const {
+@@ -828,8 +830,25 @@ not_null<ListDelegate*> ListWidget::delegate() const {
  	return _delegate;
  }
  
@@ -305,7 +305,7 @@ index e660c9de85a9478f009e88b603b18e28ec8e4dfa..3da07df57348b7fa55cd2a84dbba16cb
  	_refreshingViewer = true;
  	const auto hold = _firstContentShown
  		? nullptr
-@@ -854,6 +873,14 @@ void ListWidget::refreshViewer() {
+@@ -855,6 +874,14 @@ void ListWidget::refreshViewer() {
  
  void ListWidget::applyViewerSlice(Data::MessagesSlice &&slice) {
  	_refreshingViewer = false;

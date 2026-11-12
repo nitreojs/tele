@@ -23,10 +23,10 @@ Subject: [PATCH] feat: turn off money
  create mode 100644 Telegram/SourceFiles/tele/tele_no_money.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 94b42aeaa779383ef543ba4c795656ab55ef3e09..a6110c00ffd185eb4ccb93d6a38b9f9904ff90d9 100644
+index a32bd0e04008e11932f7105572a77e03c0e0d19d..d7ed768f8d6ad620a063c98aae927c80a72df524 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2887,6 +2887,8 @@ PRIVATE
+@@ -2900,6 +2900,8 @@ PRIVATE
      tele/tele_new_settings.h
      tele/tele_no_ai.cpp
      tele/tele_no_ai.h
@@ -36,7 +36,7 @@ index 94b42aeaa779383ef543ba4c795656ab55ef3e09..a6110c00ffd185eb4ccb93d6a38b9f99
      tele/tele_notices.h
      tele/tele_notices_mentions.cpp
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index 60b4b85a8722dfddc828571061b57dc1e846382b..ee940d9b49601845bae1ad87dfaf5f23dcaa76f0 100644
+index c6a3a7e200b4c3b4d7b7a330d243295c1736b4dd..5d9239d898c6349f6d6e05c54c4c959a2359defa 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
 @@ -91,6 +91,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -47,7 +47,7 @@ index 60b4b85a8722dfddc828571061b57dc1e846382b..ee940d9b49601845bae1ad87dfaf5f23
  #include "tele/tele_send_order.h"
  #include "tele/tele_shot.h"
  #include "tgw/tgw_media.h"
-@@ -8930,7 +8931,7 @@ PreparedServiceText HistoryItem::prepareTonConnectRequestText() {
+@@ -8928,7 +8929,7 @@ PreparedServiceText HistoryItem::prepareTonConnectRequestText() {
  			tr::lng_action_ton_connect_expired_unknown);
  	} else {
  		const auto text = Wallet::TonConnectRequestText(request->topic, name);
@@ -56,7 +56,7 @@ index 60b4b85a8722dfddc828571061b57dc1e846382b..ee940d9b49601845bae1ad87dfaf5f23
  			request->notificationText = text;
  			result.text = tr::lng_action_ton_connect_review(
  				tr::now,
-@@ -9240,7 +9241,9 @@ void HistoryItem::setupTonConnectRequest() {
+@@ -9238,7 +9239,9 @@ void HistoryItem::setupTonConnectRequest() {
  	const auto sessionId = request->sessionId;
  	auto &wallet = _history->session().wallet();
  	if (TonConnectRequestPending(request)) {
@@ -137,10 +137,10 @@ index 351bd26507128862a37712f7931a71c3241599d3..702724cfe96888dc0ba73a98c74fb6c7
  	std::move(
  		edgeColor
 diff --git a/Telegram/SourceFiles/main/main_app_config.cpp b/Telegram/SourceFiles/main/main_app_config.cpp
-index 3744123836f7fc48437b4bc71453ee973b263d6a..6ab8c0a4b85a0617d0c52fbc5aac300258b81e6b 100644
+index c7e82aa9d9257ba8728a3cc6534af2678b36e5b4..e5a62632a07b5ea16866d1390811b463efb093b5 100644
 --- a/Telegram/SourceFiles/main/main_app_config.cpp
 +++ b/Telegram/SourceFiles/main/main_app_config.cpp
-@@ -276,7 +276,8 @@ QString AppConfig::oldWalletBotUsername() const {
+@@ -277,7 +277,8 @@ QString AppConfig::oldWalletBotUsername() const {
  }
  
  bool AppConfig::walletAvailable() const {

@@ -1,0 +1,768 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Thu, 12 Nov 2026 20:54:19 +0300
+Subject: [PATCH] fix: reject incompatible eval bytecode and cover scope
+ boundaries
+
+---
+ api-test.c                                 | 103 +++++++++++++++++++++
+ builtin-array-fromasync.h                  | Bin 5652 -> 5535 bytes
+ builtin-iterator-zip-keyed.h               | Bin 15074 -> 14945 bytes
+ builtin-iterator-zip.h                     | Bin 15442 -> 15246 bytes
+ gen/function_source.c                      | Bin 3014 -> 3014 bytes
+ gen/hello.c                                | Bin 1541 -> 1541 bytes
+ gen/hello_module.c                         | Bin 4089 -> 4138 bytes
+ gen/repl.c                                 | Bin 147583 -> 147583 bytes
+ gen/standalone.c                           | Bin 15324 -> 15311 bytes
+ gen/test_fib.c                             | Bin 2840 -> 2840 bytes
+ quickjs.c                                  |   8 +-
+ tests/destructuring-parameter-limit.js     |  23 +++++
+ tests/mapped-arguments-var-ref-overflow.js |  63 ++++---------
+ tests/test_bjson.js                        |  10 +-
+ tests/test_closure.js                      |  66 +++++++++++++
+ 15 files changed, 221 insertions(+), 52 deletions(-)
+ create mode 100644 tests/destructuring-parameter-limit.js
+
+diff --git a/api-test.c b/api-test.c
+index 19f7f1672f2a59d70313f6593a53477e6a72eee5..3e85809a70ba36836be6537487ac1458c7d18cbf 100644
+--- a/api-test.c
++++ b/api-test.c
+@@ -2675,6 +2675,107 @@ static void parser_label_out_of_memory(void)
+     assert(oom_seen);
+ }
+ 
++static void eval_scope_bytecode(void)
++{
++    const char *src =
++        "'use strict';"
++        "(function({} = eval('({})')) {"
++        "  return (function([] = eval(...['[]'])) { return 42; })();"
++        "})();";
++    JSRuntime *rt = new_runtime();
++    JSContext *ctx = JS_NewContext(rt);
++    JSValue compiled, loaded, result, error;
++    uint8_t *buf;
++    size_t len;
++    int32_t value;
++    const char *message;
++
++    compiled = JS_Eval(ctx, src, strlen(src), "<eval-scope>",
++                       JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
++    assert(!JS_IsException(compiled));
++    buf = JS_WriteObject(ctx, &len, compiled, JS_WRITE_OBJ_BYTECODE);
++    assert(buf != NULL && len > 5);
++    assert(buf[0] == 30);
++    loaded = JS_ReadObject(ctx, buf, len, JS_READ_OBJ_BYTECODE);
++    assert(!JS_IsException(loaded));
++    result = JS_EvalFunction(ctx, loaded);
++    assert(!JS_IsException(result));
++    assert(JS_ToInt32(ctx, &value, result) == 0 && value == 42);
++    JS_FreeValue(ctx, result);
++    result = JS_EvalFunction(ctx, compiled);
++    assert(!JS_IsException(result));
++    assert(JS_ToInt32(ctx, &value, result) == 0 && value == 42);
++    JS_FreeValue(ctx, result);
++
++    for (int version = 28; version <= 29; version++) {
++        buf[0] = version;
++        loaded = JS_ReadObject(ctx, buf, len, JS_READ_OBJ_BYTECODE);
++        assert(JS_IsException(loaded));
++        error = JS_GetException(ctx);
++        message = JS_ToCString(ctx, error);
++        assert(message != NULL && strstr(message, "invalid version") != NULL);
++        JS_FreeCString(ctx, message);
++        JS_FreeValue(ctx, error);
++        JS_FreeValue(ctx, loaded);
++    }
++    js_free(ctx, buf);
++    JS_FreeContext(ctx);
++    JS_FreeRuntime(rt);
++}
++
++static void eval_scope_local_limit(void)
++{
++    const size_t capacity = 1024 * 1024;
++    char *src = malloc(capacity);
++    JSRuntime *rt = new_runtime();
++    JSContext *ctx = JS_NewContext(rt);
++    JSValue result, error;
++    size_t len;
++    int n;
++    int32_t value;
++    const char *message;
++
++    assert(src != NULL);
++    JS_SetMaxStackSize(rt, 4 * 1024 * 1024);
++    for (int mode = 0; mode < 4; mode++) {
++        int count = mode < 2 ? 65534 + mode : 65531;
++        len = snprintf(src, capacity, "(function() {'use strict'; let ");
++        for (int i = 0; i < count; i++) {
++            n = snprintf(src + len, capacity - len, "%sv%d", i ? "," : "", i);
++            assert(n > 0 && (size_t)n < capacity - len);
++            len += n;
++        }
++        if (mode < 2) {
++            n = snprintf(src + len, capacity - len, "; return 42; })");
++        } else {
++            n = snprintf(src + len, capacity - len,
++                         mode == 2
++                         ? "=42; return eval('v65530'); })()"
++                         : "=42; return eval(...['v65530']); })()");
++        }
++        assert(n > 0 && (size_t)n < capacity - len);
++        len += n;
++        result = JS_Eval(ctx, src, len, "<eval-limit>", JS_EVAL_TYPE_GLOBAL
++                         | (mode < 2 ? JS_EVAL_FLAG_COMPILE_ONLY : 0));
++        if (mode == 1) {
++            assert(JS_IsException(result));
++            error = JS_GetException(ctx);
++            message = JS_ToCString(ctx, error);
++            assert(message != NULL && strstr(message, "too many variables") != NULL);
++            JS_FreeCString(ctx, message);
++            JS_FreeValue(ctx, error);
++        } else {
++            assert(!JS_IsException(result));
++            if (mode >= 2)
++                assert(JS_ToInt32(ctx, &value, result) == 0 && value == 42);
++        }
++        JS_FreeValue(ctx, result);
++    }
++    free(src);
++    JS_FreeContext(ctx);
++    JS_FreeRuntime(rt);
++}
++
+ int main(void)
+ {
+     cfunctions();
+@@ -2721,6 +2822,8 @@ int main(void)
+     parser_scope_out_of_memory();
+     parser_label_out_of_memory();
+     await_using_outside_async();
++    eval_scope_bytecode();
++    eval_scope_local_limit();
+     private_symbols();
+     new_context_low_memory();
+     json_stringify_oom();
+diff --git a/builtin-array-fromasync.h b/builtin-array-fromasync.h
+index 5ff44adf0613da334bcb00245e326f6edfe2689c..6d8104740c8fd0ecd49eefb831382a035d09339b 100644
+GIT binary patch
+delta 1267
+zcmZ8gON-M`6sAJwkv2`5M<>#bb~Lk)3HBz<qebfjL{}ni+=z=dX?E^K5pgXe$`NLv
+z=r3?FxD<4$JDEQq_y<OpE<KM#s+-Hb-+6uKeCNIj-tE13b|MR3?vHk}@ZNAXe54K4
+zgK!z(nZ<NQ1)YVWb6Ot$_}bhkC-hL`4~J{Fn%5WnnA4d?0fnoSAr2`rx-SztW5&^m
+zd>B`X1JW>n@2&oN%8BQ2)$uN+9Im94+&Mf9DI6(KrIH^iCn#g5n2|BeP49dz!E$m-
+zrPO9NiV@+5xCR5=yMuWqoUJM&`Nz^02Q2DN(RGy__CScFmbOZvod<BB`wb0lw_G^V
+z`)!^P+sXtkcYE;O-h{KAbB!2ocJ4PO@UgRfqZ-qcv$Ath^~{fOOooKTQ7jbB5|M%f
+z&=v1UNrOGZ-z8$T4;7!R_E1-Vr-p|l-`d_u^5<+*J}W9QX8UIM>^cCwVirG+VP^VZ
+zHXV!)9S^*w38tf?2oB{cMe7v>rc2EA+>}Z+GxQWSnD^((Dpda)F8mU!s1%8nxza|#
+zPS=AgU3W8GuyB(cy3HOu?7BLSUN%+*@TTjp5fX=RYz*MIz21?AaBv7`isKOO^G?Xd
+z(5|2{lyb`eMwSoPOcQcz=LuP=O^^`wk~NKa0F|}=A{0>VNv#<os-}qdf5ei8Dyca@
+zf~$1^!@fJH<XTBltx1BT**AQh3NSB}SA$Q+8Dqs4CDq`k;WyC>=R(3>G&fMvHf^x!
+zE5!c_%Ix`1O?V$=Lh}Dp89)KE))stmTuP`Ce*Jdb7NwUFrdVVPMy>&gWl<6L6qJ^+
+tiOG1J1svF?$zMpv5gfI*;k9jzqmn)H`qQCL#6wv{3TB45_V|LP{Q)MXGCBYN
+
+delta 1239
+zcma)6y=xRv5a*(onDusVKhKT#!3igVS@G@W?QRwc#wLP|778{Y?tN?(Ay^3_C|LQ0
+zGWHfWRzehPEG+e3un@Jd7E)O{GjH!MrzvcPee>ow^PBn2+n38Pf@hEBGV%P$*^`;r
+z?5=h1XkBqT90q8IG1)95+fT_R>F$ru)g!BYItcl0cm8tqdclXBY#0UvPa<|DYz5m9
+z*&!zxaazf@vjDypV*sqze4EncTrOFq6nPF-wE_2PixmyltrLbAkUM3N3}MY{UmS3x
+zP?if95%UsUS?uG27l>9i3F*6pi9myv?q4Dg$M?q#q6hmUUX##CP?<uNVM>MSW`OB#
+z={+4IBUJ_`1+Vm;O;{BfbJ8$`UuI)YjNqr9R0?PrH!C?jG}>oyRv28)mPJ7z^H2?O
+zzp7ps!)yCA>=|9yvm2)lL@LsRk6CRI!xgUuTlK{yPRgV*wq;Ej!2P;ko8HPk>{u<(
+zOasiS51$+t-aBph?YI#I6-v*s0_e$jh>4mBf2-b+fd-qV4;!_*R`6z^h#EXK{Uu7I
+z0NnFHB_+T|)9=u&+O`#%&WN#v+&4;H>6h>lW$?!FaeEeE*)m8Cp;npX-mq97$zzt7
+z0xCy6cx=@VV_XUsTnFA-#|acFJ|hhIV)ekU)^Hg$yGLxw6+po$I|mk=F<yafqkSkx
+z(6-&2RdYguFbAu7V^+m6LIJ4O-zw@;0;nQfb9(=!T>6i4JlK?9d7<7qGZZ}Pq-=DE
+z&+-^tb=`R`8}loD;Cc&mlvw|(+k_8p9S8Nz^5DDMbf)~&n6Pm$ypHlqev3Rl83k~D
+a>}N76J}Ls(@jCpA7_vXYow<8X)BXU-G%tYw
+
+diff --git a/builtin-iterator-zip-keyed.h b/builtin-iterator-zip-keyed.h
+index 13fcabda0aa9909828d27fc77b0dab15352d980e..ad8688b5fbb8cfb80300fba08a7fb05447fa2723 100644
+GIT binary patch
+literal 14945
+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
+G=l=m5lz>qH
+
+literal 15074
+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
+
+diff --git a/builtin-iterator-zip.h b/builtin-iterator-zip.h
+index 6f7ec1121417a793d09a41f90ca2a394034d1e3b..e540f56fb4442cd998ffc2a5d04b0f262d0015b1 100644
+GIT binary patch
+delta 3684
+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
+DWK*NX
+
+literal 15442
+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
+
+diff --git a/gen/function_source.c b/gen/function_source.c
+index 961e6bb629ed6fc5a407ce41a961e4f0e0194fe9..c675dc9b70847a922494049e9681d9e0195d5f91 100644
+GIT binary patch
+delta 24
+gcmX>meoTDA9>&y(d&L<|H(r%zV>H?PmF*%60DA`sYXATM
+
+delta 26
+icmX>meoTDA9>$c3d&L<|HeQuyo9x5Fz4<@eaTWlN3JM|s
+
+diff --git a/gen/hello.c b/gen/hello.c
+index c84381a2debe3c2028360b28db1dc504b53b84ba..5f5dbb77bc86810a8b47cd0fd6f453464b1974fd 100644
+GIT binary patch
+delta 12
+TcmZqWY2}%)f-!aD${1Dv9Q_1*
+
+delta 12
+TcmZqWY2}%)f-z;|${1Dv9QXu#
+
+diff --git a/gen/hello_module.c b/gen/hello_module.c
+index 5c8f58eb4c55ce07c780bca0830d59e33bd19453..f0a3862f0007f21ae08abd7328d1f0cadcd24e60 100644
+GIT binary patch
+delta 420
+zcmY*VJxc>Y6y)N5cxS*O9G*?QQ)3Yh+`Z*4Ns->lT9APGI4o@i!9r}T)VzO@CIrFS
+zRs<_6|AnPp-g`Mko8j%w?99CV-kHS@H#KV>Z+BbP4B~!#6~yM!mMNm^5n4-Vx`ds4
+z@piIS>*dfA=Zy&yLncN%PvB1N!Lvx<Op60Irc1}N%<#;Zv9GC~!-d?MDj()5(v)4~
+zDZHx$PNiR`^RLd64HWqS3P?6i1GtybHq8aytRgZlT9nAXtXRhj{0~L;OGaoH!dz%D
+zGK5bRhA5>-S8YSCW(ZYqg27yn*XlTK!Cn4TJe(?pcAH)RAF2(<THz#hTT{Ui#ty_j
+bZ0LHEoT^XBxIKT$PcmHVSFe0JT3_fTSLJCw
+
+delta 358
+zcmZ3b@Kb(56O)0_#1<u01EW|4TZL*a1%nF16dfR$XbK|DEI?$kA&4|J+;}>InaLt$
+zvMNhDdm>24JZW+bt2`su<ozrvyg<HjGDy@oMTcwh2Nto(jjU3W&$7u(e$U3w4pMCj
+z6pvt)o4kNUdGdT#4oQ%hF-V6Q*fJvnFxwKS>Hw>R3Q!y(0yGcEhLAuJkQ<G`E;6zN
+zTCX(u6q_W-ipjogJQ5&Dvs93Js9vx_V~{%~fo|avfmme*b|}p9$@75@GGG+~Vm6>j
+zoInrxuqsZLV&`WEnP+67GueP$3&Kv)nViV3B?lG<y9;WM5!g;kuuGFBuV+8Wn6kN&
+HV<S5Nn2TKc
+
+diff --git a/gen/repl.c b/gen/repl.c
+index f39a1d9953b818cc6c6ee74fe974fc1d1abdb82e..467bbd470e0cc54ba0caf35695509bf63c9c22b3 100644
+GIT binary patch
+delta 20
+ccmez0!1=#{bHXyl)W+ql%Ne&WXS!hz0B8#dcK`qY
+
+delta 20
+ccmez0!1=#{bHXyll*Z+)%Ne&WXS!hz0B8USb^rhX
+
+diff --git a/gen/standalone.c b/gen/standalone.c
+index f2742284af05460a44a2010d98bf7175ef57de52..f026b6cb39c38f92986ce70231327fe41312cf70 100644
+GIT binary patch
+delta 575
+zcmYjOO=}ZT6eS@h?MpI^C122Brp-f0nvXXxGn1JNBK`qgb?G7#lcg)MLMcuDKuK~o
+z{)QmZ;=)2v(3P(G2MWcNUADLv?|Ty=o6EcB-E;1__g)`f9nK~(Yd+=NdTBl}kC-Xm
+zS)(S!p`+q>pyJ3@@s)M{v(Si%PdAMv+i<1Agv8fcB@qsq3|}0MN@p`JhnUn#cu`N`
+z<8B(Sy=0>6(SOzD4~WurF)x=EW(rreG@gpB7{k=%IPK+dFRJ+98H7}=Jyh#S$~Gv=
+z_c(so8T=LxanQ?Sxtqx-t7D-|SVMfXD>##zcwf$~H^!p9AMXwp@)69&HjIveUrvBG
+z-VQF@46>4;B~sKRkK=BXm+M)|)49=DNxOP-;gJ2m9?udYB190<@%2Df@Bct=eM6V%
+zrP(2s%>9U@eG0XO@9PLHnc+`_IC||uv3Oszq^~T53OVTWZF;Y2?4}xC2t4l>iz`f@
+zOXxnD@j226wW>cNjoUs)Oct>h?BK4IFrovJC(^P*JbPR*qH1zZkhJv~XTcWk+eMtT
+QlDG^CY4tO1vg3fUe?<zQ6951J
+
+delta 559
+zcmYjOJx>Bb5DgZ9r}%+z5Rl{&7DZh3KDh5_Wn*t)Oe{Er0xJu}XpHg?lvkUmrHLQJ
+z#MW9H6KfOg{2T7>ozZ48JM-qfH?wcukM7xN%sB56Vr(hP%8{g~2ii7ev90ph647k(
+zylD+yvbC80_*uJ=lA6YAmX5oM+^;0Yb;@T|fe#uK1CwCE@v&Z=A2KZTs&ZdR;H^9&
+zIe~!M8ii7>VzrpYsWaZ!CXlG4uxFHHHqW`WkkaN4MvSCQaIMG;oxqx%N&N}(ZpS7u
+z3AZ}wTcdcNTO2YP_%ib-)bcS6S4s{KdNCf(U~+Z}J5C<GvaogOWO#~Kr^q;-t68j8
+z(nz_(A-;}_nH=_)(#g=0X8-QfamUhvQaG*$+^P}qE-u~S{|+6BCzt%IG);={sA9In
+zjsZp9BSKSmapK9?@Umhg0@NuEBY>)6(<>FN=r~L_2=5vQF1JPT;Ssh~4mrOdNSe9;
+mGbby4s8SEGTVqz2;$u-${4^_1n<d=)*-^fn-lo#AFG)X=VU<V#
+
+diff --git a/gen/test_fib.c b/gen/test_fib.c
+index 908312cb33447141fc3ef86ff987ba3d3015362a..5ab2204ed257e4ec3db345e94414d77135e40121 100644
+GIT binary patch
+delta 12
+TcmbOsHbZQ}I>ywE>od6kAHoFG
+
+delta 12
+TcmbOsHbZQ}I>wZZ>od6kAH4+A
+
+diff --git a/quickjs.c b/quickjs.c
+index 1d1c6dea86ce779f4d553b8342539cef602d12ae..624a945ded25524b252c1579abc9e363e4c2d3a3 100644
+--- a/quickjs.c
++++ b/quickjs.c
+@@ -35530,6 +35530,10 @@ static __exception int add_closure_variables(JSContext *ctx, JSFunctionDef *s,
+         return -1;
+     /* Add lexical variables in scope at the point of evaluation */
+     for (i = scope_idx; i >= 0;) {
++        if (i >= b->var_count) {
++            JS_ThrowInternalError(ctx, "invalid scope index in eval closure");
++            return -1;
++        }
+         vd = &b->vardefs[b->arg_count + i];
+         if (vd->scope_level > 0) {
+             JSClosureVar *cv = &s->closure_var[s->closure_var_count++];
+@@ -38484,6 +38488,8 @@ static __exception int js_parse_function_decl2(JSParseState *s,
+                 } else {
+                     /* unnamed arg for destructuring */
+                     idx = add_arg(ctx, fd, JS_ATOM_NULL);
++                    if (idx < 0)
++                        goto fail;
+                     emit_op(s, OP_get_arg);
+                     emit_u16(s, idx);
+                 }
+@@ -39377,7 +39383,7 @@ typedef enum BCTagEnum {
+     BC_TAG_SYMBOL,
+ } BCTagEnum;
+ 
+-#define BC_VERSION 29
++#define BC_VERSION 30
+ 
+ typedef struct BCWriterState {
+     JSContext *ctx;
+diff --git a/tests/destructuring-parameter-limit.js b/tests/destructuring-parameter-limit.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..877448703abcfebf861499963fae7d0e59aecc45
+--- /dev/null
++++ b/tests/destructuring-parameter-limit.js
+@@ -0,0 +1,23 @@
++function check(value, message) {
++    if (!value)
++        throw new Error(message);
++}
++
++const parameters = Array.from({ length: 65534 }, (_, i) => `p${i}`);
++for (const pattern of ["[]", "{}", "[] = []", "{} = {}"]) {
++    const valid = `(function(${parameters.slice(0, -1).join(",")},${pattern}) {})`;
++    const compiled = eval(valid);
++    check(typeof compiled === "function", `accepted boundary: ${pattern}`);
++    check(compiled.length === (pattern.includes("=") ? 65533 : 65534),
++          `parameter count: ${pattern}`);
++
++    const invalid = `(function(${parameters.join(",")},${pattern}) {})`;
++    let rejected = false;
++    try {
++        eval(invalid);
++    } catch (error) {
++        rejected = error instanceof SyntaxError
++            && error.message.includes("too many parameters");
++    }
++    check(rejected, `rejected overflow: ${pattern}`);
++}
+diff --git a/tests/mapped-arguments-var-ref-overflow.js b/tests/mapped-arguments-var-ref-overflow.js
+index 2c994c8f133dd8cc8b7536a9da7c58be237fcfbc..8194914ffe17cf9ef6e64d78d01800c8c2fd7d39 100644
+--- a/tests/mapped-arguments-var-ref-overflow.js
++++ b/tests/mapped-arguments-var-ref-overflow.js
+@@ -1,53 +1,24 @@
+ import { assert } from "./assert.js";
+ 
+-// A non-strict function with a simple parameter list and a reference to
+-// `arguments` gets a *mapped* arguments object: resolve_labels() captures every
+-// parameter into the per-frame var_ref array so arguments[i] and the parameter
+-// stay aliased (js_build_mapped_arguments() -> get_var_ref()). Each capture
+-// bumps JSFunctionDef.var_ref_count, which js_create_function() stores into the
+-// 16-bit JSFunctionBytecode.var_ref_count field with no range check.
+-//
+-// The parameter count alone is bounded below JS_MAX_LOCAL_VARS (65535), but an
+-// independently captured local -- here `x`, closed over by the arrow -- adds one
+-// more var_ref. With the maximum 65535 parameters the total reaches 65536 and
+-// the field wraps to 0, so JS_CallInternal() allocates a zero-length sf->var_refs
+-// array while js_build_mapped_arguments() still indexes one slot per parameter.
+-// get_var_ref() then reads past the allocation (dynamic-stack-buffer-overflow in
+-// get_var_ref under ASan, a deterministic crash on a large enough JS stack). A
+-// ~130 KB source of non-strict duplicate formals reaches the boundary.
+-//
+-// js_create_function() now rejects a captured-variable total above the field's
+-// range with a SyntaxError, thrown while the function is compiled -- before any
+-// call frame is built, so the rejection does not need the large runtime stack
+-// the out-of-bounds access does.
+-//
+-// The reported payload: 65535 formals (all captured for the mapped arguments
+-// object) + 1 captured local = 65536 var_refs. With the fix the oversized
+-// function is rejected while it is compiled, so Function() throws a SyntaxError.
+-// Without the fix the field truncates to 0 and, when the function is later
+-// called, the engine reads out of bounds while building the mapped arguments
+-// object -- a dynamic-stack-buffer-overflow under ASan on the sandbox's 6 MiB JS
+-// stack, or the distinct RangeError of entering the oversized call frame under a
+-// smaller stack; neither is the SyntaxError the fix now raises at compile time,
+-// so this test fails on the unpatched engine (no SyntaxError from Function()).
+-var threw = null;
+-try {
+-    Function("a,".repeat(65534) + "a", // 65535 formals
+-             "var x;(()=>x);return arguments");
+-} catch (e) {
+-    threw = e;
++for (const [count, body] of [
++    [65535, "var x;(()=>x);return arguments"],
++    [65534, "var x,y;(()=>[x,y]);return arguments"],
++]) {
++    var threw = null;
++    try {
++        Function("a,".repeat(count - 1) + "a", body);
++    } catch (e) {
++        threw = e;
++    }
++    assert(threw instanceof SyntaxError, true,
++           "the oversized captured-variable set must be rejected with a " +
++           "SyntaxError, got " + threw);
++    if (count == 65534)
++        assert(/too many captured variables/.test(threw.message), true,
++               "valid parameter count must reach the captured-variable check");
+ }
+-assert(threw instanceof SyntaxError, true,
+-       "the oversized captured-variable set must be rejected with a " +
+-       "SyntaxError, got " + threw);
+ 
+-// A captured-variable set within the field's range must still compile. The
+-// maximum 65535 parameters captured for a mapped arguments object, with no extra
+-// captured local, is exactly at the boundary (var_ref_count 65535, the field's
+-// highest value) and must be accepted. Only compilation is exercised here:
+-// calling such a function needs a multi-megabyte JS stack, which the fix does not
+-// change -- the point is that the fix rejects 65536 without over-rejecting 65535.
+-assert(typeof Function("a,".repeat(65534) + "a", "return arguments"), "function",
++assert(typeof Function("a,".repeat(65533) + "a", "return arguments"), "function",
+        "a mapped arguments object at the captured-variable limit must compile");
+ 
+ // An ordinary mapped arguments object with a captured local keeps aliasing its
+diff --git a/tests/test_bjson.js b/tests/test_bjson.js
+index 9def31b0736743b46f023a742b062f2ff94abc78..247f57d3677dcad84d5bf56f8285208b8253963e 100644
+--- a/tests/test_bjson.js
++++ b/tests/test_bjson.js
+@@ -259,11 +259,11 @@ function bjson_test_bytecode()
+ function bjson_test_fuzz()
+ {
+     var corpus = [
+-        ["HP////8QAAAAAARg"],
+-        ["HP/////m5uaCLQ=="],
+-        ["HP////8AEQATBgYGBgYGBgYGBgb/////EAARAC8R/78vEf+/"],
+-        ["HP////8ACH8ACv////9//////////////////////////////9//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAA+fn5+fn5+fn5+fn5AAAAAAAGAKs="],
+-        ["HP////8ADgAAABQA", bjson.READ_OBJ_REFERENCE],
++        ["Hv////8QAAAAAARg"],
++        ["Hv/////m5uaCLQ=="],
++        ["Hv////8AEQATBgYGBgYGBgYGBgb/////EAARAC8R/78vEf+/"],
++        ["Hv////8ACH8ACv////9//////////////////////////////9//AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABgAAAAAAAAAAAAAA+fn5+fn5+fn5+fn5AAAAAAAGAKs="],
++        ["Hv////8ADgAAABQA", bjson.READ_OBJ_REFERENCE],
+     ];
+     for (var [input, flags] of corpus) {
+         var buf = Uint8Array.fromBase64(input);
+diff --git a/tests/test_closure.js b/tests/test_closure.js
+index 4d6387957054bdd087d7d59273f829af2d145d3c..4b7fa9440d247ef0627016b776c6406337e3a2d6 100644
+--- a/tests/test_closure.js
++++ b/tests/test_closure.js
+@@ -211,6 +211,71 @@ function test_eval_const()
+     assert(success);
+ }
+ 
++function test_eval_parameter_scope()
++{
++    "use strict";
++
++    function empty_object({} = eval("({})")) { return 11; }
++    function empty_array([] = eval("[]")) { return 12; }
++    function spread_object({} = eval(...["({})"])) { return 13; }
++    function spread_array([] = eval(...["[]"])) { return 14; }
++    assert(empty_object(), 11);
++    assert(empty_array(), 12);
++    assert(spread_object(), 13);
++    assert(spread_array(), 14);
++    assert((({} = eval("({})")) => 15)(), 15);
++    assert((({} = eval(...["({})"])) => 16)(), 16);
++
++    class C {
++        direct({} = eval("({})")) { return 17; }
++        spread({} = eval(...["({})"])) { return 18; }
++    }
++    assert(new C().direct(), 17);
++    assert(new C().spread(), 18);
++
++    let seen = 0;
++    function hidden_body({} = eval("(seen = typeof bodyOnly, {})")) {
++        var bodyOnly = 99;
++        return bodyOnly;
++    }
++    assert(hidden_body(), 99);
++    assert(seen, "undefined");
++    function hidden_spread({} = eval(...["(seen = typeof bodyOnly, {})"])) {
++        var bodyOnly = 99;
++    }
++    hidden_spread();
++    assert(seen, "undefined");
++
++    function earlier(a = 20, b = eval("a + 1"),
++                     c = eval(...["b + 1"])) {
++        return [a, b, c];
++    }
++    assert(earlier().join(","), "20,21,22");
++    function later(a = eval("b"), b = 1) {}
++    function later_spread(a = eval(...["b"]), b = 1) {}
++    for (const f of [later, later_spread]) {
++        let caught = false;
++        try {
++            f();
++        } catch (e) {
++            caught = e instanceof ReferenceError;
++        }
++        assert(caught);
++    }
++
++    function capture(a = 23, f = eval("() => a")) {
++        var a = 99;
++        return f;
++    }
++    assert(capture()(), 23);
++    function receiver({} = eval("(seen = this.value, {})")) {}
++    receiver.call({value: 24});
++    assert(seen, 24);
++    function target({} = eval("(seen = new.target, {})")) {}
++    new target();
++    assert(seen, target);
++}
++
+ test_closure1();
+ test_closure2();
+ test_closure3();
+@@ -218,3 +283,4 @@ test_arrow_function();
+ test_with();
+ test_eval_closure();
+ test_eval_const();
++test_eval_parameter_scope();

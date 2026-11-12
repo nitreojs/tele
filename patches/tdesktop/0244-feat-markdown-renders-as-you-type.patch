@@ -21,10 +21,10 @@ Subject: [PATCH] feat: markdown renders as you type
  create mode 100644 Telegram/SourceFiles/tele/tele_live_markdown.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9fbbde1bfd720bdb40c2ea3eeda12f59c54ac17c..dc7387e0c1e0ff3c495cb48214f5e2cb5664787e 100644
+index 1e12e5cf12ffa27de3c1163933140006f4879628..ccf535d59e5db350496f4f8a21296ebc570bafc7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2878,6 +2878,8 @@ PRIVATE
+@@ -2891,6 +2891,8 @@ PRIVATE
      tele/tele_list_dates.h
      tele/tele_list_previews.cpp
      tele/tele_list_previews.h
@@ -149,7 +149,7 @@ index 20029075a625f64d37dfe0cef4f8182441daee47..3d84e49aed3d177a9265c2dc7e8e4646
  }
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9775ee245 100644
+index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2c27956c4 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -177,6 +177,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -160,7 +160,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  #include "tele/tele_translate_out.h"
  #include "tele/tele_calls.h"
  #include "tele/tele_start_param.h"
-@@ -729,6 +730,7 @@ HistoryWidget::HistoryWidget(
+@@ -730,6 +731,7 @@ HistoryWidget::HistoryWidget(
  		showPremiumToast(document);
  		return false;
  	});
@@ -168,7 +168,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  	InitMessageFieldFade(_field, st::historyComposeField.textBg);
  
  	setupFastButtonMode();
-@@ -1747,7 +1749,7 @@ void HistoryWidget::showRichEditor() {
+@@ -1748,7 +1750,7 @@ void HistoryWidget::showRichEditor() {
  				window,
  				item,
  				prepareSendAction({}),
@@ -177,7 +177,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  				crl::guard(this, [=] {
  					cancelEdit();
  				}));
-@@ -1769,7 +1771,7 @@ void HistoryWidget::showRichEditor() {
+@@ -1770,7 +1772,7 @@ void HistoryWidget::showRichEditor() {
  		_history->peer,
  		prepareSendAction({}),
  		sendMenuDetails(),
@@ -186,7 +186,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  		crl::guard(this, [=] {
  			if (support) {
  				migrateSupportFieldToRichEditor();
-@@ -4004,7 +4006,7 @@ void HistoryWidget::refreshAttachBotsMenu() {
+@@ -4005,7 +4007,7 @@ void HistoryWidget::refreshAttachBotsMenu() {
  		[=] { return sendMenuDetails(); },
  		[=](bool compress) { chooseAttach(compress); },
  		crl::guard(this, [=] {
@@ -195,7 +195,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  		}),
  		crl::guard(this, [=] {
  			migrateFieldToRichEditor();
-@@ -5726,7 +5728,7 @@ void HistoryWidget::windowIsVisibleChanged() {
+@@ -5727,7 +5729,7 @@ void HistoryWidget::windowIsVisibleChanged() {
  }
  
  TextWithEntities HistoryWidget::prepareTextForEditMsg() const {
@@ -204,7 +204,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  	const auto prepareFlags = Ui::ItemTextOptions(
  		_history,
  		session().user()).flags;
-@@ -6093,7 +6095,7 @@ void HistoryWidget::send(Api::SendOptions options) {
+@@ -6094,7 +6096,7 @@ void HistoryWidget::send(Api::SendOptions options) {
  		auto action = Api::SendAction(_history, options);
  		action.replyTo = replyTo();
  		auto message = Api::MessageToSend(std::move(action));
@@ -213,7 +213,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  		if (!session().ephemeralMessages().wouldSend(message)
  			&& showSlowmodeError()) {
  			return;
-@@ -6105,7 +6107,7 @@ void HistoryWidget::send(Api::SendOptions options) {
+@@ -6106,7 +6108,7 @@ void HistoryWidget::send(Api::SendOptions options) {
  	}
  
  	sendTextWithTags(
@@ -222,7 +222,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  		true,
  		options,
  		nullptr);
-@@ -6350,7 +6352,7 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
+@@ -6351,7 +6353,7 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
  	if (shownRichMessage()
  		? showSendRichDraftError(ignoreSlowmodeCountdown)
  		: showSendMessageError(
@@ -232,7 +232,7 @@ index 124c4a157a48d25886be4f710c965c57a2b101be..74ce1cf65e991b54609e2713be41f2a9
  		return;
  	}
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index c5567a5685b87876a50597c18de89a82b2e5f781..3a69db7d5776630b23715eeba74feeabf85f6910 100644
+index 41627445fcc5d85e7fd0f6964ccaa901125be43a..5b5c401dec451b1f84666e27ff63bb9b09785b53 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -243,7 +243,7 @@ index c5567a5685b87876a50597c18de89a82b2e5f781..3a69db7d5776630b23715eeba74feeab
  #include "tele/tele_translate_out.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_rich_quote.h"
-@@ -2581,7 +2582,7 @@ void ComposeControls::showForGrab() {
+@@ -2582,7 +2583,7 @@ void ComposeControls::showForGrab() {
  }
  
  TextWithTags ComposeControls::getTextWithAppliedMarkdown() const {
@@ -252,7 +252,7 @@ index c5567a5685b87876a50597c18de89a82b2e5f781..3a69db7d5776630b23715eeba74feeab
  }
  
  void ComposeControls::clear(bool keepReply) {
-@@ -3447,6 +3448,7 @@ void ComposeControls::initField() {
+@@ -3448,6 +3449,7 @@ void ComposeControls::initField() {
  		}
  		return false;
  	});

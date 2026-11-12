@@ -20,10 +20,10 @@ Subject: [PATCH] feat: dim hidden gifts and select several
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_list.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 68db657e481b8ac29e860445dc538b12ebb3c03b..be9a8fe90de404f54d05651828a5cc303aadae99 100644
+index 7e7b29d2fad8e2799e8fbb68c391faa3cfa4836f..e3b8dd53b6012506892a014d58ad4c809f3da12b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2731,6 +2731,8 @@ PRIVATE
+@@ -2744,6 +2744,8 @@ PRIVATE
      tele/tele_gif_video.h
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h

@@ -23,10 +23,10 @@ Subject: [PATCH] feat: filter stickers and emoji by format
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_formats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a3f96b47a6fe16db5a586ef939ba5ae78e725636..95e6e69f564b3c36c9c52003cf4a3700dcf6fcf6 100644
+index fa99aaf95435a8fff70021aadae756a8bcba2cf0..1ef89836fa6a27805ea30b6c288496b972a60931 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3104,6 +3104,8 @@ PRIVATE
+@@ -3117,6 +3117,8 @@ PRIVATE
      tele/tele_start_param.h
      tele/tele_sticker_captions.cpp
      tele/tele_sticker_captions.h
@@ -36,7 +36,7 @@ index a3f96b47a6fe16db5a586ef939ba5ae78e725636..95e6e69f564b3c36c9c52003cf4a3700
      tele/tele_sticker_truth.h
      tele/tele_table_selection.cpp
 diff --git a/Telegram/SourceFiles/boxes/stickers_box.cpp b/Telegram/SourceFiles/boxes/stickers_box.cpp
-index 9d90585bf92a9f88624b640fc3aba6434aaa8b8f..c768ff981dfcf7bd98ede58bf2de3483b0ce89fa 100644
+index cef234764a4c43c7f8d7e2846fab24e9bef6d391..bda9af442fbb75eb62abd0cbc45b9db6147a4d6f 100644
 --- a/Telegram/SourceFiles/boxes/stickers_box.cpp
 +++ b/Telegram/SourceFiles/boxes/stickers_box.cpp
 @@ -25,6 +25,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

@@ -12,7 +12,7 @@ Subject: [PATCH] feat: show id and dc in one row
  5 files changed, 112 insertions(+), 30 deletions(-)
 
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 58d3385437c1eba657f032ea0a1b11247bd2fcd7..fe2f6da39e08a5974324e98234164dfa1ec9a971 100644
+index eec70050dc2d122db0413d35545cb0a6b2d4cc2c..ec23ae36c058a0b8be0de149fe42346ff4c36970 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -1855,7 +1855,7 @@ Section DetailsFiller::makeInfo() {

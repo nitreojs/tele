@@ -16,11 +16,11 @@ Subject: [PATCH] feat: ease mouse wheel steps in scroll areas
  create mode 100644 ui/widgets/smooth_wheel.h
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index c0ee144b060e303f135283da229db7275f62560d..1fdd61ee6584894986511edd2024929f99a67fab 100644
+index 6b81a56e9fd12e708876280027b0f0b6f283d542..1c4f5b5324fc648f03595f5856d0e07390bb8a58 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -278,6 +278,8 @@ PRIVATE
-     ui/widgets/scroll_area.h
+@@ -279,6 +279,8 @@ PRIVATE
+     ui/widgets/scroll_math.h
      ui/widgets/side_bar_button.cpp
      ui/widgets/side_bar_button.h
 +    ui/widgets/smooth_wheel.cpp
@@ -29,10 +29,10 @@ index c0ee144b060e303f135283da229db7275f62560d..1fdd61ee6584894986511edd2024929f
      ui/widgets/shadow.h
      ui/widgets/time_input.cpp
 diff --git a/ui/widgets/elastic_scroll.cpp b/ui/widgets/elastic_scroll.cpp
-index cb5e573d587cbd190b76015e05a5e6bea26e1e28..b1764184eda17f579fc81375f3247b763257d85f 100644
+index f72ffc506905e9e4964bb46f68a3e6f15f0e4350..df985021e52b5f328714812878a45ad6192945f7 100644
 --- a/ui/widgets/elastic_scroll.cpp
 +++ b/ui/widgets/elastic_scroll.cpp
-@@ -891,6 +891,9 @@ bool ElasticScroll::handleWheelEvent(
+@@ -855,6 +855,9 @@ bool ElasticScroll::handleWheelEvent(
  	const auto touch = (source != WheelSource::Wheel);
  	const auto exact = (source == WheelSource::ExactTouch);
  	const auto phase = e->phase();
@@ -42,7 +42,7 @@ index cb5e573d587cbd190b76015e05a5e6bea26e1e28..b1764184eda17f579fc81375f3247b76
  	auto ownAxisLocked = false;
  	if (_wheelDirectionLocked || _crossAxisWheelProcess) {
  		const auto lockDelta = exact
-@@ -958,7 +961,17 @@ bool ElasticScroll::handleWheelEvent(
+@@ -922,7 +925,17 @@ bool ElasticScroll::handleWheelEvent(
  			if (!weak) {
  				return true;
  			}
@@ -82,10 +82,10 @@ index f0ba4d9a200b6bfcbbfedcffadf04fa192d97c41..35b2c007a4447c31d45ad5c3c93de12a
  	Fn<bool(QPoint, Qt::ScrollPhase)> _crossAxisWheelProcess;
  	ScrollDirectionLock _wheelDirectionLock;
 diff --git a/ui/widgets/scroll_area.cpp b/ui/widgets/scroll_area.cpp
-index 36af139efd353632daa76adb4d775d4c59150354..076facaa3318720bea321f0bc60df90da9b58153 100644
+index 67ff1f96c831a71864a8ebcc169d7e92930de032..f825c1d9579e265b2a0504f12b58e393f820f9f6 100644
 --- a/ui/widgets/scroll_area.cpp
 +++ b/ui/widgets/scroll_area.cpp
-@@ -649,6 +649,22 @@ bool ScrollArea::viewportEvent(QEvent *e) {
+@@ -647,6 +647,22 @@ bool ScrollArea::viewportEvent(QEvent *e) {
  						phase);
  			}
  		}

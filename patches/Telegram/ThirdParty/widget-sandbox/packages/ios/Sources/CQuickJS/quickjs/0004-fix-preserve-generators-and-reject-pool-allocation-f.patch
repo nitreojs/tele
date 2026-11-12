@@ -1,0 +1,317 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Thu, 12 Nov 2026 22:28:42 +0300
+Subject: [PATCH] fix: preserve generators and reject pool allocation failures
+
+---
+ api-test.c                                   | 40 +++++++++++++
+ quickjs.c                                    | 60 +++++++++++++-------
+ tests/generator-prologue-lifetime-classic.js | 28 +++++++++
+ tests/generator-prologue-lifetime.js         | 51 +++++++++++++++++
+ 4 files changed, 158 insertions(+), 21 deletions(-)
+ create mode 100644 tests/generator-prologue-lifetime-classic.js
+ create mode 100644 tests/generator-prologue-lifetime.js
+
+diff --git a/api-test.c b/api-test.c
+index 3e85809a70ba36836be6537487ac1458c7d18cbf..fe2864b7775bf09731947d424eac30df6402645d 100644
+--- a/api-test.c
++++ b/api-test.c
+@@ -2578,6 +2578,45 @@ static int compiles(const char *src, int flags)
+     return ok;
+ }
+ 
++static void constant_pool_out_of_memory(void)
++{
++    static char src[16384];
++    size_t len = 0;
++    int i;
++    for (i = 0; i < 96; i++) {
++        int n = snprintf(src + len, sizeof(src) - len,
++            "function f%d() {}\nclass C%d { value = 0; static value = 0; }\n"
++            "class D%d extends C%d {}\n", i, i, i, i);
++        assert(n > 0 && (size_t)n < sizeof(src) - len);
++        len += n;
++    }
++    for (i = 0; i < 4096; i++) {
++        JSRuntime *rt = JS_NewRuntime();
++        JSContext *ctx = JS_NewContext(rt);
++        JSMemoryUsage stats;
++        JSValue ret;
++        JS_ComputeMemoryUsage(rt, &stats);
++        JS_SetMemoryLimit(rt, stats.malloc_size + (size_t)i * 1024);
++        ret = JS_Eval(ctx, src, len, "<constant-pool>",
++                      JS_EVAL_TYPE_GLOBAL | JS_EVAL_FLAG_COMPILE_ONLY);
++        if (JS_IsException(ret)) {
++            JSValue e = JS_GetException(ctx);
++            assert(JS_IsError(e) || JS_IsNull(e) || JS_IsUninitialized(e));
++            if (JS_IsError(e)) {
++                const char *text;
++                JS_SetMemoryLimit(rt, 0);
++                text = JS_ToCString(ctx, e);
++                assert(text && strstr(text, "out of memory"));
++                JS_FreeCString(ctx, text);
++            }
++            JS_FreeValue(ctx, e);
++        }
++        JS_FreeValue(ctx, ret);
++        JS_FreeContext(ctx);
++        JS_FreeRuntime(rt);
++    }
++}
++
+ static void await_using_outside_async(void)
+ {
+     const int script = JS_EVAL_TYPE_GLOBAL, module = JS_EVAL_TYPE_MODULE;
+@@ -2820,6 +2859,7 @@ int main(void)
+     uncatchable_interrupt_at_memory_limit();
+     uncatchable_out_of_memory();
+     parser_scope_out_of_memory();
++    constant_pool_out_of_memory();
+     parser_label_out_of_memory();
+     await_using_outside_async();
+     eval_scope_bytecode();
+diff --git a/quickjs.c b/quickjs.c
+index 624a945ded25524b252c1579abc9e363e4c2d3a3..bba790186b4ef370530512dee95e524f8d050431 100644
+--- a/quickjs.c
++++ b/quickjs.c
+@@ -515,19 +515,6 @@ typedef struct JSVarRef {
+     uint8_t is_detached;
+     uint8_t is_lexical; /* only used with global variables */
+     uint8_t is_const; /* only used with global variables */
+-    /* Set at creation for an open var_ref that captures a local of a
+-       coroutine (async function / generator / async generator): such a
+-       var_ref holds a counted reference to that coroutine's GC object and
+-       is itself a GC object, so the cycle collector can see the closure ->
+-       var_ref -> coroutine edge and keep the suspended coroutine (hence the
+-       captured variable it points into) alive. The coroutine is recovered
+-       as stack_frame->cur_gc_obj (valid while open). This is a *snapshot* of
+-       cur_gc_obj != NULL taken at creation, NOT rederived at read time:
+-       cur_gc_obj transitions NULL -> owner (it is set only after a
+-       generator's initial resume), so var_refs created during the prologue
+-       (e.g. mapped `arguments`) must stay non-coro even though cur_gc_obj is
+-       later set. Cleared when the var_ref is detached; the ref is released on
+-       detach/free. */
+     uint8_t is_coro;
+     JSValue *pvalue; /* pointer to the value, either on the stack or
+                         to 'value' */
+@@ -22140,6 +22127,20 @@ static JSValue js_generator_next(JSContext *ctx, JSValueConst this_val,
+     return ret;
+ }
+ 
++static void async_func_promote_prologue_refs(JSRuntime *rt, JSStackFrame *sf)
++{
++    int i;
++
++    for (i = 0; i < sf->var_ref_count; i++) {
++        JSVarRef *var_ref = sf->var_refs[i];
++        if (!var_ref || var_ref->is_detached || var_ref->is_coro)
++            continue;
++        JS_REF_COUNT(sf->cur_gc_obj)++;
++        var_ref->is_coro = true;
++        add_gc_object(rt, &var_ref->header, JS_GC_OBJ_TYPE_VAR_REF);
++    }
++}
++
+ static JSValue js_call_generator_function(JSContext *ctx, JSValueConst func_obj,
+                                           JSValueConst this_obj,
+                                           int argc, JSValueConst *argv,
+@@ -22167,10 +22168,8 @@ static JSValue js_call_generator_function(JSContext *ctx, JSValueConst func_obj,
+     if (JS_IsException(obj))
+         goto fail;
+     JS_SetOpaqueInternal(obj, s);
+-    /* the body only starts running on the first next(); root captured
+-       locals against the generator object from now on (the initial resume
+-       above only reaches OP_initial_yield, before any user code) */
+     s->func_state.frame.cur_gc_obj = &JS_VALUE_GET_OBJ(obj)->header;
++    async_func_promote_prologue_refs(ctx->rt, &s->func_state.frame);
+     return obj;
+  fail:
+     free_generator_stack_rt(ctx->rt, s);
+@@ -22846,9 +22845,8 @@ static JSValue js_async_generator_function_call(JSContext *ctx,
+     if (JS_IsException(obj))
+         goto fail;
+     s->generator = JS_VALUE_GET_OBJ(obj);
+-    /* root captured locals against the async generator object (the initial
+-       resume above only reaches OP_initial_yield, before any user code) */
+     s->func_state.frame.cur_gc_obj = &s->generator->header;
++    async_func_promote_prologue_refs(ctx->rt, &s->func_state.frame);
+     JS_SetOpaqueInternal(obj, s);
+     return obj;
+  fail:
+@@ -26260,7 +26258,7 @@ static __exception int emit_class_init_start(JSParseState *s,
+     return 0;
+ }
+ 
+-static void emit_class_init_end(JSParseState *s, ClassFieldsDef *cf)
++static __exception int emit_class_init_end(JSParseState *s, ClassFieldsDef *cf)
+ {
+     int cpool_idx;
+ 
+@@ -26269,10 +26267,13 @@ static void emit_class_init_end(JSParseState *s, ClassFieldsDef *cf)
+     s->cur_func = s->cur_func->parent;
+ 
+     cpool_idx = cpool_add(s, JS_NULL);
++    if (cpool_idx < 0)
++        return -1;
+     cf->fields_init_fd->parent_cpool_idx = cpool_idx;
+     emit_op(s, OP_fclosure);
+     emit_u32(s, cpool_idx);
+     emit_op(s, OP_set_home_object);
++    return 0;
+ }
+ 
+ static void emit_return(JSParseState *s, bool hasval);
+@@ -26339,6 +26340,8 @@ static __exception int js_parse_class_default_ctor(JSParseState *s,
+     int idx;
+     /* the real object will be set at the end of the compilation */
+     idx = cpool_add(s, JS_NULL);
++    if (idx < 0)
++        return -1;
+     fd->parent_cpool_idx = idx;
+ 
+     return 0;
+@@ -26756,6 +26759,13 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
+             goto fail;
+     }
+     /* patch the constant pool index for the constructor */
++    if (JS_HasException(ctx))
++        goto fail;
++    if (ctor_fd->parent_cpool_idx < 0
++        || ctor_fd->parent_cpool_idx >= fd->cpool_count) {
++        js_parse_error(s, "out of memory");
++        goto fail;
++    }
+     put_u32(fd->byte_code.buf + ctor_cpool_offset, ctor_fd->parent_cpool_idx);
+ 
+     /* store the class source code in the constructor. */
+@@ -26797,7 +26807,8 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
+         if (var_idx < 0)
+             goto fail;
+         if (cf->fields_init_fd) {
+-            emit_class_init_end(s, cf);
++            if (emit_class_init_end(s, cf))
++                goto fail;
+         } else {
+             emit_op(s, OP_undefined);
+         }
+@@ -26820,7 +26831,8 @@ static __exception int js_parse_class(JSParseState *s, bool is_class_expr,
+     if (class_fields[1].fields_init_fd != NULL) {
+         ClassFieldsDef *cf = &class_fields[1];
+         emit_op(s, OP_dup);
+-        emit_class_init_end(s, cf);
++        if (emit_class_init_end(s, cf))
++            goto fail;
+         emit_op(s, OP_call_method);
+         emit_u16(s, 0);
+         emit_op(s, OP_drop);
+@@ -37872,6 +37884,10 @@ static JSValue js_create_function(JSContext *ctx, JSFunctionDef *fd)
+ 
+         fd1 = list_entry(el, JSFunctionDef, link);
+         cpool_idx = fd1->parent_cpool_idx;
++        if (cpool_idx < 0 || cpool_idx >= fd->cpool_count) {
++            JS_ThrowInternalError(ctx, "invalid constant pool index");
++            goto fail;
++        }
+         func_obj = js_create_function(ctx, fd1);
+         if (JS_IsException(func_obj))
+             goto fail;
+@@ -38755,6 +38771,8 @@ done:
+ 
+         /* the real object will be set at the end of the compilation */
+         idx = cpool_add(s, JS_NULL);
++        if (idx < 0)
++            goto fail;
+         fd->parent_cpool_idx = idx;
+ 
+         if (is_expr) {
+diff --git a/tests/generator-prologue-lifetime-classic.js b/tests/generator-prologue-lifetime-classic.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..c6346b0ea18d8a69c7f256754e4cb2766d8bf009
+--- /dev/null
++++ b/tests/generator-prologue-lifetime-classic.js
+@@ -0,0 +1,28 @@
++function assert(condition, message) {
++    if (!condition)
++        throw new Error(message || 'assertion failed');
++}
++
++function collectGarbage() {
++    const junk = [];
++    for (let i = 0; i < 200000; i++)
++        junk.push({ a: i, b: [i] });
++    assert(junk.length === 200000, 'allocation loop completed');
++}
++
++with ({}) {
++    let keep;
++    function make() {
++        function* g(self) {
++            keep = arguments;
++            self = yield 1;
++            yield 2;
++        }
++        const it = g(0);
++        assert(it.next().value === 1, 'mapped first yield');
++        assert(it.next(it).value === 2, 'mapped second yield');
++    }
++    make();
++    collectGarbage();
++    assert(keep[0].next().done, 'mapped arguments keep the generator alive');
++}
+diff --git a/tests/generator-prologue-lifetime.js b/tests/generator-prologue-lifetime.js
+new file mode 100644
+index 0000000000000000000000000000000000000000..e2cb29af6f5d6fd0cb379e8e4e48c7abff5ef67a
+--- /dev/null
++++ b/tests/generator-prologue-lifetime.js
+@@ -0,0 +1,51 @@
++function assert(condition, message) {
++    if (!condition)
++        throw new Error(message || 'assertion failed');
++}
++
++function collectGarbage() {
++    const junk = [];
++    for (let i = 0; i < 200000; i++)
++        junk.push({ a: i, b: [i] });
++    assert(junk.length === 200000, 'allocation loop completed');
++}
++
++function testGeneratorDefaultClosure() {
++    let keep;
++    function make() {
++        function* g(a = (keep = () => arguments)) {
++            arguments[0] = yield 1;
++            yield 2;
++        }
++        const it = g();
++        assert(it.next().value === 1, 'first yield');
++        assert(it.next(it).value === 2, 'second yield');
++    }
++    make();
++    collectGarbage();
++    const result = keep()[0].next();
++    assert(result.value === undefined, 'completed return value');
++    assert(result.done, 'generator survives a default-parameter closure');
++}
++
++async function testAsyncGenerator() {
++    let keep;
++    function make() {
++        async function* g(a = (keep = () => arguments)) {
++            arguments[0] = yield 1;
++            yield 2;
++        }
++        const it = g();
++        it.next();
++        it.next(it);
++    }
++    make();
++    for (let i = 0; i < 4; i++)
++        await Promise.resolve();
++    collectGarbage();
++    const result = await keep()[0].next();
++    assert(result.done, 'async generator survives its parameter prologue');
++}
++
++testGeneratorDefaultClosure();
++await testAsyncGenerator();

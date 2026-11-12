@@ -16,10 +16,10 @@ Subject: [PATCH] feat: multiple quotes in one reply
  9 files changed, 224 insertions(+), 19 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 64218d11590570f3a7904ff23a96e97d35f486a2..e4f918409d7fd1bea2092c71c88d99a92f4474fc 100644
+index d841a6118fee02c5c10c140f60a6789f7a23bfec..f1c63ef5e3d05110d052ea0ff3c41f96c65705e7 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -10852,6 +10852,16 @@ void HistoryWidget::replyToMessage(FullReplyTo id) {
+@@ -10853,6 +10853,16 @@ void HistoryWidget::replyToMessage(FullReplyTo id) {
  	if (const auto item = session().data().message(id.messageId)) {
  		if (Tele::SkipReplyTo(item)) {
  			return;
@@ -37,10 +37,10 @@ index 64218d11590570f3a7904ff23a96e97d35f486a2..e4f918409d7fd1bea2092c71c88d99a9
  			replyToMessage(item, id);
  		} else if (item->allowsForward()) {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index d3d29d09c1330547d0a5bf3358d631a595eb15ce..7968179b540b4a55e4bdc73fe66e1cc918d7ed55 100644
+index 3fe3042c58bacec7026ffcb6680b0f0fa34d0b60..8dee7201ba2ad5ce0a04a17707e9d9d03ae6d476 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -6234,6 +6234,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
+@@ -6235,6 +6235,16 @@ void ComposeControls::replyToMessage(FullReplyTo id) {
  	} else if (const auto item = _history->owner().message(id.messageId)
  		; item && Tele::SkipReplyTo(item)) {
  		return;

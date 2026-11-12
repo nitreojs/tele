@@ -21,10 +21,10 @@ Subject: [PATCH] feat: import wallets from private keys
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_keys.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 930adecef972587ed842a6cd76d1f5feb7cc5208..bff1e9a7ce6e4ff5d4d2380fb148050a4e126337 100644
+index 7c78bfd369fc196ab1ac96fa946ea048bd4f6659..26c6c82ba4d64f1a0e6e8f22136cb6df1db2ca1d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3147,6 +3147,8 @@ PRIVATE
+@@ -3160,6 +3160,8 @@ PRIVATE
      tele/tele_voice_quality.h
      tele/tele_wallet_address.cpp
      tele/tele_wallet_address.h
@@ -991,7 +991,7 @@ index 0000000000000000000000000000000000000000..b3dfae54e0cd8dec3fe08620179a13ad
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543fa58b97ce 100644
+index 3fff0a1e7e5d63f2271725765e119c554570db73..50a7c615190050ff4be91f3845a718341ed84028 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
 @@ -60,6 +60,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -1002,7 +1002,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  #include "tele/tele_wallet_links.h"
  #include "ui/boxes/confirm_box.h"
  #include "ui/controls/feature_list.h"
-@@ -5866,7 +5867,8 @@ enum class RecipientError : uchar {
+@@ -5885,7 +5886,8 @@ enum class RecipientError : uchar {
  		|| ParseAddress(text)
  		|| ParseTransferLink(text)
  		|| (text.size() > kRecipientSearchLimit)
@@ -1012,7 +1012,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		// Rejected addresses and pasted secrets never reach contacts.search.
  		return { .kind = Kind::Invalid };
  	} else if (TextUtilities::PrepareSearchWords(text).isEmpty()) {
-@@ -9903,11 +9905,12 @@ void WalletPhraseBox(
+@@ -9922,11 +9924,12 @@ void WalletPhraseBox(
  	box->setNoContentMargin(true);
  
  	const auto count = int(words.size());
@@ -1027,7 +1027,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  			lt_count,
  			rpl::single(count * 1.) | tr::to_count(),
  			tr::marked),
-@@ -9916,7 +9919,12 @@ void WalletPhraseBox(
+@@ -9935,7 +9938,12 @@ void WalletPhraseBox(
  		st::walletPhraseLottieMargin,
  		st::walletPhraseTextMargin);
  
@@ -1041,7 +1041,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  
  	AddBoxCloseButton(box);
  	box->addButton(tr::lng_about_done(), [=] { box->closeBox(); });
-@@ -10334,7 +10342,11 @@ void WalletPhraseWarningBox(
+@@ -10353,7 +10361,11 @@ void WalletPhraseWarningBox(
  		state->words.reset();
  	};
  	const auto button = box->addButton(BusyFooterLabel(
@@ -1054,7 +1054,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		state->loading.value()));
  	button->setClickedCallback([=] {
  		if (state->phase == Phase::Authorizing
-@@ -10539,6 +10551,8 @@ void WalletImportBox(
+@@ -10558,6 +10570,8 @@ void WalletImportBox(
  	std::shared_ptr<KeyContext> context,
  	rpl::producer<QString> about);
  
@@ -1063,7 +1063,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  void ShowInvalidSecretWords(
  		std::shared_ptr<Main::SessionShow> show,
  		bool foreign,
-@@ -11103,6 +11117,9 @@ void RequestWalletReplace(
+@@ -11122,6 +11136,9 @@ void RequestWalletReplace(
  				: tr::lng_wallet_created_text(tr::now) },
  			.icon = &st::toastCheckIcon,
  		});
@@ -1073,7 +1073,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	});
  	const auto fail = crl::guard(origin, [=](const QString &error) {
  		unblock();
-@@ -11241,6 +11258,8 @@ void ShowBackupChangeError(
+@@ -11260,6 +11277,8 @@ void ShowBackupChangeError(
  			&show->session(),
  			EnforcementCheckAbout(error))) {
  		show->showBox(std::move(box));
@@ -1082,7 +1082,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	} else if (error == u"BACKUP_PHRASE_OUTDATED"_q) {
  		ShowKeyChangedBox(show, tr::lng_wallet_send_key_changed_text());
  	} else if (error == u"BACKUP_KEY_UNCONFIRMED"_q) {
-@@ -11499,7 +11518,12 @@ void WalletBackupPhraseBox(
+@@ -11518,7 +11537,12 @@ void WalletBackupPhraseBox(
  		st::walletPhraseLottieMargin,
  		st::walletPhraseTextMargin);
  
@@ -1096,7 +1096,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  
  	GuardBackupDisableDismiss(box, show, nullptr, dismissTitle);
  	const auto shownAt = crl::now();
-@@ -11602,6 +11626,7 @@ void WalletBackupQuizBox(
+@@ -11621,6 +11645,7 @@ void WalletBackupQuizBox(
  		Fn<void(Fn<void()> lock)> publishLock,
  		Fn<bool()> abandons,
  		Fn<rpl::producer<QString>()> dismissTitle) {
@@ -1104,7 +1104,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	Expects(int(words.size()) >= kBackupQuizWordCount);
  
  	box->setWidth(st::boxWideWidth);
-@@ -11721,7 +11746,19 @@ void CollectBackupPhrase(
+@@ -11740,7 +11765,19 @@ void CollectBackupPhrase(
  		.auth = auth,
  		.approved = approved.value_or(BackupDisableApproval()),
  	};
@@ -1124,7 +1124,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		const auto quiz = std::make_shared<base::weak_qptr<Ui::GenericBox>>();
  		const auto requesting = std::make_shared<bool>(false);
  		*quiz = show->show(Box(WalletBackupQuizBox, show, words, [=] {
-@@ -12005,10 +12042,12 @@ struct BackupDisableState {
+@@ -12024,10 +12061,12 @@ struct BackupDisableState {
  	return rpl::combine(
  		std::move(quote),
  		FiatRateValue(session)
@@ -1139,7 +1139,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		if (RotationQuoteUsable(quote)) {
  			const auto phrase = (quote->error == SendError::None)
  				? tr::lng_wallet_backup_update_fee
-@@ -12279,9 +12318,15 @@ void StartBackupDisable(
+@@ -12298,9 +12337,15 @@ void StartBackupDisable(
  }
  
  [[nodiscard]] RotationFlow PhraseUpdateRotationFlow(
@@ -1157,7 +1157,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  			LOG(("Wallet Info: secret phrase update confirmed."));
  			show->showToast({
  				.text = { Tele::Lower(u"Your secret phrase was updated."_q) },
-@@ -12300,7 +12345,8 @@ void ShowPhraseUpdateBox(
+@@ -12319,7 +12364,8 @@ void ShowPhraseUpdateBox(
  		not_null<Ui::GenericBox*> origin,
  		not_null<bool*> busy,
  		int64 feeNano,
@@ -1167,7 +1167,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	const auto weak = base::make_weak(origin);
  	show->showBox(Ui::MakeConfirmBox({
  		.text = BackupUpdateNoteText(
-@@ -12317,18 +12363,21 @@ void ShowPhraseUpdateBox(
+@@ -12336,18 +12382,21 @@ void ShowPhraseUpdateBox(
  					busy,
  					feeNano,
  					auth,
@@ -1192,7 +1192,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	const auto weak = base::make_weak(origin);
  	AcquireVaultUnlock({
  		.show = show,
-@@ -12358,7 +12407,13 @@ void StartPhraseUpdate(
+@@ -12377,7 +12426,13 @@ void StartPhraseUpdate(
  				LOG(("Wallet Info: secret phrase update quote, "
  					"error %1, fee %2.").arg(int(fee.error)).arg(fee.feeNano));
  				if (fee.error == SendError::None) {
@@ -1207,7 +1207,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  				} else if (fee.error == SendError::InsufficientFees) {
  					ShowBackupTopUpAlert(show, fee.feeNano, [] {});
  				} else {
-@@ -12373,6 +12428,23 @@ void StartPhraseUpdate(
+@@ -12392,6 +12447,23 @@ void StartPhraseUpdate(
  	});
  }
  
@@ -1231,7 +1231,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  struct ImportCover {
  	not_null<Ui::RpWidget*> widget;
  	Fn<int()> height;
-@@ -12585,7 +12657,7 @@ void WalletImportBox(
+@@ -12604,7 +12676,7 @@ void WalletImportBox(
  	const auto toggle = box->addRow(
  		object_ptr<Ui::SettingsSlider>(box, st::settingsSlider),
  		st::walletImportToggleMargin);
@@ -1240,7 +1240,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		tr::lng_wallet_import_words(
  			tr::now,
  			lt_count,
-@@ -12594,9 +12666,18 @@ void WalletImportBox(
+@@ -12613,9 +12685,18 @@ void WalletImportBox(
  			tr::now,
  			lt_count,
  			kImportWordCountLong),
@@ -1260,7 +1260,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	const auto addWordField = [=](
  			not_null<Ui::VerticalLayout*> container,
  			int index) {
-@@ -12641,12 +12722,12 @@ void WalletImportBox(
+@@ -12660,12 +12741,12 @@ void WalletImportBox(
  		state->clearButtons.push_back(clear);
  	};
  	for (auto i = 0; i != kImportWordCountShort; ++i) {
@@ -1277,7 +1277,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	const auto extra = extraWrap->entity();
  	for (auto i = kImportWordCountShort; i != kImportWordCountLong; ++i) {
  		addWordField(extra, i);
-@@ -12655,6 +12736,18 @@ void WalletImportBox(
+@@ -12674,6 +12755,18 @@ void WalletImportBox(
  	) | rpl::map([](int count) { return count == kImportWordCountLong; }));
  	extraWrap->finishAnimating();
  
@@ -1296,7 +1296,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	const auto error = box->addRow(
  		object_ptr<Ui::FlatLabel>(
  			box,
-@@ -12740,42 +12833,7 @@ void WalletImportBox(
+@@ -12759,42 +12852,7 @@ void WalletImportBox(
  			last->setCursorPosition(last->getLastText().size());
  		});
  	};
@@ -1340,7 +1340,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		state->importing = true;
  		if (mode == WalletImportMode::Restore) {
  			const auto done = crl::guard(box, [=] {
-@@ -12789,6 +12847,7 @@ void WalletImportBox(
+@@ -12808,6 +12866,7 @@ void WalletImportBox(
  						.text = { tr::lng_wallet_imported_text(tr::now) },
  						.icon = &st::toastCheckIcon,
  					});
@@ -1348,7 +1348,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  				}
  			});
  			const auto fail = crl::guard(box, [=](const QString &error) {
-@@ -12862,10 +12921,64 @@ void WalletImportBox(
+@@ -12881,10 +12940,64 @@ void WalletImportBox(
  			});
  		}
  	};
@@ -1414,7 +1414,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	});
  
  	const auto suggestions = Ui::CreateChild<Ui::RpWidget>(box.get());
-@@ -13048,6 +13161,10 @@ void WalletImportBox(
+@@ -13067,6 +13180,10 @@ void WalletImportBox(
  
  	toggle->sectionActivated(
  	) | rpl::on_next([=](int section) {
@@ -1425,7 +1425,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  		applyCount((section == 1)
  			? kImportWordCountLong
  			: kImportWordCountShort);
-@@ -13061,6 +13178,9 @@ void WalletImportBox(
+@@ -13080,6 +13197,9 @@ void WalletImportBox(
  		const auto field = state->fields[i];
  		state->pasteButtons[i]->setClickedCallback([=] {
  			const auto text = QGuiApplication::clipboard()->text();
@@ -1435,7 +1435,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  			const auto words = SplitPhraseWords(text);
  			if (words.size() > 1) {
  				distributePaste(words);
-@@ -13079,6 +13199,11 @@ void WalletImportBox(
+@@ -13098,6 +13218,11 @@ void WalletImportBox(
  				not_null<const QMimeData*> data,
  				Ui::InputField::MimeAction action) {
  			const auto text = data->hasText() ? data->text() : QString();
@@ -1447,7 +1447,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  			const auto words = SplitPhraseWords(text);
  			if (words.size() < 2) {
  				return false;
-@@ -13453,9 +13578,13 @@ void AddBackupSection(
+@@ -13472,9 +13597,13 @@ void AddBackupSection(
  				container,
  				tr::lng_wallet_backup_enable(),
  				st::settingsButtonNoIcon)));
@@ -1464,7 +1464,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	}));
  	enable->finishAnimating();
  	enable->entity()->addClickHandler([=] {
-@@ -13470,9 +13599,13 @@ void AddBackupSection(
+@@ -13489,9 +13618,13 @@ void AddBackupSection(
  				st::settingsButtonNoIcon)));
  	update->toggleOn(rpl::combine(
  		Tele::WalletRotateValue(),
@@ -1481,7 +1481,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	}));
  	update->finishAnimating();
  	update->entity()->addClickHandler([=] {
-@@ -13483,13 +13616,32 @@ void AddBackupSection(
+@@ -13502,13 +13635,32 @@ void AddBackupSection(
  			StartPhraseUpdate(show, box, busy);
  		}), KeyActionKind::ResumeAfterRestore);
  	});
@@ -1520,7 +1520,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	Ui::AddSkip(container);
  }
  
-@@ -13510,7 +13662,9 @@ void WalletKeysBackupBox(
+@@ -13529,7 +13681,9 @@ void WalletKeysBackupBox(
  			container,
  			Settings::CreateButtonWithIcon(
  				container,
@@ -1532,7 +1532,7 @@ index a1c92a47256a0abdc61dbd0b32535557aaedd921..893ac47cf3249e78215302dfdd3d543f
  	phrase->toggleOn(rpl::combine(
  		wallet.capabilitiesValue(),
 diff --git a/Telegram/SourceFiles/wallet/wallet_engine.cpp b/Telegram/SourceFiles/wallet/wallet_engine.cpp
-index 463c8e03580285041bc3f5f64349b0ad1555ec3b..a06fad4cfab9935feed5b091c587a938f0a70b3f 100644
+index 530e1c8a8347b4f2752ed8f2ccb44f996b65955a..284803a32d71156f12f83a11876a181aed153f27 100644
 --- a/Telegram/SourceFiles/wallet/wallet_engine.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_engine.cpp
 @@ -614,7 +614,7 @@ public:

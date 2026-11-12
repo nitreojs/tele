@@ -16,10 +16,10 @@ Subject: [PATCH] fix: hide the upgraded gift's number and model until the spin
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_roll_number.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 96d10fdb9aa046321ef080afdbcc9edefa6c27c0..e79174c8f97867edb2ce7efcf631761b6cbff37a 100644
+index f666152e81516ff88258d4ba044f678701b63efa..dffe8c57140b505939006237b84725b031709abe 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2733,6 +2733,8 @@ PRIVATE
+@@ -2746,6 +2746,8 @@ PRIVATE
      tele/tele_gift_fake_upgrade.h
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h
@@ -29,7 +29,7 @@ index 96d10fdb9aa046321ef080afdbcc9edefa6c27c0..e79174c8f97867edb2ce7efcf631761b
      tele/tele_gift_studio.h
      tele/tele_gift_studio_data.cpp
 diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-index f605241e0e0db9aab094434f93ec3661f22ec415..eb27060b41af687bbd4e38614e1541be5d6eee39 100644
+index 5696e76b64a0180abc9d9f958e1f6d602e893416..55fec7031f87a615a92427d9624b18ea7fbb2faa 100644
 --- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 +++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 @@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -40,7 +40,7 @@ index f605241e0e0db9aab094434f93ec3661f22ec415..eb27060b41af687bbd4e38614e1541be
  #include "tele/tele_gifts.h"
  #include "ui/basic_click_handlers.h" // UrlClickHandler::Open.
  #include "ui/boxes/boost_box.h" // StartFireworks.
-@@ -1717,7 +1718,7 @@ void AddStarGiftTable(
+@@ -1715,7 +1716,7 @@ void AddStarGiftTable(
  					? tr::lng_gift_unique_availability
  					: tr::lng_gift_availability_left)(
  						lt_count_decimal,
@@ -50,10 +50,10 @@ index f605241e0e0db9aab094434f93ec3661f22ec415..eb27060b41af687bbd4e38614e1541be
  						std::move(amount),
  						tr::marked)));
 diff --git a/Telegram/SourceFiles/boxes/star_gift_box.cpp b/Telegram/SourceFiles/boxes/star_gift_box.cpp
-index 1ef2073c6acbdb32fcdded72dc23592e589863bf..5beff9ab7aab10e96aec946e664eb0810c1514d3 100644
+index cf4e60f05e0601b981c2c52318ba0ace4f3e429f..805ff3df9b97c8904364bf10eb3caf3b24bb49c0 100644
 --- a/Telegram/SourceFiles/boxes/star_gift_box.cpp
 +++ b/Telegram/SourceFiles/boxes/star_gift_box.cpp
-@@ -82,6 +82,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "tele/tele_gift_fake_upgrade.h"
  #include "tele/tele_gift_quantity.h"
@@ -61,7 +61,7 @@ index 1ef2073c6acbdb32fcdded72dc23592e589863bf..5beff9ab7aab10e96aec946e664eb081
  #include "tele/tele_local_password.h"
  #include "ui/boxes/about_cocoon_box.h" // Ui::AddUniqueCloseButton
  #include "ui/boxes/boost_box.h"
-@@ -3622,7 +3623,10 @@ void AddUpgradeGiftCover(
+@@ -3611,7 +3612,10 @@ void AddUpgradeGiftCover(
  			: QString();
  	});
  	AddUniqueGiftCover(container, std::move(gifts), {

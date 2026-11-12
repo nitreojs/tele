@@ -349,7 +349,7 @@ Subject: [PATCH] feat: scripting prototype
  create mode 100644 Telegram/cmake/quickjs/CMakeLists.txt
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8e0ea81ce496f2a9af128035a93a084056d0b71b..1b4d36ea8c220e43b81393239e07b2d79412b332 100644
+index 6284bfde4c41598905990deb0ae4656decef300b..1dc7f37b05ebb792802cdd3b4d47252317953a44 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
 @@ -32,7 +32,7 @@ include(cmake/lib_prisma.cmake)
@@ -361,7 +361,7 @@ index 8e0ea81ce496f2a9af128035a93a084056d0b71b..1b4d36ea8c220e43b81393239e07b2d7
  include(cmake/lib_widget_renderer.cmake)
  include(cmake/lib_widget_sandbox.cmake)
  include(cmake/td_export.cmake)
-@@ -2629,6 +2629,93 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2642,6 +2642,93 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -455,7 +455,7 @@ index 8e0ea81ce496f2a9af128035a93a084056d0b71b..1b4d36ea8c220e43b81393239e07b2d7
      tele/secret/secret_chats.cpp
      tele/secret/secret_chats.h
      tele/secret/secret_crypto.cpp
-@@ -2867,6 +2954,8 @@ PRIVATE
+@@ -2880,6 +2967,8 @@ PRIVATE
      tele/tele_menu_apply.h
      tele/tele_menu_editor.cpp
      tele/tele_menu_editor.h
@@ -464,7 +464,7 @@ index 8e0ea81ce496f2a9af128035a93a084056d0b71b..1b4d36ea8c220e43b81393239e07b2d7
      tele/tele_menu_layout.cpp
      tele/tele_menu_layout.h
      tele/tele_menu_registry.cpp
-@@ -2943,6 +3032,8 @@ PRIVATE
+@@ -2956,6 +3045,8 @@ PRIVATE
      tele/tele_punctual_scheduled.h
      tele/tele_rate_limits.cpp
      tele/tele_rate_limits.h
@@ -474,10 +474,10 @@ index 8e0ea81ce496f2a9af128035a93a084056d0b71b..1b4d36ea8c220e43b81393239e07b2d7
      tele/tele_reaction_editor.h
      tele/tele_reaction_order.cpp
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index 13214863698eb14f8fa75bded93544ecbbf68ff0..3a6a3f0043c66dfd107fc78e810edc53d5e6cad5 100644
+index 061df6d771e8d091d344432900ca821c15c0844d..0726f0c8692385daab76b006181e8cb56f61980c 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -100,12 +100,43 @@
+@@ -102,12 +102,43 @@
      <file alias="api.tl">../../../SourceFiles/mtproto/scheme/api.tl</file>
      <file alias="mtproto.tl">../../../SourceFiles/mtproto/scheme/mtproto.tl</file>
      <file alias="changelog_history.json">../../tele/changelog_history.json</file>
@@ -70390,7 +70390,7 @@ index 2ca46777bc9049740157f356c4dfaf6d01ecd0c1..e1160430ffe4367b155daaaf469ee66b
  		}
  
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 2ae6cf938b966eb6867e3df6f0e7eda772ad7058..250fd975104f2c23d9eab1a217ed5e2f248169b9 100644
+index fec56d097ee7a0f33891decb70abf5589ff8b686..db2e875dee052832da73db984294f87d23f38f98 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70673,7 +70673,7 @@ index 82f9fd6ca2e22b49e0a34f8f28cc1d535b33b1cb..b6d9ab6c9dafebc54ee65dc695c405a1
  		}
  		if (!parsed.query.isEmpty() && parsed.query[0] == '@') {
 diff --git a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
-index 0b987b016cac24940ea37455bd6353fecb70be24..01b6da91be1bd6cdd300b5a150f3b069f2487138 100644
+index 4ea20fed04ba9e3c2b501f3557d8d20767975d7a..f5115fbadc891d79076ef018465f81dbe6abc74b 100644
 --- a/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/gifs_list_widget.cpp
 @@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71008,7 +71008,7 @@ index 9d10682b096494722d7c66d6a56764c9b23588bc..c67603cc19da09aac6069a421a687d06
  		_emojiStatusId = emojiStatusId;
  		session().changes().peerUpdated(this, UpdateFlag::EmojiStatus);
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index 26245045e0933ee58a1c480dd78790513f140e93..18e0b3cf2d9ffdf1157ca62b7f13e1ab1c869318 100644
+index e64c93b72001ab01d45888acc313469a8d25c2df..9e7d3837b9ff5b3f436b1f3cb7b26fba2e0dcebe 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
 @@ -95,6 +95,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71020,7 +71020,7 @@ index 26245045e0933ee58a1c480dd78790513f140e93..18e0b3cf2d9ffdf1157ca62b7f13e1ab
  #include "tele/tele_badges.h"
  #include "tele/tele_deleted.h"
  #include "tele/tele_kept_chats.h"
-@@ -749,12 +751,24 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
+@@ -775,12 +777,24 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
  			? std::optional<Data::Stories::PeerSourceState>()
  			: stories().peerSourceState(result, *data.vstories_max_id());
  		const auto flagsSet = (data.is_deleted() ? Flag::Deleted : Flag())
@@ -71049,7 +71049,7 @@ index 26245045e0933ee58a1c480dd78790513f140e93..18e0b3cf2d9ffdf1157ca62b7f13e1ab
  			| (data.is_support() ? Flag::Support : Flag())
  			| (hasRequirePremiumToWrite
  				? (Flag::HasRequirePremiumToWrite
-@@ -1162,9 +1176,18 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
+@@ -1188,9 +1202,18 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
  			? std::optional<Data::Stories::PeerSourceState>()
  			: stories().peerSourceState(channel, *data.vstories_max_id());
  		const auto flagsSet = (data.is_broadcast() ? Flag::Broadcast : Flag())
@@ -71071,7 +71071,7 @@ index 26245045e0933ee58a1c480dd78790513f140e93..18e0b3cf2d9ffdf1157ca62b7f13e1ab
  			| (data.is_megagroup() ? Flag::Megagroup : Flag())
  			| (data.is_gigagroup() ? Flag::Gigagroup : Flag())
  			| (hasUsername ? Flag::Username : Flag())
-@@ -3094,6 +3117,7 @@ void Session::updateEditedMessage(const MTPMessage &data) {
+@@ -3120,6 +3143,7 @@ void Session::updateEditedMessage(const MTPMessage &data) {
  	}, [&](const auto &data) {
  		existing->applyEdition(HistoryMessageEdition(_session, data));
  	});
@@ -71079,7 +71079,7 @@ index 26245045e0933ee58a1c480dd78790513f140e93..18e0b3cf2d9ffdf1157ca62b7f13e1ab
  }
  
  void Session::processMessages(
-@@ -3105,9 +3129,12 @@ void Session::processMessages(
+@@ -3131,9 +3155,12 @@ void Session::processMessages(
  		if (message.type() == mtpc_message) {
  			const auto &data = message.c_message();
  			// new message, index my forwarded messages to links overview
@@ -71129,10 +71129,10 @@ index 347cb0b6a00f8bf8d1f967491bf3383bd27fff78..1e03f41358dd465af257c2fc6bc2f283
  		if (_botVerifyDetails) {
  			_botVerifyDetails = nullptr;
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index cf00b26bc64af73008ba38211d88aa56355bfd8b..6adf1be0f2d80702baefb2df6d4826c926845ee5 100644
+index 994d427bd917ab9bb779cb201b8f5ae295e89cc1..622ebbb84be7d1953e9f6d8cc80b5556c1e98451 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_folders.h"
  #include "tele/tele_regex_search.h"
  #include "tele/tele_search_types.h"
@@ -71140,7 +71140,7 @@ index cf00b26bc64af73008ba38211d88aa56355bfd8b..6adf1be0f2d80702baefb2df6d4826c9
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
-@@ -490,6 +491,13 @@ Widget::Widget(
+@@ -487,6 +488,13 @@ Widget::Widget(
  			_childListShown.value(),
  			makeChildListShown)));
  	Tele::SetupChatsSelection(controller, _inner, _searchControls.data());
@@ -71154,7 +71154,7 @@ index cf00b26bc64af73008ba38211d88aa56355bfd8b..6adf1be0f2d80702baefb2df6d4826c9
  	controller->activeChatsFilter(
  	) | rpl::on_next([=](FilterId id) {
  		switchToChatsFilter(id);
-@@ -3946,28 +3954,44 @@ void Widget::searchReceived(
+@@ -3945,28 +3953,44 @@ void Widget::searchReceived(
  		process->full = true;
  		return std::vector<not_null<HistoryItem*>>();
  	});
@@ -71221,7 +71221,7 @@ index cf00b26bc64af73008ba38211d88aa56355bfd8b..6adf1be0f2d80702baefb2df6d4826c9
  }
  
  void Widget::peerSearchReceived(Api::PeerSearchResult result) {
-@@ -4537,6 +4561,10 @@ bool Widget::applySearchState(SearchState state) {
+@@ -4538,6 +4562,10 @@ bool Widget::applySearchState(SearchState state) {
  		setSearchQuery(_searchState.query);
  	}
  	_inner->applySearchState(_searchState);
@@ -71319,7 +71319,7 @@ index 33fd70b61de9426ccb4dc047842b7b3a8dcd74ca..90e8ac8f533b085bcc1e2d11f98fbe34
  			? nullptr
  			: thread
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index 3aa89e14775de123e5b1064b962165d7ebedf3c8..828ba9a4958720eea9db730614a10dc054620520 100644
+index 7cd217719e4a6ca8f0ec6a49b2d3cc363881b59f..b41e2adfecff0be59e90ee03855f023654aeb863 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -71,6 +71,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71355,10 +71355,10 @@ index 3aa89e14775de123e5b1064b962165d7ebedf3c8..828ba9a4958720eea9db730614a10dc0
  		return true;
  	} else if (const auto community = peer->asChannel()
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index d194d7881d93cd6ed4c573276b2fb3c4f4ed648b..92f9f863aa20f9d6647197650c19f47965d8e35e 100644
+index 598aeaf96d31e54bfcb85efd4668c1cca21491bb..527396c87bf063be11b7ac483baa6d9cceb99830 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -133,6 +133,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_histories.h"
  #include "data/data_changes.h"
  #include "dialogs/ui/dialogs_video_userpic.h"
@@ -71366,7 +71366,7 @@ index d194d7881d93cd6ed4c573276b2fb3c4f4ed648b..92f9f863aa20f9d6647197650c19f479
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -1665,7 +1666,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1666,7 +1667,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  			context.fullMessageSelected = selection.fullMessageSelected;
  			context.messageSelection = selection.messageSelection;
  			context.highlight = _widget->itemHighlight(view->data());
@@ -71375,7 +71375,7 @@ index d194d7881d93cd6ed4c573276b2fb3c4f4ed648b..92f9f863aa20f9d6647197650c19f479
  			processPainted(view, top, height);
  
  			top += height;
-@@ -1734,7 +1735,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1735,7 +1736,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  				context.fullMessageSelected = selection.fullMessageSelected;
  				context.messageSelection = selection.messageSelection;
  				context.highlight = _widget->itemHighlight(item);
@@ -71384,7 +71384,7 @@ index d194d7881d93cd6ed4c573276b2fb3c4f4ed648b..92f9f863aa20f9d6647197650c19f479
  				processPainted(view, top, height);
  			}
  			top += height;
-@@ -3676,7 +3677,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3628,7 +3629,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		const auto itemId = item ? item->fullId() : FullMsgId();
  		const auto canDelete = item
  			&& item->canDelete()
@@ -71396,7 +71396,7 @@ index d194d7881d93cd6ed4c573276b2fb3c4f4ed648b..92f9f863aa20f9d6647197650c19f479
  			&& Tele::AllowsForward(item)
  			&& !IsAnchoredEphemeral(item);
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index ee940d9b49601845bae1ad87dfaf5f23dcaa76f0..4b6e9431d7cfa4d51569132a5d267fe064c8f60b 100644
+index 5d9239d898c6349f6d6e05c54c4c959a2359defa..430afccad60fe969a5276e8d06ea41ce7154828a 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
 @@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71417,7 +71417,7 @@ index ee940d9b49601845bae1ad87dfaf5f23dcaa76f0..4b6e9431d7cfa4d51569132a5d267fe0
  	}
  	if (isSponsored()) {
 diff --git a/Telegram/SourceFiles/history/history_item_components.cpp b/Telegram/SourceFiles/history/history_item_components.cpp
-index 68dfaf559ad57be9fa099c6dd961a3cf15c518e7..c33c738a7ee065308e224369e685f1d369678ef4 100644
+index edc1c5972c2c4040da38dcf337b359a5c2c4a840..5443a4ea1af75067ce0b2cadcd13682df1b4699e 100644
 --- a/Telegram/SourceFiles/history/history_item_components.cpp
 +++ b/Telegram/SourceFiles/history/history_item_components.cpp
 @@ -895,10 +895,13 @@ ReplyKeyboard::Button::~Button() = default;
@@ -71511,7 +71511,7 @@ index eb112c10b33c9d66643377aa249ea34884e0c012..e99816375c9f614a7a75f2fdd09a6261
  	std::unique_ptr<Style> _st;
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a716e1f410 100644
+index 12da8e0a07092405c1a2e4f003e3e2af7ae73c0d..21294719c8d243dcd315612a47b1fcd7d6d001cc 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -174,6 +174,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71526,7 +71526,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_calcmula_inline.h"
  #include "tele/tele_link_previews.h"
-@@ -724,6 +729,52 @@ HistoryWidget::HistoryWidget(
+@@ -725,6 +730,52 @@ HistoryWidget::HistoryWidget(
  		updateControlsGeometry();
  	}, lifetime());
  
@@ -71579,7 +71579,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	_fieldChatStyle = InitMessageField(controller, _field, [=](
  			not_null<DocumentData*> document) {
  		if (_peer && Data::AllowEmojiWithoutPremium(_peer, document)) {
-@@ -775,7 +826,10 @@ HistoryWidget::HistoryWidget(
+@@ -776,7 +827,10 @@ HistoryWidget::HistoryWidget(
  		supportInitAutocomplete();
  	}
  	_field->rawTextEdit()->installEventFilter(this);
@@ -71591,7 +71591,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  			not_null<const QMimeData*> data,
  			Ui::InputField::MimeAction action) {
  		const auto pasteResult = Ui::CheckLargeTextPaste(
-@@ -808,7 +862,7 @@ HistoryWidget::HistoryWidget(
+@@ -809,7 +863,7 @@ HistoryWidget::HistoryWidget(
  			return false;
  		}
  		Unexpected("action in MimeData hook.");
@@ -71600,7 +71600,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  
  	updateFieldSubmitSettings();
  
-@@ -2274,7 +2328,9 @@ void HistoryWidget::updateInlineBotQuery() {
+@@ -2275,7 +2329,9 @@ void HistoryWidget::updateInlineBotQuery() {
  	if (!_history) {
  		return;
  	}
@@ -71611,7 +71611,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	if (_inlineBotUsername != query.username) {
  		_inlineBotUsername = query.username;
  		if (_inlineBotResolveRequestId) {
-@@ -3637,6 +3693,7 @@ void HistoryWidget::showHistory(
+@@ -3638,6 +3694,7 @@ void HistoryWidget::showHistory(
  	_paysStatus = nullptr;
  	_contactStatus = nullptr;
  	_businessBotStatus = nullptr;
@@ -71619,7 +71619,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  
  	Core::App().mediaDevices().refreshRecordAvailability();
  
-@@ -3656,6 +3713,10 @@ void HistoryWidget::showHistory(
+@@ -3657,6 +3714,10 @@ void HistoryWidget::showHistory(
  		if (!settingsPeer->barSettings()) {
  			session().api().requestPeerSettings(settingsPeer);
  		}
@@ -71630,7 +71630,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  
  		refreshGiftToChannelShown();
  		refreshDirectMessageShown();
-@@ -6095,6 +6156,9 @@ void HistoryWidget::send(Api::SendOptions options) {
+@@ -6096,6 +6157,9 @@ void HistoryWidget::send(Api::SendOptions options) {
  		return;
  	} else if (Tele::ComposeDockedSend(_teleDocked.get(), options)) {
  		return;
@@ -71640,7 +71640,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	} else if (_editMsgId) {
  		saveEditMessage({});
  		return;
-@@ -7944,6 +8008,12 @@ void HistoryWidget::moveFieldControls() {
+@@ -7945,6 +8009,12 @@ void HistoryWidget::moveFieldControls() {
  		right += _scheduled->width();
  	}
  	right += Tele::ComposeDraftsMove(_teleDrafts.get(), right, buttonsBottom);
@@ -71653,7 +71653,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	if (_ttlInfo) {
  		_ttlInfo->move(width() - right - _ttlInfo->width(), buttonsBottom);
  	}
-@@ -8027,6 +8097,9 @@ void HistoryWidget::updateFieldSize() {
+@@ -8028,6 +8098,9 @@ void HistoryWidget::updateFieldSize() {
  		fieldWidth -= _scheduled->width();
  	}
  	fieldWidth -= Tele::ComposeDraftsWidth(_teleDrafts.get());
@@ -71663,7 +71663,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	if (_ttlInfo && _ttlInfo->isVisible()) {
  		fieldWidth -= _ttlInfo->width();
  	}
-@@ -8450,6 +8523,17 @@ bool HistoryWidget::confirmSendingFiles(
+@@ -8451,6 +8524,17 @@ bool HistoryWidget::confirmSendingFiles(
  		not_null<const QMimeData*> data,
  		std::optional<bool> overrideSendImagesAsPhotos,
  		const QString &insertTextOnCancel) {
@@ -71681,7 +71681,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	if (!canWriteMessage()) {
  		if (_composeSearch) {
  			_composeSearch->hideAnimated();
-@@ -8662,9 +8746,15 @@ void HistoryWidget::updateControlsGeometry() {
+@@ -8663,9 +8747,15 @@ void HistoryWidget::updateControlsGeometry() {
  	if (_businessBotStatus) {
  		_businessBotStatus->bar().move(tabsLeftSkip, businessBotTop);
  	}
@@ -71699,7 +71699,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	_topBars->resize(
  		innerWidth,
  		scrollAreaTop - _topBars->y() + st::lineWidth);
-@@ -8705,6 +8795,7 @@ void HistoryWidget::updateControlsGeometry() {
+@@ -8706,6 +8796,7 @@ void HistoryWidget::updateControlsGeometry() {
  		_topBar->bottomNoMargins(),
  		width - topShadowLeft - topShadowRight,
  		st::lineWidth);
@@ -71707,7 +71707,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  }
  
  void HistoryWidget::itemRemoved(not_null<const HistoryItem*> item) {
-@@ -8951,6 +9042,9 @@ void HistoryWidget::updateHistoryGeometry(
+@@ -8952,6 +9043,9 @@ void HistoryWidget::updateHistoryGeometry(
  	if (_businessBotStatus) {
  		newScrollHeight -= _businessBotStatus->bar().height();
  	}
@@ -71717,7 +71717,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  	if (isChoosingTheme()) {
  		newScrollHeight -= _chooseTheme->height();
  	} else if (!editingMessage()
-@@ -9531,6 +9625,7 @@ int HistoryWidget::computeMaxFieldHeight() const {
+@@ -9532,6 +9626,7 @@ int HistoryWidget::computeMaxFieldHeight() const {
  		- (_paysStatus ? _paysStatus->bar().height() : 0)
  		- (_contactStatus ? _contactStatus->bar().height() : 0)
  		- (_businessBotStatus ? _businessBotStatus->bar().height() : 0)
@@ -71725,7 +71725,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  		- (_sponsoredMessageBar ? _sponsoredMessageBar->height() : 0)
  		- (pinnedBar ? pinnedBar->height() : 0)
  		- (_groupCallBar ? _groupCallBar->height() : 0)
-@@ -9976,7 +10071,7 @@ void HistoryWidget::sendInlineResult(InlineBots::ResultSelected result) {
+@@ -9977,7 +10072,7 @@ void HistoryWidget::sendInlineResult(InlineBots::ResultSelected result) {
  		result.messageSendingFrom);
  	session().api().sendInlineResult(
  		result.bot,
@@ -71734,7 +71734,7 @@ index 94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5..f6163021654f73651838a2172e8747a7
  		action,
  		result.messageSendingFrom.localId);
  
-@@ -11578,6 +11673,11 @@ void HistoryWidget::updateTopBarChooseForReport() {
+@@ -11560,6 +11655,11 @@ void HistoryWidget::updateTopBarChooseForReport() {
  }
  
  void HistoryWidget::updateTopBarSelection(bool keepFocus) {
@@ -71759,7 +71759,7 @@ index b6e28a4e4bdfebc78626242176108d29518c4e81..b1d4f3feb9109a492bfef03beee97734
  	const std::shared_ptr<Ui::SendButton> _send;
  	rpl::event_stream<bool> _sendLockBadge;
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8d54332c3 100644
+index 9ba428b270d9475e35368299768a355756a44420..cace17cbe2b4d8ca9a20ed4c0300539017e74858 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -113,6 +113,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71774,7 +71774,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  #include "tele/secret/secret_chats.h"
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_calcmula_inline.h"
-@@ -2296,6 +2301,9 @@ rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
+@@ -2297,6 +2302,9 @@ rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
  		SendRequestType::Text
  	) | rpl::filter([=](const Api::SendOptions &options) {
  		return !Tele::ComposeDockedSend(_teleDocked.get(), options);
@@ -71784,7 +71784,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  	}) | rpl::filter([=] {
  		if (!_chosenStarsCount) {
  			return true;
-@@ -2368,7 +2376,9 @@ rpl::producer<std::optional<bool>> ComposeControls::attachRequests() const {
+@@ -2369,7 +2377,9 @@ rpl::producer<std::optional<bool>> ComposeControls::attachRequests() const {
  
  void ComposeControls::setMimeDataHook(MimeDataHook hook) {
  	const auto large = (_sendAsFile != nullptr);
@@ -71795,7 +71795,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  		WrappedMessageFieldMimeHook(
  			[=, originalHook = std::move(hook)](
  					not_null<const QMimeData*> data,
-@@ -2381,7 +2391,7 @@ void ComposeControls::setMimeDataHook(MimeDataHook hook) {
+@@ -2382,7 +2392,7 @@ void ComposeControls::setMimeDataHook(MimeDataHook hook) {
  					offerRichPaste(data);
  				}
  				return false;
@@ -71804,7 +71804,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  }
  
  void ComposeControls::setPasteToastParent(not_null<QWidget*> parent) {
-@@ -3442,6 +3452,52 @@ void ComposeControls::initField() {
+@@ -3443,6 +3453,52 @@ void ComposeControls::initField() {
  		_field->setEnabled(shown);
  	}, _field->lifetime());
  #endif // Q_OS_MAC
@@ -71857,7 +71857,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  	_chatStyle = InitMessageField(_show, _field, [=](not_null<DocumentData*> emoji) {
  		if (_history
  			&& Data::AllowEmojiWithoutPremium(_history->peer, emoji)) {
-@@ -5282,6 +5338,9 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+@@ -5283,6 +5339,9 @@ void ComposeControls::updateControlsGeometry(QSize size) {
  			? _scheduled->width()
  			: 0)
  		- Tele::ComposeDraftsWidth(_teleDrafts.get())
@@ -71867,7 +71867,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  		- (_botKeyboardShow ? _botKeyboardShow->width() : 0)
  		- (_botKeyboardHide ? _botKeyboardHide->width() : 0)
  		- ((_ttlInfo && _ttlInfo->isVisible()) ? _ttlInfo->width() : 0)
-@@ -5419,6 +5478,12 @@ void ComposeControls::updateControlsGeometry(QSize size) {
+@@ -5420,6 +5479,12 @@ void ComposeControls::updateControlsGeometry(QSize size) {
  		}
  	}
  	right += Tele::ComposeDraftsMove(_teleDrafts.get(), right, buttonsTop);
@@ -71880,7 +71880,7 @@ index c1bb2b2ad9a3ce075e23e8c797c132fdf338d73b..6d3a88c5d0d3b821605613e15e35e1e8
  	if (_ttlInfo) {
  		_ttlInfo->move(size.width() - right - _ttlInfo->width(), buttonsTop);
  	}
-@@ -6672,7 +6737,9 @@ void ComposeControls::updateInlineBotQuery() {
+@@ -6673,7 +6738,9 @@ void ComposeControls::updateInlineBotQuery() {
  	if (!_history || !_regularWindow) {
  		return;
  	}
@@ -72087,10 +72087,10 @@ index 2721511ca0f09851546f6136a4e0ceb9b2422d52..483fabeebc80638a6955da3ca387c2ad
  private:
  	void recountThreadBarInBlocks();
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 744277f33cac909776acd4dd05dcfb573b2d99fc..e660c9de85a9478f009e88b603b18e28ec8e4dfa 100644
+index e2c96b846df8b383263f235c03c610cfaffb198c..37050377cefa265a265cb5622456e123b5630a02 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -103,6 +103,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -104,6 +104,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_file_click_handler.h"
  #include "data/data_message_reactions.h"
  #include "data/data_peer_values.h"
@@ -72099,7 +72099,7 @@ index 744277f33cac909776acd4dd05dcfb573b2d99fc..e660c9de85a9478f009e88b603b18e28
  #include "tele/tele_ignored.h"
  #include "tele/tele_message_menu.h"
  #include "tele/tele_options.h"
-@@ -1910,6 +1912,11 @@ MessageIdsList ListWidget::collectSelectedIds() const {
+@@ -1911,6 +1913,11 @@ MessageIdsList ListWidget::collectSelectedIds() const {
  }
  
  void ListWidget::pushSelectedItems() {
@@ -72111,7 +72111,7 @@ index 744277f33cac909776acd4dd05dcfb573b2d99fc..e660c9de85a9478f009e88b603b18e28
  	_delegate->listSelectionChanged(collectSelectedItems());
  	Tgw::RefreshNativeCopy();
  }
-@@ -3578,7 +3585,7 @@ void ListWidget::paintEvent(QPaintEvent *e) {
+@@ -3579,7 +3586,7 @@ void ListWidget::paintEvent(QPaintEvent *e) {
  			context.fullMessageSelected = selection.fullMessageSelected;
  			context.messageSelection = selection.messageSelection;
  			context.highlight = _highlighter.state(item);
@@ -72121,10 +72121,10 @@ index 744277f33cac909776acd4dd05dcfb573b2d99fc..e660c9de85a9478f009e88b603b18e28
  		if (_translateTracker) {
  			_translateTracker->add(view);
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b7574259c 100644
+index c5622d37ce456d9e5be224529bcb3dd79d0f409a..8c3e3653e67590faf5471e4a51366acb281ab96e 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_session_controller.h"
  #include "apiwrap.h"
  #include "api/api_rich_tasks.h"
@@ -72132,7 +72132,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  #include "tele/tele_bot_edited.h"
  #include "tele/tele_bubble_badges.h"
  #include "tele/tele_code_lines.h"
-@@ -537,6 +538,75 @@ struct BadgePillGeometry {
+@@ -552,6 +553,75 @@ struct BadgePillGeometry {
  	};
  }
  
@@ -72208,7 +72208,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  } // namespace
  
  const char kOptionUnlimitedMessageWidth[]
-@@ -565,6 +635,11 @@ struct Message::RightAction {
+@@ -580,6 +650,11 @@ struct Message::RightAction {
  	std::unique_ptr<SecondRightAction> second;
  };
  
@@ -72220,7 +72220,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  struct Message::LinkRipple {
  	std::unique_ptr<Ui::RippleAnimation> ripple;
  	ClickHandlerPtr link;
-@@ -1459,6 +1534,7 @@ QSize Message::performCountOptimalSize() {
+@@ -1477,6 +1552,7 @@ QSize Message::performCountOptimalSize() {
  	}
  	validateText();
  	validateInlineKeyboard(markup);
@@ -72228,7 +72228,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  	updateViewButtonExistence();
  	refreshTopicButton();
  
-@@ -2278,6 +2354,7 @@ void Message::draw(Painter &p, const PaintContext &context) const {
+@@ -2297,6 +2373,7 @@ void Message::draw(Painter &p, const PaintContext &context) const {
  					g);
  			}
  		}
@@ -72236,7 +72236,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  
  		if (media) {
  			media->paintBubbleFireworks(p, g, context.now);
-@@ -3423,6 +3500,12 @@ void Message::clickHandlerPressedChanged(
+@@ -3491,6 +3568,12 @@ void Message::clickHandlerPressedChanged(
  				countMessageRounding());
  		}
  	}
@@ -72249,7 +72249,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  	Element::clickHandlerPressedChanged(handler, pressed);
  	if (const auto check = factcheckBlock()) {
  		check->clickHandlerPressedChanged(handler, pressed);
-@@ -4237,6 +4320,9 @@ TextState Message::textState(
+@@ -4307,6 +4390,9 @@ TextState Message::textState(
  		if (_summarize && _summarize->contains(point)) {
  			result.link = _summarize->link();
  		}
@@ -72259,7 +72259,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  	} else if (media && media->isDisplayed()) {
  		result = media->textState(point - g.topLeft(), request);
  		if (request.onlyMessageText) {
-@@ -5371,7 +5457,9 @@ Reactions::ButtonParameters Message::reactionButtonParameters(
+@@ -5446,7 +5532,9 @@ Reactions::ButtonParameters Message::reactionButtonParameters(
  		: std::nullopt;
  	const auto addOnTheRight = [&] {
  		return (maybeRelativeCenter
@@ -72270,7 +72270,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  			? st::reactionCornerCenter.x()
  			: 0;
  	};
-@@ -5616,6 +5704,9 @@ void Message::refreshDataIdHook() {
+@@ -5691,6 +5779,9 @@ void Message::refreshDataIdHook() {
  	if (_comments) {
  		_comments->link = nullptr;
  	}
@@ -72280,7 +72280,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  }
  
  int Message::monospaceMaxWidth() const {
-@@ -6659,7 +6750,7 @@ Ui::BubbleRounding Message::countMessageRounding() const {
+@@ -6736,7 +6827,7 @@ Ui::BubbleRounding Message::countMessageRounding() const {
  	const auto media = smallBottom ? nullptr : this->media();
  	const auto rich = smallBottom ? nullptr : richpage();
  	const auto item = data();
@@ -72289,7 +72289,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
  	const auto richMediaAtBottom = [&] {
  		using Block = Iv::Markdown::MarkdownArticleEdgeBlock;
  		const auto edges = countRichPageBubbleEdges();
-@@ -7441,4 +7532,141 @@ void Message::paintSummarize(
+@@ -7518,4 +7609,141 @@ void Message::paintSummarize(
  		context);
  }
  
@@ -72432,7 +72432,7 @@ index e6f70499589b82fa365bc6efc6ca57c272a0828e..ecc225eb6463e97efb191477119c716b
 +
  } // namespace HistoryView
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.h b/Telegram/SourceFiles/history/view/history_view_message.h
-index b189be8de9ffacb07fc56a4c7b612d5f5966eea4..12ba59dd8437e216e809df1e8e32de67273e962c 100644
+index 58436850f7238658f4518aaabb7166821e3b3b5f..c75226a8b0c478c231174362a73bc360de113ae3 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.h
 +++ b/Telegram/SourceFiles/history/view/history_view_message.h
 @@ -319,6 +319,7 @@ private:
@@ -72443,7 +72443,7 @@ index b189be8de9ffacb07fc56a4c7b612d5f5966eea4..12ba59dd8437e216e809df1e8e32de67
  
  	void refreshDataIdHook() override;
  	bool hasHeavyPart() const override;
-@@ -500,6 +501,18 @@ private:
+@@ -506,6 +507,18 @@ private:
  		const PaintContext &context,
  		QRect g) const;
  
@@ -72462,14 +72462,14 @@ index b189be8de9ffacb07fc56a4c7b612d5f5966eea4..12ba59dd8437e216e809df1e8e32de67
  	void updateViewButtonExistence();
  	[[nodiscard]] int viewButtonHeight() const;
  	[[nodiscard]] bool prepareRichPageTextRect(QRect &trect) const;
-@@ -548,6 +561,7 @@ private:
+@@ -554,6 +567,7 @@ private:
  	mutable QPoint _linkRippleLastPoint;
  	mutable std::unique_ptr<CommentsButton> _comments;
  	mutable std::unique_ptr<TranscribeButton> _summarize;
 +	mutable std::unique_ptr<ScriptQuick> _scriptQuick;
  
  	mutable Ui::Text::String _fromName;
- 	mutable std::unique_ptr<FromNameStatus> _fromNameStatus;
+ 	mutable std::unique_ptr<Ui::Text::CustomEmoji> _fromNameVerification;
 diff --git a/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp b/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
 index 93b74f3046c1656781ea1d176db988adb593ca23..85533093fd11166129fec356bde4e56b355d5662 100644
 --- a/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
@@ -72484,10 +72484,10 @@ index 93b74f3046c1656781ea1d176db988adb593ca23..85533093fd11166129fec356bde4e56b
  		std::nullopt);
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-index d91c78baf326a08733bf111fefcb02c9f85b1afc..7b74a7285116032adb7871aeae1783d5e9b48f19 100644
+index 4e00822c9eb54f964d5f40ebce7896cd1fda51a3..397383a975454308257c8cb91405ffe00369621c 100644
 --- a/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_top_bar_widget.cpp
-@@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "support/support_helper.h"
  #include "apiwrap.h"
  #include "api/api_chat_participants.h"
@@ -72495,7 +72495,7 @@ index d91c78baf326a08733bf111fefcb02c9f85b1afc..7b74a7285116032adb7871aeae1783d5
  #include "tele/tele_calls.h"
  #include "tele/tele_invisible.h"
  #include "tele/tele_onlines.h"
-@@ -277,6 +278,10 @@ TopBarWidget::TopBarWidget(
+@@ -278,6 +279,10 @@ TopBarWidget::TopBarWidget(
  	_call->setAccessibleName(tr::lng_profile_action_short_call(tr::now));
  	_groupCall->setAccessibleName(tr::lng_group_call_title(tr::now));
  	_search->setAccessibleName(tr::lng_shortcuts_search(tr::now));
@@ -72506,7 +72506,7 @@ index d91c78baf326a08733bf111fefcb02c9f85b1afc..7b74a7285116032adb7871aeae1783d5
  	_infoToggle->setAccessibleName(tr::lng_settings_section_info(tr::now));
  	_menuToggle->setAccessibleName(tr::lng_chat_menu(tr::now));
  	_back->setAccessibleName(tr::lng_go_back(tr::now));
-@@ -1336,6 +1341,12 @@ void TopBarWidget::updateControlsGeometry() {
+@@ -1337,6 +1342,12 @@ void TopBarWidget::updateControlsGeometry() {
  	if (!_search->isHidden()) {
  		_rightTaken += _search->width() + st::topBarCallSkip;
  	}
@@ -72520,7 +72520,7 @@ index d91c78baf326a08733bf111fefcb02c9f85b1afc..7b74a7285116032adb7871aeae1783d5
  	updateMembersShowArea();
  }
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index d8b2ea8c9b71e1353a8d192c3fa2240c5e761f7b..81b85687dd275d443e5c78e473aaa541bc0cec05 100644
+index 985854c199e57d0b700fae7a0e0a80b11a209844..d5f2ebfd635da3a149c4acbcaef159e62107e7e4 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -72744,7 +72744,7 @@ index a154a66abbb5e50adbf1b9eeceecbd1606de2383..4a2df4b9e50a6b848b2117edb3809de6
  		localMessageId);
  
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index fa87a3e208c5b49f570b6f37a7ef5d0acd529cf8..85d9c633fd29cf1f3c746be8396616d3b829f325 100644
+index 88ba4ad5bdbc8d99a93c6af8e4b8854e44156fc2..462de2f02fb36e8752683924983310642c4e470e 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -120,6 +120,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -120079,10 +120079,10 @@ index 5122f3b4336654a6295386704eaa97bdb622f161..89bb85d59cbaf05b33259cf0debe0810
  			if (keep) {
  				seen.emplace(entry.key);
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index f7747d49f3a6916a2ff3db1931f5383922abc9d2..18b59d2a85391242983965243ad3077094bce08c 100644
+index 779b045c7f0daf1973d6abe21812308c745c31a1..3b9b0b6f8d2d3b785cb4a085701dce1bcef46991 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-@@ -1561,8 +1561,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1559,8 +1559,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  	return result;
  }
  
@@ -120093,7 +120093,7 @@ index f7747d49f3a6916a2ff3db1931f5383922abc9d2..18b59d2a85391242983965243ad30770
  		MessageMenu(),
  		ChatMenu(),
  		ChatRowMenu(),
-@@ -1611,6 +1611,8 @@ const MenuItemInfo *LookupMenuItem(MenuKind kind, const QString &key) {
+@@ -1609,6 +1609,8 @@ const MenuItemInfo *LookupMenuItem(MenuKind kind, const QString &key) {
  QString MenuItemLabel(const MenuItemInfo &item) {
  	if (item.label) {
  		return item.label();
@@ -120102,7 +120102,7 @@ index f7747d49f3a6916a2ff3db1931f5383922abc9d2..18b59d2a85391242983965243ad30770
  	} else if (!item.phrases.empty() && item.phrases.front().text) {
  		return item.phrases.front().text(1);
  	}
-@@ -1620,10 +1622,44 @@ QString MenuItemLabel(const MenuItemInfo &item) {
+@@ -1618,10 +1620,44 @@ QString MenuItemLabel(const MenuItemInfo &item) {
  const style::icon *MenuItemIcon(const MenuItemInfo &item) {
  	if (item.icon) {
  		return item.icon;
@@ -121294,7 +121294,7 @@ index 6abba928c810bb81d6981deeae25030e4bd7a24e..6df4c3502bb9db8ef7b688e52cee2f81
  
  	TrayAccountsMenu::Fill(_tray);
 diff --git a/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp b/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp
-index 3cbd9cb0b65c8dd81ff8384d2c61be8c15bfc867..bcabf7474ab8de95d15f50c4fc8f6e6593a281ab 100644
+index df12debe937fd1025e74e9150d8af6f1ad711422..efabac12663c72be9e0e4f7a3f98e33e769c3bd6 100644
 --- a/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp
 +++ b/Telegram/SourceFiles/ui/chat/attach/attach_bot_webview.cpp
 @@ -2406,6 +2406,7 @@ bool Panel::createWebview(const Webview::ThemeParams &params) {
@@ -121393,7 +121393,7 @@ index d0adbd35f499f66eedfa08ba5d4d21dd3420b3f0..bbebacecfea37d453c4f09392440499d
  
  void MainMenu::resizeEvent(QResizeEvent *e) {
 diff --git a/Telegram/cmake/lib_quickjs.cmake b/Telegram/cmake/lib_quickjs.cmake
-index ef49ebfa22b25e79a9497d12ed42f25353b4f2f7..e8312a6fac94859fb006ae2bc3064f743a87fd16 100644
+index 61e9cbf35cf875aa5b3ab838d3df895b65a89b13..52b54b1404085281843db14a3b48c89992e0974b 100644
 --- a/Telegram/cmake/lib_quickjs.cmake
 +++ b/Telegram/cmake/lib_quickjs.cmake
 @@ -65,7 +65,6 @@ set_target_properties(lib_quickjs PROPERTIES

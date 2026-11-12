@@ -12,10 +12,10 @@ Subject: [PATCH] fix: quote rich messages chooses tele's or telegram's quotes
  5 files changed, 44 insertions(+), 18 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 43992225ac86ffc7bdfa100b0492307c8ae2ff0c..2175a6b8dbae93417b99bf2ba549a3c749d896b3 100644
+index dacd1ac6494ac726c8158161fdede6a097d6bbe0..11cd5f86f945ccce50a40dd35cae8dc63eacc1a6 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -832,15 +832,22 @@ void HistoryInner::setupSwipeReplyAndBack() {
+@@ -833,15 +833,22 @@ void HistoryInner::setupSwipeReplyAndBack() {
  			result.msgBareId = viewItemId.msg.bare;
  			result.callback = [=] {
  				const auto still = show->session().data().message(viewItemId);
@@ -39,7 +39,7 @@ index 43992225ac86ffc7bdfa100b0492307c8ae2ff0c..2175a6b8dbae93417b99bf2ba549a3c7
  				Window::ActivateWindow(_controller);
  				_widget->replyToMessage({
  					.messageId = exact->fullId(),
-@@ -3570,8 +3577,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3522,8 +3529,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		const auto canSendReply = CanSendReply(item);
  		const auto canReply = canSendReply || item->allowsForward();
  		if (canReply) {
@@ -88,7 +88,7 @@ index ee8b1d00147ff807d99fe5f2f2d6090ec083edc5..45cad4b236c1cf7fe392d3db842ee96c
  			_inner->replyToMessageRequestNotify({
  				.messageId = exact->fullId(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index a3769ef7c9ddf580f30c2c417a6fa6b4e386c409..0c15759d9609a91c2562a7f324976c9e057f33de 100644
+index 79d5b70b6eef0617b203881614e31a0e0755bada..08d9bc2bbb9410f2029933b9eb23fd81fc02ce97 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -871,8 +871,8 @@ bool AddReplyToMessageAction(

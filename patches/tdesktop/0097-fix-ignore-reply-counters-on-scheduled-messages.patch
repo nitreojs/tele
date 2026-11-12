@@ -8,7 +8,7 @@ Subject: [PATCH] fix: ignore reply counters on scheduled messages
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index 3290b83d57c00c82d4d85134f81751214ba90a73..f3dcbd5603913e732dc975e8c17d159a08d59d11 100644
+index 68891f752e13c85234be8f33f0a8baa680739a1e..aef115b9bb8fec693397975b46e714f45e5d517d 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
 @@ -4353,7 +4353,7 @@ void HistoryItem::setPostAuthor(const QString &postAuthor) {

@@ -17,10 +17,10 @@ Subject: [PATCH] feat: send an audio file as a voice message
  create mode 100644 Telegram/SourceFiles/tele/tele_audio_voice.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2cfeb6516c4d26962496b9cae2048bba9681dbda..a318b863c4966835add8492a4e8bd35e7f9fb920 100644
+index 4b8ab1b14258651f4fb67b83bf18a3040b501219..4b9d51c14189b023537d79840824629d9c478d9d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2639,6 +2639,8 @@ PRIVATE
+@@ -2652,6 +2652,8 @@ PRIVATE
      tele/tele_app_links_box.h
      tele/tele_app_name.cpp
      tele/tele_app_name.h
@@ -70,7 +70,7 @@ index 9f55433d149a013bb718ab8a7ee2332e14fd0856..dede31af498cea3e9157868a1ed86de9
  	using MenuAction = SendMenu::Action;
  	using MenuDetails = SendMenu::Details;
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index c7d26272f5dbb41048952694761b116db1dd97be..2739472e4b2a94e18d2a790434a5acc2d836aa01 100644
+index bfbba166e538b6b86bff76c17c7a705a5ee25f4e..25bbf684f75d55b18736e371e2e7736e8a2dc6a8 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -180,6 +180,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -81,7 +81,7 @@ index c7d26272f5dbb41048952694761b116db1dd97be..2739472e4b2a94e18d2a790434a5acc2
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
-@@ -1495,7 +1496,9 @@ void HistoryWidget::initVoiceRecordBar() {
+@@ -1496,7 +1497,9 @@ void HistoryWidget::initVoiceRecordBar() {
  			data.progress);
  	}, lifetime());
  
@@ -93,7 +93,7 @@ index c7d26272f5dbb41048952694761b116db1dd97be..2739472e4b2a94e18d2a790434a5acc2
  		sendVoice(data);
  	}, lifetime());
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index ea04b9210cd5b670ec06e78e1c4fad6317f6a0d2..842aecfd2ce389fbb6623f838365fe36cc7de851 100644
+index 294f3a18e70ebe3781e1feca0845bf2ba737041a..3c65b8e30072ba59c8aaa8b40888d9cf6db4217c 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -104,7 +104,7 @@ index ea04b9210cd5b670ec06e78e1c4fad6317f6a0d2..842aecfd2ce389fbb6623f838365fe36
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_inline_text.h"
  #include "tele/tele_send_order.h"
-@@ -2298,7 +2299,9 @@ rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
+@@ -2299,7 +2300,9 @@ rpl::producer<Api::SendOptions> ComposeControls::sendRequests() const {
  }
  
  rpl::producer<VoiceToSend> ComposeControls::sendVoiceRequests() const {

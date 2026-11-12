@@ -18,10 +18,10 @@ Subject: [PATCH] feat: retry failed messages
  create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index cdaa0f5becab45c6195879428a984170f2e4f668..cf18a93ec13f817e5892a7f976129c18e53a9b50 100644
+index 393a0cb14acf03a72a3aa6f1347eb366c6f0c8b2..8f09d878cabb608628c52ceff6fd02851d39c723 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2723,6 +2723,8 @@ PRIVATE
+@@ -2736,6 +2736,8 @@ PRIVATE
      tele/tele_emoji_panel.h
      tele/tele_edit_history_section.cpp
      tele/tele_edit_history_section.h
@@ -58,10 +58,10 @@ index f121b15f1b54950a09fb546f1b29b2c2f6c5046f..9b73173b0d1effaca246a3cceb353f9d
  
  	p.setFont(st::semiboldFont);
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index c5a83249fc6f3b8fa70f4d7eeb150bbcfe35565f..ffb53c8f88300899881f6aa76f6646a6eac03227 100644
+index 28190c31444fb4f1e91860bf0e4cad6dbaa16973..2602b3345c92927df64bc2d6ed0b540b2ed5f8b7 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -139,6 +139,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_copy_markdown.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
@@ -69,7 +69,7 @@ index c5a83249fc6f3b8fa70f4d7eeb150bbcfe35565f..ffb53c8f88300899881f6aa76f6646a6
  #include "tele/tele_ghost.h"
  #include "tele/tele_gif_video.h"
  #include "tele/tele_ignored.h"
-@@ -4018,6 +4019,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3970,6 +3971,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
  		width(),
  		crl::guard(this, [=] { _widget->clearSelected(); }));
@@ -144,7 +144,7 @@ index b11bea42e4e283950e184320ea08962f9da2e1c1..50bba788b66cdab472e45afea9d1c0b6
  		};
  		friend inline constexpr bool is_flag_type(Flag) { return true; };
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index e87d366a9360e6582cbd3f1e9765f5b74f18ace2..83a6eeefe849d4e0b7c431edcf9709b50738b8c7 100644
+index b72ef9d61a6da3b60786a13c0e01fb28b0e95856..c51f2ac2c30e2e76d31f5693be87b0e1d6335c9b 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -155,7 +155,7 @@ index e87d366a9360e6582cbd3f1e9765f5b74f18ace2..83a6eeefe849d4e0b7c431edcf9709b5
  #include "tele/tele_gif_video.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
-@@ -2030,6 +2031,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2028,6 +2029,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  		}
  	}
  	Tele::AddShotAction(result.get(), list, request);
@@ -390,7 +390,7 @@ index 0000000000000000000000000000000000000000..e1b1c531d664ae70b060697158c962e0
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 50d4a2baa3667d8735ecc6b3fdfe046c8f774726..184c2c6b6132d9cc8aab82da7da727ba49969bee 100644
+index b17925603c042bc12e2b72dc96ba31a59282938f..d41a3f3c981390e3ebfda01222e7798776aa7702 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 @@ -329,6 +329,14 @@ constexpr auto kFieldText = uint32(1 << 0);

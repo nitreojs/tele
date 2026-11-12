@@ -24,10 +24,10 @@ Subject: [PATCH] feat: hide birthday banners and effects
  create mode 100644 Telegram/SourceFiles/tele/tele_birthdays.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d98aef513488bcdf7efb228787814a324ed954cd..d0d00cd9f9ece6f92ea0dfff66dec39edc394b9c 100644
+index 1aca92af3b19c8d4a43a4ff107b214c59d9435b2..198e56f5888625e4b7349af645ec0b57772d5bed 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2643,6 +2643,8 @@ PRIVATE
+@@ -2656,6 +2656,8 @@ PRIVATE
      tele/tele_audio_voice.h
      tele/tele_badges.cpp
      tele/tele_badges.h
@@ -37,10 +37,10 @@ index d98aef513488bcdf7efb228787814a324ed954cd..d0d00cd9f9ece6f92ea0dfff66dec39e
      tele/tele_bookmarks.h
      tele/tele_bookmarks_box.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_top_bar_suggestion.cpp b/Telegram/SourceFiles/dialogs/dialogs_top_bar_suggestion.cpp
-index 26949b9137322dd59906c535322685d6070f2df8..444288d44f2cd51b8da243912792808caca3423e 100644
+index deaaff7376a5b28c4cb6872d9f13d8d717403f4f..e9748ec928c34512257fe71a3bad5228c4b1e39a 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_top_bar_suggestion.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_top_bar_suggestion.cpp
-@@ -19,6 +19,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "dialogs/ui/dialogs_top_bar_suggestion_content.h"
  #include "main/main_session.h"
  #include "mainwindow.h"
@@ -103,7 +103,7 @@ index fe4cefd82cf6ef292927ad48ea5a777ad480baa1..46d4154e8357d8498aa454cfbc199594
  }
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 7b76afa6b1148089be03c4d9e3f6f89a48d8c1e8..95050555769de484505caf9df29657bde4e3a627 100644
+index 56b757cb0d585c0fe66eaa28fb7158635c9b94d9..66528de4a8f2c4900b13a581a828f692f4492180 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -185,6 +185,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -114,7 +114,7 @@ index 7b76afa6b1148089be03c4d9e3f6f89a48d8c1e8..95050555769de484505caf9df29657bd
  #include "tele/tele_field_resize.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
-@@ -3825,7 +3826,7 @@ void HistoryWidget::showHistory(
+@@ -3826,7 +3827,7 @@ void HistoryWidget::showHistory(
  				Info::Profile::BirthdayValue(
  					user
  				) | rpl::map(
@@ -123,7 +123,7 @@ index 7b76afa6b1148089be03c4d9e3f6f89a48d8c1e8..95050555769de484505caf9df29657bd
  				) | rpl::flatten_latest(
  				) | rpl::distinct_until_changed(
  				) | rpl::on_next([=] {
-@@ -4312,7 +4313,7 @@ void HistoryWidget::refreshSendGiftToggle() {
+@@ -4313,7 +4314,7 @@ void HistoryWidget::refreshSendGiftToggle() {
  		&& !user->isBot()
  		&& ((disallowed & Type::SendHide)
  			|| (session().user()->disallowedGiftTypes() & Type::SendHide)
@@ -133,7 +133,7 @@ index 7b76afa6b1148089be03c4d9e3f6f89a48d8c1e8..95050555769de484505caf9df29657bd
  	if (!_giftToUser && has) {
  		_giftToUser.create(this, st::historyGiftToUser);
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 3a69db7d5776630b23715eeba74feeabf85f6910..30c02ddec84cddc63176f3c5791f5fab07311272 100644
+index 5b5c401dec451b1f84666e27ff63bb9b09785b53..56dae59bc75732d584a035cd8bff23f0c191933d 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 @@ -124,6 +124,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -144,7 +144,7 @@ index 3a69db7d5776630b23715eeba74feeabf85f6910..30c02ddec84cddc63176f3c5791f5fab
  #include "tele/tele_emoji_panel.h"
  #include "tele/tele_field_resize.h"
  #include "tele/tele_inline_text.h"
-@@ -5870,7 +5871,7 @@ void ComposeControls::refreshSendGiftToggle() {
+@@ -5871,7 +5872,7 @@ void ComposeControls::refreshSendGiftToggle() {
  		&& !user->isBot()
  		&& ((disallowed & Type::SendHide)
  			|| (session().user()->disallowedGiftTypes() & Type::SendHide)
@@ -153,7 +153,7 @@ index 3a69db7d5776630b23715eeba74feeabf85f6910..30c02ddec84cddc63176f3c5791f5fab
  		&& ((disallowed & all) != all);
  	if (!_giftToUser && has) {
  		_giftToUser = base::make_unique_q<Ui::IconButton>(
-@@ -6472,7 +6473,7 @@ void ComposeControls::initWebpageProcess() {
+@@ -6473,7 +6474,7 @@ void ComposeControls::initWebpageProcess() {
  		Info::Profile::BirthdayValue(
  			user
  		) | rpl::map(
@@ -163,7 +163,7 @@ index 3a69db7d5776630b23715eeba74feeabf85f6910..30c02ddec84cddc63176f3c5791f5fab
  		) | rpl::distinct_until_changed(
  		) | rpl::on_next([=] {
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
-index 50c730d34660363ccfb2e039d41bcf8e00adce8d..2a7598799b1b636047c0c3ad5f77da006b4c7c00 100644
+index 15ab06dbbd59e1fc31b13478d0745343722b4cb7..82fd07ac03d0356e2582c68007ae0b1075cbfdee 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
 @@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

@@ -107,6 +107,19 @@ def current_heads(tdesktop):
     return heads
 
 
+def submodule_commit(tdesktop, tree, path):
+    repo = Path(tdesktop)
+    parts = path.split('/')
+    for index, part in enumerate(parts):
+        fields = git(repo, 'ls-tree', tree, part).split()
+        if len(fields) < 3:
+            raise Fail(f'{path}: not a submodule of {tree}')
+        tree = fields[2]
+        if fields[1] == 'commit':
+            repo = Path(tdesktop) / '/'.join(parts[:index + 1])
+    return tree
+
+
 def state_file(tdesktop):
     return Path(git(tdesktop, 'rev-parse', '--absolute-git-dir')) / 'tele-state.json'
 
@@ -288,7 +301,7 @@ def prime_patch_blobs(tdesktop):
             repo, base = tdesktop, tag_commit
         else:
             repo = tdesktop / group
-            base = git(tdesktop, 'rev-parse', f'{tag_commit}:{group}')
+            base = submodule_commit(tdesktop, tag_commit, group)
             if run_git(repo, 'cat-file', '-e', base + '^{commit}').returncode != 0:
                 shallow = git(repo, 'rev-parse', '--is-shallow-repository') == 'true'
                 git(repo, 'fetch', '--quiet', '--no-tags', *(['--depth', '1'] if shallow else []),

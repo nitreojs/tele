@@ -25,10 +25,10 @@ Subject: [PATCH] feat: select more than 100 messages
  create mode 100644 Telegram/SourceFiles/tele/tele_select_many.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e8fc3757366ec3e9a0c3e07c97961bfb1c502a28..dc6df00c338c0d29bf864e3d7f3badc20a6ee939 100644
+index b4d050ad12cfe9cbf39b48b760edbfd85c2e46d6..60e3c9ad5b6bc12db0c5e6210e4317f41d8fdf7e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2934,6 +2934,8 @@ PRIVATE
+@@ -2947,6 +2947,8 @@ PRIVATE
      tele/tele_screen_capture.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -94,10 +94,10 @@ index fb6819fee7ecec42137564d2750e059ec9c4b0fd..7eafc794aec60de96dcb2e608e22c9ca
  		const auto done = [=](const MTPmessages_AffectedMessages &result) {
  			session().api().applyAffectedMessages(history->peer, result);
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 97cb17465b26ba5714ff4e730fa963d4965f0217..c4544c913130f622e9441685c133fc3efec2c473 100644
+index c207a0d6115ea222313d62900d91e3d7c214e61e..d63a745d32740a69b178cbab308dcd6a459c614b 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -144,6 +144,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -145,6 +145,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_gif_video.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
@@ -105,7 +105,7 @@ index 97cb17465b26ba5714ff4e730fa963d4965f0217..c4544c913130f622e9441685c133fc3e
  #include "tele/tele_shot.h"
  #include "tele/tele_message_menu.h"
  #include "tele/tele_options.h"
-@@ -3397,7 +3398,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3349,7 +3350,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				}
  				const auto start = (topToBottom ? nearestItem : toItem);
  				const auto end = (topToBottom ? toItem : nearestItem);
@@ -114,7 +114,7 @@ index 97cb17465b26ba5714ff4e730fa963d4965f0217..c4544c913130f622e9441685c133fc3e
  					- selectedState.count
  					+ (topToBottom ? 0 : 1);
  				if (collectBetween(start, end, left).empty()) {
-@@ -6244,7 +6245,7 @@ void HistoryInner::changeSelection(
+@@ -6196,7 +6197,7 @@ void HistoryInner::changeSelection(
  	const auto add = (action == SelectAction::Select);
  	if (add
  		&& goodForSelection(toItems, item, total)
@@ -123,7 +123,7 @@ index 97cb17465b26ba5714ff4e730fa963d4965f0217..c4544c913130f622e9441685c133fc3e
  		addToSelection(toItems, item);
  	} else {
  		removeFromSelection(toItems, item);
-@@ -6271,7 +6272,7 @@ void HistoryInner::changeSelectionAsGroup(
+@@ -6223,7 +6224,7 @@ void HistoryInner::changeSelectionAsGroup(
  				return false;
  			}
  		}
@@ -132,7 +132,7 @@ index 97cb17465b26ba5714ff4e730fa963d4965f0217..c4544c913130f622e9441685c133fc3e
  	}();
  	if (action == SelectAction::Select && canSelect) {
  		for (const auto &other : group->items) {
-@@ -6539,7 +6540,7 @@ void HistoryInner::addSelectionRange(
+@@ -6491,7 +6492,7 @@ void HistoryInner::addSelectionRange(
  				auto item = block->messages[fromitem]->data();
  				changeSelectionAsGroup(toItems, item, SelectAction::Select);
  			}
@@ -167,10 +167,10 @@ index 54424351a2cef906c8026fc82c95228c4db55e0e..b30b994629cb8e0853ef438af391be74
  		}
  		result.back().items.push_back(item);
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 0557e353e465915bd5f6aedc15d995944368c6ec..744277f33cac909776acd4dd05dcfb573b2d99fc 100644
+index 60d907032e98d9e629b70f5e8babed67830c42e8..e2c96b846df8b383263f235c03c610cfaffb198c 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_full_preview.h"
  #include "tele/tele_protected.h"
  #include "tele/tele_rmb_beside_bubble.h"
@@ -178,7 +178,7 @@ index 0557e353e465915bd5f6aedc15d995944368c6ec..744277f33cac909776acd4dd05dcfb57
  #include "tele/tele_select_service.h"
  #include "styles/style_chat.h"
  #include "styles/style_window.h" // columnMaximalWidthLeft
-@@ -2013,7 +2014,7 @@ bool ListWidget::isGoodForSelection(
+@@ -2014,7 +2015,7 @@ bool ListWidget::isGoodForSelection(
  	if (!applyTo.contains(item->fullId())) {
  		++totalCount;
  	}
@@ -187,7 +187,7 @@ index 0557e353e465915bd5f6aedc15d995944368c6ec..744277f33cac909776acd4dd05dcfb57
  }
  
  bool ListWidget::addToSelection(
-@@ -2258,7 +2259,7 @@ std::vector<not_null<HistoryItem*>> ListWidget::selectionUpTo(
+@@ -2259,7 +2260,7 @@ std::vector<not_null<HistoryItem*>> ListWidget::selectionUpTo(
  	}
  	const auto startItem = topToBottom ? nearestItem : toItem.get();
  	const auto endItem = topToBottom ? toItem.get() : nearestItem;
@@ -196,7 +196,7 @@ index 0557e353e465915bd5f6aedc15d995944368c6ec..744277f33cac909776acd4dd05dcfb57
  		- int(_selected.size())
  		+ (topToBottom ? 0 : 1);
  	return collectBetween(startItem, endItem, left);
-@@ -3916,7 +3917,7 @@ void ListWidget::applyDragSelection(SelectedMap &applyTo) const {
+@@ -3917,7 +3918,7 @@ void ListWidget::applyDragSelection(SelectedMap &applyTo) const {
  	if (_dragSelectAction == DragSelectAction::Selecting) {
  		auto already = int(applyTo.size());
  		for (const auto &itemId : _dragSelected) {

@@ -26,10 +26,10 @@ Subject: [PATCH] feat: smoother wheel glides in chats
  create mode 100644 Telegram/SourceFiles/tele/tele_scroll_stats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1b4d36ea8c220e43b81393239e07b2d79412b332..930adecef972587ed842a6cd76d1f5feb7cc5208 100644
+index 1dc7f37b05ebb792802cdd3b4d47252317953a44..7c78bfd369fc196ab1ac96fa946ea048bd4f6659 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3058,6 +3058,10 @@ PRIVATE
+@@ -3071,6 +3071,10 @@ PRIVATE
      tele/tele_rmb_beside_bubble.h
      tele/tele_screen_capture.cpp
      tele/tele_screen_capture.h
@@ -3288,10 +3288,10 @@ index 384e117649a3112403f5b5cdeac05da069c63f95..afd69a5288fc2723752aeae6fdf15915
  					}
  
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234dc21cc3a7 100644
+index 527396c87bf063be11b7ac483baa6d9cceb99830..d688c3126d7d94b0feca53fec301a62a17f069f2 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -64,6 +64,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/controls/who_reacted_context_action.h"
  #include "ui/controls/swipe_handler.h"
  #include "ui/inactive_press.h"
@@ -3299,7 +3299,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  #include "ui/painter.h"
  #include "ui/rect.h"
  #include "ui/screen_reader_mode.h"
-@@ -152,6 +153,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -153,6 +154,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_protected.h"
  #include "tele/tele_rich_quote.h"
  #include "tele/tele_rmb_beside_bubble.h"
@@ -3307,7 +3307,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  #include "tele/tele_select_service.h"
  #include "tele/tele_send_order.h"
  #include "tele/tele_wallet_links.h"
-@@ -413,7 +415,12 @@ HistoryInner::HistoryInner(
+@@ -414,7 +416,12 @@ HistoryInner::HistoryInner(
  , _pathGradient(
  	HistoryView::MakePathShiftGradient(
  		controller->chatStyle(),
@@ -3321,7 +3321,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  , _reactionsManager(
  	std::make_unique<HistoryView::Reactions::Manager>(
  		this,
-@@ -432,8 +439,20 @@ HistoryInner::HistoryInner(
+@@ -433,8 +440,20 @@ HistoryInner::HistoryInner(
  	[=] { mouseActionUpdate(QCursor::pos()); setCursor(_cursor); },
  	[=] { return window()->isActiveWindow(); })
  , _scrollDateCheck([this] { scrollDateCheck(); })
@@ -3343,7 +3343,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  	_history->delegateMixin()->setCurrent(this);
  	if (_migrated) {
  		_migrated->delegateMixin()->setCurrent(this);
-@@ -462,6 +481,7 @@ HistoryInner::HistoryInner(
+@@ -463,6 +482,7 @@ HistoryInner::HistoryInner(
  	_controller->gifPauseLevelChanged(
  	) | rpl::on_next([=] {
  		if (!elementAnimationsPaused()) {
@@ -3351,7 +3351,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  			update();
  		}
  	}, lifetime());
-@@ -493,6 +513,7 @@ HistoryInner::HistoryInner(
+@@ -494,6 +514,7 @@ HistoryInner::HistoryInner(
  
  	session().data().peerDecorationsUpdated(
  	) | rpl::on_next([=] {
@@ -3359,7 +3359,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  		update();
  	}, lifetime());
  	session().data().itemRemoved(
-@@ -528,6 +549,10 @@ HistoryInner::HistoryInner(
+@@ -529,6 +550,10 @@ HistoryInner::HistoryInner(
  	) | rpl::filter([=](not_null<const Element*> view) {
  		return (view == viewByItem(view->data()));
  	}) | rpl::on_next([=](not_null<const Element*> view) {
@@ -3370,7 +3370,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  		markReadMetricsStale();
  		if (view->isUnderCursor()) {
  			mouseActionUpdate();
-@@ -546,6 +571,7 @@ HistoryInner::HistoryInner(
+@@ -547,6 +572,7 @@ HistoryInner::HistoryInner(
  		(Data::HistoryUpdate::Flag::OutboxRead
  			| Data::HistoryUpdate::Flag::TranslatedTo)
  	) | rpl::on_next([=] {
@@ -3378,7 +3378,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  		update();
  	}, lifetime());
  
-@@ -1463,15 +1489,94 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1464,15 +1490,94 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  		&& !pendingResized
  		&& _widget->markingContentsRead());
  	if (overlapped || pendingResized) {
@@ -3474,7 +3474,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  	auto context = preparePaintContext(clip);
  	context.gestureHorizontal = _gestureHorizontal;
  	context.highlightPathCache = &_highlightPathCache;
-@@ -1482,34 +1587,48 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1483,34 +1588,48 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  
  	const auto historyDisplayedEmpty = _history->isDisplayedEmpty()
  		&& (!_migrated || _migrated->isDisplayedEmpty());
@@ -3541,7 +3541,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  	if (metricsStale) {
  		_readMetricsTracker->startBatch(_visibleAreaTop, _visibleAreaBottom);
  	}
-@@ -1543,7 +1662,9 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1544,7 +1663,9 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  		if (markingAsViewed && !readContents.empty()) {
  			session().api().markContentsRead(readContents);
  		}
@@ -3552,7 +3552,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  	});
  
  	const auto processPainted = [&](
-@@ -1756,7 +1877,15 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1757,7 +1878,15 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  		context.translate(0, top);
  		p.translate(0, -top);
  	}
@@ -3568,7 +3568,7 @@ index 92f9f863aa20f9d6647197650c19f47965d8e35e..99715a809a5fb80939d2c1456d4f234d
  	enumerateUserpics([&](not_null<Element*> view, int userpicTop) {
  		// stop the enumeration if the userpic is below the painted rect
  		if (userpicTop >= clip.top() + clip.height()) {
-@@ -5028,6 +5157,7 @@ void HistoryInner::updateSize() {
+@@ -4980,6 +5109,7 @@ void HistoryInner::updateSize() {
  			mouseActionUpdate(QCursor::pos());
  		}
  	} else {

@@ -33,10 +33,10 @@ Subject: [PATCH] feat: mtproto console
  create mode 100644 Telegram/SourceFiles/tele/tele_tl_runtime.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1d8a19a5fbf212590c33e25f2555a966b1a5e2dd..c55c0b37e5b7ff832465d184327afa7f276a4a91 100644
+index 74261c43d96787b330169cc47703230f231c3d68..8f5515f20bbb9a3b46824bd54da23134e491388f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2775,6 +2775,10 @@ PRIVATE
+@@ -2788,6 +2788,10 @@ PRIVATE
      tele/tele_menu_registry.h
      tele/tele_message_menu.cpp
      tele/tele_message_menu.h
@@ -47,7 +47,7 @@ index 1d8a19a5fbf212590c33e25f2555a966b1a5e2dd..c55c0b37e5b7ff832465d184327afa7f
      tele/tele_mtp_dump.cpp
      tele/tele_mtp_dump.h
      tele/tele_mtp_inspector.cpp
-@@ -2875,6 +2879,8 @@ PRIVATE
+@@ -2888,6 +2892,8 @@ PRIVATE
      tele/tele_title_box.h
      tele/tele_title_template.cpp
      tele/tele_title_template.h
@@ -57,10 +57,10 @@ index 1d8a19a5fbf212590c33e25f2555a966b1a5e2dd..c55c0b37e5b7ff832465d184327afa7f
      tele/tele_translate_out.h
      tele/tele_unsorted_folder.cpp
 diff --git a/Telegram/Resources/qrc/telegram/telegram.qrc b/Telegram/Resources/qrc/telegram/telegram.qrc
-index f22f29b4d582366c79f7c380886065567fdac86f..35b7ac2e2c757686d22728eac48e6283b89fd597 100644
+index 79734e75e0920e5a4b3381a98ce3a5d400bb93bd..3fd7b07bc026c2422d4bc6559c7a0d27aba6df6c 100644
 --- a/Telegram/Resources/qrc/telegram/telegram.qrc
 +++ b/Telegram/Resources/qrc/telegram/telegram.qrc
-@@ -99,6 +99,9 @@
+@@ -101,6 +101,9 @@
    <qresource prefix="/tele">
      <file alias="api.tl">../../../SourceFiles/mtproto/scheme/api.tl</file>
      <file alias="mtproto.tl">../../../SourceFiles/mtproto/scheme/mtproto.tl</file>
@@ -4198,10 +4198,10 @@ index 0000000000000000000000000000000000000000..ad7c9aa727ff60ca71466e7988c1420f
 +document.addEventListener('DOMContentLoaded', init);
 +})();
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 2a6e7db1cc2c6fdddf7df0c004453ecb54d8a04b..2acdcd6f5a5d8bb1822f15a2f1e4f2c343f606e6 100644
+index 22b4f30bcdf4d548dcf08800976a194a5045a1a0..771a2280ccdec1025ec4a5faa2633d5cd0cbd9fb 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_badges.h"
  #include "tele/tele_reduce_motion.h"
  #include "tele/tele_list_keys.h"
@@ -4209,7 +4209,7 @@ index 2a6e7db1cc2c6fdddf7df0c004453ecb54d8a04b..2acdcd6f5a5d8bb1822f15a2f1e4f2c3
  #include "tele/tele_counters.h"
  
  #include <QtCore/QStandardPaths>
-@@ -367,6 +368,7 @@ void Application::run() {
+@@ -368,6 +369,7 @@ void Application::run() {
  	Tele::StartBadges();
  	Tele::StartReduceMotion();
  	Tele::StartListKeys();
@@ -4218,10 +4218,10 @@ index 2a6e7db1cc2c6fdddf7df0c004453ecb54d8a04b..2acdcd6f5a5d8bb1822f15a2f1e4f2c3
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/core/shortcuts.cpp b/Telegram/SourceFiles/core/shortcuts.cpp
-index 133878e5cd1cefd3cb6427fe8eadcc4110d422f8..540c59b2c1e39dffee515adee5e6a354b29a2a5d 100644
+index c3b090faac1be1093c3d37634e1f06432101b683..b6ede5dfb2022a2bca471f44467830e0a1cee31a 100644
 --- a/Telegram/SourceFiles/core/shortcuts.cpp
 +++ b/Telegram/SourceFiles/core/shortcuts.cpp
-@@ -145,6 +145,7 @@ const auto CommandByName = base::flat_map<QString, Command>{
+@@ -146,6 +146,7 @@ const auto CommandByName = base::flat_map<QString, Command>{
  	{ u"archive_chat"_q                  , Command::ArchiveChat },
  	{ u"record_round"_q                  , Command::RecordRound },
  	{ u"show_admin_log"_q                , Command::ShowAdminLog },
@@ -4229,7 +4229,7 @@ index 133878e5cd1cefd3cb6427fe8eadcc4110d422f8..540c59b2c1e39dffee515adee5e6a354
  	//
  };
  
-@@ -553,6 +554,8 @@ void Manager::fillDefaults() {
+@@ -554,6 +555,8 @@ void Manager::fillDefaults() {
  	set(u"ctrl+shift+x"_q            , Command::SupportHistoryBack);
  	set(u"ctrl+shift+c"_q            , Command::SupportHistoryForward);
  

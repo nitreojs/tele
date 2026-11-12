@@ -25,10 +25,10 @@ Subject: [PATCH] feat: turn off ai features
  create mode 100644 Telegram/SourceFiles/tele/tele_no_ai.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 104c00cbcfa645645c60754b999486f674ac430f..baacbb0b6973126f3fbc872418c7b71b9374bf4a 100644
+index 178f2d061bbcdb3d204fd51af2758c07163d8a0a..a0f8007b883efe93c0757ae416522602bc7abe3f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2743,6 +2743,8 @@ PRIVATE
+@@ -2756,6 +2756,8 @@ PRIVATE
      tele/tele_mtp_log.h
      tele/tele_new_settings.cpp
      tele/tele_new_settings.h
@@ -134,10 +134,10 @@ index 678672e7a20e29121b886915615dbb5176f2f260..7dcfef4308b13cd1fb030a9a9fb07019
  			_pendingRefresh = PendingRefresh::Full;
  		} else if (_pendingRefresh == PendingRefresh::None) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 2e45b1b58dcb6d040a28ffdb65e0dcfb8bb73142..dc29f59e4c103ccd8a8a9a03a4566271f20a951a 100644
+index 49c3c176030344de6368f4e613223495894bb4bd..4ad82d20e14253d5ea3379708ec074e4db63b271 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
-@@ -69,6 +69,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_ignored.h"
@@ -145,7 +145,7 @@ index 2e45b1b58dcb6d040a28ffdb65e0dcfb8bb73142..dc29f59e4c103ccd8a8a9a03a4566271
  #include "tele/tele_protected.h"
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
-@@ -7363,6 +7364,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
+@@ -7440,6 +7441,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
  void Message::ensureSummarizeButton() const {
  	if (data()->canBeSummarized()
  		&& (context() != Context::MediaEditor)
@@ -178,7 +178,7 @@ index 64f39771725c1a6c2ad464a13bed5bff773eb987..7f9715a3ab8b2021437e206c3d6bede2
  
  	const auto cocoon = ChatHelpers::GenerateLocalTgsSticker(
 diff --git a/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp b/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
-index ce84c52ac1bdc61a0f2e0ef80c6486ac3e2203a6..38dc4fbd4491f4ea69444bd4e980a2115a13cee3 100644
+index e79572c3281a4ae4eb9acd657eac45fd6a4a834c..ec71c99e7debbbb0b520705eb179f983ddccc68f 100644
 --- a/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
 +++ b/Telegram/SourceFiles/iv/editor/iv_editor_box.cpp
 @@ -73,6 +73,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -190,7 +190,7 @@ index ce84c52ac1bdc61a0f2e0ef80c6486ac3e2203a6..38dc4fbd4491f4ea69444bd4e980a211
  #include "styles/style_chat_helpers.h"
  #include "styles/style_basic.h"
  #include "styles/style_iv.h"
-@@ -1807,7 +1809,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
+@@ -1804,7 +1806,8 @@ void WindowHost::Impl::setupWindow(ShowWindowDescriptor &&descriptor) {
  			}
  		});
  	}

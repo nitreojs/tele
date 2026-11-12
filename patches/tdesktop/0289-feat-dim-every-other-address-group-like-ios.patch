@@ -14,10 +14,10 @@ Subject: [PATCH] feat: dim every other address group like ios
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_address.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a6110c00ffd185eb4ccb93d6a38b9f9904ff90d9..f7ca41414c16554f940118228c571304321816a2 100644
+index d7ed768f8d6ad620a063c98aae927c80a72df524..af74bb7b38142b2215c9f71053300d36c9eb91b4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3044,6 +3044,8 @@ PRIVATE
+@@ -3057,6 +3057,8 @@ PRIVATE
      tele/tele_voice_fade.h
      tele/tele_voice_quality.cpp
      tele/tele_voice_quality.h
@@ -170,7 +170,7 @@ index 4baf21058eaa53b78a0aeafb3c64cb07fe54688d..8f853095811531abcc4e8602794522c2
  	_unwrappedWidth = textMaxWidth();
  	_refreshing = false;
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index cd95e98ab31e0892b7ad09c3a9865ab01d7dd028..8a28e0845dd3b2678f242e47d80b0b00b7bc9918 100644
+index 43654f48ccf4e14d69c44fba059d4a2bac339515..553cf2f5c23504954705404132076db77f7d72b3 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
 @@ -59,6 +59,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

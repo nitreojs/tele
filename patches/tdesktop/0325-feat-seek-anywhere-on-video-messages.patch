@@ -14,10 +14,10 @@ Subject: [PATCH] feat: seek anywhere on video messages
  7 files changed, 33 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 541d9c833952fba64c802cc9b8186d875f4c5f5e..aae1440898c3ea7c3597ef3a0c7bae937c6ab342 100644
+index 3d72969c9e980f86b5d1beb8e8301931959944d2..60b13d2f398e405b7df8e73f4082aaa1d1533c77 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-@@ -1797,7 +1797,8 @@ void Gif::updatePressed(QPoint point) {
+@@ -1790,7 +1790,8 @@ void Gif::updatePressed(QPoint point) {
  		} else if ((point - _seekPressPoint).manhattanLength()
  				<= QApplication::startDragDistance()) {
  			return;

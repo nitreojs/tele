@@ -21,10 +21,10 @@ Subject: [PATCH] feat: save messages as a picture
  create mode 100644 Telegram/SourceFiles/tele/tele_shot.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index ee5a91ee18e49535ac2107b31d3cc4cc05c95a9a..3b21f15ea70067fa3017a964ff8509b87ee1beda 100644
+index bb94c2bbffdf6c3b8fa00a57df83d6bd69234e67..8ecb99c27e7ad1f113cee6ada16a7e0776a629a7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2723,6 +2723,8 @@ PRIVATE
+@@ -2736,6 +2736,8 @@ PRIVATE
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -34,10 +34,10 @@ index ee5a91ee18e49535ac2107b31d3cc4cc05c95a9a..3b21f15ea70067fa3017a964ff8509b8
      tele/tele_spoilers.h
      tele/tele_time.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index d6940d6c8f4c6daddc21a8a1eb81d39c76f59f27..f7fcd3dc9c5b442cd21725165818a6748b0cf334 100644
+index d2a6bc2c2c0aa5dc3e355d321116c72e7dd98f35..5b16359564bad67695c3142ffb960187304fd907 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -139,6 +139,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -140,6 +140,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ghost.h"
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
@@ -45,7 +45,7 @@ index d6940d6c8f4c6daddc21a8a1eb81d39c76f59f27..f7fcd3dc9c5b442cd21725165818a674
  #include "tele/tele_message_menu.h"
  #include "tele/tele_options.h"
  #include "styles/style_chat.h"
-@@ -3986,6 +3987,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3938,6 +3939,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  			Menu::RateTranscribeCallbackFactory(rateTranscriptionItem)));
  	}
  
@@ -59,7 +59,7 @@ index d6940d6c8f4c6daddc21a8a1eb81d39c76f59f27..f7fcd3dc9c5b442cd21725165818a674
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index f7e8946e8c1edd55eac9c80b10a171c0934ffb29..809d1859b75161c6e16b80c35f40bf75cafeb800 100644
+index e40fea3d88836198b2865c137a5c03dd16fb3fd5..3d41bcfe0afe806236f3d1808ced7bf76fe117bd 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -119,6 +119,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70,7 +70,7 @@ index f7e8946e8c1edd55eac9c80b10a171c0934ffb29..809d1859b75161c6e16b80c35f40bf75
  #include "tele/tele_message_menu.h"
  #include "tele/tele_ghost.h"
  #include "styles/style_chat.h"
-@@ -2007,6 +2008,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2005,6 +2006,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  			InsertPollVoteRestrictionsLabel(result.get(), item, poll);
  		}
  	}
@@ -101,10 +101,10 @@ index ad70a3d0a0b179b13118ff156eb229a7eb79caf1..bf49f695e956d7ef66c6ff97bd68a7de
  
  ReplyKeyboard *Element::inlineReplyKeyboard() const {
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..d3816be8f55500d0dcaf7cf056dade77a1439d34 100644
+index c67b0b384b1a5faf33ed0cd4705b2798bec999fe..545a8cd0d03497117fa3f508c3b772a1f178cd48 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
-@@ -748,13 +748,15 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
+@@ -741,13 +741,15 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
  			_seekLastFrame = QImage();
  		}
  		auto paused = context.paused || !shouldBePlaying;
@@ -121,7 +121,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..d3816be8f55500d0dcaf7cf056dade77
  		if (isRound) {
  			if (activeRoundStreamed()) {
  				paused = false;
-@@ -763,9 +765,16 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
+@@ -756,9 +758,16 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
  			}
  			validateRoundingMask(request.outer);
  			request.mask = _roundingMask;
@@ -138,7 +138,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..d3816be8f55500d0dcaf7cf056dade77
  		if (!activeRoundPlaying && activeOwnPlaying->instance.playerLocked()) {
  			if (activeOwnPlaying->frozenFrame.isNull()) {
  				activeOwnPlaying->frozenRequest = request;
-@@ -775,7 +784,7 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
+@@ -768,7 +777,7 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
  				activeOwnPlaying->frozenRequest = request;
  				activeOwnPlaying->frozenFrame = streamed->frame(request);
  			}
@@ -147,7 +147,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..d3816be8f55500d0dcaf7cf056dade77
  		} else {
  			if (activeOwnPlaying
  				&& !activeOwnPlaying->frozenFrame.isNull()) {
-@@ -784,7 +793,7 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
+@@ -777,7 +786,7 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
  			}
  
  			const auto frame = streamed->frameWithInfo(request);
@@ -156,7 +156,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..d3816be8f55500d0dcaf7cf056dade77
  			if (_seeking) {
  				_seekLastFrame = frame.image;
  			}
-@@ -1860,11 +1869,19 @@ void Gif::drawGrouped(
+@@ -1853,11 +1862,19 @@ void Gif::drawGrouped(
  		const auto pixSize = Ui::GetImageScaleSizeForGeometry(
  			{ originalWidth, originalHeight },
  			{ scaled.width(), scaled.height() });
@@ -178,7 +178,7 @@ index 4ae0d8289c309e0ec18a70babc0dd7a587273ed3..d3816be8f55500d0dcaf7cf056dade77
  		};
  		if (activeOwnPlaying->instance.playerLocked()) {
  			if (activeOwnPlaying->frozenFrame.isNull()) {
-@@ -1875,13 +1892,13 @@ void Gif::drawGrouped(
+@@ -1868,13 +1885,13 @@ void Gif::drawGrouped(
  				activeOwnPlaying->frozenRequest = request;
  				activeOwnPlaying->frozenFrame = streamed->frame(request);
  			}

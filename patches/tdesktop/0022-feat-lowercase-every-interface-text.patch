@@ -16,10 +16,10 @@ Subject: [PATCH] feat: lowercase every interface text
  create mode 100644 Telegram/SourceFiles/tele/tele_lowercase.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c313aaee3338b5ab97313eca7eac9f6a311f25bc..71423540dc281655a0a2b592b4f396489cc788dd 100644
+index 3b05cfe8b595015aa4374ddf65880ce40ca57c67..2ffc9acc7422902ac94ef7d0d5825763b249fb6b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2649,6 +2649,8 @@ PRIVATE
+@@ -2662,6 +2662,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ignored.cpp
      tele/tele_ignored.h
@@ -29,7 +29,7 @@ index c313aaee3338b5ab97313eca7eac9f6a311f25bc..71423540dc281655a0a2b592b4f39648
      tele/tele_options.h
      tele/tele_peer_id.cpp
 diff --git a/Telegram/SourceFiles/lang/lang_instance.cpp b/Telegram/SourceFiles/lang/lang_instance.cpp
-index d91107f8cad9452d5d0bc60a8b867ad2659ce744..208e3502f460d9773bc82a36274f7aebf8f5b589 100644
+index e131bdce76b91f82421850a7d8694f44d3ba5271..76f13261af99dfe9ec59e971d00a772b95a29ddc 100644
 --- a/Telegram/SourceFiles/lang/lang_instance.cpp
 +++ b/Telegram/SourceFiles/lang/lang_instance.cpp
 @@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -39,11 +39,11 @@ index d91107f8cad9452d5d0bc60a8b867ad2659ce744..208e3502f460d9773bc82a36274f7aeb
 +#include "tele/tele_lowercase.h"
  #include "base/platform/base_platform_info.h"
  #include "base/qthelp_regex.h"
- 
-@@ -805,7 +806,7 @@ QString GetNonDefaultValue(const QByteArray &key) {
- namespace details {
+ #include "test/test_l10n_seams.h"
+@@ -807,7 +808,7 @@ namespace details {
  
  QString Current(ushort key) {
+ 	Test::NoteLangRead(key);
 -	return GetInstance().getValue(key);
 +	return Tele::Lower(GetInstance().getValue(key));
  }

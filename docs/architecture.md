@@ -67,7 +67,7 @@ details that matter when you work with it:
 - `checkout` sets `submodule.<name>.ignore=all` in every repository, so `git status` and `git commit -a` in a parent never pick up a moved submodule pointer. commit submodule changes inside the submodule.
 - re-exporting unchanged commits produces byte-identical patches: no commit hashes, no signature, no `n/m` numbering. `export` regenerates the whole `patches/` directory, so a commit inserted in the middle of the queue renumbers every patch after it.
 - patch file names come from `git format-patch`: the number plus the subject, truncated. changing a subject renames the file.
-- before applying, `apply` and `checkout` make sure a 3-way merge can find each patch's base blobs: every patch group whose repository isn't at the `UPSTREAM` tag (or, for a submodule, the commit the tag pins) is first replayed there in a temporary worktree. a shallow clone fetches that commit first.
+- before applying, `apply` and `checkout` make sure a 3-way merge can find each patch's base blobs: every patch group whose repository isn't at the `UPSTREAM` tag (or, for a submodule, the commit the tag pins) is first replayed there in a temporary worktree. a shallow clone fetches that commit first. nested submodules (such as QuickJS inside widget-sandbox) are resolved by walking their parent gitlinks.
 - the app rename touches the same lines of `Telegram/SourceFiles/core/version.h` and `Telegram/Resources/winrc/Telegram.rc` that every release bumps. `tele.py` resolves that conflict on its own: upstream's version values, tele's name values.
 - when upstream and a patch both add `#include` lines at the same spot, `tele.py` keeps both: the union of the two blocks, sorted when both were sorted. any other conflict stops the apply for a human. a file that conflicts without conflict markers (one side deleted it) is never resolved automatically.
 - on a conflict it stops and prints the failing patch, the conflicted files, the `git am` output and what to run next.
@@ -97,6 +97,10 @@ everything below is inside the patched tree (tdesktop after `tele.py checkout`),
 - `settings/settings_tele.cpp` and `.h`: the tele settings section and its pages.
 - `Telegram/CMakeLists.txt`: one `nice_target_sources(Telegram ${src_loc} ...)` block lists `settings/settings_tele.*` and every `tele/*` file. a new file has to be added there.
 - upstream files get small hunks: an include plus a call into `Tele::`.
+
+the shared QuickJS engine also carries security backports for empty argument scopes in direct eval ([Bellard's fix](https://github.com/bellard/quickjs/commit/bf164d640f8835031dbd53a0719413e7dfd0e916)) and `await using` outside async functions ([Telegram's fix](https://github.com/TelegramMessenger/quickjs/commit/ca3594dae5fd0dd6d667be74a322e8e935a2d217)), plus an eval scope-index bounds check and a missing destructuring-allocation error check. it also promotes generator references created during parameter prologues when their owner is installed, and rejects failed constant-pool allocations instead of using invalid indexes. these are patches in the nested QuickJS repository, not a replacement engine.
+
+the scope fix changes eval bytecode operands. tele uses bytecode version 30 and rejects older serialized code: regenerate QuickJS's own builtins and `gen/` files with `make codegen`, and both desktop `WidgetJS/*.qbc` bundles with widget-sandbox's `packages/tools/qjsc` built against that same patched engine. compile the bundled JavaScript with LF line endings so the `TWQB` source hashes match the resource loader. keep the generated blobs in their owning repository's patches; never commit a moved submodule pointer.
 
 ### build number
 

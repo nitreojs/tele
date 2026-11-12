@@ -122,10 +122,10 @@ index 52dfd1a3665985a4a00cb515da04aafdb5f48cbb..349e4d9b8feb36e7a64f61a982dc1ea3
  			// for, and no wait can clear it. The press goes back there once,
  			// and ends if the box is dismissed without switching: nothing
 diff --git a/Telegram/SourceFiles/wallet/wallet_content.cpp b/Telegram/SourceFiles/wallet/wallet_content.cpp
-index 9e72283e2385d9714e98ca0970eecc5db22c4e18..cd95e98ab31e0892b7ad09c3a9865ab01d7dd028 100644
+index f9f0235425e31884c83cceb7839bf3b4f01bb083..43654f48ccf4e14d69c44fba059d4a2bac339515 100644
 --- a/Telegram/SourceFiles/wallet/wallet_content.cpp
 +++ b/Telegram/SourceFiles/wallet/wallet_content.cpp
-@@ -10967,7 +10967,7 @@ void RunKeyRequiringAction(
+@@ -10986,7 +10986,7 @@ void RunKeyRequiringAction(
  		return;
  	}
  	const auto state = show->session().wallet().deviceCustodyState();
@@ -134,7 +134,7 @@ index 9e72283e2385d9714e98ca0970eecc5db22c4e18..cd95e98ab31e0892b7ad09c3a9865ab0
  		// Resolving the conflict lands no key: it drops the parked record
  		// or exports its phrase. The same press climbs this ladder again
  		// once the parked wallet is switched away, into whatever the served
-@@ -13244,7 +13244,13 @@ void WalletConflictBox(
+@@ -13263,7 +13263,13 @@ void WalletConflictBox(
  	box->addRow(
  		object_ptr<Ui::FlatLabel>(
  			box,
@@ -149,7 +149,7 @@ index 9e72283e2385d9714e98ca0970eecc5db22c4e18..cd95e98ab31e0892b7ad09c3a9865ab0
  			st::boxLabel),
  		st::boxRowPadding);
  
-@@ -13299,7 +13305,7 @@ void WalletConflictBox(
+@@ -13318,7 +13324,7 @@ void WalletConflictBox(
  			const auto switchNow = content->add(
  				object_ptr<Ui::RoundButton>(
  					content,

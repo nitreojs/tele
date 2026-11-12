@@ -32,10 +32,10 @@ Subject: [PATCH] feat: keep deleted chats and topics
  create mode 100644 Telegram/SourceFiles/tele/tele_kept_chats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9345133de580b11a9b7498f8601b34fe41310a0e..738ff67ec69478f8d65d09b82e31db14a1401bc0 100644
+index 8eeb07160961221ca363196f34bac365874af06f..27ccf698f766b4ef70372eafbd61c81872b3b416 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2824,6 +2824,8 @@ PRIVATE
+@@ -2837,6 +2837,8 @@ PRIVATE
      tele/tele_invisible.h
      tele/tele_invisible_stories.cpp
      tele/tele_invisible_stories.h
@@ -45,7 +45,7 @@ index 9345133de580b11a9b7498f8601b34fe41310a0e..738ff67ec69478f8d65d09b82e31db14
      tele/tele_kept_store.h
      tele/tele_list_keys.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 7e6c2674968f47b82a43539c01a74dd9d6ea7754..a75b3106211c53d6f6592018458382f4ed98c8ab 100644
+index d853980c0ebd93bc941911347f4269040201a2f3..e126e94eea5d48e174b04781c55ca1be5bd01a1c 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -123,7 +123,7 @@ index 88f1b313d2a28c50d20b54c0316049f84f02c0cf..b7ce6d02632fdf97b32058abec2bedc4
  		if (const auto user = peer->asUser()) {
  			if (user->requiresPremiumToWrite()
 diff --git a/Telegram/SourceFiles/data/data_forum.cpp b/Telegram/SourceFiles/data/data_forum.cpp
-index a4d4a5b3e3f05507b5f049bfb88b067408a04359..20c636270640e74e28d7f852d0c4f9f3c958ad3c 100644
+index bcf174f8a330122c2c0a9c7bfd3c6e75e1a9912d..2d04b4973acb54084b4216426963d21ef578fc89 100644
 --- a/Telegram/SourceFiles/data/data_forum.cpp
 +++ b/Telegram/SourceFiles/data/data_forum.cpp
 @@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -153,7 +153,7 @@ index a4d4a5b3e3f05507b5f049bfb88b067408a04359..20c636270640e74e28d7f852d0c4f9f3
  	_topicsDeleted.emplace(rootId);
  
 diff --git a/Telegram/SourceFiles/data/data_replies_list.cpp b/Telegram/SourceFiles/data/data_replies_list.cpp
-index ee2a4f264ff83c59a169e3dd040cff40c58f7b81..fd01b2a23767d3834065c0523df44366a992fe0b 100644
+index 048891da32cf1138ff967f7a75827616229a389d..4b17c67aa68b40a4058eef29b147eed7795be29f 100644
 --- a/Telegram/SourceFiles/data/data_replies_list.cpp
 +++ b/Telegram/SourceFiles/data/data_replies_list.cpp
 @@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -176,7 +176,7 @@ index ee2a4f264ff83c59a169e3dd040cff40c58f7b81..fd01b2a23767d3834065c0523df44366
  		|| (_list.empty() && _skippedBefore == 0 && _skippedAfter == 0)) {
  		viewer->slice.ids.clear();
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index cd96dd66002991c441a8dd466bb3b54ac4d95e16..26245045e0933ee58a1c480dd78790513f140e93 100644
+index 1b9e9664dd8c2250725fcbde3e96df0422a81062..e64c93b72001ab01d45888acc313469a8d25c2df 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
 @@ -97,6 +97,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -187,7 +187,7 @@ index cd96dd66002991c441a8dd466bb3b54ac4d95e16..26245045e0933ee58a1c480dd7879051
  #include "tele/tele_local_folders.h"
  #include "tele/tele_local_pins.h"
  
-@@ -1030,7 +1031,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
+@@ -1056,7 +1057,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
  		const auto canAddMembers = chat->canAddMembers();
  
  		chat->setName(qs(data.vtitle()));
@@ -198,7 +198,7 @@ index cd96dd66002991c441a8dd466bb3b54ac4d95e16..26245045e0933ee58a1c480dd7879051
  		chat->date = 0;
  		chat->count = -1;
  		chat->invalidateParticipants();
-@@ -1269,7 +1272,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
+@@ -1295,7 +1298,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
  		channel->setName(qs(data.vtitle()), QString());
  
  		channel->setAccessHash(data.vaccess_hash().v);
@@ -209,7 +209,7 @@ index cd96dd66002991c441a8dd466bb3b54ac4d95e16..26245045e0933ee58a1c480dd7879051
  		channel->date = 0;
  		channel->setMembersCount(0);
  
-@@ -1706,6 +1711,9 @@ History *Session::historyLoaded(const PeerData *peer) {
+@@ -1732,6 +1737,9 @@ History *Session::historyLoaded(const PeerData *peer) {
  }
  
  void Session::deleteConversationLocally(not_null<PeerData*> peer) {
@@ -219,7 +219,7 @@ index cd96dd66002991c441a8dd466bb3b54ac4d95e16..26245045e0933ee58a1c480dd7879051
  	Tgw::DeleteChatStorage(_session, peer->id);
  	const auto markLeft = [&] {
  		if (const auto channel = peer->asMegagroup()) {
-@@ -1877,6 +1885,7 @@ void Session::setupChannelLeavingViewer() {
+@@ -1903,6 +1911,7 @@ void Session::setupChannelLeavingViewer() {
  	) | rpl::map([](const PeerUpdate &update) {
  		return update.peer->asChannel();
  	}) | rpl::on_next([=](not_null<ChannelData*> channel) {
@@ -255,7 +255,7 @@ index 0e90b56544ac86fdc59922e1a2039c7bf2878867..a9974b0586c7b1c0eec3d379e95bc086
  	if (::Tele::CompactListRow(*context.st)) {
  		rectForName.setWidth(PaintWideCounter(
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index 6e0310494ba0b1d082dae53dfa7f56228f8b22b3..3aa89e14775de123e5b1064b962165d7ebedf3c8 100644
+index aa592416efbc720c7c60879a3a88606e963dc396..7cd217719e4a6ca8f0ec6a49b2d3cc363881b59f 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -306,7 +306,7 @@ index ad4c7cd66672f37fa3b553427c725deb6688c0d2..37d1503a63412c99de68ca7fc6f5f8c2
  		not_null<HistoryItem*> item,
  		int blockIndex,
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 95050555769de484505caf9df29657bde4e3a627..94beccc1d36d73dc5d5796e80bc08ef20ec5bbd5 100644
+index 66528de4a8f2c4900b13a581a828f692f4492180..12da8e0a07092405c1a2e4f003e3e2af7ae73c0d 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -193,6 +193,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -317,7 +317,7 @@ index 95050555769de484505caf9df29657bde4e3a627..94beccc1d36d73dc5d5796e80bc08ef2
  #include "tele/tele_send_order.h"
  #include "tele/tele_silent.h"
  #include "tele/tele_sticker_captions.h"
-@@ -5000,6 +5001,15 @@ void HistoryWidget::closeCurrent() {
+@@ -5001,6 +5002,15 @@ void HistoryWidget::closeCurrent() {
  }
  
  void HistoryWidget::messagesFailed(const MTP::Error &error, int requestId) {
@@ -333,7 +333,7 @@ index 95050555769de484505caf9df29657bde4e3a627..94beccc1d36d73dc5d5796e80bc08ef2
  	if (error.type() == u"CHANNEL_PRIVATE"_q
  		&& _peer->isChannel()
  		&& _peer->asChannel()->invitePeekExpires()) {
-@@ -7140,12 +7150,17 @@ bool HistoryWidget::isReportMessages() const {
+@@ -7141,12 +7151,17 @@ bool HistoryWidget::isReportMessages() const {
  }
  
  bool HistoryWidget::isBlocked() const {
@@ -353,7 +353,7 @@ index 95050555769de484505caf9df29657bde4e3a627..94beccc1d36d73dc5d5796e80bc08ef2
  	}
  	return false;
  }
-@@ -7156,6 +7171,7 @@ bool HistoryWidget::isChoosingTheme() const {
+@@ -7157,6 +7172,7 @@ bool HistoryWidget::isChoosingTheme() const {
  
  bool HistoryWidget::isMuteUnmute() const {
  	return _peer
@@ -1953,7 +1953,7 @@ index 34ff19c7ea66c508ad80b508e5f353d83eb2c2e3..0cf226459bf98c0941f0f51d5f4ebeb2
  	not_null<Main::Session*> session);
  void ClearSavedHistory(not_null<Main::Session*> session);
 diff --git a/Telegram/SourceFiles/tele/tele_menu_registry.cpp b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
-index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa318bc9cf 100644
+index 0f8f5b3eb4a4f8628529000471b2dee3ebe214b8..ceb5019d809d2aac2083d137f6276dccfc3db76c 100644
 --- a/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 +++ b/Telegram/SourceFiles/tele/tele_menu_registry.cpp
 @@ -247,6 +247,24 @@ constexpr auto kFieldText = uint32(1 << 0);
@@ -1981,7 +1981,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  [[nodiscard]] MenuItemInfo ViewTlItem(uint32 contexts = 0) {
  	return {
  		.key = u"view_as_tl"_q,
-@@ -933,6 +951,7 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -931,6 +949,7 @@ constexpr auto kFieldText = uint32(1 << 0);
  			.contexts = kUsers | kChats },
  		{ .key = u"leave"_q, .phrases = LeavePhrases(),
  			.contexts = kChats },
@@ -1989,7 +1989,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		{ .key = u"manage_topic"_q, .phrases = ManageTopicPhrases(),
  			.contexts = kTopic },
  		{ .key = u"close_topic"_q, .phrases = TopicClosePhrases(),
-@@ -941,18 +960,20 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -939,18 +958,20 @@ constexpr auto kFieldText = uint32(1 << 0);
  			P([](int) { return tr::lng_forum_topic_delete(tr::now); },
  				st::menuIconDeleteAttention),
  		}, .contexts = kTopic },
@@ -2013,7 +2013,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		"[Tools#tools:view_as_tl,mtp_inspector]"_q;
  	result.upstream = u""
  		"mute,|,"
-@@ -962,20 +983,23 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -960,20 +981,23 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"view_as_topics,manage,story_archive,support_info,boost,"
  		"create_poll,create_todo,theme,background,download_folder,"
  		"no_forwards,discussion,direct_messages,export,deleted,translate,"
@@ -2042,7 +2042,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		"view_as_tl,mtp_inspector"_q;
  	return result;
  }
-@@ -1045,6 +1069,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1043,6 +1067,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  			P([](int) { return tr::lng_forum_topic_delete(tr::now); },
  				st::menuIconDeleteAttention),
  		}, .contexts = kTopic },
@@ -2051,7 +2051,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		ViewTlItem(),
  		InspectorItem(),
  	};
-@@ -1052,21 +1078,24 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1050,21 +1076,24 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"new_window,|,"
  		"ungroup,hide_promotion,archive,pin,info,mute,mark_read,"
  		"close_topic,add_to_folder,block,ban,clear_history,delete_chat,"
@@ -2080,7 +2080,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		"view_as_tl,mtp_inspector"_q;
  	return result;
  }
-@@ -1247,8 +1276,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1245,8 +1274,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  	};
  	result.defaults = u""
  		"ttl,|,"
@@ -2091,7 +2091,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		"online_notify,peek_last_seen,pinned_bar,[For me#forme:alias,"
  		"local_name,"
  		"hidden_words,background,download_folder],|,"
-@@ -1259,7 +1288,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1257,7 +1286,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"[Tools#tools:view_as_tl,mtp_inspector]"_q;
  	result.upstream = u""
  		"ttl,|,"
@@ -2101,7 +2101,7 @@ index 762f5b47ad54d5feedda4fa4f8437c2aedb7dc49..7f4b3d2d081ba96f52afb64d28402eaa
  		"local_name,hidden_words,background,download_folder,"
  		"online_notify,peek_last_seen,pinned_bar,bot_to_group,add_members,"
  		"send_gift,"
-@@ -1273,8 +1303,8 @@ constexpr auto kFieldText = uint32(1 << 0);
+@@ -1271,8 +1301,8 @@ constexpr auto kFieldText = uint32(1 << 0);
  		"block,leave,delete_contact,delete_topic"_q;
  	result.power = u""
  		"ttl,|,"
@@ -2193,10 +2193,10 @@ index 22848ab6f11877ab1fcbbebfedda1e2262b58421..57292faadbd70dde9a809b3b22db5512
  		Toggle(kOptionDeletedIcon),
  		Toggle(kOptionDeletedOutOfLists),
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 145e9b44e78d5c53c3bec6fb821451dd1f0bbecb..2f7a2bc843c27774acb16b856d48e2e13c6041b1 100644
+index 9e831c543f213e5c9321f32efc4bd5496eb1e67d..4b9b6aa9827604ae9c2b1d999b5e7a8c13f4a051 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_changelog_chat.h"
  #include "tele/tele_chat_backgrounds.h"
  #include "tele/tele_deleted_section.h"
@@ -2204,7 +2204,7 @@ index 145e9b44e78d5c53c3bec6fb821451dd1f0bbecb..2f7a2bc843c27774acb16b856d48e2e1
  #include "tele/tele_download_folders.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_hidden_words.h"
-@@ -1957,6 +1958,7 @@ void Filler::fillContextMenuActions() {
+@@ -1958,6 +1959,7 @@ void Filler::fillContextMenuActions() {
  	addDeleteChat();
  	addLeaveChat();
  	addDeleteTopic();
@@ -2212,7 +2212,7 @@ index 145e9b44e78d5c53c3bec6fb821451dd1f0bbecb..2f7a2bc843c27774acb16b856d48e2e1
  }
  
  void Filler::fillHistoryActions() {
-@@ -1993,6 +1995,7 @@ void Filler::fillHistoryActions() {
+@@ -1994,6 +1996,7 @@ void Filler::fillHistoryActions() {
  	addClearHistory();
  	addDeleteChat();
  	addLeaveChat();
@@ -2220,7 +2220,7 @@ index 145e9b44e78d5c53c3bec6fb821451dd1f0bbecb..2f7a2bc843c27774acb16b856d48e2e1
  }
  
  void Filler::fillProfileActions() {
-@@ -2047,6 +2050,7 @@ void Filler::fillRepliesActions() {
+@@ -2048,6 +2051,7 @@ void Filler::fillRepliesActions() {
  	addCreateTodoList();
  	addToggleTopicClosed();
  	addDeleteTopic();
@@ -2228,7 +2228,7 @@ index 145e9b44e78d5c53c3bec6fb821451dd1f0bbecb..2f7a2bc843c27774acb16b856d48e2e1
  }
  
  void Filler::fillScheduledActions() {
-@@ -2352,6 +2356,7 @@ void PeerMenuDeleteTopic(
+@@ -2353,6 +2357,7 @@ void PeerMenuDeleteTopic(
  		if (offset > 0) {
  			PeerMenuDeleteTopic(navigation, peer, rootId);
  		} else if (const auto forum = peer->forum()) {
@@ -2236,7 +2236,7 @@ index 145e9b44e78d5c53c3bec6fb821451dd1f0bbecb..2f7a2bc843c27774acb16b856d48e2e1
  			forum->applyTopicDeleted(rootId);
  		}
  	}).send();
-@@ -2360,6 +2365,9 @@ void PeerMenuDeleteTopic(
+@@ -2361,6 +2366,9 @@ void PeerMenuDeleteTopic(
  void PeerMenuDeleteTopic(
  		not_null<Window::SessionNavigation*> navigation,
  		not_null<Data::ForumTopic*> topic) {

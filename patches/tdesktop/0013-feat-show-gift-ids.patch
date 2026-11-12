@@ -17,10 +17,10 @@ Subject: [PATCH] feat: show gift ids
  create mode 100644 Telegram/SourceFiles/tele/tele_gifts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index fe7d6cf3971e61118a3e96bf5e4bcacc0e9bc6f0..15f7c352ac86bb3fb98f8001c8262965b068ad6e 100644
+index 74687a9a0651ce32ec5660e343f2648426a969e3..1ac41831f3f4f70980b4a37aa01d185eaf10dd87 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2639,6 +2639,8 @@ PRIVATE
+@@ -2652,6 +2652,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -30,7 +30,7 @@ index fe7d6cf3971e61118a3e96bf5e4bcacc0e9bc6f0..15f7c352ac86bb3fb98f8001c8262965
      tele/tele_options.h
      tele/tele_shortcuts.cpp
 diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-index 7451879230636b39abe45e14e9a732749c3eac01..db8da85a8b3ef242573ef5104fb13bfbf650e42f 100644
+index a49bf7288706c534a3760c806fcc984704ca4aac..db08ae30662372c6ce8b9b6399802e2b4ba65411 100644
 --- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 +++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 @@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,7 +41,7 @@ index 7451879230636b39abe45e14e9a732749c3eac01..db8da85a8b3ef242573ef5104fb13bfb
  #include "ui/basic_click_handlers.h" // UrlClickHandler::Open.
  #include "ui/boxes/boost_box.h" // StartFireworks.
  #include "ui/boxes/confirm_box.h"
-@@ -1513,6 +1514,7 @@ void AddStarGiftTable(
+@@ -1511,6 +1512,7 @@ void AddStarGiftTable(
  		&& (entry.in || entry.bareGiftOwnerId == selfBareId);
  	const auto giftToChannel = entry.giftChannelSavedId
  		&& peerIsChannel(PeerId(entry.bareEntryOwnerId));

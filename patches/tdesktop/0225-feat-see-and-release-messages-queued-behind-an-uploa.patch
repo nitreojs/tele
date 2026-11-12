@@ -13,10 +13,10 @@ Subject: [PATCH] feat: see and release messages queued behind an upload
  6 files changed, 172 insertions(+), 7 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index ffb53c8f88300899881f6aa76f6646a6eac03227..05d0f29c2799ae08135d0adc2a85f6d99f89c9b2 100644
+index 2602b3345c92927df64bc2d6ed0b540b2ed5f8b7..0afaf2706f391746210fa7b86a5738d16692a490 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -150,6 +150,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -151,6 +151,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_rich_quote.h"
  #include "tele/tele_rmb_beside_bubble.h"
  #include "tele/tele_select_service.h"
@@ -24,7 +24,7 @@ index ffb53c8f88300899881f6aa76f6646a6eac03227..05d0f29c2799ae08135d0adc2a85f6d9
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -4026,6 +4027,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3978,6 +3979,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		_menu.get(),
  		controller,
  		(isUponSelected != -2) ? _dragStateItem : nullptr);
@@ -35,7 +35,7 @@ index ffb53c8f88300899881f6aa76f6646a6eac03227..05d0f29c2799ae08135d0adc2a85f6d9
  		_menu.get(),
  		controller->uiShow(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index 83a6eeefe849d4e0b7c431edcf9709b50738b8c7..36a64bf8891ca1c7cca0e602881d7838c904b87e 100644
+index c51f2ac2c30e2e76d31f5693be87b0e1d6335c9b..85097afbeadcd38392c5a6663d419f9f6a2168e2 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -46,7 +46,7 @@ index 83a6eeefe849d4e0b7c431edcf9709b50738b8c7..36a64bf8891ca1c7cca0e602881d7838
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_layers.h"
-@@ -2033,6 +2034,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
+@@ -2031,6 +2032,7 @@ base::unique_qptr<Ui::PopupMenu> FillContextMenu(
  	Tele::AddShotAction(result.get(), list, request);
  	Tele::AddRetryFailedActions(result.get(), item);
  	Tele::AddResendAsGifAction(result.get(), list->controller(), item);

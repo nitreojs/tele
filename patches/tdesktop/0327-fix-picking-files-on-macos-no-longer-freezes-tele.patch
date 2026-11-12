@@ -13,10 +13,10 @@ Subject: [PATCH] fix: picking files on macos no longer freezes tele
  create mode 100644 Telegram/SourceFiles/tele/tele_file_dialog.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 5eb5a6351b5f3435a60fe40e33c5f27714ea2d5c..086c2e30a57067e44ccd405e81ae4251dcafd344 100644
+index 238e4d73890dbbec501608a052f5ac1859e54b88..81e8b6e00d492e36c00b4afd10b8551afa6fca74 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2847,6 +2847,8 @@ PRIVATE
+@@ -2860,6 +2860,8 @@ PRIVATE
      tele/tele_failed_sends.h
      tele/tele_field_resize.cpp
      tele/tele_field_resize.h

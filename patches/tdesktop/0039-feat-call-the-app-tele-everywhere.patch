@@ -15,17 +15,17 @@ Subject: [PATCH] feat: call the app tele everywhere
  .../SourceFiles/platform/mac/specific_mac.mm  |  4 +-
  .../platform/mac/window_title_mac.mm          |  4 +-
  .../SourceFiles/platform/win/specific_win.cpp |  8 +-
- Telegram/SourceFiles/tele/tele_app_name.cpp   | 79 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_app_name.cpp   | 78 +++++++++++++++++++
  Telegram/SourceFiles/tele/tele_app_name.h     |  7 ++
- 13 files changed, 120 insertions(+), 30 deletions(-)
+ 13 files changed, 119 insertions(+), 30 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_app_name.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_app_name.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 70d3943c8d7be30a88b404731916adc1de5b11d5..ddb7b4965363689b2668ef9639e27dc3ad4b349c 100644
+index be068ed0d075c1cd19224b552908aebe05fc2de8..148d26372ee42b83866b51636009cc18f7be4228 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2631,6 +2631,8 @@ PRIVATE
+@@ -2644,6 +2644,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_account_badges.cpp
      tele/tele_account_badges.h
@@ -35,7 +35,7 @@ index 70d3943c8d7be30a88b404731916adc1de5b11d5..ddb7b4965363689b2668ef9639e27dc3
      tele/tele_badges.h
      tele/tele_build.cpp
 diff --git a/Telegram/SourceFiles/core/crash_report_window.cpp b/Telegram/SourceFiles/core/crash_report_window.cpp
-index 13bb6dbb47c6a4de4aef8551d8625a7d68d6b7b9..2c8f97b42226866491a654ee60538a3116248e6b 100644
+index 10a56f90aa493905f382dfe076f2debc97a4d9b2..5da92c208378927dae5b1878d8c7b5ae92c27ad5 100644
 --- a/Telegram/SourceFiles/core/crash_report_window.cpp
 +++ b/Telegram/SourceFiles/core/crash_report_window.cpp
 @@ -17,6 +17,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -148,7 +148,7 @@ index 64b29d8819fc72e23fcebec940d5f64ee569edcd..4624f378f6aa07c99e78ffd6ea8721a7
  
  	const auto wrapReplyToLink = [&](const QByteArray &text) {
 diff --git a/Telegram/SourceFiles/lang/lang_instance.cpp b/Telegram/SourceFiles/lang/lang_instance.cpp
-index 208e3502f460d9773bc82a36274f7aebf8f5b589..9de52ee1a37e686528037df0af90c80a07f1caf2 100644
+index 76f13261af99dfe9ec59e971d00a772b95a29ddc..53635ce8350466015c27a28efb64bbad74432408 100644
 --- a/Telegram/SourceFiles/lang/lang_instance.cpp
 +++ b/Telegram/SourceFiles/lang/lang_instance.cpp
 @@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -159,10 +159,10 @@ index 208e3502f460d9773bc82a36274f7aebf8f5b589..9de52ee1a37e686528037df0af90c80a
  #include "tele/tele_lowercase.h"
  #include "base/platform/base_platform_info.h"
  #include "base/qthelp_regex.h"
-@@ -806,7 +807,7 @@ QString GetNonDefaultValue(const QByteArray &key) {
- namespace details {
+@@ -808,7 +809,7 @@ namespace details {
  
  QString Current(ushort key) {
+ 	Test::NoteLangRead(key);
 -	return Tele::Lower(GetInstance().getValue(key));
 +	return Tele::Lower(Tele::AppName(key, GetInstance().getValue(key)));
  }
@@ -313,10 +313,10 @@ index ba7f267b6d8c1c0f600d82d9a9226bfbc323da42..3ba85430d3b170009cfe6d68ea739b61
  // Stub while we still support Windows 7.
 diff --git a/Telegram/SourceFiles/tele/tele_app_name.cpp b/Telegram/SourceFiles/tele/tele_app_name.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..c9ca7e9880e9eb54623da9441a75fa65e3e4e3fd
+index 0000000000000000000000000000000000000000..960e88b84b93dc7e8be11344bdfd23601babe52e
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_app_name.cpp
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,78 @@
 +#include "tele/tele_app_name.h"
 +
 +#include "lang/lang_keys.h"
@@ -356,7 +356,6 @@ index 0000000000000000000000000000000000000000..c9ca7e9880e9eb54623da9441a75fa65
 +		tr::lng_unsupported_message_text.base,
 +		tr::lng_unsupported_block_text.base,
 +		tr::lng_bot_share_location_unavailable.base,
-+		tr::lng_gift_transfer_unlocks_update_about.base,
 +		tr::lng_new_version_wrap.base,
 +		tr::lng_theme_editor_need_unlock.base,
 +		tr::lng_group_call_mac_access.base,

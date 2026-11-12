@@ -14,10 +14,10 @@ Subject: [PATCH] feat: remember when your messages were read
  create mode 100644 Telegram/SourceFiles/tele/tele_read_log.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 788f3c176a83ef424281b1860f14777af266ba82..b8aedbb49511b8d89e806047c988ce866bffa841 100644
+index 55e600319151bd572d76ae0703b58a001594ad87..e8bebf875854c15e0bf676c6f245089be52fab5b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2779,6 +2779,8 @@ PRIVATE
+@@ -2792,6 +2792,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h
@@ -27,7 +27,7 @@ index 788f3c176a83ef424281b1860f14777af266ba82..b8aedbb49511b8d89e806047c988ce86
      tele/tele_recent_emoji.h
      tele/tele_rich_timestamps.cpp
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index 8f6b5021803f2bbe0edda0a241772085848a5118..440237caadd132922105218947d35f31b09e196a 100644
+index f52a3d6caaf263b26a7376db820e5d53f9e60cfc..75026bbac4f9b0a0bb71b469aac8e5a0c2be26a1 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -88,6 +88,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -47,7 +47,7 @@ index 8f6b5021803f2bbe0edda0a241772085848a5118..440237caadd132922105218947d35f31
  	} else {
  		_outboxReadBefore = upTo + 1;
 diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
-index a72769edf0d91d4aab50b6eb061c9e7e41044074..0ff123a610dc670a92be9e06763267a0a65c008e 100644
+index fef4994a294430264787a1db9aad0ac5d0ef70b6..d3fc23ddcc3de9861cb3f7939674016b4fd5c09d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
 @@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -58,7 +58,7 @@ index a72769edf0d91d4aab50b6eb061c9e7e41044074..0ff123a610dc670a92be9e06763267a0
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
  #include "styles/style_layers.h"
-@@ -2632,7 +2633,11 @@ void AddWhoReactedAction(
+@@ -2630,7 +2631,11 @@ void AddWhoReactedAction(
  			false);
  		menu->addAction(Ui::WhenReadContextAction(
  			menu.get(),
@@ -71,7 +71,7 @@ index a72769edf0d91d4aab50b6eb061c9e7e41044074..0ff123a610dc670a92be9e06763267a0
  			showOrPremium));
  	} else {
  		menu->addAction(Ui::WhoReactedContextAction(
-@@ -2654,7 +2659,16 @@ void MaybeAddWhenEditedForwardedAction(
+@@ -2652,7 +2657,16 @@ void MaybeAddWhenEditedForwardedAction(
  		not_null<Ui::PopupMenu*> menu,
  		not_null<HistoryItem*> item,
  		not_null<Window::SessionController*> controller) {
