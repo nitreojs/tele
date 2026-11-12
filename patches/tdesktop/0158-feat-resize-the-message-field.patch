@@ -11,12 +11,12 @@ Subject: [PATCH] feat: resize the message field
  .../controls/history_view_compose_controls.h  |   2 +
  .../view/history_view_chat_section.cpp        |   5 +-
  .../SourceFiles/settings/settings_tele.cpp    |   4 +
- .../SourceFiles/tele/tele_field_resize.cpp    | 253 ++++++++++++++++++
- Telegram/SourceFiles/tele/tele_field_resize.h |  65 +++++
+ .../SourceFiles/tele/tele_field_resize.cpp    | 271 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_field_resize.h |  67 +++++
  Telegram/SourceFiles/tele/tele_options.cpp    |  38 +++
  Telegram/SourceFiles/tele/tele_options.h      |   7 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   2 +
- 12 files changed, 448 insertions(+), 11 deletions(-)
+ 12 files changed, 468 insertions(+), 11 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_field_resize.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_field_resize.h
 
@@ -304,10 +304,10 @@ index 2845dd7216774fbe76313cee92d5f59b006e6e79..90f267e598e63d2c3cddb61d8dee0dcf
  		::Tele::kOptionNoRichPastePrompt,
 diff --git a/Telegram/SourceFiles/tele/tele_field_resize.cpp b/Telegram/SourceFiles/tele/tele_field_resize.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..b903ee1f313081103481ba87a03c714368a7d7d3
+index 0000000000000000000000000000000000000000..0b6902a64729448cbb4977ab779136a1aea2a9b6
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_field_resize.cpp
-@@ -0,0 +1,253 @@
+@@ -0,0 +1,271 @@
 +#include "tele/tele_field_resize.h"
 +
 +#include "tele/tele_options.h"
@@ -347,12 +347,30 @@ index 0000000000000000000000000000000000000000..b903ee1f313081103481ba87a03c7143
 +
 +} // namespace
 +
++class FieldResizeHandle final : public Ui::RpWidget {
++public:
++	using Ui::RpWidget::RpWidget;
++
++	void toggle(bool allowed) {
++		_allowed = allowed;
++		setVisible(allowed);
++	}
++
++protected:
++	void setVisibleHook(bool visible) override {
++		Ui::RpWidget::setVisibleHook(visible && _allowed);
++	}
++
++private:
++	bool _allowed = false;
++};
++
 +FieldResize::FieldResize(FieldResizeDescriptor &&descriptor)
 +: _parent(descriptor.parent)
 +, _field(descriptor.field)
 +, _apply(std::move(descriptor.apply))
 +, _max(st::historyComposeFieldMaxHeight)
-+, _handle(base::make_unique_q<Ui::RpWidget>(_parent)) {
++, _handle(base::make_unique_q<FieldResizeHandle>(_parent)) {
 +	if (const auto above = descriptor.above) {
 +		_handle->stackUnder(above);
 +		above->stackUnder(_handle.get());
@@ -407,7 +425,7 @@ index 0000000000000000000000000000000000000000..b903ee1f313081103481ba87a03c7143
 +		std::move(shown),
 +		ResizableFieldValue()
 +	) | rpl::on_next([=](bool shown, bool enabled) {
-+		handle->setVisible(shown && enabled);
++		handle->toggle(shown && enabled);
 +	}, handle->lifetime());
 +
 +	handle->paintRequest() | rpl::on_next([=] {
@@ -563,10 +581,10 @@ index 0000000000000000000000000000000000000000..b903ee1f313081103481ba87a03c7143
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/tele/tele_field_resize.h b/Telegram/SourceFiles/tele/tele_field_resize.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..b9fbe96c38341f87dc6d4f29214cf21c8447c0cc
+index 0000000000000000000000000000000000000000..285745d4b6c26d984730f0046a4a4a3fd2be40ce
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_field_resize.h
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,67 @@
 +#pragma once
 +
 +#include "base/unique_qptr.h"
@@ -577,6 +595,8 @@ index 0000000000000000000000000000000000000000..b9fbe96c38341f87dc6d4f29214cf21c
 +} // namespace Ui
 +
 +namespace Tele {
++
++class FieldResizeHandle;
 +
 +struct FieldResizeDescriptor {
 +	not_null<Ui::RpWidget*> parent;
@@ -609,7 +629,7 @@ index 0000000000000000000000000000000000000000..b9fbe96c38341f87dc6d4f29214cf21c
 +	const not_null<Ui::RpWidget*> _parent;
 +	const not_null<Ui::InputField*> _field;
 +	const Fn<void()> _apply;
-+	base::unique_qptr<Ui::RpWidget> _handle;
++	base::unique_qptr<FieldResizeHandle> _handle;
 +	int _max = 0;
 +	int _appliedChosen = 0;
 +	int _dragStartY = 0;

@@ -5,6 +5,7 @@ Subject: [PATCH] feat: show the last activity next to a hidden last seen
 
 ---
  Telegram/CMakeLists.txt                       |   2 +
+ Telegram/SourceFiles/api/api_who_reacted.cpp  |  12 +
  .../data/data_message_reactions.cpp           |   5 +
  Telegram/SourceFiles/data/data_user.cpp       |   2 +
  .../view/history_view_top_bar_widget.cpp      |   6 +-
@@ -16,7 +17,7 @@ Subject: [PATCH] feat: show the last activity next to a hidden last seen
  Telegram/SourceFiles/tele/tele_options.cpp    |  22 ++
  Telegram/SourceFiles/tele/tele_options.h      |   3 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
- 12 files changed, 376 insertions(+), 2 deletions(-)
+ 13 files changed, 388 insertions(+), 2 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_observed_activity.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_observed_activity.h
 
@@ -33,6 +34,36 @@ index 7088f258fb170e6bcd4e7b29ebe8faa5092c056f..31a4a117331536aa90afaf28cb438591
      tele/tele_online_notify.cpp
      tele/tele_online_notify.h
      tele/tele_onlines.cpp
+diff --git a/Telegram/SourceFiles/api/api_who_reacted.cpp b/Telegram/SourceFiles/api/api_who_reacted.cpp
+index 45c6a87bd62119aacf9639fcf6e035a7c570a1b0..763be684e106445c47b6c760d7f3bdcb565f48ee 100644
+--- a/Telegram/SourceFiles/api/api_who_reacted.cpp
++++ b/Telegram/SourceFiles/api/api_who_reacted.cpp
+@@ -29,6 +29,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/controls/who_reacted_context_action.h"
+ #include "apiwrap.h"
+ #include "tele/tele_who_reacted.h"
++#include "tele/tele_observed_activity.h"
++#include "tele/tele_options.h"
+ #include "styles/style_chat_helpers.h"
+ 
+ namespace Api {
+@@ -670,6 +672,16 @@ rpl::producer<Ui::WhoReadContent> WhoReacted(
+ 			state->current.state = peers.state;
+ 			state->current.fullReadCount = int(peers.read.size());
+ 			state->current.fullReactionsCount = peers.fullReactionsCount;
++			if (Tele::ObservedActivity()) {
++				const auto &owner = item->history()->owner();
++				for (const auto &read : peers.read) {
++					if (const auto peer = owner.peerLoaded(read.peer)) {
++						if (const auto user = peer->asUser()) {
++							Tele::NoteActivity(user, read.date);
++						}
++					}
++				}
++			}
+ 			if (whoReadIds) {
+ 				const auto reacted = peers.list.size() - ranges::count(
+ 					peers.list,
 diff --git a/Telegram/SourceFiles/data/data_message_reactions.cpp b/Telegram/SourceFiles/data/data_message_reactions.cpp
 index 5f1328451c1e443f351a01d08aefb905966ed7fb..190bb73e5f5dd4c5ccf43981895559db6e6ea812 100644
 --- a/Telegram/SourceFiles/data/data_message_reactions.cpp
