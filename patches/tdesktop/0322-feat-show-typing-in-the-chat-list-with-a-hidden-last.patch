@@ -12,7 +12,7 @@ Subject: [PATCH] feat: show typing in the chat list with a hidden last seen
  5 files changed, 20 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index 90e8ac8f533b085bcc1e2d11f98fbe34fcaf189f..2ed8b562658709d628e9e32cfe765322e2bcaf96 100644
+index bee3b3cfe6a062258b5c903621d4f96666ea792e..afae67879604379e055a2ba9cf6503a089cb30ba 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

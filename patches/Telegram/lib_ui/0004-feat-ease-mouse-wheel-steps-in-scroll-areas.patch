@@ -16,7 +16,7 @@ Subject: [PATCH] feat: ease mouse wheel steps in scroll areas
  create mode 100644 ui/widgets/smooth_wheel.h
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 6b81a56e9fd12e708876280027b0f0b6f283d542..1c4f5b5324fc648f03595f5856d0e07390bb8a58 100644
+index dabc463a97305d031205635fabfb27c1beafaf4a..7cc4abff5f487ac198b2d10a771eb2b57ec1a74a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -279,6 +279,8 @@ PRIVATE

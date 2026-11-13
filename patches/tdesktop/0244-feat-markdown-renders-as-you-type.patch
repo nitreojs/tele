@@ -21,10 +21,10 @@ Subject: [PATCH] feat: markdown renders as you type
  create mode 100644 Telegram/SourceFiles/tele/tele_live_markdown.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1e12e5cf12ffa27de3c1163933140006f4879628..ccf535d59e5db350496f4f8a21296ebc570bafc7 100644
+index e81eb924b35843e1defa8397c69ca2f233bd9a5c..92e9a232d3ed52d44dbb938d9bc0ca7bacf59ee3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2891,6 +2891,8 @@ PRIVATE
+@@ -2901,6 +2901,8 @@ PRIVATE
      tele/tele_list_dates.h
      tele/tele_list_previews.cpp
      tele/tele_list_previews.h
@@ -81,7 +81,7 @@ index b9d33d7db237ec6cc6207a52f70fcbf36b3ec12c..81a649ba1af2732354c8b6cef728f820
  		closeAfterSave();
  		return;
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index 445019ab8f993d50a7c3e62acde64f72e4478b0a..f74d5b39b1f8c8f2397660c998f5b668c5b37646 100644
+index 5755a3a1ce215b9edac550474d8a589ac3792864..3dbb6d0a7c7c7f7aa8d8f8e19da4afa76bdda3a8 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -92,7 +92,7 @@ index 445019ab8f993d50a7c3e62acde64f72e4478b0a..f74d5b39b1f8c8f2397660c998f5b668
  #include "tele/tele_audio_voice.h"
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_link_rewrites.h"
-@@ -254,6 +255,7 @@ void EditFileCaptionBox(
+@@ -258,6 +259,7 @@ void EditFileCaptionBox(
  				.allowPremiumEmoji = allow,
  				.fieldStyle = &st.files.caption,
  			});
@@ -100,7 +100,7 @@ index 445019ab8f993d50a7c3e62acde64f72e4478b0a..f74d5b39b1f8c8f2397660c998f5b668
  			const auto aiButton = Ui::SetupCaptionAiButton({
  				.parent = field->parentWidget(),
  				.field = field,
-@@ -276,7 +278,7 @@ void EditFileCaptionBox(
+@@ -280,7 +282,7 @@ void EditFileCaptionBox(
  		field->setFocusFast();
  	});
  	const auto save = [=] {
@@ -109,7 +109,7 @@ index 445019ab8f993d50a7c3e62acde64f72e4478b0a..f74d5b39b1f8c8f2397660c998f5b668
  		if (!apply(text)) {
  			return;
  		}
-@@ -2321,6 +2323,7 @@ void SendFilesBox::setupCaption() {
+@@ -2325,6 +2327,7 @@ void SendFilesBox::setupCaption() {
  		.allowPremiumEmoji = allow,
  		.fieldStyle = &_st.files.caption,
  	});
@@ -117,7 +117,7 @@ index 445019ab8f993d50a7c3e62acde64f72e4478b0a..f74d5b39b1f8c8f2397660c998f5b668
  	setupCaptionAutocomplete();
  	Ui::Emoji::SuggestionsController::Init(
  		getDelegate()->outerContainer(),
-@@ -2447,7 +2450,7 @@ void SendFilesBox::setupCaptionAutocomplete() {
+@@ -2451,7 +2454,7 @@ void SendFilesBox::setupCaptionAutocomplete() {
  
  TextWithTags SendFilesBox::fieldText() const {
  	return !_caption->isHidden()
@@ -149,7 +149,7 @@ index 20029075a625f64d37dfe0cef4f8182441daee47..3d84e49aed3d177a9265c2dc7e8e4646
  }
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2c27956c4 100644
+index 93ea8ba104d88eaa8c446514f8905f289e2c3dc2..e06101acec02370525bb2926841a0271abcd1426 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -177,6 +177,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -195,7 +195,7 @@ index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2
  		}),
  		crl::guard(this, [=] {
  			migrateFieldToRichEditor();
-@@ -5727,7 +5729,7 @@ void HistoryWidget::windowIsVisibleChanged() {
+@@ -5731,7 +5733,7 @@ void HistoryWidget::windowIsVisibleChanged() {
  }
  
  TextWithEntities HistoryWidget::prepareTextForEditMsg() const {
@@ -204,7 +204,7 @@ index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2
  	const auto prepareFlags = Ui::ItemTextOptions(
  		_history,
  		session().user()).flags;
-@@ -6094,7 +6096,7 @@ void HistoryWidget::send(Api::SendOptions options) {
+@@ -6098,7 +6100,7 @@ void HistoryWidget::send(Api::SendOptions options) {
  		auto action = Api::SendAction(_history, options);
  		action.replyTo = replyTo();
  		auto message = Api::MessageToSend(std::move(action));
@@ -213,7 +213,7 @@ index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2
  		if (!session().ephemeralMessages().wouldSend(message)
  			&& showSlowmodeError()) {
  			return;
-@@ -6106,7 +6108,7 @@ void HistoryWidget::send(Api::SendOptions options) {
+@@ -6110,7 +6112,7 @@ void HistoryWidget::send(Api::SendOptions options) {
  	}
  
  	sendTextWithTags(
@@ -222,7 +222,7 @@ index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2
  		true,
  		options,
  		nullptr);
-@@ -6351,7 +6353,7 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
+@@ -6355,7 +6357,7 @@ void HistoryWidget::sendScheduled(Api::SendOptions initialOptions) {
  	if (shownRichMessage()
  		? showSendRichDraftError(ignoreSlowmodeCountdown)
  		: showSendMessageError(
@@ -232,10 +232,10 @@ index 283b6de811cd6b271bdf57a95d3892d445033734..de1edd86f745c6651362f1ed765137e2
  		return;
  	}
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 41627445fcc5d85e7fd0f6964ccaa901125be43a..5b5c401dec451b1f84666e27ff63bb9b09785b53 100644
+index 88e1c89581a952e3ecd6c74fb2a64bde5fdeffee..c4e1757b95115ad473cb82c39933cf081f950797 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_calcmula_inline.h"
  #include "tele/tele_link_previews.h"
@@ -243,7 +243,7 @@ index 41627445fcc5d85e7fd0f6964ccaa901125be43a..5b5c401dec451b1f84666e27ff63bb9b
  #include "tele/tele_translate_out.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_rich_quote.h"
-@@ -2582,7 +2583,7 @@ void ComposeControls::showForGrab() {
+@@ -2599,7 +2600,7 @@ void ComposeControls::showForGrab() {
  }
  
  TextWithTags ComposeControls::getTextWithAppliedMarkdown() const {
@@ -252,7 +252,7 @@ index 41627445fcc5d85e7fd0f6964ccaa901125be43a..5b5c401dec451b1f84666e27ff63bb9b
  }
  
  void ComposeControls::clear(bool keepReply) {
-@@ -3448,6 +3449,7 @@ void ComposeControls::initField() {
+@@ -3469,6 +3470,7 @@ void ComposeControls::initField() {
  		}
  		return false;
  	});

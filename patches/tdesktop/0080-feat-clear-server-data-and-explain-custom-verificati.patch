@@ -17,10 +17,10 @@ Subject: [PATCH] feat: clear server data and explain custom verifications
  create mode 100644 Telegram/SourceFiles/tele/tele_verify_details.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2eb2269d230bd9d128ace00e59bd96367e15cd1f..89e24e7a9a8f965f657b6a7e253d0ca6517f6f6b 100644
+index de85b4a2f9c8e79bcde2e54ea40f485ef9907aad..78759917ecea61957021ebeab600f5325f5a12a5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2743,6 +2743,8 @@ PRIVATE
+@@ -2753,6 +2753,8 @@ PRIVATE
      tele/tele_uploads.h
      tele/tele_username_aliases.cpp
      tele/tele_username_aliases.h
@@ -54,7 +54,7 @@ index 428002b192b22f5edac0b7bb3a2e853c55027daa..eec70050dc2d122db0413d35545cb0a6
  
  void DetailsFiller::addManagedBotFooter(not_null<UserData*> managerUser) {
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index 75721e6058581bfc8fa0127291148e1ff627ee6a..26e5b695b40a5e52240c69b840f4925ff720d6f7 100644
+index 6ea44f135ae4496c8b60856b758e0c6988dcc7ff..63942aadbaa215066fed8b6ffb091efe1d17cae8 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

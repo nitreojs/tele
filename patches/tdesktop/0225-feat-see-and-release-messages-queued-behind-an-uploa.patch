@@ -13,7 +13,7 @@ Subject: [PATCH] feat: see and release messages queued behind an upload
  6 files changed, 172 insertions(+), 7 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 2602b3345c92927df64bc2d6ed0b540b2ed5f8b7..0afaf2706f391746210fa7b86a5738d16692a490 100644
+index 2275d1ee87bd8a2d7fcec547e44ca076c12ee2fc..9c314efc8a9647ad2fefdf092dcc78b2c0819142 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -151,6 +151,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -24,7 +24,7 @@ index 2602b3345c92927df64bc2d6ed0b540b2ed5f8b7..0afaf2706f391746210fa7b86a5738d1
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -3978,6 +3979,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3985,6 +3986,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		_menu.get(),
  		controller,
  		(isUponSelected != -2) ? _dragStateItem : nullptr);

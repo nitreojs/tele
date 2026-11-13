@@ -13,10 +13,10 @@ Subject: [PATCH] feat: hide and show the pinned bar from the chat menu
  create mode 100644 Telegram/SourceFiles/tele/tele_show_pinned.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3ae551d23c10d0294c3ef5c354c9e0cd332ba3bf..6ffd62bf9d9f8eebfbda95d75c1fe49d371a09c6 100644
+index df9fb4e688a6c1f6786a772f683ecadf9dbd742d..9d64d37c9181d747bfa50d8e1654bda724debd0f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2804,6 +2804,8 @@ PRIVATE
+@@ -2814,6 +2814,8 @@ PRIVATE
      tele/tele_shot.h
      tele/tele_shot_sharp.cpp
      tele/tele_shot_sharp.h

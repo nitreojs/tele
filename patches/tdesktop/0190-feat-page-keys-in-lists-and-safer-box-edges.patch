@@ -17,10 +17,10 @@ Subject: [PATCH] feat: page keys in lists and safer box edges
  create mode 100644 Telegram/SourceFiles/tele/tele_list_keys.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 92f2e936d16ec51a8387eed2042f7af1ff2eecff..0abb06856e75cf13ab5b00c792aa6ab8a3908b27 100644
+index 2c6f19b223e90f8a15c6a1d35fb2461481d56adf..d4a1b201d4254817bf8ad60e57b639c8756d9701 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2762,6 +2762,8 @@ PRIVATE
+@@ -2772,6 +2772,8 @@ PRIVATE
      tele/tele_inline_via.h
      tele/tele_kept_store.cpp
      tele/tele_kept_store.h

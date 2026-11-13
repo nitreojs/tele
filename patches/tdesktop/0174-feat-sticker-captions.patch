@@ -26,10 +26,10 @@ Subject: [PATCH] feat: sticker captions
  create mode 100644 Telegram/SourceFiles/tele/tele_sticker_captions.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index dda76008ca626cbcfe8c73d374162ecbad2665f8..3fda45bb94746b5965850aff643511dd11158326 100644
+index 3a2153ce9da18512304ca5c910b07f93c3112b46..6bb7f88c074a01daf336ae699acea5846ee16611 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2852,6 +2852,8 @@ PRIVATE
+@@ -2862,6 +2862,8 @@ PRIVATE
      tele/tele_silent.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h
@@ -130,7 +130,7 @@ index 34dc171fc4b3a02c5db60a47365bb06202fc9858..5d842570eee83afacb2d4ffa70668db1
  
  bool MediaFile::allowsEditMedia() const {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 1e1cc9ed7caa2d8f6a8b670361fd2f0d8155b0ad..1393c3d341ba58e62c3fdb4eb3ff752fae3b72d5 100644
+index 36aea98484a87804f55fdf420d9b00fd590aea28..733200e2e49ce8919022d52a37d1523aee76c204 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -190,6 +190,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -141,7 +141,7 @@ index 1e1cc9ed7caa2d8f6a8b670361fd2f0d8155b0ad..1393c3d341ba58e62c3fdb4eb3ff752f
  #include "tele/tele_username_aliases.h"
  #include "tele/tele_options.h"
  #include "media/audio/media_audio.h"
-@@ -10588,12 +10589,22 @@ bool HistoryWidget::sendExistingDocument(
+@@ -10596,12 +10597,22 @@ bool HistoryWidget::sendExistingDocument(
  		}
  	}
  
@@ -166,10 +166,10 @@ index 1e1cc9ed7caa2d8f6a8b670361fd2f0d8155b0ad..1393c3d341ba58e62c3fdb4eb3ff752f
  		//saveDraftWithTextNow();
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 1d0a57bc53e7afd25ae26074d1fbfb52bad25625..27ab906b5ea034bde4ed8e3c39a7641299625858 100644
+index 132a51ec972350e94f40f4dbc96bf041af013797..43cc4590a48778f17f042c1960a4bb003391918d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_field_resize.h"
  #include "tele/tele_silent.h"
@@ -177,7 +177,7 @@ index 1d0a57bc53e7afd25ae26074d1fbfb52bad25625..27ab906b5ea034bde4ed8e3c39a76412
  #include "tele/tele_options.h"
  #include "inline_bots/inline_bot_result.h"
  #include "info/profile/info_profile_values.h"
-@@ -3265,12 +3266,24 @@ bool ChatWidget::sendExistingDocument(
+@@ -3303,12 +3304,24 @@ bool ChatWidget::sendExistingDocument(
  		}
  	}
  
@@ -203,7 +203,7 @@ index 1d0a57bc53e7afd25ae26074d1fbfb52bad25625..27ab906b5ea034bde4ed8e3c39a76412
  	_composeControls->cancelReplyMessage();
  	finishSending(options);
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 18e121b83023cd3e096ad11952cf72c5f2521278..9f7e1b4039afa4e1436e46377d52845b9df8a406 100644
+index 7d621de0c9e98051b44ca010a3c0bb2d24bb028e..fc1d7db3f09f7e23be6c28d43048bf96bb10a85d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -2297,10 +2297,16 @@ void Message::draw(Painter &p, const PaintContext &context) const {

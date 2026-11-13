@@ -13,10 +13,10 @@ Subject: [PATCH] feat: show the tele build number in the title bar
  create mode 100644 Telegram/SourceFiles/tele/tele_build.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1ef95284113ee3dd1be5eb4546894c8a6368ecfd..15a8f3c755fc154a51a687bd3ec67c70acabc53f 100644
+index 1601b508121fd2710d2ac0613ea378a7cee2aa9b..1857325ca442dd9b88dbcd2ecc6af904e397e15d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2637,6 +2637,17 @@ if (TDESKTOP_L10N_CAPTURE)
+@@ -2647,6 +2647,17 @@ if (TDESKTOP_L10N_CAPTURE)
      include(${TDESKTOP_L10N_CAPTURE}/capture.cmake)
  endif()
  
@@ -70,7 +70,7 @@ index 0000000000000000000000000000000000000000..2e2bceb142dfe499e63f170dc41128d2
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index 791e23bbb6bdbc92103a2f975570ab3dfc4d0f15..ef8e61640b1ffb7cdbc5410e061c854caca4f61b 100644
+index 62f8c797ca550ab5524439f7bfc6ae7ebb9f2956..a5df2cac24b82a17ffcdacc51b3833c90a494c97 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
 @@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

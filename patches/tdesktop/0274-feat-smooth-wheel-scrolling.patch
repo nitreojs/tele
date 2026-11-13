@@ -17,10 +17,10 @@ Subject: [PATCH] feat: smooth wheel scrolling
  create mode 100644 Telegram/SourceFiles/tele/tele_smooth_scroll.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index aed3ab5edd1e123e4734c8b047fe2a20cc59babc..760bdca0fa8bc5186f8f8447b5db5f06bd27cf43 100644
+index c755fba195b90d4332478751370400e5b145a70e..5d632d918a0a3787a922c7ae25116784ea0b7125 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2975,6 +2975,8 @@ PRIVATE
+@@ -2985,6 +2985,8 @@ PRIVATE
      tele/tele_show_pinned.h
      tele/tele_silent.cpp
      tele/tele_silent.h

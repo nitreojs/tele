@@ -21,10 +21,10 @@ Subject: [PATCH] feat: notify when people come online
  create mode 100644 Telegram/SourceFiles/tele/tele_online_notify.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 82e9b7ea702fcdfa23ad81742691ed15487132e2..4059059ac0510c2076cf8758127283e199443526 100644
+index a28abd3795a078ac783858181519d4097ae5bc75..6668099fcd7d6884f48782a76ac15e506563fbe0 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2764,6 +2764,8 @@ PRIVATE
+@@ -2774,6 +2774,8 @@ PRIVATE
      tele/tele_new_settings.h
      tele/tele_no_ai.cpp
      tele/tele_no_ai.h

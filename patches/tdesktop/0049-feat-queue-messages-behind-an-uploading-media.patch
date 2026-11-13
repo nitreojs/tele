@@ -13,10 +13,10 @@ Subject: [PATCH] feat: queue messages behind an uploading media
  6 files changed, 330 insertions(+)
 
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index e36eaec47915260f8fb9a00b34831b45907b65ce..dbab84a581125bf309d44fede97af0e79c1f2140 100644
+index ab4b40efe3e8bd89ab31c1abc390b7af321a7f95..1c96b19786f35356e8f4e807574c2be20209e19f 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -37,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "apiwrap.h"
  #include "tele/tele_deleted.h"
  #include "tele/tele_ghost.h"
@@ -24,7 +24,7 @@ index e36eaec47915260f8fb9a00b34831b45907b65ce..dbab84a581125bf309d44fede97af0e7
  
  namespace Data {
  namespace {
-@@ -1179,6 +1180,11 @@ int Histories::sendPreparedMessage(
+@@ -1180,6 +1181,11 @@ int Histories::sendPreparedMessage(
  		_creatingTopicRequests.emplace(id);
  		return id;
  	}

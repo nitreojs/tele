@@ -33,10 +33,10 @@ index fe383a63ef6ae699c9c393a3969a7407137979b8..3a4486fcdf7ff97f8a5710048252c104
  	}
  	if (!_markReadPending.contains(id.peer)) {
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 2eb09de8149e2d032d5d85ac2989aa23e2fb140d..21c7d842242d1365f82f0d2787228c80faa7316f 100644
+index eea2802ed2d867fde8e334439d7c5b7733771744..21d35ac37ad2a16b3f045dcb6246286ed57f45f2 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-@@ -4585,6 +4585,9 @@ void OverlayWidget::show(OpenRequest request) {
+@@ -4586,6 +4586,9 @@ void OverlayWidget::show(OpenRequest request) {
  	const auto story = request.story();
  	if (story && Tele::HideStories()) {
  		return;
@@ -46,7 +46,7 @@ index 2eb09de8149e2d032d5d85ac2989aa23e2fb140d..21c7d842242d1365f82f0d2787228c80
  	}
  	const auto document = story ? story->document() : request.document();
  	const auto photo = story ? story->photo() : request.photo();
-@@ -4945,6 +4948,11 @@ void OverlayWidget::displayDocument(
+@@ -4946,6 +4949,11 @@ void OverlayWidget::displayDocument(
  void OverlayWidget::displayVideoStream(
  		const std::shared_ptr<Data::GroupCall> &call,
  		anim::activation activation) {

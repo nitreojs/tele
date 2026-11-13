@@ -11,10 +11,10 @@ Subject: [PATCH] feat: let scripts swap label texts and find full-width table
  3 files changed, 12 insertions(+)
 
 diff --git a/ui/widgets/labels.cpp b/ui/widgets/labels.cpp
-index ceed27c4f5525a2924648561e63a57446b698141..000ec99845343f0ae3dc559bd274fb1a37c1f19b 100644
+index aeed599c9086d7431411991a7d35c6d5ab29d38e..f6d5b3f20d844caadde1018393b5ed193d793304 100644
 --- a/ui/widgets/labels.cpp
 +++ b/ui/widgets/labels.cpp
-@@ -310,6 +310,12 @@ void FlatLabel::setMarkedText(
+@@ -311,6 +311,12 @@ void FlatLabel::setMarkedText(
  	textUpdated();
  }
  

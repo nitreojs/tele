@@ -4145,7 +4145,7 @@ index 1ff1903ada74e80b194b26f6665a19d43166e92d..f2f7daf78d0ba81062475913b4357aa8
  
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index dca01ba5125c20abee643094c241d91241c4b2c2..d0adbd35f499f66eedfa08ba5d4d21dd3420b3f0 100644
+index 2debc33e37161dd89c869b2152fe140265c18316..57c3264aa11fa5d0f54526289c9302155ca4fe37 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
 @@ -73,10 +73,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

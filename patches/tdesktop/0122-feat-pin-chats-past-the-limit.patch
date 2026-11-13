@@ -23,10 +23,10 @@ Subject: [PATCH] feat: pin chats past the limit
  create mode 100644 Telegram/SourceFiles/tele/tele_local_pins.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index dd6f77ef9509050f5c57cba1cbd5ebd299d2a876..ac139dbefa45f1a1eab927c235c48ada54b8fda0 100644
+index 5ef18f092684cfa2ec93a95c0fb73c2c8e717da5..91b3d12b2098360737315d57967f9e1ea6b0127b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2730,6 +2730,8 @@ PRIVATE
+@@ -2740,6 +2740,8 @@ PRIVATE
      tele/tele_local_drafts.h
      tele/tele_local_names.cpp
      tele/tele_local_names.h
@@ -81,10 +81,10 @@ index 2fe437a3edc6e1589e52347d9c09aaf01554323b..2474fa2790f713175fa64775c72a3fbb
  
  bool Entry::hasUnreadUnmutedForSort() const {
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index bc51ef70d85eaecec61d856bde5b9cb438ea35dd..93a701aeee7d608341d9847a07adf948dacf27da 100644
+index 07075633fb25ba92446b506358eed1ec45b7112e..4b4355e9958870d7c73fefc290e38a86b3394d72 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -97,6 +97,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/peer_list_box.h"
  #include "tele/tele_communities.h"
  #include "tele/tele_corner_buttons.h"
@@ -92,7 +92,7 @@ index bc51ef70d85eaecec61d856bde5b9cb438ea35dd..93a701aeee7d608341d9847a07adf948
  #include "tele/tele_options.h"
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
-@@ -2843,6 +2844,8 @@ int InnerWidget::countPinnedIndex(Row *ofRow) {
+@@ -2930,6 +2931,8 @@ int InnerWidget::countPinnedIndex(Row *ofRow) {
  void InnerWidget::savePinnedOrder() {
  	if (_savedSublists && _savedSublists->parentChat()) {
  		return;
@@ -102,7 +102,7 @@ index bc51ef70d85eaecec61d856bde5b9cb438ea35dd..93a701aeee7d608341d9847a07adf948
  	const auto &newOrder = pinnedChatsOrder();
  	if (newOrder.size() != _pinnedOnDragStart.size()) {
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index 2a8b17bbda840664b7a6cec624f22f84e9652130..db65954c7f5f6a387625d5ecbbaf570818fb8ba5 100644
+index 94a86e224a8050787d2b280bab1e1d9ee5390cf6..a9bc1f3366ffddfee6086b6ce6b06de18be25085 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -167,7 +167,7 @@ index 2a8b17bbda840664b7a6cec624f22f84e9652130..db65954c7f5f6a387625d5ecbbaf5708
  			texttop,
  			context.width);
 diff --git a/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp b/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp
-index e11ca116303455c6b692fe25536b319f4b649a5e..7c2e8652545499c308c07be492224e34004d99a1 100644
+index 82ec97fbe4ccf19fa561250e740bfcce8f4220b3..56e11ca3edfecab61eb100b6cabd412fb90d1311 100644
 --- a/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp
 @@ -26,6 +26,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -178,7 +178,7 @@ index e11ca116303455c6b692fe25536b319f4b649a5e..7c2e8652545499c308c07be492224e34
  #include "ui/controls/subsection_tabs_slider_reorder.h"
  #include "ui/controls/subsection_tabs_slider.h"
  #include "ui/dynamic_image.h"
-@@ -1020,6 +1021,9 @@ void SubsectionTabs::applyReorder(
+@@ -1104,6 +1105,9 @@ void SubsectionTabs::applyReorder(
  				}
  			}
  		}

@@ -11,7 +11,7 @@ Subject: [PATCH] fix: closing the rich editor keeps drafts on this device
  4 files changed, 19 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index ff7533bd6c2ed2ce1534b91ba009beddb10e5b1b..fec56d097ee7a0f33891decb70abf5589ff8b686 100644
+index c189dabadbe9fca8751f48cd2ef4335cb265482a..19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -22,7 +22,7 @@ index ff7533bd6c2ed2ce1534b91ba009beddb10e5b1b..fec56d097ee7a0f33891decb70abf558
  #include "tgw/tgw_storage.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_username_aliases.h"
-@@ -2439,9 +2440,7 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
+@@ -2449,9 +2450,7 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
  		bool clearOnFail,
  		Fn<void()> done,
  		Fn<void(const MTP::Error &)> fail) {

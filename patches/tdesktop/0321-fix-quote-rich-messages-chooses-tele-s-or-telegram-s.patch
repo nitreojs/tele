@@ -12,7 +12,7 @@ Subject: [PATCH] fix: quote rich messages chooses tele's or telegram's quotes
  5 files changed, 44 insertions(+), 18 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index dacd1ac6494ac726c8158161fdede6a097d6bbe0..11cd5f86f945ccce50a40dd35cae8dc63eacc1a6 100644
+index 3871d8c726585003e54c393bee6d0837f049e585..b9babe3fd8323a4e906bca4da916398f0a931f77 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -833,15 +833,22 @@ void HistoryInner::setupSwipeReplyAndBack() {
@@ -39,7 +39,7 @@ index dacd1ac6494ac726c8158161fdede6a097d6bbe0..11cd5f86f945ccce50a40dd35cae8dc6
  				Window::ActivateWindow(_controller);
  				_widget->replyToMessage({
  					.messageId = exact->fullId(),
-@@ -3522,8 +3529,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3529,8 +3536,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		const auto canSendReply = CanSendReply(item);
  		const auto canReply = canSendReply || item->allowsForward();
  		if (canReply) {
@@ -51,10 +51,10 @@ index dacd1ac6494ac726c8158161fdede6a097d6bbe0..11cd5f86f945ccce50a40dd35cae8dc6
  				(_selectedTextItem == item) ? item->mainView() : nullptr,
  				_selectedTextSelection);
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index ee8b1d00147ff807d99fe5f2f2d6090ec083edc5..45cad4b236c1cf7fe392d3db842ee96c0587e2c8 100644
+index 5141d062ea80fd166ad59b61a3f0296dfb59ba76..40638483452882982849b9d9bd61907f8a8d8ccd 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
@@ -62,7 +62,7 @@ index ee8b1d00147ff807d99fe5f2f2d6090ec083edc5..45cad4b236c1cf7fe392d3db842ee96c
  #include "tele/tele_field_resize.h"
  #include "tele/tele_kept_chats.h"
  #include "tele/tele_silent.h"
-@@ -2007,16 +2008,23 @@ void ChatWidget::setupSwipeReplyAndBack() {
+@@ -2013,16 +2014,23 @@ void ChatWidget::setupSwipeReplyAndBack() {
  			const auto view = still
  				? _inner->viewByPosition(still->position())
  				: nullptr;

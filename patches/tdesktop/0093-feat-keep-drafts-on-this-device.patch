@@ -19,10 +19,10 @@ Subject: [PATCH] feat: keep drafts on this device
  create mode 100644 Telegram/SourceFiles/tele/tele_local_drafts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bed0877ca2a9ef0229ece93d029810c56061e6d3..092217e248823b02b8abf26014bc8298bfac05b7 100644
+index a80cd0eacec87784ef905b30ab564e644d682ca1..a3dd30e45c8fea0eb2ea8a7aac2f7a0b4b079eb4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2708,6 +2708,8 @@ PRIVATE
+@@ -2718,6 +2718,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -32,7 +32,7 @@ index bed0877ca2a9ef0229ece93d029810c56061e6d3..092217e248823b02b8abf26014bc8298
      tele/tele_local_names.h
      tele/tele_lowercase.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 3e34ba74d6974b2ce7165f5e0ef8cab514e259b7..54d4dece6a7698c35206b71d2274c7fff2ad8370 100644
+index 85f23cc692d04347f31fed2caf27818cdbb693e4..d8fdb2d1de5e274178e9aae02c741762f0708bdd 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -43,7 +43,7 @@ index 3e34ba74d6974b2ce7165f5e0ef8cab514e259b7..54d4dece6a7698c35206b71d2274c7ff
  
  namespace {
  
-@@ -2421,6 +2422,9 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
+@@ -2431,6 +2432,9 @@ mtpRequestId ApiWrap::savePreparedDraftToCloud(
  		bool clearOnFail,
  		Fn<void()> done,
  		Fn<void(const MTP::Error &)> fail) {
@@ -54,7 +54,7 @@ index 3e34ba74d6974b2ce7165f5e0ef8cab514e259b7..54d4dece6a7698c35206b71d2274c7ff
  	const auto history = thread->owningHistory();
  	const auto topicRootId = thread->topicRootId();
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index 46eda30150b469d48e61066152364d004a454037..1459433539397483ec6dca1b48d663cc384b081b 100644
+index 627d0d2953b32470e48f67385d498eec2942be58..b697c05bdf6fba6947ee91de998a0930264d022e 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -84,6 +84,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -76,7 +76,7 @@ index 46eda30150b469d48e61066152364d004a454037..1459433539397483ec6dca1b48d663cc
  	if (Iv::Editor::IsComposeBoxOpen(
  			&session(),
  			peer->id,
-@@ -3570,6 +3575,7 @@ void History::applyDialog(
+@@ -3575,6 +3580,7 @@ void History::applyDialog(
  			PeerId(), // monoforumPeerId
  			draft->c_draftMessage());
  	}

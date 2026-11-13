@@ -72,10 +72,10 @@ Subject: [PATCH] feat: notification centre
  create mode 100644 Telegram/SourceFiles/tele/tele_rate_limits.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 68ea569ba8ccf0021ae77f8d2576680d78d7a30a..df2fd5f12304872957f2b9ee8bf61ee4187daec0 100644
+index 9c6499142bb28fa0df51d624c858ea9c93d724d1..c7d886e74219a070a440bf1ab989d896227205ad 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2736,6 +2736,7 @@ PRIVATE
+@@ -2746,6 +2746,7 @@ PRIVATE
      tele/tele_edit_history_section.h
      tele/tele_field_resize.cpp
      tele/tele_field_resize.h
@@ -83,7 +83,7 @@ index 68ea569ba8ccf0021ae77f8d2576680d78d7a30a..df2fd5f12304872957f2b9ee8bf61ee4
      tele/tele_folders.cpp
      tele/tele_folders.h
      tele/tele_freeze_watchdog.cpp
-@@ -2842,6 +2843,10 @@ PRIVATE
+@@ -2852,6 +2853,10 @@ PRIVATE
      tele/tele_new_settings.h
      tele/tele_no_ai.cpp
      tele/tele_no_ai.h
@@ -94,7 +94,7 @@ index 68ea569ba8ccf0021ae77f8d2576680d78d7a30a..df2fd5f12304872957f2b9ee8bf61ee4
      tele/tele_online_notify.cpp
      tele/tele_online_notify.h
      tele/tele_jump_to_first.cpp
-@@ -2876,6 +2881,8 @@ PRIVATE
+@@ -2886,6 +2891,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h

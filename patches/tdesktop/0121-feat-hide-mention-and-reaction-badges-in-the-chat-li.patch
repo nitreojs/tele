@@ -13,10 +13,10 @@ Subject: [PATCH] feat: hide mention and reaction badges in the chat list
  6 files changed, 35 insertions(+), 5 deletions(-)
 
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index bb1779d7817dc743144f433e27165a4833ffc58a..bc51ef70d85eaecec61d856bde5b9cb438ea35dd 100644
+index a66ec151e787f4d9e6b53d172706c5c2bd4a4d41..07075633fb25ba92446b506358eed1ec45b7112e 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -97,6 +97,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/peers/edit_forum_topic_box.h"
  #include "boxes/peer_list_box.h"
  #include "tele/tele_communities.h"
@@ -24,7 +24,7 @@ index bb1779d7817dc743144f433e27165a4833ffc58a..bc51ef70d85eaecec61d856bde5b9cb4
  #include "tele/tele_options.h"
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
-@@ -333,6 +334,11 @@ InnerWidget::InnerWidget(
+@@ -334,6 +335,11 @@ InnerWidget::InnerWidget(
  		update();
  	}, lifetime());
  
@@ -37,7 +37,7 @@ index bb1779d7817dc743144f433e27165a4833ffc58a..bc51ef70d85eaecec61d856bde5b9cb4
  	) | rpl::on_next([=] {
  		_topicJumpCache = nullptr;
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index fbb7b882942b76bb594bc624759194d4b1905dcc..2a8b17bbda840664b7a6cec624f22f84e9652130 100644
+index 49b0fe28890ec15eae31f6ea1e705fb75bd52c52..94a86e224a8050787d2b280bab1e1d9ee5390cf6 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -48,7 +48,7 @@ index fbb7b882942b76bb594bc624759194d4b1905dcc..2a8b17bbda840664b7a6cec624f22f84
  #include "tele/tele_docked_media.h"
  #include "ui/empty_userpic.h"
  #include "ui/painter.h"
-@@ -1139,7 +1140,8 @@ void RowPainter::Paint(
+@@ -1132,7 +1133,8 @@ void RowPainter::Paint(
  	const auto thread = row->thread();
  	const auto sublist = row->sublist();
  	const auto peer = history ? history->peer.get() : nullptr;
@@ -58,7 +58,7 @@ index fbb7b882942b76bb594bc624759194d4b1905dcc..2a8b17bbda840664b7a6cec624f22f84
  	entry->chatListPreloadData(); // Allow chat list message resolve.
  	const auto item = entry->chatListMessage();
  	const auto cloudDraft = [&]() -> const Data::Draft*{
-@@ -1319,7 +1321,7 @@ void RowPainter::Paint(
+@@ -1312,7 +1314,7 @@ void RowPainter::Paint(
  	previewOptions.searchLowerText = context.searchLowerText;
  
  	const auto badgesState = context.displayUnreadInfo
@@ -68,7 +68,7 @@ index fbb7b882942b76bb594bc624759194d4b1905dcc..2a8b17bbda840664b7a6cec624f22f84
  	const auto displayPinnedIcon = false;
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp b/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp
-index 9a4f2c9d3cdbd175c38cd4ab8ebabd31bd5e0221..e11ca116303455c6b692fe25536b319f4b649a5e 100644
+index 79ceadf0ba0d4d6f90a822e457fd9fb6fc37c1de..82ec97fbe4ccf19fa561250e740bfcce8f4220b3 100644
 --- a/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_subsection_tabs.cpp
 @@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -79,7 +79,7 @@ index 9a4f2c9d3cdbd175c38cd4ab8ebabd31bd5e0221..e11ca116303455c6b692fe25536b319f
  #include "ui/controls/subsection_tabs_slider_reorder.h"
  #include "ui/controls/subsection_tabs_slider.h"
  #include "ui/dynamic_image.h"
-@@ -75,6 +76,10 @@ SubsectionTabs::SubsectionTabs(
+@@ -109,6 +110,10 @@ SubsectionTabs::SubsectionTabs(
  			refreshSlice();
  		}
  	}, _lifetime);
@@ -90,7 +90,7 @@ index 9a4f2c9d3cdbd175c38cd4ab8ebabd31bd5e0221..e11ca116303455c6b692fe25536b319f
  }
  
  SubsectionTabs::~SubsectionTabs() {
-@@ -914,7 +919,7 @@ void SubsectionTabs::refreshSlice() {
+@@ -998,7 +1003,7 @@ void SubsectionTabs::refreshSlice() {
  		}
  		slice.push_back({
  			.thread = thread,

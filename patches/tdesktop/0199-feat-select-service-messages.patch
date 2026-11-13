@@ -18,10 +18,10 @@ Subject: [PATCH] feat: select service messages
  create mode 100644 Telegram/SourceFiles/tele/tele_select_service.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 33f65ca3a37177cc5ce5c6725bb8a66d0525e778..f666152e81516ff88258d4ba044f678701b63efa 100644
+index 04fc418115b05a61b0f971ab5e380bd32d8e9c1b..f7be8718e1a52cc8b072f19ef463a20a2764ceac 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2880,6 +2880,8 @@ PRIVATE
+@@ -2890,6 +2890,8 @@ PRIVATE
      tele/tele_screen_capture.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -31,7 +31,7 @@ index 33f65ca3a37177cc5ce5c6725bb8a66d0525e778..f666152e81516ff88258d4ba044f6787
      tele/tele_send_files.h
      tele/tele_send_order.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index a523eab3e94ca5b54e93e7087c0e6dc71e966d7a..28190c31444fb4f1e91860bf0e4cad6dbaa16973 100644
+index d115228e3dafa031777e053b4382bec5875453b6..e6e75c78d557b7603d41b90739cd34a8efc4f26e 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -149,6 +149,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index a523eab3e94ca5b54e93e7087c0e6dc71e966d7a..28190c31444fb4f1e91860bf0e4cad6d
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -4245,6 +4246,7 @@ HistorySelectedTextParts HistoryInner::getSelectedTextParts() const {
+@@ -4252,6 +4253,7 @@ HistorySelectedTextParts HistoryInner::getSelectedTextParts() const {
  	if (_mouseAction == MouseAction::Selecting && _dragSelFrom && _dragSelTo) {
  		applyDragSelection(&selected);
  	}
@@ -50,7 +50,7 @@ index a523eab3e94ca5b54e93e7087c0e6dc71e966d7a..28190c31444fb4f1e91860bf0e4cad6d
  
  	if (selected.empty()) {
  		if (const auto view = viewByItem(_selectedTextItem)) {
-@@ -5443,7 +5445,7 @@ MessageIdsList HistoryInner::getSelectedItems() const {
+@@ -5451,7 +5453,7 @@ MessageIdsList HistoryInner::getSelectedItems() const {
  		_selected.begin(),
  		_selected.end()
  	) | views::filter([](const auto &item) {
@@ -87,7 +87,7 @@ index b8c363e638dbe6d21523f434a52a77d8196f9d32..b72ef9d61a6da3b60786a13c0e01fb28
  		|| list->hasSelectRestriction()) {
  		return false;
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 94071efad8d1ebb42b91a7aa6a494de5a573a15b..60d907032e98d9e629b70f5e8babed67830c42e8 100644
+index c7e6011e08e1cc5dfae7f0619a492e3b216cc905..d04f1e25ae2a5f3da74564e6022b80762beb8139 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 @@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -98,7 +98,7 @@ index 94071efad8d1ebb42b91a7aa6a494de5a573a15b..60d907032e98d9e629b70f5e8babed67
  #include "styles/style_chat.h"
  #include "styles/style_window.h" // columnMaximalWidthLeft
  
-@@ -3943,6 +3944,7 @@ HistorySelectedTextParts ListWidget::getSelectedTextParts() const {
+@@ -3936,6 +3937,7 @@ HistorySelectedTextParts ListWidget::getSelectedTextParts() const {
  	if (_mouseAction == MouseAction::Selecting && !_dragSelected.empty()) {
  		applyDragSelection(selected);
  	}

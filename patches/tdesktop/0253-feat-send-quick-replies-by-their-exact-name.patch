@@ -37,10 +37,10 @@ index 2ebf7d3b03140e42daa670639c3fd718f68bdf21..920f36a02b71bbe22934da1cdbd9dadc
  	raw->botCommandChosen(
  	) | rpl::on_next([=](FieldAutocomplete::BotCommandChosen data) {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index de1edd86f745c6651362f1ed765137e2c27956c4..56b757cb0d585c0fe66eaa28fb7158635c9b94d9 100644
+index e06101acec02370525bb2926841a0271abcd1426..103f2bc314071af0ff1dacf7ec51539f7990ee48 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -6091,6 +6091,8 @@ void HistoryWidget::send(Api::SendOptions options) {
+@@ -6095,6 +6095,8 @@ void HistoryWidget::send(Api::SendOptions options) {
  	} else if (const auto page = shownRichMessage()) {
  		sendRichDraft(page, options);
  		return;
@@ -50,10 +50,10 @@ index de1edd86f745c6651362f1ed765137e2c27956c4..56b757cb0d585c0fe66eaa28fb715863
  	if (!options.scheduled) {
  		auto action = Api::SendAction(_history, options);
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 27ab906b5ea034bde4ed8e3c39a7641299625858..2658ebc13d62f2f0d119b2c44821d9f889b232c3 100644
+index 43cc4590a48778f17f042c1960a4bb003391918d..82e0185ec346a78bd40609c6ac7f8925aecb1fc9 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -2465,6 +2465,11 @@ void ChatWidget::send(Api::SendOptions options) {
+@@ -2471,6 +2471,11 @@ void ChatWidget::send(Api::SendOptions options) {
  	} else if (const auto page = _composeControls->shownRichMessage()) {
  		sendRichDraft(page, options);
  		return;

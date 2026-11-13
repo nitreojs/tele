@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send quick replies in groups and channels
  create mode 100644 Telegram/SourceFiles/tele/tele_shortcuts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3311375abaa44827986600dcf33e868f225c4ec5..67ecbe4bb91f3200b6dc240a22c2fabb80fa8e92 100644
+index edca55cae6b4c4115756c3e81a62ca408682af53..37c0a2d4bb650c8d51eacb26420ac1ba2fe0b957 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2648,6 +2648,8 @@ PRIVATE
+@@ -2658,6 +2658,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -105,7 +105,7 @@ index 416b167977c01bd7a7fdb6c0e1fb3e5f1b233b03..22e0145a7dee370c476896aeec93925c
  	) | rpl::on_next([=](FieldAutocomplete::BotCommandChosen data) {
  		if (!features().autocompleteCommands) {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 93fcf6e03adb1cb6bc25c60688bf5fb2a0c6d670..de6c46a200d7b309ed244454696ed814e9fbd0c8 100644
+index 895fb7cd133c06e2d83a03a6ea1c9e77477f71bb..03a5c9a24b200004b141f9f5bbf20384c3c26115 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -131,10 +131,10 @@ index 93fcf6e03adb1cb6bc25c60688bf5fb2a0c6d670..de6c46a200d7b309ed244454696ed814
  			setFieldText(_field->getTextWithTagsPart(
  				_field->textCursor().position()));
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 31eaa9b7f2805eca3190cbbd32c0ceafea40b8e4..36ae1e7ce79fe83d05318927ad41209187c394b7 100644
+index 22d8f65f0361ad42e496a54d6d24d1b88578d1a4..89210d80324699cfc6c74d60c021c1bffbc34253 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "support/support_autocomplete.h"
  #include "support/support_common.h"
  #include "support/support_preload.h"
@@ -142,7 +142,7 @@ index 31eaa9b7f2805eca3190cbbd32c0ceafea40b8e4..36ae1e7ce79fe83d05318927ad412091
  #include "inline_bots/inline_bot_result.h"
  #include "info/profile/info_profile_values.h"
  #include "iv/editor/iv_editor_session.h"
-@@ -412,7 +413,12 @@ ChatWidget::ChatWidget(
+@@ -413,7 +414,12 @@ ChatWidget::ChatWidget(
  					controller,
  					PremiumFeature::QuickReplies);
  			} else if (shortcutId) {

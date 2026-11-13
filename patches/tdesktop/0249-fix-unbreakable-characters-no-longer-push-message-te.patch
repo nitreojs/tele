@@ -3375,7 +3375,7 @@ index a6f653ddd96800d44c16829b86862929d67b874a..7cef89823060c7fe2415c92747ce61de
  		}
  	}
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 46dbfc3e124f44d9833fcb58f0616a41e108c9e1..ba8c4b1d1c728dcc5cf8509202991840a417447e 100644
+index 33175feb485ec14b2cb85d0dec4ee9a662bb7285..723c521e736fe0c84303a3bc8c978ffb1d7bf884 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -3212,9 +3212,14 @@ void Message::paintText(

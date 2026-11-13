@@ -14,10 +14,10 @@ Subject: [PATCH] fix: who reacted list matches the reaction count
  create mode 100644 Telegram/SourceFiles/tele/tele_who_reacted.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 01c540668cc369901311630723e03fd46db9bad2..94bd9112f426de815e1127967c73484f47d07e72 100644
+index 51a0819a923d360c6995b3f196f2fe8e004e2d47..9b41149292b2de1e8bf4a7ea0cfb9f7cb0df29e2 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2891,6 +2891,8 @@ PRIVATE
+@@ -2901,6 +2901,8 @@ PRIVATE
      tele/tele_view_tl_window.h
      tele/tele_voice_fade.cpp
      tele/tele_voice_fade.h

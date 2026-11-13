@@ -15,7 +15,7 @@ Subject: [PATCH] feat: more ghost mode options
  8 files changed, 172 insertions(+), 6 deletions(-)
 
 diff --git a/Telegram/SourceFiles/api/api_updates.cpp b/Telegram/SourceFiles/api/api_updates.cpp
-index 793065a25756940bdd01c4dd3c27119bfbbdf0f2..5c3272da9e681d6ea818e8f40923cc540a9a1981 100644
+index 65cbcafd92ae6525e91e9869076d9ea22900c9e3..3397208d0b95eff4a0770c3868e18553555df462 100644
 --- a/Telegram/SourceFiles/api/api_updates.cpp
 +++ b/Telegram/SourceFiles/api/api_updates.cpp
 @@ -1721,6 +1721,7 @@ void Updates::feedUpdate(const MTPUpdate &update) {
@@ -27,10 +27,10 @@ index 793065a25756940bdd01c4dd3c27119bfbbdf0f2..5c3272da9e681d6ea818e8f40923cc54
  						id.peer,
  						newId);
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 9bff60c257c5d48671ccaf9ce478a14f127dcc13..9436cce25e2d305f7d300e08143cf30ae46c5474 100644
+index 756786dc21c1a7d5f7ebd702b241f6829221529a..eded0fd6f467cb0fb5ff33b7dca6bf5679f18bf7 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
-@@ -1475,7 +1475,7 @@ void ApiWrap::markContentsRead(
+@@ -1485,7 +1485,7 @@ void ApiWrap::markContentsRead(
  		if (Tele::KeepsSecretMedia(item)
  			|| !item->markContentsRead(true)
  			|| !item->isRegular()
@@ -39,7 +39,7 @@ index 9bff60c257c5d48671ccaf9ce478a14f127dcc13..9436cce25e2d305f7d300e08143cf30a
  			continue;
  		}
  		if (const auto channel = item->history()->peer->asChannel()) {
-@@ -1503,7 +1503,7 @@ void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
+@@ -1513,7 +1513,7 @@ void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
  	if (Tele::KeepsSecretMedia(item)
  		|| !item->markContentsRead(true)
  		|| !item->isRegular()

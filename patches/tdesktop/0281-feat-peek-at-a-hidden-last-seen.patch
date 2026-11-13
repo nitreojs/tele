@@ -21,10 +21,10 @@ Subject: [PATCH] feat: peek at a hidden last seen
  create mode 100644 Telegram/SourceFiles/tele/tele_peek.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c063164491b8880046a524592b7e6efd03a5c496..8eeb07160961221ca363196f34bac365874af06f 100644
+index fcf29ed625966b0c5230d31c466add4c0c603fed..b82e465dc3fba0201e713ce1e363bf11df607a65 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2917,6 +2917,8 @@ PRIVATE
+@@ -2927,6 +2927,8 @@ PRIVATE
      tele/tele_options.h
      tele/tele_past_limit.cpp
      tele/tele_past_limit.h

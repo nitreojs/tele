@@ -21,10 +21,10 @@ Subject: [PATCH] feat: compact icon-only folders
  create mode 100644 Telegram/SourceFiles/tele/tele_compact_folders.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 636d7fb10793246c288af29a851098dc1fde8608..59c68fa043bd4d79398454fbcf7605a42f8f916f 100644
+index 142a905cf34e98417c8659757fc563d2a6dadb58..c3b7074edd8f58e52893236dc5a185fb6821c537 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2717,6 +2717,8 @@ PRIVATE
+@@ -2727,6 +2727,8 @@ PRIVATE
      tele/tele_confirm_send.h
      tele/tele_communities.cpp
      tele/tele_communities.h

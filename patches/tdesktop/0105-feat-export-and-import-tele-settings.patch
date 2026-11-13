@@ -33,10 +33,10 @@ Subject: [PATCH] feat: export and import tele settings
  create mode 100644 Telegram/SourceFiles/tele/tele_settings_io_box.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 82e5c0856c83d630daf8e07c993871a61ff19210..c7db3d8306c3d9a06d67a74797d0facb83e2458d 100644
+index 2af363ce2b3e7455cf0c4dbf33f3ce7bffbb36ed..166033f7b6306f61be49710514422df7702c8a48 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2766,6 +2766,10 @@ PRIVATE
+@@ -2776,6 +2776,10 @@ PRIVATE
      tele/tele_send_files.h
      tele/tele_send_order.cpp
      tele/tele_send_order.h

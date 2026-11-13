@@ -23,10 +23,10 @@ Subject: [PATCH] feat: download folders per chat
  create mode 100644 Telegram/SourceFiles/tele/tele_download_folders.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4b9d51c14189b023537d79840824629d9c478d9d..cdfbf138601c2717d2715f836fc641280a618c41 100644
+index 2ea4a02d98560ded6f15e3e67986ad6bb8679ed2..8e0b4da57729f80931deb1652c3a57b1b68346b5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2702,6 +2702,8 @@ PRIVATE
+@@ -2712,6 +2712,8 @@ PRIVATE
      tele/tele_debug_logs.h
      tele/tele_docked_media.cpp
      tele/tele_docked_media.h
@@ -102,7 +102,7 @@ index 70b020e9fa7873bb735a8eb6bd456244e8e2faa7..528527729c7a77f9e200c399766a7768
  			if (started) {
  				started();
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 916eccc5884bcab857259e439f569ebfb662869f..2c3282c3d1a6ca4d439f39374e8e9f8a0c917594 100644
+index b27384304deb619b1555c82136ee146dbb0a0e78..3ddb831fb80b9ba1615d5fd6f209861b0b609685 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

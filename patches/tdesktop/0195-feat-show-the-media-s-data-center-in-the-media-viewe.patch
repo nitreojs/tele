@@ -70,7 +70,7 @@ index b6a4bb3b948c923918face3f6a7f9b9c97329d6b..ee28bdd5e656e3c4220d288dc1c0d847
  	friend inline auto operator<=>(HeaderData, HeaderData) = default;
  	friend inline bool operator==(HeaderData, HeaderData) = default;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 2c3282c3d1a6ca4d439f39374e8e9f8a0c917594..da03e9061f000a30cbc2d4448a20ab8094d3c181 100644
+index 3ddb831fb80b9ba1615d5fd6f209861b0b609685..4975a3e125a55d680358caec77565c06033ea17b 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

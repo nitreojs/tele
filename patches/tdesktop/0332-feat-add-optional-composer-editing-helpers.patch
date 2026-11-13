@@ -23,10 +23,10 @@ Subject: [PATCH] feat: add optional composer editing helpers
  create mode 100644 Telegram/SourceFiles/tele/tele_composer_editing.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3dd230632a50f81e7e1c74e8a7109e182ad4f124..150de35c8b78661c0f6a00175b11977ce38be12c 100644
+index 3b73816f3a0afa1d96bdc99288345a9801eddf8a..af2c9b152afe615ab96ee8e5737a8821dc5f2051 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3031,6 +3031,8 @@ PRIVATE
+@@ -3041,6 +3041,8 @@ PRIVATE
      tele/tele_name_badges.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -148,7 +148,7 @@ index ff99054afbc38d3fcfd79c3494a573722c7fd9f8..ea86056622306677da6fa723c9313506
  		InitMessageFieldHandlers({
  			.session = &controller->session(),
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index f74d5b39b1f8c8f2397660c998f5b668c5b37646..cb3d3cc3fcebb4c60c6c35ef59bbfd07403de338 100644
+index 3dbb6d0a7c7c7f7aa8d8f8e19da4afa76bdda3a8..e49cdb4031ca0ee3cba4d4196e7af51712889b78 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
 @@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -159,7 +159,7 @@ index f74d5b39b1f8c8f2397660c998f5b668c5b37646..cb3d3cc3fcebb4c60c6c35ef59bbfd07
  #include "tele/tele_gif_video.h"
  #include "tele/tele_live_markdown.h"
  #include "tele/tele_audio_voice.h"
-@@ -2309,6 +2310,7 @@ void SendFilesBox::updateSendWayControls() {
+@@ -2313,6 +2314,7 @@ void SendFilesBox::updateSendWayControls() {
  }
  
  void SendFilesBox::setupCaption() {

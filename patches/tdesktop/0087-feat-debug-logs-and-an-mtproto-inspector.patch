@@ -35,10 +35,10 @@ Subject: [PATCH] feat: debug logs and an mtproto inspector
  create mode 100644 Telegram/SourceFiles/tele/tele_mtp_log.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8ecb99c27e7ad1f113cee6ada16a7e0776a629a7..d07c36d2695a448c976e1bf82a3afa2480689b01 100644
+index e9e87f2bf80ba924ce83e6e774d31e032dfee8bc..7ce575895ffb77186e7dcb1938651e3401694e9c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2678,6 +2678,8 @@ PRIVATE
+@@ -2688,6 +2688,8 @@ PRIVATE
      tele/tele_corner_buttons.h
      tele/tele_crash.cpp
      tele/tele_crash.h
@@ -47,7 +47,7 @@ index 8ecb99c27e7ad1f113cee6ada16a7e0776a629a7..d07c36d2695a448c976e1bf82a3afa24
      tele/tele_deleted.cpp
      tele/tele_deleted.h
      tele/tele_deleted_reply.cpp
-@@ -2710,6 +2712,12 @@ PRIVATE
+@@ -2720,6 +2722,12 @@ PRIVATE
      tele/tele_menu_order.h
      tele/tele_message_menu.cpp
      tele/tele_message_menu.h

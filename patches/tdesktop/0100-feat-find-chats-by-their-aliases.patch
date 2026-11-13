@@ -11,7 +11,7 @@ Subject: [PATCH] feat: find chats by their aliases
  4 files changed, 216 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/boxes/peer_list_box.cpp b/Telegram/SourceFiles/boxes/peer_list_box.cpp
-index ba5c76cdfab45ab90b605bbcb9fbbdc651a5c639..ab1466c2e38c2d8d08b6b213e0c2f75dd1f6dc39 100644
+index 41b6085f81e3fca3b5b5d1b331f7685c8c09cbdd..3277ae1d9dcffd2fdbdac74b84e037da90ec5912 100644
 --- a/Telegram/SourceFiles/boxes/peer_list_box.cpp
 +++ b/Telegram/SourceFiles/boxes/peer_list_box.cpp
 @@ -13,6 +13,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -22,7 +22,7 @@ index ba5c76cdfab45ab90b605bbcb9fbbdc651a5c639..ab1466c2e38c2d8d08b6b213e0c2f75d
  #include "ui/effects/loading_element.h"
  #include "ui/effects/outline_segments.h"
  #include "ui/effects/round_checkbox.h"
-@@ -2474,6 +2475,19 @@ void PeerListContent::searchQueryChanged(QString query) {
+@@ -2545,6 +2546,19 @@ void PeerListContent::searchQueryChanged(QString query) {
  					}
  				}
  			}
@@ -43,10 +43,10 @@ index ba5c76cdfab45ab90b605bbcb9fbbdc651a5c639..ab1466c2e38c2d8d08b6b213e0c2f75d
  		if (_controller->hasComplexSearch()) {
  			_controller->search(_searchQuery);
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index df87b79341c643d1758355bc22f586ae3ceab451..f4ac872a532e2d5cc8f9e630da464af52cad8b40 100644
+index 2ac2556247f630560743b1936d5eb0deec683941..ac4d30fcd1fc919c1744feebd85ebcc23c351c24 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -97,6 +97,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/peers/edit_forum_topic_box.h"
  #include "boxes/peer_list_box.h"
  #include "tele/tele_options.h"
@@ -54,7 +54,7 @@ index df87b79341c643d1758355bc22f586ae3ceab451..f4ac872a532e2d5cc8f9e630da464af5
  #include "api/api_chat_filters.h"
  #include "base/qt/qt_common_adapters.h"
  #include "styles/style_dialogs.h"
-@@ -410,6 +411,31 @@ InnerWidget::InnerWidget(
+@@ -424,6 +425,31 @@ InnerWidget::InnerWidget(
  		refresh();
  	}, lifetime());
  
@@ -85,8 +85,8 @@ index df87b79341c643d1758355bc22f586ae3ceab451..f4ac872a532e2d5cc8f9e630da464af5
 +
  	Ui::ScheduleThanosEffectWarmUp(&session(), lifetime());
  
- 	rpl::merge(
-@@ -4524,6 +4550,45 @@ void InnerWidget::refreshFilterResults() {
+ 	session().settings().archiveCollapsedChanges(
+@@ -4638,6 +4664,45 @@ void InnerWidget::refreshFilterResults() {
  			_filterResults.back().row->recountHeight(_narrowRatio, _filterId);
  		}
  	}
@@ -132,7 +132,7 @@ index df87b79341c643d1758355bc22f586ae3ceab451..f4ac872a532e2d5cc8f9e630da464af5
  }
  
  void InnerWidget::appendToFiltered(Key key) {
-@@ -4974,7 +5039,11 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
+@@ -5088,7 +5153,11 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
  	const auto inlist = [&](not_null<PeerData*> peer) {
  		if (const auto history = peer->owner().historyLoaded(peer)) {
  			// Skip existing chats.

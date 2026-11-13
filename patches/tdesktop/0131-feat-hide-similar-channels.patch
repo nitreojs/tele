@@ -15,10 +15,10 @@ Subject: [PATCH] feat: hide similar channels
  8 files changed, 62 insertions(+), 4 deletions(-)
 
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 80ecae3a7db60960fafff6bd17e216004a036339..e874b7536d43992689bc66244393a0ece78d0129 100644
+index aefc78e5534a307eb639a77efba6d3bb26453b21..8d775effb3c6f5170062b7c85bb325144a25407c 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
-@@ -1992,7 +1992,9 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
+@@ -2002,7 +2002,9 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
  		_channelAmInRequests.emplace(channel, requestId);
  
  		using Flag = ChannelDataFlag;

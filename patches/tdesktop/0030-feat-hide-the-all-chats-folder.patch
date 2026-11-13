@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide the all chats folder
  create mode 100644 Telegram/SourceFiles/tele/tele_folders.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2b24886f627cc229e2b4c478e1d792e98af2c57c..497c9382f515755edc22331afc07ee5cadcf5b89 100644
+index e182a2782628d43409805fd7dca5f8fe3a2946f6..8ae612dfdfce51aba9f25a5e7a0368e81583e33b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2658,6 +2658,8 @@ PRIVATE
+@@ -2668,6 +2668,8 @@ PRIVATE
      tele/tele_deleted_section.h
      tele/tele_edit_history.cpp
      tele/tele_edit_history.h
@@ -55,7 +55,7 @@ index f85bc2d413b9486f4b54d538e9d1e79758818784..7eba8addc7a361eee5e5e806d6836d25
  		return _list[index].id();
  	}
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 8221b12c87775e564bfcdc73e616cef7a6aa24cc..49cc702287558bb19e5c67f226a4b793a0b9bbf8 100644
+index 4fafedbeae59162f93a9c4580c4986fa8f285f92..2cb9b94035d9b0f3acfb2a691d9cccf38f2e348e 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -92,6 +92,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -66,7 +66,7 @@ index 8221b12c87775e564bfcdc73e616cef7a6aa24cc..49cc702287558bb19e5c67f226a4b793
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
-@@ -3125,8 +3126,7 @@ void Widget::escape(CancelSearchOptions options) {
+@@ -2915,8 +2916,7 @@ void Widget::escape(CancelSearchOptions options) {
  		} else if (controller()->activeChatEntryCurrent().key) {
  			controller()->content()->dialogsCancelled();
  		} else if (controller()->isPrimary()) {

@@ -16,10 +16,10 @@ Subject: [PATCH] feat: reorder and hide message menu items
  create mode 100644 Telegram/SourceFiles/tele/tele_menu_order.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b607dbb753ccc6978921ab8e952d3b3fdde3a31a..0f36a827ac08916d213b7341f6f3310e426a334f 100644
+index cfda72f1ff0305533ba915ede04a572de6d21db4..acc8ac5b188ceca0c420117dcbbbba145ce09ee4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2678,6 +2678,8 @@ PRIVATE
+@@ -2688,6 +2688,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_lowercase.cpp
      tele/tele_lowercase.h

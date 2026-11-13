@@ -73,7 +73,7 @@ index 42e4eb24dfae6a15302227284e6d1b5fd48f5e99..2805e52912789fc4d04e5cf7b14422ce
  		return;
  	}
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 0e27f9ac1ee061fe19b2bd8f27d3690a8e587c5a..7d407b096cd7accffe110a197714fd4ff23b6646 100644
+index 551a8890a19abf8fa81bc3acc5ccb345580cd2b9..9e5c6b2ae5874426727383d46287d4d4c3404541 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -3947,7 +3947,7 @@ void Message::unloadHeavyPart() {

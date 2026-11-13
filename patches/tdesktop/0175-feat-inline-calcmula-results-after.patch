@@ -18,10 +18,10 @@ Subject: [PATCH] feat: inline calcmula results after =
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_inline.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3fda45bb94746b5965850aff643511dd11158326..1730fc21d30278f44b1089a2098c91aa4afffbcc 100644
+index 6bb7f88c074a01daf336ae699acea5846ee16611..aca889548b935386b3b7c2131fca4b7e9bf19e7c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2668,6 +2668,8 @@ PRIVATE
+@@ -2678,6 +2678,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
      tele/tele_calcmula.h
@@ -31,7 +31,7 @@ index 3fda45bb94746b5965850aff643511dd11158326..1730fc21d30278f44b1089a2098c91aa
      tele/tele_calcmula_preview.h
      tele/tele_calls.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 1393c3d341ba58e62c3fdb4eb3ff752fae3b72d5..806680c9aa7cb2bc21d58ef454b7dd1d0f0c554b 100644
+index 733200e2e49ce8919022d52a37d1523aee76c204..80bd681805329996084a9a53501a0ac55e51e087 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -175,6 +175,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -56,10 +56,10 @@ index 1393c3d341ba58e62c3fdb4eb3ff752fae3b72d5..806680c9aa7cb2bc21d58ef454b7dd1d
  		_field.data(),
  		[=] { return _isInlineBot; },
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index cb998deb91b19f0c5c6600eefdd735699f5d164f..9af1c15e0bb49b784698ea73847cb510883af8e7 100644
+index b498cbd6f8eed042fc96490bd220020e26371b0b..7164c2a8a4b6ea5329289ca336d6c64e1e8e8a90 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"
  #include "tele/tele_calcmula_preview.h"
@@ -67,7 +67,7 @@ index cb998deb91b19f0c5c6600eefdd735699f5d164f..9af1c15e0bb49b784698ea73847cb510
  #include "tele/tele_link_previews.h"
  #include "tele/tele_translate_out.h"
  #include "tele/tele_deleted_reply.h"
-@@ -3394,6 +3395,12 @@ void ComposeControls::initField() {
+@@ -3415,6 +3416,12 @@ void ComposeControls::initField() {
  		},
  		.send = [=] { _fieldSubmits.fire({}); },
  	});

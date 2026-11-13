@@ -17,10 +17,10 @@ Subject: [PATCH] feat: bigger video messages while playing
  create mode 100644 Telegram/SourceFiles/tele/tele_round_videos.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c78a2a6071a6646140e5224601cb25e7d084e18a..238e4d73890dbbec501608a052f5ac1859e54b88 100644
+index c31863bc0254586a3940ad3730919c153cd05bf9..f6e5cd973f649eff48ed0f191b2664a4d9dce496 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3079,6 +3079,8 @@ PRIVATE
+@@ -3089,6 +3089,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_rmb_beside_bubble.cpp
      tele/tele_rmb_beside_bubble.h

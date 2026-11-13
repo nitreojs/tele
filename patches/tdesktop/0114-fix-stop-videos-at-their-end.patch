@@ -13,10 +13,10 @@ Subject: [PATCH] fix: stop videos at their end
  create mode 100644 Telegram/SourceFiles/tele/tele_streaming_audio.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a01387629c2f9ace8f6091e8ca5df9e8f64bfa8a..db70ffd2a9022e1a3908d02aa4809c66a6ac5c38 100644
+index 1e6dd6cca8f08d2e1bad8806e87a73723959c926..d9d9e405c1292d55a20c939bc0e6726950df83ce 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2788,6 +2788,8 @@ PRIVATE
+@@ -2798,6 +2798,8 @@ PRIVATE
      tele/tele_shot_sharp.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h

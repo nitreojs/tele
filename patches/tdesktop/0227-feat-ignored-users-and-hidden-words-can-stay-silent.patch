@@ -16,7 +16,7 @@ Subject: [PATCH] feat: ignored users and hidden words can stay silent
  9 files changed, 122 insertions(+), 21 deletions(-)
 
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index 9b73173b0d1effaca246a3cceb353f9dd05c61fd..0e90b56544ac86fdc59922e1a2039c7bf2878867 100644
+index 896d7155e639c6a95be17842c8417404298083a3..2b18c56ff98b7a626bc4160c2aa7faa3d270ef7b 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -27,7 +27,7 @@ index 9b73173b0d1effaca246a3cceb353f9dd05c61fd..0e90b56544ac86fdc59922e1a2039c7b
  #include "tele/tele_list_previews.h"
  #include "tele/tele_local_pins.h"
  #include "ui/empty_userpic.h"
-@@ -1273,16 +1274,19 @@ void RowPainter::Paint(
+@@ -1266,16 +1267,19 @@ void RowPainter::Paint(
  			: thread
  			? &thread->lastItemDialogsView()
  			: nullptr;

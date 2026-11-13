@@ -19,10 +19,10 @@ Subject: [PATCH] feat: bigger, faster chat export
  create mode 100644 Telegram/SourceFiles/tele/tele_export.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1ebcf870b377cdc4713b42164b9ad20fe1751197..57666238bc9bf0a725ccf826b4ed8fa18eb0bb4d 100644
+index 16034c73c317a1202957e060320e9b40065373ff..4457d860c327baf0812ba5ca14288e5881d72f5c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2740,6 +2740,8 @@ PRIVATE
+@@ -2750,6 +2750,8 @@ PRIVATE
      tele/tele_editor_eyedropper.h
      tele/tele_emoji_panel.cpp
      tele/tele_emoji_panel.h
@@ -32,7 +32,7 @@ index 1ebcf870b377cdc4713b42164b9ad20fe1751197..57666238bc9bf0a725ccf826b4ed8fa1
      tele/tele_edit_history_section.h
      tele/tele_failed_sends.cpp
 diff --git a/Telegram/SourceFiles/export/export_api_wrap.cpp b/Telegram/SourceFiles/export/export_api_wrap.cpp
-index 5404e6e78bfc81c7ba95e35bd040bcad4bffb211..fca5efcc7a44b1e5bf7d42ede1bfe5479d99fa6d 100644
+index ea2165cbb46fc3fcdc3a6f9dd24d4f5c0aff11b8..7155bd05c2d8a46dac57fe5d7b87c578fdc80fe2 100644
 --- a/Telegram/SourceFiles/export/export_api_wrap.cpp
 +++ b/Telegram/SourceFiles/export/export_api_wrap.cpp
 @@ -15,6 +15,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -60,7 +60,7 @@ index 5404e6e78bfc81c7ba95e35bd040bcad4bffb211..fca5efcc7a44b1e5bf7d42ede1bfe547
  	)).fail([=](const MTP::Error &result) {
  		_fileProcess->requestId = 0;
  		if (result.type() == u"TAKEOUT_FILE_EMPTY"_q
-@@ -3483,7 +3485,7 @@ void ApiWrap::loadFilePart() {
+@@ -3527,7 +3529,7 @@ void ApiWrap::loadFilePart() {
  		_fileProcess->requestId = 0;
  		filePartDone(offset, result);
  	}).send();

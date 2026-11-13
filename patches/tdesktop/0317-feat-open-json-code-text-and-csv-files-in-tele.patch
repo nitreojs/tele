@@ -24,10 +24,10 @@ Subject: [PATCH] feat: open json, code, text and csv files in tele
  create mode 100644 Telegram/SourceFiles/tele/tele_quick_view.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a5a400bb8be98b239114a489fbfcda96f6d56360..7088f258fb170e6bcd4e7b29ebe8faa5092c056f 100644
+index e7810c50d0c0a12a0af2679f83fa4c5248470500..23524875b9425f3e9ef21c498db0d5ceaeb03829 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3045,6 +3045,8 @@ PRIVATE
+@@ -3055,6 +3055,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h

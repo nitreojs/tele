@@ -48,10 +48,10 @@ Subject: [PATCH] feat: scale shots up to 4x and show your messages as incoming
  create mode 100644 Telegram/SourceFiles/tele/tele_shot_sharp.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e49d691172159a276b94ca31ce7a0888cf077b43..82e5c0856c83d630daf8e07c993871a61ff19210 100644
+index 2b4c61a556fe7d70dc4851ca134bce5f02a97153..2af363ce2b3e7455cf0c4dbf33f3ce7bffbb36ed 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2770,6 +2770,8 @@ PRIVATE
+@@ -2780,6 +2780,8 @@ PRIVATE
      tele/tele_shortcuts.h
      tele/tele_shot.cpp
      tele/tele_shot.h
@@ -113,10 +113,10 @@ index deaf6870917288bf22cbafec01f484bea4f49da7..9e9d9c15ce2f97e2ebc35034fb42a115
  
  Ui::Text::CustomEmojiFactory CustomEmojiManager::factory(
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 0fb91e313d29340fdab658dd9813b25780353970..f3367d13c4e7d01ee9fa8a1e9b8795bb6e6c0853 100644
+index 83533964d4f980135c1bbad550c962a143566e86..58dd261a3619f912af0b9b4ef504e5a5ae1c094d 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -3945,7 +3945,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3952,7 +3952,8 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		controller,
  		(isUponSelected > 1) ? getSelectedItems() : MessageIdsList(),
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
@@ -200,7 +200,7 @@ index a09fb575e84a44cb0b83965f85d4ae721c689bd2..ddfd358ccde6ea0ba92832da3cf2b58c
  	}
  	for (auto &entry : list) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 6b25fd95ffba9225e97ee1e57a00f38ee17fe87a..0e27f9ac1ee061fe19b2bd8f27d3690a8e587c5a 100644
+index ad6ad5e3035d6072892a0b0d9b3738e3192cdc47..551a8890a19abf8fa81bc3acc5ccb345580cd2b9 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -70,6 +70,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -244,7 +244,7 @@ index 6b25fd95ffba9225e97ee1e57a00f38ee17fe87a..0e27f9ac1ee061fe19b2bd8f27d3690a
  	}
  	const auto item = data();
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 9f7a57843ddc916df4e73aa9d6af3bb6ad167d5c..2feba04594c5a9196e6b6bdc1de5e11ec2614dc8 100644
+index af49e83ff730aa23c6bf813b65a980fe93e8e47b..c150a10990ddf4bdd0e93d0705cbe5c978d119b1 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -255,7 +255,7 @@ index 9f7a57843ddc916df4e73aa9d6af3bb6ad167d5c..2feba04594c5a9196e6b6bdc1de5e11e
  #include "tele/tele_spoilers.h"
  #include "styles/style_chat.h"
  #include "styles/style_dialogs.h"
-@@ -882,7 +883,7 @@ void Reply::paint(
+@@ -889,7 +890,7 @@ void Reply::paint(
  	if (!inBubble) {
  		cache->bg = QColor(0, 0, 0, 0);
  	}

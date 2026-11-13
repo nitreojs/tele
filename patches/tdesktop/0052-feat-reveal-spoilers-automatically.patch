@@ -24,10 +24,10 @@ Subject: [PATCH] feat: reveal spoilers automatically
  create mode 100644 Telegram/SourceFiles/tele/tele_spoilers.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 6bf4ea2efcd4bfe6bc34ae7a0e14a9515c99d14b..b607dbb753ccc6978921ab8e952d3b3fdde3a31a 100644
+index e98337fd2ac264f7f1625aea4e129519fbda17ad..cfda72f1ff0305533ba915ede04a572de6d21db4 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2696,6 +2696,8 @@ PRIVATE
+@@ -2706,6 +2706,8 @@ PRIVATE
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -119,7 +119,7 @@ index 79ff2ba631f4dae1a54b7069819a6ae7fc5fcd05..c761a58fc5a0816a6e5042714f040991
  };
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index ee10f0de471fbb01d252032034d33354e3045501..950eae0e2469f440ab5492e99363ee26ac78054a 100644
+index 44d477ff35c4e15a9485414aa88690ff0bcf739c..870619fe5db0417b2028cc63e79e337860ff2ae0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -219,7 +219,7 @@ index d5e8aeabe52937d980c419b27528324867ecffc4..82b75bfd529d126d39f3a7f7584a27ee
  		leaf->setSpoilerLinkFilter([](const ClickContext &context) {
  			return context.button == Qt::LeftButton;
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index f1ab34e957730ab5a1fae43f79b43b0434320f36..1271892ca87fbe6d210c53c787fc46b0e526f0f8 100644
+index 2c2e6ca5e679ccdcb04f82a2cac57e9d06cbd111..2b07b892bc42f97b09304750402d7a6931c74ac1 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -230,7 +230,7 @@ index f1ab34e957730ab5a1fae43f79b43b0434320f36..1271892ca87fbe6d210c53c787fc46b0
  #include "tele/tele_view_tl.h"
  
  #include <QGraphicsOpacityEffect>
-@@ -4350,6 +4351,7 @@ void OverlayWidget::refreshCaption() {
+@@ -4351,6 +4352,7 @@ void OverlayWidget::refreshCaption() {
  			return (weak != nullptr);
  		});
  	}

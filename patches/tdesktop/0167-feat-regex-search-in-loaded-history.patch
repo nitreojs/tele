@@ -18,10 +18,10 @@ Subject: [PATCH] feat: regex search in loaded history
  create mode 100644 Telegram/SourceFiles/tele/tele_regex_search.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2336a368a73a0fe12260136caae938a7a58a0346..37a4acde8da1512d9f282e0003258e37060063d6 100644
+index 5165f2d582d94f8d9eba98e52874f63d73735ced..31e44b141fee6faeb5950709b1f3286b28fabd7b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2816,6 +2816,8 @@ PRIVATE
+@@ -2826,6 +2826,8 @@ PRIVATE
      tele/tele_recent_emoji.h
      tele/tele_reduce_motion.cpp
      tele/tele_reduce_motion.h
@@ -31,7 +31,7 @@ index 2336a368a73a0fe12260136caae938a7a58a0346..37a4acde8da1512d9f282e0003258e37
      tele/tele_rich_timestamps.h
      tele/tele_rmb_beside_bubble.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2ae391bbb 100644
+index fd0b7dee66ce74a5b41b8c6fd06715dbbf7d18f2..6304f98beab14712eea2eb19560f5f0a222c0e03 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
-@@ -715,6 +716,27 @@ Widget::Widget(
+@@ -505,6 +506,27 @@ Widget::Widget(
  	_chooseFromUser->entity()->setClickedCallback([=] { showSearchFrom(); });
  	_chooseFromUser->entity()->setAccessibleName(
  		tr::lng_search_messages_from(tr::now));
@@ -70,7 +70,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  	rpl::single(rpl::empty) | rpl::then(
  		session().domain().local().localPasscodeChanged()
  	) | rpl::on_next([=] {
-@@ -1096,7 +1118,10 @@ void Widget::chosenRow(const ChosenRow &row) {
+@@ -886,7 +908,10 @@ void Widget::chosenRow(const ChosenRow &row) {
  	} else if (const auto topic = row.key.topic()) {
  		auto params = Window::SectionShow(
  			Window::SectionShow::Way::ClearStack);
@@ -82,7 +82,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  		if (row.newWindow) {
  			controller()->showInNewWindow(
  				Window::SeparateId(topic),
-@@ -1188,7 +1213,10 @@ void Widget::chosenRow(const ChosenRow &row) {
+@@ -978,7 +1003,10 @@ void Widget::chosenRow(const ChosenRow &row) {
  		) ? ShowAtUnreadMsgId : row.message.fullId.msg;
  		auto params = Window::SectionShow(
  			Window::SectionShow::Way::ClearStack);
@@ -94,7 +94,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  		if (row.newWindow) {
  			controller()->showInNewWindow(peer, showAtMsgId);
  			closeSuggestions();
-@@ -3203,6 +3231,9 @@ void Widget::loadMoreBlockedByDate() {
+@@ -2993,6 +3021,9 @@ void Widget::loadMoreBlockedByDate() {
  }
  
  bool Widget::search(bool inCache, SearchRequestDelay delay) {
@@ -104,7 +104,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  	_processingSearch = true;
  	const auto guard = gsl::finally([&] {
  		_processingSearch = false;
-@@ -3513,6 +3544,9 @@ void Widget::searchTopics() {
+@@ -3303,6 +3334,9 @@ void Widget::searchTopics() {
  }
  
  void Widget::searchMore() {
@@ -114,7 +114,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  	const auto process = currentSearchProcess();
  	if (process->requestId
  		|| _historiesRequest
-@@ -4662,6 +4696,7 @@ void Widget::updateSearchFromVisibility(bool fast) {
+@@ -4452,6 +4486,7 @@ void Widget::updateSearchFromVisibility(bool fast) {
  		}
  		_search->setAdditionalMargins(additional);
  	}
@@ -122,7 +122,7 @@ index 98e8b59a92cfa1bde7b4a6f5d1805c05d143467a..f2665716ea1e963b1543a673a082baf2
  }
  
  void Widget::updateControlsGeometry() {
-@@ -4777,6 +4812,8 @@ void Widget::updateControlsGeometry() {
+@@ -4567,6 +4602,8 @@ void Widget::updateControlsGeometry() {
  	putBottomButton(_updateTelegram);
  	putBottomButton(_downloadBar);
  	putBottomButton(_loadMoreChats);

@@ -26,10 +26,10 @@ Subject: [PATCH] feat: filter chat search by message type
  create mode 100644 Telegram/SourceFiles/tele/tele_search_types.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2b189d619fe763b4b56bfdac61ed1c54f4ed92e2..c063164491b8880046a524592b7e6efd03a5c496 100644
+index 1db9f02eef11d8f51ed3ea105b78fab7e6e649b0..fcf29ed625966b0c5230d31c466add4c0c603fed 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2953,6 +2953,8 @@ PRIVATE
+@@ -2963,6 +2963,8 @@ PRIVATE
      tele/tele_rmb_beside_bubble.h
      tele/tele_screen_capture.cpp
      tele/tele_screen_capture.h
@@ -404,10 +404,10 @@ index 1a949c6ed4d0b6fea7b530aad2a56d416e879871..8fbaf459b74621b7090e1169e8ab8253
  	rpl::event_stream<> _newFounds;
  	rpl::event_stream<> _nextFounds;
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index b9f2669771818728c337614d1ae8025295e474f7..384e117649a3112403f5b5cdeac05da069c63f95 100644
+index e4bd4eb1a0c80a2306a65333286d54adb2557a5c..ea04ab19c6d0a78ed6ea8de3e78b1f5754219e69 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_list_previews.h"
  #include "tele/tele_local_pins.h"
  #include "tele/tele_options.h"
@@ -415,7 +415,7 @@ index b9f2669771818728c337614d1ae8025295e474f7..384e117649a3112403f5b5cdeac05da0
  #include "tele/tele_unsorted_folder.h"
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
-@@ -189,6 +190,7 @@ constexpr auto kPreviewPostsLimit = 3;
+@@ -190,6 +191,7 @@ constexpr auto kPreviewPostsLimit = 3;
  [[nodiscard]] object_ptr<SearchEmpty> MakeSearchEmpty(
  		QWidget *parent,
  		SearchState state,
@@ -423,7 +423,7 @@ index b9f2669771818728c337614d1ae8025295e474f7..384e117649a3112403f5b5cdeac05da0
  		Fn<void()> resetSearchFilters) {
  	const auto query = state.query.trimmed();
  	const auto hashtag = !query.isEmpty() && (query[0] == '#');
-@@ -204,7 +206,8 @@ constexpr auto kPreviewPostsLimit = 3;
+@@ -205,7 +207,8 @@ constexpr auto kPreviewPostsLimit = 3;
  		: state.fromPeer;
  	const auto waiting = trimmed.isEmpty()
  		&& state.tags.empty()
@@ -433,7 +433,7 @@ index b9f2669771818728c337614d1ae8025295e474f7..384e117649a3112403f5b5cdeac05da0
  	const auto suggestAllChats = !waiting
  		&& state.tab == ChatSearchTab::MyMessages
  		&& (state.filter != ChatTypeFilter::All || !state.fromArchive);
-@@ -5212,13 +5215,16 @@ void InnerWidget::refreshEmpty() {
+@@ -5326,13 +5329,16 @@ void InnerWidget::refreshEmpty() {
  			&& _searchResults.empty()
  			&& _peerSearchResults.empty()
  			&& _hashtagResults.empty();
@@ -453,10 +453,10 @@ index b9f2669771818728c337614d1ae8025295e474f7..384e117649a3112403f5b5cdeac05da0
  			});
  			if (_controller->session().data().chatsListLoaded()) {
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h
-index bf931359b27f622018fba19d360a02e3cbe83cf8..12bc8035a5bb73c532a8df0396a56e074857fc6a 100644
+index 51388af316ca23e4505ca7a58beea83d8e158df3..a978ee03b2213e417eed58beac145a0e6733ad22 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h
-@@ -763,6 +763,7 @@ private:
+@@ -776,6 +776,7 @@ private:
  	object_ptr<Ui::RpWidget> _loadingAnimation = { nullptr };
  	object_ptr<SearchEmpty> _searchEmpty = { nullptr };
  	SearchState _searchEmptyState;
@@ -465,7 +465,7 @@ index bf931359b27f622018fba19d360a02e3cbe83cf8..12bc8035a5bb73c532a8df0396a56e07
  	object_ptr<Ui::VerticalLayout> _emptyList = { nullptr };
  	object_ptr<Ui::RoundButton> _emptyButton = { nullptr };
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae295e89cc1 100644
+index 6304f98beab14712eea2eb19560f5f0a222c0e03..bb832f7961971c66222781aba8cd6c8d065cca24 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -97,6 +97,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -476,7 +476,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
-@@ -716,11 +717,35 @@ Widget::Widget(
+@@ -506,11 +507,35 @@ Widget::Widget(
  	_chooseFromUser->entity()->setClickedCallback([=] { showSearchFrom(); });
  	_chooseFromUser->entity()->setAccessibleName(
  		tr::lng_search_messages_from(tr::now));
@@ -512,7 +512,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		.apply = [=](std::vector<not_null<HistoryItem*>> items, int count) {
  			cancelSearchRequest();
  			_inner->searchReceived(
-@@ -3260,7 +3285,10 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3050,7 +3075,10 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  		.start = true,
  		.peer = (inPeer != nullptr),
  	};
@@ -524,7 +524,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		cancelSearchRequest();
  
  		// Otherwise inside first searchApplyEmpty we call searchMode(),
-@@ -3293,7 +3321,8 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3083,7 +3111,8 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  		}
  		const auto process = currentSearchProcess();
  		const auto i = process->cache.find(query);
@@ -534,7 +534,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  			_searchQuery = query;
  			_searchQueryFrom = fromPeer;
  			_searchQueryTags = inTags;
-@@ -3301,6 +3330,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3091,6 +3120,7 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  			_searchQueryCommunity = community;
  			_searchQueryFilter = filter;
  			_searchQueryFromArchive = fromArchive;
@@ -542,7 +542,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  			process->nextRate = 0;
  			process->full = false;
  			_migratedProcess.full = false;
-@@ -3314,7 +3344,8 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3104,7 +3134,8 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  		|| _searchQueryTab != tab
  		|| _searchQueryCommunity != community
  		|| _searchQueryFilter != filter
@@ -552,7 +552,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		const auto process = currentSearchProcess();
  		_searchQuery = query;
  		_searchQueryFrom = fromPeer;
-@@ -3323,6 +3354,14 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3113,6 +3144,14 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  		_searchQueryCommunity = community;
  		_searchQueryFilter = filter;
  		_searchQueryFromArchive = fromArchive;
@@ -567,7 +567,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		process->nextRate = 0;
  		process->full = false;
  		_migratedProcess.full = false;
-@@ -3335,7 +3374,10 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3125,7 +3164,10 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  			const auto sublist = _openedForum
  				? nullptr
  				: _searchState.inChat.sublist();
@@ -579,7 +579,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  			const auto savedPeer = sublist
  				? sublist->sublistPeer().get()
  				: nullptr;
-@@ -3363,12 +3405,12 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3153,12 +3195,12 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  								Data::ReactionToMTP
  							)),
  						MTP_int(topic ? topic->rootId() : 0),
@@ -594,7 +594,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  						MTP_int(0), // max_id
  						MTP_int(0), // min_id
  						MTP_long(0)) // hash
-@@ -3384,6 +3426,13 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
+@@ -3174,6 +3216,13 @@ bool Widget::search(bool inCache, SearchRequestDelay delay) {
  				process->queries.emplace(process->requestId, _searchQuery);
  				return process->requestId;
  			});
@@ -608,7 +608,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		} else if (_searchState.tab == ChatSearchTab::PublicPosts) {
  			requestPublicPosts(true);
  		} else {
-@@ -3554,6 +3603,13 @@ void Widget::searchMore() {
+@@ -3344,6 +3393,13 @@ void Widget::searchMore() {
  		return;
  	} else if (!process->full) {
  		if (const auto peer = searchInPeer()) {
@@ -622,7 +622,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  			auto &histories = session().data().histories();
  			const auto topic = searchInTopic();
  			const auto type = Data::Histories::RequestType::History;
-@@ -3561,7 +3617,10 @@ void Widget::searchMore() {
+@@ -3351,7 +3407,10 @@ void Widget::searchMore() {
  			const auto sublist = _openedForum
  				? nullptr
  				: _searchState.inChat.sublist();
@@ -634,7 +634,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  			const auto savedPeer = sublist
  				? sublist->sublistPeer().get()
  				: nullptr;
-@@ -3591,12 +3650,12 @@ void Widget::searchMore() {
+@@ -3381,12 +3440,12 @@ void Widget::searchMore() {
  								Data::ReactionToMTP
  							)),
  						MTP_int(topic ? topic->rootId() : 0),
@@ -649,7 +649,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  						MTP_int(0), // max_id
  						MTP_int(0), // min_id
  						MTP_long(0)) // hash
-@@ -3626,6 +3685,16 @@ void Widget::searchMore() {
+@@ -3416,6 +3475,16 @@ void Widget::searchMore() {
  			requestMessages(false);
  		}
  	} else if (_searchInMigrated && !_migratedProcess.full) {
@@ -666,7 +666,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		auto &histories = session().data().histories();
  		const auto type = Data::Histories::RequestType::History;
  		const auto history = _searchInMigrated;
-@@ -3635,7 +3704,7 @@ void Widget::searchMore() {
+@@ -3425,7 +3494,7 @@ void Widget::searchMore() {
  				.migrated = true,
  				.start = !_migratedProcess.lastId,
  			};
@@ -675,7 +675,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  				? MTP_flags(MTPmessages_Search::Flag::f_from_id)
  				: MTP_flags(0);
  			_migratedProcess.requestId = session().api().request(
-@@ -3643,18 +3712,16 @@ void Widget::searchMore() {
+@@ -3433,18 +3502,16 @@ void Widget::searchMore() {
  					flags,
  					_searchInMigrated->peer->input(),
  					MTP_string(_searchQuery),
@@ -697,7 +697,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  					MTP_int(0), // max_id
  					MTP_int(0), // min_id
  					MTP_long(0)) // hash
-@@ -3782,6 +3849,11 @@ void Widget::searchReceived(
+@@ -3572,6 +3639,11 @@ void Widget::searchReceived(
  		const MTPmessages_Messages &result,
  		not_null<SearchProcessState*> process,
  		bool cacheResults) {
@@ -709,7 +709,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  	const auto state = _inner->state();
  	if (!cacheResults
  		&& (state == WidgetState::Filtered)
-@@ -3808,7 +3880,7 @@ void Widget::searchReceived(
+@@ -3598,7 +3670,7 @@ void Widget::searchReceived(
  			return;
  		}
  	}
@@ -718,7 +718,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		? *_singleMessageSearch.lookup(_searchQuery)
  		: nullptr;
  	if (type.start) {
-@@ -3873,11 +3945,28 @@ void Widget::searchReceived(
+@@ -3663,11 +3735,28 @@ void Widget::searchReceived(
  		process->full = true;
  		return std::vector<not_null<HistoryItem*>>();
  	});
@@ -748,7 +748,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  }
  
  void Widget::peerSearchReceived(Api::PeerSearchResult result) {
-@@ -3904,7 +3993,14 @@ void Widget::searchFailed(
+@@ -3694,7 +3783,14 @@ void Widget::searchFailed(
  		SearchRequestType type,
  		const MTP::Error &error,
  		not_null<SearchProcessState*> process) {
@@ -764,7 +764,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  		searchApplyEmpty(type, process);
  	} else {
  		process->requestId = 0;
-@@ -4417,7 +4513,8 @@ bool Widget::applySearchState(SearchState state) {
+@@ -4207,7 +4303,8 @@ bool Widget::applySearchState(SearchState state) {
  
  	const auto searchCleared = state.query.isEmpty()
  		&& !state.fromPeer
@@ -774,7 +774,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  	if (searchCleared
  		|| inChatChanged
  		|| communityChanged
-@@ -4495,6 +4592,7 @@ void Widget::clearSearchCache(bool clearPosts) {
+@@ -4285,6 +4382,7 @@ void Widget::clearSearchCache(bool clearPosts) {
  	_searchQuery = QString();
  	_searchQueryFrom = nullptr;
  	_searchQueryTags.clear();
@@ -782,7 +782,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  	if (clearPosts) {
  		_postsProcess.cache.clear();
  		const auto queries = base::take(_postsProcess.queries);
-@@ -4696,6 +4794,7 @@ void Widget::updateSearchFromVisibility(bool fast) {
+@@ -4486,6 +4584,7 @@ void Widget::updateSearchFromVisibility(bool fast) {
  		}
  		_search->setAdditionalMargins(additional);
  	}
@@ -790,7 +790,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  	Tele::DialogsRegexState(this, _searchState);
  }
  
-@@ -5114,6 +5213,7 @@ void Widget::cancelSearchRequest() {
+@@ -4904,6 +5003,7 @@ void Widget::cancelSearchRequest() {
  	session().api().request(base::take(_postsProcess.requestId)).cancel();
  	session().data().histories().cancelRequest(
  		base::take(_historiesRequest));
@@ -798,7 +798,7 @@ index f2665716ea1e963b1543a673a082baf2ae391bbb..994d427bd917ab9bb779cb201b8f5ae2
  }
  
  PeerData *Widget::searchInPeer() const {
-@@ -5202,6 +5302,7 @@ bool Widget::cancelSearch(CancelSearchOptions options) {
+@@ -4992,6 +5092,7 @@ bool Widget::cancelSearch(CancelSearchOptions options) {
  		}
  	}
  	cancelSearchRequest();

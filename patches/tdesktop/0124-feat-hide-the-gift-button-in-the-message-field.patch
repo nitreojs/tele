@@ -14,7 +14,7 @@ Subject: [PATCH] feat: hide the gift button in the message field
  7 files changed, 41 insertions(+)
 
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 713325515602ae7422633d9527426ca3278e93f0..b55d9df288a29a29c49785ddb96c7be295c48cf3 100644
+index f61b8baeecc147e5329ce048905764692735faf7..aea89b0466e3c24d31ae6a9a202b96aec8b6ea88 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -186,6 +186,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -46,7 +46,7 @@ index 713325515602ae7422633d9527426ca3278e93f0..b55d9df288a29a29c49785ddb96c7be2
  		&& channel->stargiftsAvailable());
  }
  
-@@ -4243,6 +4251,7 @@ void HistoryWidget::refreshSendGiftToggle() {
+@@ -4247,6 +4255,7 @@ void HistoryWidget::refreshSendGiftToggle() {
  		| Type::Unique;
  	const auto has = user
  		&& _canSendMessages
@@ -85,10 +85,10 @@ index c34d06a26eab9dea343c040ad0d93dbfa73a1a1e..a56a4d5d45cce63fb44d2f08dd4595b4
  }
  
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index c240ef8b28c32f68fba8bfe410c8a0aff6dea923..042f0abfecde8af0d028cf2a959c5cb223f1e1dc 100644
+index 59361c8d228a2a02803893b544afd0b946a4c233..7d84fe20fe7b7a0708087331203ff93f70b4363b 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_inline_text.h"
  #include "tele/tele_send_order.h"
  #include "tele/tele_username_aliases.h"
@@ -96,7 +96,7 @@ index c240ef8b28c32f68fba8bfe410c8a0aff6dea923..042f0abfecde8af0d028cf2a959c5cb2
  #include "support/support_helper.h"
  #include "ui/item_text_options.h"
  #include "ui/text/text_options.h"
-@@ -2955,6 +2956,9 @@ void ComposeControls::init() {
+@@ -2972,6 +2973,9 @@ void ComposeControls::init() {
  		initEditStarsButton();
  		updateControlsGeometry(_wrap->size());
  	}, _wrap->lifetime());
@@ -106,7 +106,7 @@ index c240ef8b28c32f68fba8bfe410c8a0aff6dea923..042f0abfecde8af0d028cf2a959c5cb2
  
  	_hidden.changes(
  	) | rpl::on_next([=] {
-@@ -5802,6 +5806,7 @@ void ComposeControls::refreshSendGiftToggle() {
+@@ -5847,6 +5851,7 @@ void ComposeControls::refreshSendGiftToggle() {
  	const auto has = _regularWindow
  		&& user
  		&& !_writeRestriction.current()

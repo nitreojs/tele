@@ -21,10 +21,10 @@ Subject: [PATCH] feat: filter long lists by date
  create mode 100644 Telegram/SourceFiles/tele/tele_list_dates.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index be2944d3009fd7bd2444a6cbb962ffc36eb823e3..9d786f90957171fd0a45084e7f1ae27b3f6d8960 100644
+index ca82e0bfbff3bfe774517f95ccd3f7a2c30a1e57..25b154c7062d1211c20d654c680c97ee808648a0 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2814,6 +2814,8 @@ PRIVATE
+@@ -2824,6 +2824,8 @@ PRIVATE
      tele/tele_launch_flags.h
      tele/tele_links.cpp
      tele/tele_links.h
@@ -91,10 +91,10 @@ index 33901296f984d9fe8bfbc07860f30a64c5d48f1a..a5fb2f97a31c1eb9ad918adc9f3ed592
  		if (_provider->type() == Type::File) {
  			// For downloads manager.
 diff --git a/Telegram/SourceFiles/info/media/info_media_widget.cpp b/Telegram/SourceFiles/info/media/info_media_widget.cpp
-index 53e5bf4b5c9ce6f85d1c5865e122e1cab5b6c254..9deba64c7610b7d443908ac1b4340be44dfd6629 100644
+index 3e94a0f06c15c76b6cfb9f8f3aedde256eb79802..33b1fc075e9769cd03a11224f9c8838856d12413 100644
 --- a/Telegram/SourceFiles/info/media/info_media_widget.cpp
 +++ b/Telegram/SourceFiles/info/media/info_media_widget.cpp
-@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_saved_sublist.h"
  #include "lang/lang_keys.h"
  #include "window/window_session_controller.h"
@@ -102,7 +102,7 @@ index 53e5bf4b5c9ce6f85d1c5865e122e1cab5b6c254..9deba64c7610b7d443908ac1b4340be4
  #include "styles/style_menu_icons.h"
  
  namespace Info::Media {
-@@ -143,6 +144,7 @@ Widget::Widget(QWidget *parent, not_null<Controller*> controller)
+@@ -144,6 +145,7 @@ Widget::Widget(QWidget *parent, not_null<Controller*> controller)
  		return (e->modifiers() & Qt::ControlModifier)
  			&& _inner->processZoomWheel(e);
  	});
@@ -110,14 +110,14 @@ index 53e5bf4b5c9ce6f85d1c5865e122e1cab5b6c254..9deba64c7610b7d443908ac1b4340be4
  }
  
  rpl::producer<SelectedItems> Widget::selectedListValue() const {
-@@ -154,6 +156,7 @@ void Widget::selectionAction(SelectionAction action) {
+@@ -155,6 +157,7 @@ void Widget::selectionAction(SelectionAction action) {
  }
  
  void Widget::fillTopBarMenu(const Ui::Menu::MenuCallback &addAction) {
 +	Tele::FillSharedMediaDatesMenu(this, controller(), addAction);
  	const auto type = controller()->section().mediaType();
- 	if (type != Type::Photo
- 		&& type != Type::Video
+ 	if (HasVoiceFilter(type)) {
+ 		FillVoiceFilterMenu(
 diff --git a/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp b/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp
 index 8dcf800843ff400ce27a4fb28b6d4f3b71a50688..25eef7e9749459b2920102933fc091943f90cd60 100644
 --- a/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp

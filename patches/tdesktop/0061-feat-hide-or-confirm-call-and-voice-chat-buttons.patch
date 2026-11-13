@@ -22,10 +22,10 @@ Subject: [PATCH] feat: hide or confirm call and voice chat buttons
  create mode 100644 Telegram/SourceFiles/tele/tele_calls.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 589c6dfbc5e39063857687e6f599b2a098a97a9e..df6def221eda4823d68f545fe36eed831dde6132 100644
+index fccc5e53bd13f911d1b01431ef887a3c7b2b4f7c..649367693d679576cb99e9b44c1e441a4817396a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2658,6 +2658,8 @@ PRIVATE
+@@ -2668,6 +2668,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
      tele/tele_calcmula.h
@@ -35,7 +35,7 @@ index 589c6dfbc5e39063857687e6f599b2a098a97a9e..df6def221eda4823d68f545fe36eed83
      tele/tele_changelog.h
      tele/tele_crash.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 49cc702287558bb19e5c67f226a4b793a0b9bbf8..0579c8e9cd8669aa5f5c963f1e7c53b61cf5ec9d 100644
+index 2cb9b94035d9b0f3acfb2a691d9cccf38f2e348e..73038e5a0865cc230196eeecdb4b056714dc6d89 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -92,6 +92,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -46,7 +46,7 @@ index 49cc702287558bb19e5c67f226a4b793a0b9bbf8..0579c8e9cd8669aa5f5c963f1e7c53b6
  #include "tele/tele_folders.h"
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
-@@ -2573,7 +2574,9 @@ void Widget::refreshTopBars() {
+@@ -2363,7 +2364,9 @@ void Widget::refreshTopBars() {
  			_forumGroupCallBar->joinClicks()
  		) | rpl::on_next([=] {
  			if (peer->groupCall()) {
@@ -58,7 +58,7 @@ index 49cc702287558bb19e5c67f226a4b793a0b9bbf8..0579c8e9cd8669aa5f5c963f1e7c53b6
  		}, _forumGroupCallBar->lifetime());
  
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 0c0ffc21dd0626ca817a8e1d11bc2e33bc433fae..ec3313e33bcf2d1cd3911398f4cfce421243b99e 100644
+index 344407e0e3c13a5e3321aae2ac0deaae76b0fb14..cfab091eb99a9b382adbf098ec32ce64fe10bf40 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -69,7 +69,7 @@ index 0c0ffc21dd0626ca817a8e1d11bc2e33bc433fae..ec3313e33bcf2d1cd3911398f4cfce42
  #include "tele/tele_ghost.h"
  #include "tele/tele_shortcuts.h"
  #include "media/audio/media_audio.h"
-@@ -10174,7 +10175,9 @@ void HistoryWidget::setupGroupCallBar() {
+@@ -10182,7 +10183,9 @@ void HistoryWidget::setupGroupCallBar() {
  	) | rpl::on_next([=] {
  		const auto peer = _history->peer;
  		if (peer->groupCall()) {
@@ -232,7 +232,7 @@ index 4a00a9a598ac4f55b1ef3c3efa37819bc7be4aef..c2ea2e186bfd0b8b8f7b24eb2cbc84d3
  	}, _topBar->lifetime());
  
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index 0d5474c0d5ac163cf4070cb512e52d94957b8b8e..da0cedb03f13ab8c9824de5a70579045a1b5dd65 100644
+index 032ac10dbbe404d767395ce4fc969a6b5490b645..7625c8f5a631512c64ca748866d7c2e74382f884 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

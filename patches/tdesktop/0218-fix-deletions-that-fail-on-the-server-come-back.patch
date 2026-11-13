@@ -16,10 +16,10 @@ Subject: [PATCH] fix: deletions that fail on the server come back
  create mode 100644 Telegram/SourceFiles/tele/tele_delete_fail.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 09d87c626bcade96d69bcbed5a65df9498952fb0..393a0cb14acf03a72a3aa6f1347eb366c6f0c8b2 100644
+index 980ce81d29f538d9b7f076cbed33cf732f4924dd..1b9d04b6242cc7bc2675f2618615afab17ccc91e 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2720,6 +2720,8 @@ PRIVATE
+@@ -2730,6 +2730,8 @@ PRIVATE
      tele/tele_drafts_rich.h
      tele/tele_drafts_section.cpp
      tele/tele_drafts_section.h
@@ -29,10 +29,10 @@ index 09d87c626bcade96d69bcbed5a65df9498952fb0..393a0cb14acf03a72a3aa6f1347eb366
      tele/tele_deleted.h
      tele/tele_deleted_reply.cpp
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index 1e518e38c585aa7be24cc24a22c286502a06c03f..fb6819fee7ecec42137564d2750e059ec9c4b0fd 100644
+index c93c006e4bc622372c75eeabad3c227f64259a07..04285e49cb9fcb56a6343e15f0010652c8984d7d 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/application.h"
  #include "apiwrap.h"
  #include "tele/tele_changelog_chat.h"
@@ -40,7 +40,7 @@ index 1e518e38c585aa7be24cc24a22c286502a06c03f..fb6819fee7ecec42137564d2750e059e
  #include "tele/tele_deleted.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_send_order.h"
-@@ -841,17 +842,21 @@ void Histories::deleteMessages(
+@@ -842,17 +843,21 @@ void Histories::deleteMessages(
  			finish();
  			history->requestChatListMessage();
  		};
@@ -65,7 +65,7 @@ index 1e518e38c585aa7be24cc24a22c286502a06c03f..fb6819fee7ecec42137564d2750e059e
  	});
  }
 diff --git a/Telegram/SourceFiles/history/history.h b/Telegram/SourceFiles/history/history.h
-index 4b274a9218d9919a3511bb3594897138f323ba6f..ad4c7cd66672f37fa3b553427c725deb6688c0d2 100644
+index 9241076bdb35041a9f5c5268dbf0cea40324db58..1be44c12abe67c338747c6a4d0a67dab21a43c5e 100644
 --- a/Telegram/SourceFiles/history/history.h
 +++ b/Telegram/SourceFiles/history/history.h
 @@ -51,6 +51,7 @@ class Element;

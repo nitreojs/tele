@@ -26,10 +26,10 @@ Subject: [PATCH] feat: unsorted folder
  create mode 100644 Telegram/SourceFiles/tele/tele_unsorted_folder.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 48e2dc8bc4c39af931067383d009ac085bf78623..877b9539ae7d695ce85d6d4df8786cfba586b940 100644
+index 555bf923c98df2fa6419f852476f4d6e8620644a..07ed2dd4faf655182147b6db60764cec14fa3232 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2850,6 +2850,8 @@ PRIVATE
+@@ -2860,6 +2860,8 @@ PRIVATE
      tele/tele_title_template.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h
@@ -136,10 +136,10 @@ index 294e6eaeec48901b977d75a4efc5f2af0e12ebd3..2a8ff52576354c20079eccf8b76cb681
  		const auto peer = history->peer;
  		if (const auto user = peer->asUser()) {
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index 53c4562fb7b3ac0b6f5754e4901e76481df8ae0b..3ee3c198355c8e8f047b4c620ac6f550dde06b37 100644
+index 409c82e2538d2158cba73fef0982f81d81a46f3b..7794146252219e0bfe68e50d05a6129496efa54c 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -100,6 +100,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -101,6 +101,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_list_previews.h"
  #include "tele/tele_local_pins.h"
  #include "tele/tele_options.h"
@@ -147,7 +147,7 @@ index 53c4562fb7b3ac0b6f5754e4901e76481df8ae0b..3ee3c198355c8e8f047b4c620ac6f550
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
  #include "base/qt/qt_common_adapters.h"
-@@ -5276,7 +5277,8 @@ void InnerWidget::refreshEmpty() {
+@@ -5390,7 +5391,8 @@ void InnerWidget::refreshEmpty() {
  		: tr::lng_contacts_loading();
  	auto link = (state == EmptyState::NoContacts)
  		? tr::lng_add_contact_button()

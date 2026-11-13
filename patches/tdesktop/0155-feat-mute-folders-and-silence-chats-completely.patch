@@ -19,10 +19,10 @@ Subject: [PATCH] feat: mute folders and silence chats completely
  create mode 100644 Telegram/SourceFiles/tele/tele_mute.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4059059ac0510c2076cf8758127283e199443526..4b8ab1b14258651f4fb67b83bf18a3040b501219 100644
+index 6668099fcd7d6884f48782a76ac15e506563fbe0..5e48ffff70a3a445424b02ef0917a9ac10bb32c1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2760,6 +2760,8 @@ PRIVATE
+@@ -2770,6 +2770,8 @@ PRIVATE
      tele/tele_mtp_inspector.h
      tele/tele_mtp_log.cpp
      tele/tele_mtp_log.h

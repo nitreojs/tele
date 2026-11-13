@@ -16,10 +16,10 @@ Subject: [PATCH] feat: show names instead of phone numbers in chat headers
  create mode 100644 Telegram/SourceFiles/tele/tele_phones.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 370fb14e47edab4dfb852e82870d0d2add9f61e1..34364271dd177c46d08eeb303c484833292c40bb 100644
+index 9cded79e7c8ceb10536acd85e22ce628174d0d0b..edde0d6710f7e2f16d5582114a49e96d3a6e6e3a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2708,6 +2708,8 @@ PRIVATE
+@@ -2718,6 +2718,8 @@ PRIVATE
      tele/tele_options.h
      tele/tele_peer_id.cpp
      tele/tele_peer_id.h

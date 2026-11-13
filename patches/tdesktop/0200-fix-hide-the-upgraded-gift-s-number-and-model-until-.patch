@@ -16,10 +16,10 @@ Subject: [PATCH] fix: hide the upgraded gift's number and model until the spin
  create mode 100644 Telegram/SourceFiles/tele/tele_gift_roll_number.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f666152e81516ff88258d4ba044f678701b63efa..dffe8c57140b505939006237b84725b031709abe 100644
+index f7be8718e1a52cc8b072f19ef463a20a2764ceac..2280360e400673db38684155d64ebaef1c5595b7 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2746,6 +2746,8 @@ PRIVATE
+@@ -2756,6 +2756,8 @@ PRIVATE
      tele/tele_gift_fake_upgrade.h
      tele/tele_gift_quantity.cpp
      tele/tele_gift_quantity.h

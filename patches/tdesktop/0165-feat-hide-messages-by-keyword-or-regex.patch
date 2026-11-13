@@ -20,10 +20,10 @@ Subject: [PATCH] feat: hide messages by keyword or regex
  create mode 100644 Telegram/SourceFiles/tele/tele_hidden_words.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e90723e52644d8697395176e30f9d60e949ad985..2336a368a73a0fe12260136caae938a7a58a0346 100644
+index d30d7f65bd6913b2fd97914787086fc8cd2e90e5..5165f2d582d94f8d9eba98e52874f63d73735ced 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2742,6 +2742,8 @@ PRIVATE
+@@ -2752,6 +2752,8 @@ PRIVATE
      tele/tele_gifts.h
      tele/tele_ghost.cpp
      tele/tele_ghost.h
@@ -33,10 +33,10 @@ index e90723e52644d8697395176e30f9d60e949ad985..2336a368a73a0fe12260136caae938a7
      tele/tele_ignored.h
      tele/tele_inline_text.cpp
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index 49d7370c31b863648b0a4ca2ab35567060182c35..b9f2669771818728c337614d1ae8025295e474f7 100644
+index e576b5841c44a4a3e89eb0b2e5f3234b93ec636f..e4bd4eb1a0c80a2306a65333286d54adb2557a5c 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -99,6 +99,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_chats_selection.h"
  #include "tele/tele_communities.h"
  #include "tele/tele_corner_buttons.h"
@@ -44,7 +44,7 @@ index 49d7370c31b863648b0a4ca2ab35567060182c35..b9f2669771818728c337614d1ae80252
  #include "tele/tele_list_previews.h"
  #include "tele/tele_local_pins.h"
  #include "tele/tele_options.h"
-@@ -358,6 +359,11 @@ InnerWidget::InnerWidget(
+@@ -359,6 +360,11 @@ InnerWidget::InnerWidget(
  		update();
  	}, lifetime());
  
@@ -57,7 +57,7 @@ index 49d7370c31b863648b0a4ca2ab35567060182c35..b9f2669771818728c337614d1ae80252
  	) | rpl::on_next([=] {
  		_topicJumpCache = nullptr;
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index 9297ab44ca68bdccb507945d0e204ff04ff88eab..f121b15f1b54950a09fb546f1b29b2c2f6c5046f 100644
+index 274fb1ca893f98988ea2bce7328af04a22afc9bd..efdca317df495032e1ea10adb9527ddd57c6b265 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -68,7 +68,7 @@ index 9297ab44ca68bdccb507945d0e204ff04ff88eab..f121b15f1b54950a09fb546f1b29b2c2
  #include "tele/tele_list_previews.h"
  #include "tele/tele_local_pins.h"
  #include "ui/empty_userpic.h"
-@@ -1263,7 +1264,7 @@ void RowPainter::Paint(
+@@ -1256,7 +1257,7 @@ void RowPainter::Paint(
  			: thread
  			? &thread->lastItemDialogsView()
  			: nullptr;

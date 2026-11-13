@@ -21,10 +21,10 @@ Subject: [PATCH] feat: save messages as a picture
  create mode 100644 Telegram/SourceFiles/tele/tele_shot.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bb94c2bbffdf6c3b8fa00a57df83d6bd69234e67..8ecb99c27e7ad1f113cee6ada16a7e0776a629a7 100644
+index 193b3de0ae67527262ad6ae980099ee6d67bd1f1..e9e87f2bf80ba924ce83e6e774d31e032dfee8bc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2736,6 +2736,8 @@ PRIVATE
+@@ -2746,6 +2746,8 @@ PRIVATE
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -34,7 +34,7 @@ index bb94c2bbffdf6c3b8fa00a57df83d6bd69234e67..8ecb99c27e7ad1f113cee6ada16a7e07
      tele/tele_spoilers.h
      tele/tele_time.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index d2a6bc2c2c0aa5dc3e355d321116c72e7dd98f35..5b16359564bad67695c3142ffb960187304fd907 100644
+index f630e8c5632379ae6c97e5eb8b38197e257ee347..d5130c6a594acfc91d1d400b3c8d3d3f11e5499a 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -140,6 +140,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index d2a6bc2c2c0aa5dc3e355d321116c72e7dd98f35..5b16359564bad67695c3142ffb960187
  #include "tele/tele_message_menu.h"
  #include "tele/tele_options.h"
  #include "styles/style_chat.h"
-@@ -3938,6 +3939,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3945,6 +3946,12 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  			Menu::RateTranscribeCallbackFactory(rateTranscriptionItem)));
  	}
  

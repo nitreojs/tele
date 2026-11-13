@@ -260,7 +260,7 @@ index 37e534df12a57865b42d45e19c58a3c42b1aeec8..050b7522fff4a2708767f855f0f69bfe
  		return lifetime;
  	};
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 37050377cefa265a265cb5622456e123b5630a02..018952316a067920e3378a528c8ee8cc7852e5b5 100644
+index 8518e57d980175c51d849e1579c0fb4a5f00fc18..10cb1c5ae356e10674dd4e88ffb80840b86d7fd1 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 @@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -321,7 +321,7 @@ index 37050377cefa265a265cb5622456e123b5630a02..018952316a067920e3378a528c8ee8cc
  	refreshRows(slice);
  }
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.h b/Telegram/SourceFiles/history/view/history_view_list_widget.h
-index 0c627e3a5e547f17e9697001e99e026cd09dc2d5..d5bb023f59f8fcc71c4861bd10317c71f5d163ea 100644
+index 418eb03ec8f215c5546bc41bec2d3065d715c855..1f8712ab42995387d8083384c6d7091a015e573f 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.h
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.h
 @@ -75,6 +75,10 @@ class Manager;
@@ -344,7 +344,7 @@ index 0c627e3a5e547f17e9697001e99e026cd09dc2d5..d5bb023f59f8fcc71c4861bd10317c71
  	friend class Tgw::ListScroll;
  	friend class Tgw::ListSelection;
  	friend class Tgw::ListTouch;
-@@ -992,6 +998,7 @@ private:
+@@ -993,6 +999,7 @@ private:
  	int _aroundIndex = -1;
  	int _idsLimit = kMinimalIdsLimit;
  	Data::MessagesSlice _slice;

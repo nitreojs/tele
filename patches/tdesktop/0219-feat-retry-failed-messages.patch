@@ -18,10 +18,10 @@ Subject: [PATCH] feat: retry failed messages
  create mode 100644 Telegram/SourceFiles/tele/tele_failed_sends.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 393a0cb14acf03a72a3aa6f1347eb366c6f0c8b2..8f09d878cabb608628c52ceff6fd02851d39c723 100644
+index 1b9d04b6242cc7bc2675f2618615afab17ccc91e..a33d284b45982cb276d86a5ebd2a085203b22f59 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2736,6 +2736,8 @@ PRIVATE
+@@ -2746,6 +2746,8 @@ PRIVATE
      tele/tele_emoji_panel.h
      tele/tele_edit_history_section.cpp
      tele/tele_edit_history_section.h
@@ -31,7 +31,7 @@ index 393a0cb14acf03a72a3aa6f1347eb366c6f0c8b2..8f09d878cabb608628c52ceff6fd0285
      tele/tele_field_resize.h
      tele/tele_flood_wait.h
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index f121b15f1b54950a09fb546f1b29b2c2f6c5046f..9b73173b0d1effaca246a3cceb353f9dd05c61fd 100644
+index efdca317df495032e1ea10adb9527ddd57c6b265..896d7155e639c6a95be17842c8417404298083a3 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -38,6 +38,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -58,7 +58,7 @@ index f121b15f1b54950a09fb546f1b29b2c2f6c5046f..9b73173b0d1effaca246a3cceb353f9d
  
  	p.setFont(st::semiboldFont);
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 28190c31444fb4f1e91860bf0e4cad6dbaa16973..2602b3345c92927df64bc2d6ed0b540b2ed5f8b7 100644
+index e6e75c78d557b7603d41b90739cd34a8efc4f26e..2275d1ee87bd8a2d7fcec547e44ca076c12ee2fc 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -139,6 +139,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -69,7 +69,7 @@ index 28190c31444fb4f1e91860bf0e4cad6dbaa16973..2602b3345c92927df64bc2d6ed0b540b
  #include "tele/tele_ghost.h"
  #include "tele/tele_gif_video.h"
  #include "tele/tele_ignored.h"
-@@ -3970,6 +3971,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3977,6 +3978,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
  		width(),
  		crl::guard(this, [=] { _widget->clearSelected(); }));

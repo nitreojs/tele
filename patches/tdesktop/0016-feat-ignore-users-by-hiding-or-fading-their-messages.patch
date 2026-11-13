@@ -20,10 +20,10 @@ Subject: [PATCH] feat: ignore users by hiding or fading their messages
  create mode 100644 Telegram/SourceFiles/tele/tele_ignored.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2bcedd66a1eb73bc952a75b2b1be0ec40c3692b5..ed01e6532ee5374674b46e16de734bc788d306ed 100644
+index c27a971494ff7c888a1c1cab68e4410951e028e5..738326d721d1f2179c0faf4c2f615f8dd0e369d1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2654,6 +2654,8 @@ PRIVATE
+@@ -2664,6 +2664,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_gifts.cpp
      tele/tele_gifts.h
@@ -33,7 +33,7 @@ index 2bcedd66a1eb73bc952a75b2b1be0ec40c3692b5..ed01e6532ee5374674b46e16de734bc7
      tele/tele_options.h
      tele/tele_peer_id.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 64e31c6eef66a527e521dd0d2b0c16b8d0739b73..90a93a980ff2b50a4b0a2af7fbea3b2514821a61 100644
+index cc9af613747fc84e31418f79f134254f1f746bcf..ef70ea06b5f6620b62e104128b8bcc7f6bcc1309 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -44,7 +44,7 @@ index 64e31c6eef66a527e521dd0d2b0c16b8d0739b73..90a93a980ff2b50a4b0a2af7fbea3b25
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -1738,6 +1739,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1744,6 +1745,7 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  		// paint the userpic if it intersects the painted rect
  		if (userpicTop + st::msgPhotoSize > clip.top()) {
  			const auto item = view->data();
@@ -90,7 +90,7 @@ index c7086658aad9da4e8cba89d5fa8885135678a801..3294916e3653f7ddff1adeef4eee81e5
  
  void Element::Hovered(Element *view) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index f309b8bf9d7547e859d55e7abaa8ca36a160d569..c365a9d6093e09d21abc359af99195d138ae6b0a 100644
+index ca4a29ebabd20c5426d7c61177dca307196abdfc..46abcb3857e37bbb6be8459f37640ee9fe23bf1c 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 @@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -101,7 +101,7 @@ index f309b8bf9d7547e859d55e7abaa8ca36a160d569..c365a9d6093e09d21abc359af99195d1
  #include "styles/style_chat.h"
  #include "styles/style_window.h" // columnMaximalWidthLeft
  
-@@ -3669,6 +3670,7 @@ void ListWidget::paintUserpics(
+@@ -3662,6 +3663,7 @@ void ListWidget::paintUserpics(
  		// paint the userpic if it intersects the painted rect
  		if (userpicTop + st::msgPhotoSize > clip.top()) {
  			const auto item = view->data();
@@ -109,7 +109,7 @@ index f309b8bf9d7547e859d55e7abaa8ca36a160d569..c365a9d6093e09d21abc359af99195d1
  			const auto shift = context.gestureHorizontal.visualTranslationFor(
  				item->id.bare);
  			if (shift) {
-@@ -4565,6 +4567,11 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4558,6 +4560,11 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		return;
  	} else if (linkUserpicPeerId) {
  		_menu = _delegate->listFillSenderUserpicMenu(linkUserpicPeerId);
@@ -122,7 +122,7 @@ index f309b8bf9d7547e859d55e7abaa8ca36a160d569..c365a9d6093e09d21abc359af99195d1
  			Window::AddSenderUserpicModerateAction(
  				controller(),
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index bbdd8f9ff1a846440c4bb5ac531ea638656d6fd2..268b1f87d1baafb0f2272b13594c9f7b73581538 100644
+index 9a9d44f34c95bd871cbfe4e810845fafa2c388bf..680c088a334fb3be3b98f7b8c3033bdb107ca144 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

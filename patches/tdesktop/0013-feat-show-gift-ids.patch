@@ -17,10 +17,10 @@ Subject: [PATCH] feat: show gift ids
  create mode 100644 Telegram/SourceFiles/tele/tele_gifts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 74687a9a0651ce32ec5660e343f2648426a969e3..1ac41831f3f4f70980b4a37aa01d185eaf10dd87 100644
+index 664878baf27faee1de54cb97ee5355c91e413536..47a45e062029a7fbd7c6b5a57d732045c07ba62f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2652,6 +2652,8 @@ PRIVATE
+@@ -2662,6 +2662,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h

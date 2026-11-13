@@ -20,10 +20,10 @@ Subject: [PATCH] feat: pin sticker and emoji sets
  create mode 100644 Telegram/SourceFiles/tele/tele_pin_sets.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 901738a3f00dee980b3ea0fe1db67d824f014aff..a274a00dea61bf7a443cc9a80371d044eb8ce037 100644
+index 3a9fdedd7c98662a0479e137960cacb6247e1a11..6af4c519fe114bcbd6fbed8d5c1d5909a6f9792a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2772,6 +2772,8 @@ PRIVATE
+@@ -2782,6 +2782,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_phones.cpp
      tele/tele_phones.h

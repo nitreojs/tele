@@ -23,10 +23,10 @@ Subject: [PATCH] feat: apply verification and marks from the tele server
  create mode 100644 Telegram/SourceFiles/tele/tele_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 67ecbe4bb91f3200b6dc240a22c2fabb80fa8e92..239c4c559526ff30bf7aa6b7df2a6fc4783a8ac1 100644
+index 37c0a2d4bb650c8d51eacb26420ac1ba2fe0b957..ab1bdeae526d9937971e714aa2efd997e897ff67 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2642,6 +2642,8 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2652,6 +2652,8 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -36,10 +36,10 @@ index 67ecbe4bb91f3200b6dc240a22c2fabb80fa8e92..239c4c559526ff30bf7aa6b7df2a6fc4
      tele/tele_build.h
      tele/tele_button_payload.cpp
 diff --git a/Telegram/SourceFiles/boxes/peer_list_box.cpp b/Telegram/SourceFiles/boxes/peer_list_box.cpp
-index f0a3ef7b3d0e1f4c2d536c282d9eaf2deb45660e..ba5c76cdfab45ab90b605bbcb9fbbdc651a5c639 100644
+index 25a3d32ffbffc5c03ff707a9fd3f8041379df34a..41b6085f81e3fca3b5b5d1b331f7685c8c09cbdd 100644
 --- a/Telegram/SourceFiles/boxes/peer_list_box.cpp
 +++ b/Telegram/SourceFiles/boxes/peer_list_box.cpp
-@@ -1201,6 +1201,7 @@ PeerListContent::PeerListContent(
+@@ -1208,6 +1208,7 @@ PeerListContent::PeerListContent(
  		| UpdateFlag::Photo
  		| UpdateFlag::EmojiStatus
  		| UpdateFlag::BarSettings
@@ -47,7 +47,7 @@ index f0a3ef7b3d0e1f4c2d536c282d9eaf2deb45660e..ba5c76cdfab45ab90b605bbcb9fbbdc6
  	) | rpl::on_next([=](const Data::PeerUpdate &update) {
  		if (update.flags & UpdateFlag::Name) {
  			handleNameChanged(update.peer);
-@@ -1208,6 +1209,8 @@ PeerListContent::PeerListContent(
+@@ -1215,6 +1216,8 @@ PeerListContent::PeerListContent(
  		if (update.flags & UpdateFlag::Photo) {
  			invalidateLoadedUserpics();
  			this->update();

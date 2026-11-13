@@ -32,10 +32,10 @@ Subject: [PATCH] feat: keep deleted chats and topics
  create mode 100644 Telegram/SourceFiles/tele/tele_kept_chats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8eeb07160961221ca363196f34bac365874af06f..27ccf698f766b4ef70372eafbd61c81872b3b416 100644
+index b82e465dc3fba0201e713ce1e363bf11df607a65..695a051c70ae6d44752813f90785811c4ba34001 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2837,6 +2837,8 @@ PRIVATE
+@@ -2847,6 +2847,8 @@ PRIVATE
      tele/tele_invisible.h
      tele/tele_invisible_stories.cpp
      tele/tele_invisible_stories.h
@@ -45,7 +45,7 @@ index 8eeb07160961221ca363196f34bac365874af06f..27ccf698f766b4ef70372eafbd61c818
      tele/tele_kept_store.h
      tele/tele_list_keys.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index d853980c0ebd93bc941911347f4269040201a2f3..e126e94eea5d48e174b04781c55ca1be5bd01a1c 100644
+index 4e819fafbda0729bd1f5265e05cfeef94eff957f..0342c245598aba0edb1c8bed50ffd588d1adac8a 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -118,6 +118,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -56,7 +56,7 @@ index d853980c0ebd93bc941911347f4269040201a2f3..e126e94eea5d48e174b04781c55ca1be
  #include "tele/tele_protected.h"
  #include "tele/tele_docked_media.h"
  #include "tele/tele_bookmarks.h"
-@@ -2001,6 +2002,7 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
+@@ -2011,6 +2012,7 @@ void ApiWrap::joinChannel(not_null<ChannelData*> channel) {
  }
  
  void ApiWrap::leaveChannel(not_null<ChannelData*> channel) {
@@ -64,7 +64,7 @@ index d853980c0ebd93bc941911347f4269040201a2f3..e126e94eea5d48e174b04781c55ca1be
  	if (!channel->amIn()) {
  		session().changes().peerUpdated(
  			channel,
-@@ -2013,6 +2015,7 @@ void ApiWrap::leaveChannel(not_null<ChannelData*> channel) {
+@@ -2023,6 +2025,7 @@ void ApiWrap::leaveChannel(not_null<ChannelData*> channel) {
  			applyUpdates(result);
  		}).fail([=] {
  			_channelAmInRequests.remove(channel);
@@ -72,7 +72,7 @@ index d853980c0ebd93bc941911347f4269040201a2f3..e126e94eea5d48e174b04781c55ca1be
  		}).send();
  
  		_channelAmInRequests.emplace(channel, requestId);
-@@ -2244,6 +2247,9 @@ void ApiWrap::clearHistory(not_null<PeerData*> peer, bool revoke) {
+@@ -2254,6 +2257,9 @@ void ApiWrap::clearHistory(not_null<PeerData*> peer, bool revoke) {
  }
  
  void ApiWrap::deleteConversation(not_null<PeerData*> peer, bool revoke) {
@@ -228,7 +228,7 @@ index 1b9e9664dd8c2250725fcbde3e96df0422a81062..e64c93b72001ab01d45888acc313469a
  			channel->clearInvitePeek();
  		} else {
 diff --git a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
-index 0e90b56544ac86fdc59922e1a2039c7bf2878867..a9974b0586c7b1c0eec3d379e95bc0865bc445a2 100644
+index 2b18c56ff98b7a626bc4160c2aa7faa3d270ef7b..8091502e2c20295fe078dd56b7b400f7392e935e 100644
 --- a/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 +++ b/Telegram/SourceFiles/dialogs/ui/dialogs_layout.cpp
 @@ -41,6 +41,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -255,7 +255,7 @@ index 0e90b56544ac86fdc59922e1a2039c7bf2878867..a9974b0586c7b1c0eec3d379e95bc086
  	if (::Tele::CompactListRow(*context.st)) {
  		rectForName.setWidth(PaintWideCounter(
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index aa592416efbc720c7c60879a3a88606e963dc396..7cd217719e4a6ca8f0ec6a49b2d3cc363881b59f 100644
+index 6b72cfdb3520298925d1dd0867096f07a7fa997c..b983a204eeb0940492834dfb41f840a6da19dffe 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -86,6 +86,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -275,7 +275,7 @@ index aa592416efbc720c7c60879a3a88606e963dc396..7cd217719e4a6ca8f0ec6a49b2d3cc36
  	} else if (const auto community = peer->asChannel()
  		; community && community->isCommunity()) {
  		return !(community->flags() & ChannelDataFlag::Forbidden)
-@@ -3535,6 +3538,7 @@ bool History::isServerSideUnread(not_null<const HistoryItem*> item) const {
+@@ -3540,6 +3543,7 @@ bool History::isServerSideUnread(not_null<const HistoryItem*> item) const {
  void History::applyDialog(
  		Data::Folder *requestFolder,
  		const MTPDdialog &data) {
@@ -284,7 +284,7 @@ index aa592416efbc720c7c60879a3a88606e963dc396..7cd217719e4a6ca8f0ec6a49b2d3cc36
  	const auto folder = !folderId
  		? requestFolder
 diff --git a/Telegram/SourceFiles/history/history.h b/Telegram/SourceFiles/history/history.h
-index ad4c7cd66672f37fa3b553427c725deb6688c0d2..37d1503a63412c99de68ca7fc6f5f8c2ee056685 100644
+index 1be44c12abe67c338747c6a4d0a67dab21a43c5e..d628134213afdfb550a7ff91703f6d4dc98f89c3 100644
 --- a/Telegram/SourceFiles/history/history.h
 +++ b/Telegram/SourceFiles/history/history.h
 @@ -52,6 +52,8 @@ class Element;
@@ -306,7 +306,7 @@ index ad4c7cd66672f37fa3b553427c725deb6688c0d2..37d1503a63412c99de68ca7fc6f5f8c2
  		not_null<HistoryItem*> item,
  		int blockIndex,
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 66528de4a8f2c4900b13a581a828f692f4492180..12da8e0a07092405c1a2e4f003e3e2af7ae73c0d 100644
+index 263ba395fb180f7161302e5ddba65c84d7d9d76a..8e713bdd52de18297dee39c8dea4571f95b68725 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -193,6 +193,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -317,7 +317,7 @@ index 66528de4a8f2c4900b13a581a828f692f4492180..12da8e0a07092405c1a2e4f003e3e2af
  #include "tele/tele_send_order.h"
  #include "tele/tele_silent.h"
  #include "tele/tele_sticker_captions.h"
-@@ -5001,6 +5002,15 @@ void HistoryWidget::closeCurrent() {
+@@ -5005,6 +5006,15 @@ void HistoryWidget::closeCurrent() {
  }
  
  void HistoryWidget::messagesFailed(const MTP::Error &error, int requestId) {
@@ -333,7 +333,7 @@ index 66528de4a8f2c4900b13a581a828f692f4492180..12da8e0a07092405c1a2e4f003e3e2af
  	if (error.type() == u"CHANNEL_PRIVATE"_q
  		&& _peer->isChannel()
  		&& _peer->asChannel()->invitePeekExpires()) {
-@@ -7141,12 +7151,17 @@ bool HistoryWidget::isReportMessages() const {
+@@ -7149,12 +7159,17 @@ bool HistoryWidget::isReportMessages() const {
  }
  
  bool HistoryWidget::isBlocked() const {
@@ -353,7 +353,7 @@ index 66528de4a8f2c4900b13a581a828f692f4492180..12da8e0a07092405c1a2e4f003e3e2af
  	}
  	return false;
  }
-@@ -7157,6 +7172,7 @@ bool HistoryWidget::isChoosingTheme() const {
+@@ -7165,6 +7180,7 @@ bool HistoryWidget::isChoosingTheme() const {
  
  bool HistoryWidget::isMuteUnmute() const {
  	return _peer
@@ -362,10 +362,10 @@ index 66528de4a8f2c4900b13a581a828f692f4492180..12da8e0a07092405c1a2e4f003e3e2af
  			|| (_peer->isGigagroup() && !Data::CanSendAnything(_peer))
  			|| _peer->isRepliesChat()
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 2658ebc13d62f2f0d119b2c44821d9f889b232c3..05ca63aabb821c503e0e8327f3d11983522656a5 100644
+index 82e0185ec346a78bd40609c6ac7f8925aecb1fc9..5d5ea794c2680cc2ce80beaf825d99bc5a7292c5 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_field_resize.h"
@@ -373,7 +373,7 @@ index 2658ebc13d62f2f0d119b2c44821d9f889b232c3..05ca63aabb821c503e0e8327f3d11983
  #include "tele/tele_silent.h"
  #include "tele/tele_sticker_captions.h"
  #include "tele/tele_options.h"
-@@ -1578,6 +1579,12 @@ void ChatWidget::setupComposeControls() {
+@@ -1579,6 +1580,12 @@ void ChatWidget::setupComposeControls() {
  		const auto allWithoutPolls = Data::AllSendRestrictions()
  			& ~ChatRestriction::SendPolls;
  		const auto topic = resolvedTopic();

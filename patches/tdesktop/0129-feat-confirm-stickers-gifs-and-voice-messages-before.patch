@@ -24,10 +24,10 @@ Subject: [PATCH] feat: confirm stickers, gifs and voice messages before
  create mode 100644 Telegram/SourceFiles/tele/tele_confirm_send.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index b562add2c0d7d7b9779283625505031dca3102c9..559cd4c543ed7571c1a2544290808aa43ca44a8c 100644
+index b3b0819a567d89143568854021d4415e6a773f2d..7f28942fc9194084b01f0494a7eca6eb894a0ac8 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2680,6 +2680,8 @@ PRIVATE
+@@ -2690,6 +2690,8 @@ PRIVATE
      tele/tele_chat_backgrounds.h
      tele/tele_collectible_price.cpp
      tele/tele_collectible_price.h
@@ -140,7 +140,7 @@ index b3a92c7dc1e7d0b3920bf420c21d1eeb4ea17bb7..33ad6da408c5d41b9a45d28e2e40772a
  					.document = document,
  					.messageSendingFrom = messageSentAnimationInfo(
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 31c20fdb6ab85751872944cdda3b4b85ddba12ef..ab6a8b3fdfb913f89dea9fffad4fbb0f34252b76 100644
+index 3e6d5d9aaed7e1e0cf95d5fad84b1159d89a938a..bcd95753cd1fa28d45889acc97d2ea8c465eb2cd 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -177,6 +177,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -160,10 +160,10 @@ index 31c20fdb6ab85751872944cdda3b4b85ddba12ef..ab6a8b3fdfb913f89dea9fffad4fbb0f
  	base::install_event_filter(this, selector, [=](not_null<QEvent*> e) {
  		if (_tabbedPanel && e->type() == QEvent::ParentChange) {
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index acaf735c05d6519eef5a277198d3c29957fdd4db..ef3064e33d4bf0ed8002ec474235591a520e5e1d 100644
+index 61675d037957da2522834c202c867022f65d562c..7cca454c3ea26ac00f787e18e6a9737ca84ea7d5 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -116,6 +116,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_calcmula_preview.h"
  #include "tele/tele_link_previews.h"
  #include "tele/tele_deleted_reply.h"
@@ -171,7 +171,7 @@ index acaf735c05d6519eef5a277198d3c29957fdd4db..ef3064e33d4bf0ed8002ec474235591a
  #include "tele/tele_drafts_compose.h"
  #include "tele/tele_docked_media.h"
  #include "tele/tele_emoji_panel.h"
-@@ -4145,6 +4146,7 @@ void ComposeControls::initTabbedSelector() {
+@@ -4166,6 +4167,7 @@ void ComposeControls::initTabbedSelector() {
  		return base::EventFilterResult::Continue;
  	});
  

@@ -32,7 +32,7 @@ a script is a javascript or typescript module that tele runs inside itself, once
 
 - **grant:** none to exist; everything powerful is behind [grants](#grants).
 - **notes:**
-  - scripts run on [QuickJS-ng](https://github.com/TelegramMessenger/quickjs) 0.17 (Telegram's fork with tele's security backports, shared with native widgets), a small modern javascript engine (ES2025+), not node and not a browser. see [globals](#globals) for what is there.
+  - scripts run on [QuickJS-ng](https://github.com/TelegramMessenger/quickjs) 0.17 (Telegram's hardened fork, shared with native widgets), a small modern javascript engine (ES2025+), not node and not a browser. see [globals](#globals) for what is there.
   - every script gets its own engine, memory and globals. two scripts never share javascript state, and neither do two accounts running the same script.
   - everything runs on tele's main thread: a script that blocks freezes tele until its time budget runs out (see [errors and limits](#errors-and-limits)). heavy work can move to a `Worker`, which runs on its own thread.
   - the entry module must `export default defineScript({ ... })`.

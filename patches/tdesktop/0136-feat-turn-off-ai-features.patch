@@ -25,10 +25,10 @@ Subject: [PATCH] feat: turn off ai features
  create mode 100644 Telegram/SourceFiles/tele/tele_no_ai.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 178f2d061bbcdb3d204fd51af2758c07163d8a0a..a0f8007b883efe93c0757ae416522602bc7abe3f 100644
+index bcb9b362d55238849148d7308c43e5af855212e1..a4968ecb54d3ae7dc56e24333799bbba9a56a8ca 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2756,6 +2756,8 @@ PRIVATE
+@@ -2766,6 +2766,8 @@ PRIVATE
      tele/tele_mtp_log.h
      tele/tele_new_settings.cpp
      tele/tele_new_settings.h
@@ -134,7 +134,7 @@ index 678672e7a20e29121b886915615dbb5176f2f260..7dcfef4308b13cd1fb030a9a9fb07019
  			_pendingRefresh = PendingRefresh::Full;
  		} else if (_pendingRefresh == PendingRefresh::None) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 49c3c176030344de6368f4e613223495894bb4bd..4ad82d20e14253d5ea3379708ec074e4db63b271 100644
+index 4ccf8e765ebdf1269ac30ac929d626dc08bcccd9..87aa0eabe49ff9989be816d794353a6880e85d8a 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -145,7 +145,7 @@ index 49c3c176030344de6368f4e613223495894bb4bd..4ad82d20e14253d5ea3379708ec074e4
  #include "tele/tele_protected.h"
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
-@@ -7440,6 +7441,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
+@@ -7442,6 +7443,7 @@ const HistoryMessageEdited *Message::displayedEditBadge() const {
  void Message::ensureSummarizeButton() const {
  	if (data()->canBeSummarized()
  		&& (context() != Context::MediaEditor)

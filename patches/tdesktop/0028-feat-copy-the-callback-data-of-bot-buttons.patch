@@ -11,7 +11,7 @@ Subject: [PATCH] feat: copy the callback data of bot buttons
  4 files changed, 102 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index e93e3f70f9e52e820b193f1124fd2c4760e020f5..7cae4df7aa71b7e0684a16da260550f4ab0c635c 100644
+index 197e327bc1b7843fe35ac0fa9c3fb673a6617dfb..1f2f1f68c870d20de6ef661bfee7a85dc6ef4958 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -22,7 +22,7 @@ index e93e3f70f9e52e820b193f1124fd2c4760e020f5..7cae4df7aa71b7e0684a16da260550f4
  #include "tele/tele_deleted.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ignored.h"
-@@ -3777,6 +3778,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3784,6 +3785,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				HistoryView::CopyPostLink(controller, itemId, HistoryView::Context::History);
  			}, &st::menuIconLink);
  		}

@@ -25,10 +25,10 @@ Subject: [PATCH] feat: recover deleted channel posts from forwards
  create mode 100644 Telegram/SourceFiles/tele/tele_recover_forwarded.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 26c6c82ba4d64f1a0e6e8f22136cb6df1db2ca1d..fa99aaf95435a8fff70021aadae756a8bcba2cf0 100644
+index 1b2e918025f2d922ff3d3a3a796a0f601cf71484..e9967ff596effdd5bc89af2b99ec51434b490d82 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3057,6 +3057,8 @@ PRIVATE
+@@ -3067,6 +3067,8 @@ PRIVATE
      tele/tele_read_log.h
      tele/tele_recent_emoji.cpp
      tele/tele_recent_emoji.h
@@ -38,7 +38,7 @@ index 26c6c82ba4d64f1a0e6e8f22136cb6df1db2ca1d..fa99aaf95435a8fff70021aadae756a8
      tele/tele_reduce_motion.h
      tele/tele_regex_search.cpp
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index b41e2adfecff0be59e90ee03855f023654aeb863..efe21ec7e9f77a9f86ba502a0997025d1b6003df 100644
+index 46d313be9e3686a88b27aed2add991b502f53714..6e81c74ec673385ae4ac48742d8e4ea9e48227a1 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -92,6 +92,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -81,7 +81,7 @@ index 5443a4ea1af75067ce0b2cadcd13682df1b4699e..cc1ad79053c7d9a412c8951ae152eb91
  			? originalSender->openLink()
  			: HiddenSenderInfo::ForwardClickHandler());
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 21294719c8d243dcd315612a47b1fcd7d6d001cc..41ea3f0d2df48d53025f9b14c3b6766c6a7ed582 100644
+index ea051e8b98f15f977c2e737ed5da3a03a20c2cbb..950b928227449df2154597c4797936c389f33cbf 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -204,6 +204,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -92,7 +92,7 @@ index 21294719c8d243dcd315612a47b1fcd7d6d001cc..41ea3f0d2df48d53025f9b14c3b6766c
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -8867,8 +8868,14 @@ int HistoryWidget::countInitialScrollTop() {
+@@ -8875,8 +8876,14 @@ int HistoryWidget::countInitialScrollTop() {
  		const auto item = getItemFromHistoryOrMigrated(_showAtMsgId);
  		const auto itemTop = _list->itemTop(item);
  		if (itemTop < 0) {
@@ -151,7 +151,7 @@ index 084285099e1d412da819f5eb60cd609b68751df7..818d103a4e5379074855d9dc39d5f131
  }
  
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 8c3e3653e67590faf5471e4a51366acb281ab96e..0e7e838cae12026f552b4f25130b2c79d57121a5 100644
+index 69a6635fa3fce9782cd5194128751153876de48a..005ff4793df938cac33c5f2d9c2571d0bb911b34 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -162,7 +162,7 @@ index 8c3e3653e67590faf5471e4a51366acb281ab96e..0e7e838cae12026f552b4f25130b2c79
  #include "tele/tele_shot.h"
  #include "tele/tele_shot_sharp.h"
  #include "styles/style_chat.h"
-@@ -6465,6 +6466,7 @@ ClickHandlerPtr Message::prepareRightActionLink() const {
+@@ -6467,6 +6468,7 @@ ClickHandlerPtr Message::prepareRightActionLink() const {
  			if (*showByThread) {
  				(*showByThread)(controller);
  			} else if (savedFromPeer && savedFromMsgId) {

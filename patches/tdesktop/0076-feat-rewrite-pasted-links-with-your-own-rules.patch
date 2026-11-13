@@ -23,10 +23,10 @@ Subject: [PATCH] feat: rewrite pasted links with your own rules
  create mode 100644 Telegram/SourceFiles/tele/tele_link_rewrites_box.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 38dbeebdafc24d3b46f9faa2a393b988bf66b52c..166074d00d01e56b72f3cfed0418e628865922f7 100644
+index 93f2bd1089f7122a4bfd598bec1bfa3972e263a6..c05cfa029acf320c2bcea1e580facd36a7e7d380 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2704,6 +2704,10 @@ PRIVATE
+@@ -2714,6 +2714,10 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h
@@ -68,7 +68,7 @@ index bb53eeb36f3345a96ba7f6cdf59c851e4a8fcabb..22adf16049e36753dd3974dca974bce2
  	_aiButton = Ui::SetupCaptionAiButton({
  		.parent = this,
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index 6a73b8c7b00d77700b1fc51f8374ef94445664e3..992735071b2b7ba9f798a6737c4a20ed746763d3 100644
+index 31b66abef03dbee823c1697de3fde62fbc4203c8..afaef6073f5689d0a8777cfc312dd8b92ac88774 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
 @@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -79,7 +79,7 @@ index 6a73b8c7b00d77700b1fc51f8374ef94445664e3..992735071b2b7ba9f798a6737c4a20ed
  #include "base/event_filter.h"
  #include "base/call_delayed.h"
  #include "boxes/premium_limits_box.h"
-@@ -2344,7 +2345,7 @@ void SendFilesBox::setupCaption() {
+@@ -2348,7 +2349,7 @@ void SendFilesBox::setupCaption() {
  		requestToTakeTextWithTags();
  		closeBox();
  	}, _caption->lifetime());
@@ -88,7 +88,7 @@ index 6a73b8c7b00d77700b1fc51f8374ef94445664e3..992735071b2b7ba9f798a6737c4a20ed
  			not_null<const QMimeData*> data,
  			Ui::InputField::MimeAction action) {
  		if (action == Ui::InputField::MimeAction::Check) {
-@@ -2353,7 +2354,7 @@ void SendFilesBox::setupCaption() {
+@@ -2357,7 +2358,7 @@ void SendFilesBox::setupCaption() {
  			return addFiles(data);
  		}
  		Unexpected("action in MimeData hook.");

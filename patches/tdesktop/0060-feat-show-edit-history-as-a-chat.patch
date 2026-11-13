@@ -15,10 +15,10 @@ Subject: [PATCH] feat: show edit history as a chat
  create mode 100644 Telegram/SourceFiles/tele/tele_edit_history_section.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4035c25ced503d6244491f0b8e8f3631197679dc..589c6dfbc5e39063857687e6f599b2a098a97a9e 100644
+index 0199f33ca1357e0ca91d703af0d8fac6c5ce993e..fccc5e53bd13f911d1b01431ef887a3c7b2b4f7c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2670,6 +2670,8 @@ PRIVATE
+@@ -2680,6 +2680,8 @@ PRIVATE
      tele/tele_edit_history.h
      tele/tele_editor_eyedropper.cpp
      tele/tele_editor_eyedropper.h

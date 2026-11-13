@@ -19,10 +19,10 @@ Subject: [PATCH] feat: copy messages as markdown or html
  create mode 100644 Telegram/SourceFiles/tele/tele_copy_markdown.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 10c633474df8ca33b3ff67ed2881d2b7d2b2c874..b3579dd35e8178e99d214aabfe059afec5afacff 100644
+index 81e76c90d144042f6295fdd79e29eac161b77012..f688e41f72ea7640878be6f545c24cb1ba26ac62 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2684,6 +2684,8 @@ PRIVATE
+@@ -2694,6 +2694,8 @@ PRIVATE
      tele/tele_confirm_send.h
      tele/tele_communities.cpp
      tele/tele_communities.h
@@ -32,7 +32,7 @@ index 10c633474df8ca33b3ff67ed2881d2b7d2b2c874..b3579dd35e8178e99d214aabfe059afe
      tele/tele_corner_buttons.h
      tele/tele_counters.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 9b4095c647641f39f0792ceab675f23b7b3db136..73fdac662c40cac7480c871635b22a93a01464a0 100644
+index a2f29b3867428447188a2659148d00b90fb465d3..bf36fd05f19be4fe854d7e9f43e50f5f54c327e4 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -136,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -43,7 +43,7 @@ index 9b4095c647641f39f0792ceab675f23b7b3db136..73fdac662c40cac7480c871635b22a93
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ghost.h"
-@@ -3478,6 +3479,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3485,6 +3486,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  						}
  					},
  					&st::menuIconCopy);
@@ -51,7 +51,7 @@ index 9b4095c647641f39f0792ceab675f23b7b3db136..73fdac662c40cac7480c871635b22a93
  			}
  			if (item && !Ui::SkipTranslate(selectedText.rich)) {
  				const auto peer = item->history()->peer;
-@@ -3645,6 +3647,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3652,6 +3654,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  						}
  					},
  					&st::menuIconCopy);
@@ -59,7 +59,7 @@ index 9b4095c647641f39f0792ceab675f23b7b3db136..73fdac662c40cac7480c871635b22a93
  			}
  			if (item && !Ui::SkipTranslate(selectedText.rich)) {
  				const auto peer = item->history()->peer;
-@@ -3751,6 +3754,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3758,6 +3761,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  							tr::lng_context_copy_text(tr::now),
  							[=] { copyContextText(itemId); },
  							&st::menuIconCopy);

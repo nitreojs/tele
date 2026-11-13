@@ -52,10 +52,10 @@ Subject: [PATCH] feat: keep deleted messages
  create mode 100644 Telegram/SourceFiles/tele/tele_deleted_section.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 451a13c4c9e9fc9d6c98d638d7d83a91df14201e..3b05cfe8b595015aa4374ddf65880ce40ca57c67 100644
+index 15521264c543a58d0ef5f2caedf05977c5bb1176..f0ed694292e2bfe807483a8f0491fc8df0dc1669 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2652,6 +2652,10 @@ PRIVATE
+@@ -2662,6 +2662,10 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -67,10 +67,10 @@ index 451a13c4c9e9fc9d6c98d638d7d83a91df14201e..3b05cfe8b595015aa4374ddf65880ce4
      tele/tele_edit_history.h
      tele/tele_gifts.cpp
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index b13e9efc42d7b3b9dd7e5b8c1e099e19b8db262b..b28f4cb051d7b688c33cde3640672121dc25ec8e 100644
+index 05ee208255ee6e51e0523271bca34fab8a583a12..3bbe443b3ff1073da3fb666be78ce91414e47ef5 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "iv/iv_rich_page.h"
  #include "core/application.h"
  #include "apiwrap.h"
@@ -78,7 +78,7 @@ index b13e9efc42d7b3b9dd7e5b8c1e099e19b8db262b..b28f4cb051d7b688c33cde3640672121
  
  namespace Data {
  namespace {
-@@ -1018,7 +1019,7 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
+@@ -1019,7 +1020,7 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
  				continue;
  			}
  			remove.push_back(item);
@@ -116,7 +116,7 @@ index ad7b8ab0d904cba723bd1cc640f2cde2d9466002..a236c618d6c463457593d1b8135cd399
  		notifyItemsAboutToBeDestroyed(toDestroy);
  		for (const auto &item : toDestroy) {
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index a1568f0ea04ee000285e68efe0bf268009d9a4ab..46eda30150b469d48e61066152364d004a454037 100644
+index ad33222ac1cb62338e2b918f7da2550a34a04fe6..627d0d2953b32470e48f67385d498eec2942be58 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -159,7 +159,7 @@ index a1568f0ea04ee000285e68efe0bf268009d9a4ab..46eda30150b469d48e61066152364d00
  
  		for (const auto &item : added) {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 5e1160be241bb980d8b49d76d5989e0cd63d6d96..ab0b361b99430baa8cd1a36d928dc541891341bd 100644
+index cf891eeda21a4ea35f67072b508f08ded9068440..3257d48f817c06b80114ee66f123a25f55b229c7 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -170,7 +170,7 @@ index 5e1160be241bb980d8b49d76d5989e0cd63d6d96..ab0b361b99430baa8cd1a36d928dc541
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ignored.h"
  #include "styles/style_chat.h"
-@@ -6611,6 +6612,9 @@ auto HistoryInner::DelegateMixin()
+@@ -6619,6 +6620,9 @@ auto HistoryInner::DelegateMixin()
  }
  
  bool CanSendReply(not_null<const HistoryItem*> item) {
@@ -334,7 +334,7 @@ index 51b8e2cbed48a74a7bf00e2ce5c8b481e97bb722..b2cc514bbeda30d051f1f7991f949af5
  			&& context != Context::Replies
  			&& context != Context::Monoforum)) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 268b1f87d1baafb0f2272b13594c9f7b73581538..4b6febbef4c387a4f82bbde6121fd5268b728b0a 100644
+index 680c088a334fb3be3b98f7b8c3033bdb107ca144..7b408c29dd4803ed98836474555fca32716017ed 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -400,7 +400,7 @@ index 268b1f87d1baafb0f2272b13594c9f7b73581538..4b6febbef4c387a4f82bbde6121fd526
  					p.restore();
  				}
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 3a43755210c13a2134e91046ce9bc61c3ab7ffe2..ee10f0de471fbb01d252032034d33354e3045501 100644
+index 0b546cacad70cf9bd3fc2fbbee69b58e005b9fe6..44d477ff35c4e15a9485414aa88690ff0bcf739c 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -293,6 +293,7 @@ void FillBackgroundEmoji(

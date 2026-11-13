@@ -18,10 +18,10 @@ Subject: [PATCH] feat: keep the edit history of messages
  create mode 100644 Telegram/SourceFiles/tele/tele_edit_history.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 3433f4667944e20fe6988900477c22228281c80a..451a13c4c9e9fc9d6c98d638d7d83a91df14201e 100644
+index b15f77d71ec49553d044c38139633795a4d68783..15521264c543a58d0ef5f2caedf05977c5bb1176 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2652,6 +2652,8 @@ PRIVATE
+@@ -2662,6 +2662,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -31,7 +31,7 @@ index 3433f4667944e20fe6988900477c22228281c80a..451a13c4c9e9fc9d6c98d638d7d83a91
      tele/tele_gifts.h
      tele/tele_ignored.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 90a93a980ff2b50a4b0a2af7fbea3b2514821a61..5e1160be241bb980d8b49d76d5989e0cd63d6d96 100644
+index ef70ea06b5f6620b62e104128b8bcc7f6bcc1309..cf891eeda21a4ea35f67072b508f08ded9068440 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -42,7 +42,7 @@ index 90a93a980ff2b50a4b0a2af7fbea3b2514821a61..5e1160be241bb980d8b49d76d5989e0c
  #include "tele/tele_ignored.h"
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
-@@ -3087,6 +3088,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3094,6 +3095,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  				}
  			}, &st::menuIconEdit);
  		}

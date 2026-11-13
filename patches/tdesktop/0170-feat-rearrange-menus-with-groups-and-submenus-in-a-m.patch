@@ -50,10 +50,10 @@ Subject: [PATCH] feat: rearrange menus with groups and submenus in a menu
  create mode 100644 Telegram/SourceFiles/tele/tele_menu_registry.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 37a4acde8da1512d9f282e0003258e37060063d6..dda76008ca626cbcfe8c73d374162ecbad2665f8 100644
+index 31e44b141fee6faeb5950709b1f3286b28fabd7b..3a2153ce9da18512304ca5c910b07f93c3112b46 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2762,8 +2762,14 @@ PRIVATE
+@@ -2772,8 +2772,14 @@ PRIVATE
      tele/tele_lowercase.h
      tele/tele_maps.cpp
      tele/tele_maps.h
@@ -71,10 +71,10 @@ index 37a4acde8da1512d9f282e0003258e37060063d6..dda76008ca626cbcfe8c73d374162ecb
      tele/tele_message_menu.h
      tele/tele_mtp_dump.cpp
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 620fb34ba78917f44a94380afe70e184f05e901d..dbf9e5d781064d141f81eed3532d4ec9bbbc3aa3 100644
+index 3e32efb99ac9b56b983c92a269c5acf558c70102..c3dbb65795821fd4c761ee9aa75812fb76506c26 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -4012,7 +4012,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4019,7 +4019,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	}
  	using namespace HistoryView::Reactions;
  	const auto desiredPosition = e->globalPos();
@@ -160,7 +160,7 @@ index d3fc23ddcc3de9861cb3f7939674016b4fd5c09d..ed8e5a0e79ebef1d6ffd6b8958992144
  
  void AddEphemeralMessageActions(
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index b3e003689cd1ee353562727b4f19d517de85f8c0..1e9ddbef1fd972f622639508ac959682f0da736e 100644
+index 0a886671d84153cc2dba08c28985c88a6205a2c7..50556d7281df4b1a4b2e4faedf2473ffe2f04cdc 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 @@ -105,6 +105,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -171,7 +171,7 @@ index b3e003689cd1ee353562727b4f19d517de85f8c0..1e9ddbef1fd972f622639508ac959682
  #include "tele/tele_options.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_protected.h"
-@@ -4635,7 +4636,8 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4623,7 +4624,8 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	using namespace HistoryView::Reactions;
  	const auto desiredPosition = e->globalPos();
  	const auto reactItem = (_overElement
@@ -182,7 +182,7 @@ index b3e003689cd1ee353562727b4f19d517de85f8c0..1e9ddbef1fd972f622639508ac959682
  		: nullptr;
  	const auto attached = reactItem
 diff --git a/Telegram/SourceFiles/menu/menu_send.cpp b/Telegram/SourceFiles/menu/menu_send.cpp
-index 81112d6ed9f40399e8ca32bab992291c3aa0bf82..32122b203a454aec53cad70e211f744ea397c2a9 100644
+index 24f14ef2eecd75d55082c9d0eef276ff4266f3c4..447da9caf495baa5fdb4f00abc376e7cce5ada04 100644
 --- a/Telegram/SourceFiles/menu/menu_send.cpp
 +++ b/Telegram/SourceFiles/menu/menu_send.cpp
 @@ -54,6 +54,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -193,7 +193,7 @@ index 81112d6ed9f40399e8ca32bab992291c3aa0bf82..32122b203a454aec53cad70e211f744e
  #include "tele/tele_silent.h"
  #include "window/themes/window_theme.h"
  #include "window/section_widget.h"
-@@ -837,6 +838,7 @@ FillMenuResult FillSendMenu(
+@@ -843,6 +844,7 @@ FillMenuResult FillSendMenu(
  	if (details.teleMenu) {
  		details.teleMenu(menu);
  	}

@@ -14,10 +14,10 @@ Subject: [PATCH] feat: send replies to older messages past the queue
  7 files changed, 80 insertions(+), 6 deletions(-)
 
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index 71244e46e70ba094e6f35a254dc7b11acce3b300..1e518e38c585aa7be24cc24a22c286502a06c03f 100644
+index 181552b981ab4c58f81bcbffe807c8da23baded8..c93c006e4bc622372c75eeabad3c227f64259a07 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -1185,9 +1185,15 @@ int Histories::sendPreparedMessage(
+@@ -1186,9 +1186,15 @@ int Histories::sendPreparedMessage(
  		_creatingTopicRequests.emplace(id);
  		return id;
  	}

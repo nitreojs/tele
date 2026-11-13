@@ -21,10 +21,10 @@ Subject: [PATCH] feat: open disappearing media without burning it
  create mode 100644 Telegram/SourceFiles/tele/tele_secret_media.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 2ffc9acc7422902ac94ef7d0d5825763b249fb6b..dbad9423c653aa221d99be0fba5d6aff548a1238 100644
+index 374d354278643935bdc68009440d55edb6643456..15533f34662a1f7253920f7bf2b761bdd3dd7d7a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2668,6 +2668,8 @@ PRIVATE
+@@ -2678,6 +2678,8 @@ PRIVATE
      tele/tele_options.h
      tele/tele_peer_id.cpp
      tele/tele_peer_id.h
@@ -34,7 +34,7 @@ index 2ffc9acc7422902ac94ef7d0d5825763b249fb6b..dbad9423c653aa221d99be0fba5d6aff
      tele/tele_shortcuts.h
      tele/tele_time.cpp
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index e459de4f9f665048aa3984979a0df7a4f65e6903..7df95c44598c48fda63232f62bdb141c7aca79e0 100644
+index 0cbc7b93e9863acdd71834b9c993bcb341d6c03c..b1a2ed038b92cb32c4b0a3b4d80db252b46d3e6e 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -45,7 +45,7 @@ index e459de4f9f665048aa3984979a0df7a4f65e6903..7df95c44598c48fda63232f62bdb141c
  #include "tgw/tgw_storage.h"
  
  namespace {
-@@ -1468,7 +1469,9 @@ void ApiWrap::markContentsRead(
+@@ -1478,7 +1479,9 @@ void ApiWrap::markContentsRead(
  		QVector<MTPint>>();
  	markedIds.reserve(items.size());
  	for (const auto &item : items) {
@@ -56,7 +56,7 @@ index e459de4f9f665048aa3984979a0df7a4f65e6903..7df95c44598c48fda63232f62bdb141c
  			continue;
  		}
  		if (const auto channel = item->history()->peer->asChannel()) {
-@@ -1493,7 +1496,9 @@ void ApiWrap::markContentsRead(
+@@ -1503,7 +1506,9 @@ void ApiWrap::markContentsRead(
  }
  
  void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
@@ -68,7 +68,7 @@ index e459de4f9f665048aa3984979a0df7a4f65e6903..7df95c44598c48fda63232f62bdb141c
  	}
  	const auto ids = MTP_vector<MTPint>(1, MTP_int(item->id));
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index ab0b361b99430baa8cd1a36d928dc541891341bd..e93e3f70f9e52e820b193f1124fd2c4760e020f5 100644
+index 3257d48f817c06b80114ee66f123a25f55b229c7..197e327bc1b7843fe35ac0fa9c3fb673a6617dfb 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -137,6 +137,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -79,7 +79,7 @@ index ab0b361b99430baa8cd1a36d928dc541891341bd..e93e3f70f9e52e820b193f1124fd2c47
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -3093,6 +3094,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3100,6 +3101,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  			_menu.get(),
  			controller,
  			albumPartItem ? albumPartItem : item);
@@ -152,7 +152,7 @@ index b5ea5f06b835d741ac4b84ec15ad31bfce1f722c..6b2a3591267c97f618c312833a36b7b1
  			TTLVoiceStops(fullId) | rpl::on_next([=]() mutable {
  				if (lifetime) {
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 21c7d842242d1365f82f0d2787228c80faa7316f..bf3ea61b2a4d008759b33382b3d89e8192ce297f 100644
+index 21d35ac37ad2a16b3f045dcb6246286ed57f45f2..374f2deb9ea82aa5496cd567e14b6b1312718cb1 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

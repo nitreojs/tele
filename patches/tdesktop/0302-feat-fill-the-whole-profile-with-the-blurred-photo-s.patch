@@ -53,7 +53,7 @@ index 4ad4fab661b3d10bbbfbd182f024ef9d8f43ab44..82229eed0638d0a37b34d24b8f789a7a
  	if (_contentWrap->animatingShow()) {
  		const auto top = QRect{ 0, 0, width(), radius };
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index a5931e43c6baa3f1dd3677041c55a465775ef697..c496758d89aec43dfe46812c16510a539f4c14cc 100644
+index c412a3ec4dc17eaa8b6044236216ad22f95c3f54..9395c5470bd97e8642e7debe387962f09fe1ae2c 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -491,6 +491,10 @@ TopBar::TopBar(

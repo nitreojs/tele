@@ -19,10 +19,10 @@ Subject: [PATCH] feat: preview calcmula results while typing
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula_preview.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a9f0953d716c78f6312870667917bbf78051e3c9..2eb2269d230bd9d128ace00e59bd96367e15cd1f 100644
+index 281df9453c078aa37fb9667a75c762b15bff630b..de85b4a2f9c8e79bcde2e54ea40f485ef9907aad 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2658,6 +2658,8 @@ PRIVATE
+@@ -2668,6 +2668,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_calcmula.cpp
      tele/tele_calcmula.h
@@ -32,7 +32,7 @@ index a9f0953d716c78f6312870667917bbf78051e3c9..2eb2269d230bd9d128ace00e59bd9636
      tele/tele_calls.h
      tele/tele_changelog.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index b58992e54fc4845b06dbe91df2b1f526d8bf0d2c..daba237239662c960fa8280daada4a60e51db7cb 100644
+index 5594ada33544d5a95e9cd25c8eaccd0dab24036d..f47c2e5c13d6f9f128804015c96f6046fcfad76f 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -69,10 +69,10 @@ index b58992e54fc4845b06dbe91df2b1f526d8bf0d2c..daba237239662c960fa8280daada4a60
  		checkCharsLimitation();
  		updateAiButtonVisibility();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index d2a07d1833dac73b467623bdc2ed5aaf1dfa5d06..2905cd32ad704a10f7bc0ce8ad7062d747f716a6 100644
+index 9d388f7783f8d67ab8bbf1b4930ae0c8b75bde67..4dfa14c362897bba1a6e63216cea7524f4ccf466 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -113,6 +113,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "menu/menu_send.h"
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"
@@ -80,7 +80,7 @@ index d2a07d1833dac73b467623bdc2ed5aaf1dfa5d06..2905cd32ad704a10f7bc0ce8ad7062d7
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_emoji_panel.h"
  #include "support/support_helper.h"
-@@ -3263,6 +3264,22 @@ void ComposeControls::initField() {
+@@ -3284,6 +3285,22 @@ void ComposeControls::initField() {
  		updateSendAsFileVisibility();
  		updateExpandButtonVisibility();
  	}, _field->lifetime());

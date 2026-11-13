@@ -14,7 +14,7 @@ Subject: [PATCH] feat: turn off touchpad gestures
  7 files changed, 60 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 1e4093a9ece225b4d803323d90fda1b890ce0969..9b4095c647641f39f0792ceab675f23b7b3db136 100644
+index 8464c551ffe862050eb1b4d716af133fc3060e85..a2f29b3867428447188a2659148d00b90fb465d3 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -762,6 +762,9 @@ void HistoryInner::setupSwipeReplyAndBack() {
@@ -28,10 +28,10 @@ index 1e4093a9ece225b4d803323d90fda1b890ce0969..9b4095c647641f39f0792ceab675f23b
  				not_null<Element*> view,
  				int itemtop,
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 1789bd1f7caab30ca672d84312ba5644bc1db061..8a1ec8eb57501f3391b97069221a6aaf50edd82d 100644
+index 6f0f329c457de8bf98c3ffafbf3e927012df0e87..a698c479c75a51a8324128433c6d3e36648970c8 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-@@ -126,6 +126,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -127,6 +127,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_shortcuts.h"
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_silent.h"
@@ -39,7 +39,7 @@ index 1789bd1f7caab30ca672d84312ba5644bc1db061..8a1ec8eb57501f3391b97069221a6aaf
  #include "inline_bots/inline_bot_result.h"
  #include "info/profile/info_profile_values.h"
  #include "iv/editor/iv_editor_session.h"
-@@ -1956,6 +1957,9 @@ void ChatWidget::setupSwipeReplyAndBack() {
+@@ -1962,6 +1963,9 @@ void ChatWidget::setupSwipeReplyAndBack() {
  		if (_inner->elementInSelectionMode(nullptr).inSelectionMode) {
  			return result;
  		}

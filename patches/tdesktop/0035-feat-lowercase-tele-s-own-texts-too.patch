@@ -107,7 +107,7 @@ index 49a477144e4a3a7494582e31b979554bcfa8a223..be9392d75f764e8acc96511e500a69e6
  }
  
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 532c0559b5dd0f01b524de062ef541d7e92a7097..f1ab34e957730ab5a1fae43f79b43b0434320f36 100644
+index c4405ac8e2e58c270eca0ab9f6f520670b6f6e58..2c2e6ca5e679ccdcb04f82a2cac57e9d06cbd111 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -118,7 +118,7 @@ index 532c0559b5dd0f01b524de062ef541d7e92a7097..f1ab34e957730ab5a1fae43f79b43b04
  #include "tele/tele_options.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_view_tl.h"
-@@ -4589,7 +4590,7 @@ void OverlayWidget::show(OpenRequest request) {
+@@ -4590,7 +4591,7 @@ void OverlayWidget::show(OpenRequest request) {
  	if (story && Tele::HideStories()) {
  		return;
  	} else if (story && story->call() && Tele::InvisibleStories()) {
@@ -127,7 +127,7 @@ index 532c0559b5dd0f01b524de062ef541d7e92a7097..f1ab34e957730ab5a1fae43f79b43b04
  		return;
  	}
  	const auto document = story ? story->document() : request.document();
-@@ -4952,7 +4953,7 @@ void OverlayWidget::displayVideoStream(
+@@ -4953,7 +4954,7 @@ void OverlayWidget::displayVideoStream(
  		const std::shared_ptr<Data::GroupCall> &call,
  		anim::activation activation) {
  	if (_stories && Tele::InvisibleStories()) {

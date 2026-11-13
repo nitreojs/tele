@@ -2755,7 +2755,7 @@ index 1174c2b9020a222340616de7623322b20a87a083..eb112c10b33c9d66643377aa249ea348
  	[[nodiscard]] bool forwardOfForward() const {
  		return savedFromSender || savedFromHiddenSenderInfo;
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index c2cb321cd8efb0a138e6511bcd4377ba2058fb3c..c5622d37ce456d9e5be224529bcb3dd79d0f409a 100644
+index 4415ec5c87046661d4ac1383a2d17caf02f5b537..1ba1b3cb222535f447478fb6d5c0670eec441516 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -1409,6 +1409,11 @@ QRect Message::effectIconGeometry() const {
@@ -2802,7 +2802,7 @@ index 78ba64ddcca4674ba50ce03dc5cb69eb3f3b24e8..58436850f7238658f4518aaabb716682
  	mutable uint32 _fromNameVersion : 16 = 0;
  	uint32 _nonTextMaxWidth : 16 = 0;
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 2feba04594c5a9196e6b6bdc1de5e11ec2614dc8..47a8e4c15a7149f518fa4cd935d4eb18eec23af3 100644
+index c150a10990ddf4bdd0e93d0705cbe5c978d119b1..06c041a46e9f388f45644ab67274dc841039cf52 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -2847,10 +2847,10 @@ index 2feba04594c5a9196e6b6bdc1de5e11ec2614dc8..47a8e4c15a7149f518fa4cd935d4eb18
  	const auto nameMaxWidth = previewSkip
  		+ _name.maxWidth()
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.h b/Telegram/SourceFiles/history/view/history_view_reply.h
-index a1fbc8c795895490b6cdf73ed0c5d204719b8f02..dc1bebec5256ba3ea6be680c8eeef6bb171c09c5 100644
+index 3fa5668d5ac83535229d184118b34a4136bbe024..f8f29f7352baaa1db40774fddf3dbeb4717f1d87 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.h
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.h
-@@ -163,6 +163,7 @@ private:
+@@ -164,6 +164,7 @@ private:
  	mutable int _minHeight = 0;
  	mutable int _height = 0;
  	mutable int _nameVersion = 0;

@@ -11,10 +11,10 @@ Subject: [PATCH] feat: keep messages you delete yourself
  4 files changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index dbab84a581125bf309d44fede97af0e79c1f2140..c3c284d68d7ddd6ff43ba3d13ab7071a217f107a 100644
+index 1c96b19786f35356e8f4e807574c2be20209e19f..633f686b32518c72ba5e4f282c8ba3c4fe535e2a 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -1055,6 +1055,7 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
+@@ -1056,6 +1056,7 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
  		document->owner().savedMusic().remove(document);
  	}
  

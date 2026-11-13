@@ -21,10 +21,10 @@ Subject: [PATCH] feat: import wallets from private keys
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_keys.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7c78bfd369fc196ab1ac96fa946ea048bd4f6659..26c6c82ba4d64f1a0e6e8f22136cb6df1db2ca1d 100644
+index 531fdf69f2563df3740c777fe74810c01ac87727..1b2e918025f2d922ff3d3a3a796a0f601cf71484 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3160,6 +3160,8 @@ PRIVATE
+@@ -3170,6 +3170,8 @@ PRIVATE
      tele/tele_voice_quality.h
      tele/tele_wallet_address.cpp
      tele/tele_wallet_address.h

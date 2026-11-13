@@ -13,10 +13,10 @@ Subject: [PATCH] feat: copy links to wallet transactions
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_links.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bea2314fdfbe23ae756f9ded8b816f15c089c544..a32bd0e04008e11932f7105572a77e03c0e0d19d 100644
+index c1387bb75b2e872847ba830f75d510e08168b5c0..1c113e4d594e8c7e715e4ab0e6ab348f0e3cc03c 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3055,6 +3055,8 @@ PRIVATE
+@@ -3065,6 +3065,8 @@ PRIVATE
      tele/tele_voice_fade.h
      tele/tele_voice_quality.cpp
      tele/tele_voice_quality.h

@@ -20,10 +20,10 @@ Subject: [PATCH] feat: choose when links get previews and set your own
  create mode 100644 Telegram/SourceFiles/tele/tele_link_previews.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bb478ad25a5d1709b3ca1a044300a429cd58e123..bb94c2bbffdf6c3b8fa00a57df83d6bd69234e67 100644
+index f9509da42dc5c81514d6f1e3a4101cee25238d3d..193b3de0ae67527262ad6ae980099ee6d67bd1f1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2712,6 +2712,8 @@ PRIVATE
+@@ -2722,6 +2722,8 @@ PRIVATE
      tele/tele_message_menu.h
      tele/tele_jump_to_first.cpp
      tele/tele_jump_to_first.h
@@ -33,7 +33,7 @@ index bb478ad25a5d1709b3ca1a044300a429cd58e123..bb94c2bbffdf6c3b8fa00a57df83d6bd
      tele/tele_link_rewrites.h
      tele/tele_link_rewrites_box.cpp
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index daba237239662c960fa8280daada4a60e51db7cb..13708b9f7692ca75370e14cf19d011225af0ebf1 100644
+index f47c2e5c13d6f9f128804015c96f6046fcfad76f..4af2b54ce4181975c1dd6ca50bbce2b2098c53df 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
 @@ -175,6 +175,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -62,10 +62,10 @@ index daba237239662c960fa8280daada4a60e51db7cb..13708b9f7692ca75370e14cf19d01122
  		checkCharsLimitation();
  		updateAiButtonVisibility();
 diff --git a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-index 2905cd32ad704a10f7bc0ce8ad7062d747f716a6..4065c686cacf2950decfe7d553710002085c2b4e 100644
+index 4dfa14c362897bba1a6e63216cea7524f4ccf466..a6b97e57995e90c9ef2e5992799956ea94818a4f 100644
 --- a/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
 +++ b/Telegram/SourceFiles/history/view/controls/history_view_compose_controls.cpp
-@@ -114,6 +114,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "settings/sections/settings_premium.h"
  #include "support/support_common.h"
  #include "tele/tele_calcmula_preview.h"
@@ -73,7 +73,7 @@ index 2905cd32ad704a10f7bc0ce8ad7062d747f716a6..4065c686cacf2950decfe7d553710002
  #include "tele/tele_deleted_reply.h"
  #include "tele/tele_emoji_panel.h"
  #include "support/support_helper.h"
-@@ -3280,6 +3281,12 @@ void ComposeControls::initField() {
+@@ -3301,6 +3302,12 @@ void ComposeControls::initField() {
  		},
  		.send = [=] { _fieldSubmits.fire({}); },
  	});

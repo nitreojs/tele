@@ -14,10 +14,10 @@ Subject: [PATCH] feat: dim every other address group like ios
  create mode 100644 Telegram/SourceFiles/tele/tele_wallet_address.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index d7ed768f8d6ad620a063c98aae927c80a72df524..af74bb7b38142b2215c9f71053300d36c9eb91b4 100644
+index 01ecc27ebc79a80edf71f1bcc30c6293e77e8445..0643bfc0289355bc767b7bba66221b4bd343a74f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3057,6 +3057,8 @@ PRIVATE
+@@ -3067,6 +3067,8 @@ PRIVATE
      tele/tele_voice_fade.h
      tele/tele_voice_quality.cpp
      tele/tele_voice_quality.h

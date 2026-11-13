@@ -25,10 +25,10 @@ Subject: [PATCH] feat: view messages and telegram objects as tl
  create mode 100644 Telegram/SourceFiles/tele/tele_view_tl.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 8b8a779cfcdee9648db633f3cd92df28bff2c8a0..8e06c0b9ce052fd58a8d0b73306a45b4c2aafd21 100644
+index 362dde5f9fb82135cc6cc197e56175d184a208df..38651bbf07f95be22661d0edb03ba37ba1080adf 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2686,6 +2686,8 @@ PRIVATE
+@@ -2696,6 +2696,8 @@ PRIVATE
      tele/tele_title.h
      tele/tele_updater.cpp
      tele/tele_updater.h
@@ -137,7 +137,7 @@ index 0dbb90a8260fdfea3b17ac21c93e969843bebf97..ab47587167d8760473e2ca76866e14c2
  		menu->addSeparator();
  		menu->addAction(
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 89d6661aee4ada4c2044f75f4f09581eeb3cf743..532c0559b5dd0f01b524de062ef541d7e92a7097 100644
+index 4f018ae4fe2f3a119af2304843bcb7e7fade1fc3..c4405ac8e2e58c270eca0ab9f6f520670b6f6e58 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

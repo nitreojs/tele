@@ -33,10 +33,10 @@ Subject: [PATCH] feat: hide communities
  create mode 100644 Telegram/SourceFiles/tele/tele_communities.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index db70ffd2a9022e1a3908d02aa4809c66a6ac5c38..dd6f77ef9509050f5c57cba1cbd5ebd299d2a876 100644
+index d9d9e405c1292d55a20c939bc0e6726950df83ce..5ef18f092684cfa2ec93a95c0fb73c2c8e717da5 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2676,6 +2676,8 @@ PRIVATE
+@@ -2686,6 +2686,8 @@ PRIVATE
      tele/tele_chat_backgrounds.h
      tele/tele_collectible_price.cpp
      tele/tele_collectible_price.h
@@ -67,12 +67,12 @@ index 6d907038d7b8726fdad838507803933307eafa84..15932b877a975ad445d23e886a85407c
  			const auto community = communityId
  				? channel->owner().channelLoaded(communityId)
 diff --git a/Telegram/SourceFiles/boxes/peer_list_controllers.cpp b/Telegram/SourceFiles/boxes/peer_list_controllers.cpp
-index 58c1e422827a520d1bc3cd074f23795cf392d152..18d1683cb9f844bc58d204e76868665ba156cadb 100644
+index 8fa46bcb4acb0f15d4f581b784b3d48004037569..afec009933c684b0ff979bb2d07d2f4d18741c66 100644
 --- a/Telegram/SourceFiles/boxes/peer_list_controllers.cpp
 +++ b/Telegram/SourceFiles/boxes/peer_list_controllers.cpp
 @@ -51,6 +51,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "window/window_separate_id.h"
- #include "window/window_session_controller.h" // showAddContact()
+ #include "window/window_session_controller.h" // showPeerHistory()
  #include "base/unixtime.h"
 +#include "tele/tele_options.h"
  #include "styles/style_boxes.h"
@@ -88,7 +88,7 @@ index 58c1e422827a520d1bc3cd074f23795cf392d152..18d1683cb9f844bc58d204e76868665b
 +		: nullptr;
  }
  
- object_ptr<Ui::BoxContent> PrepareContactsBox(
+ QBrush PeerListStoriesGradient(const style::PeerList &st) {
 diff --git a/Telegram/SourceFiles/boxes/peers/edit_peer_info_box.cpp b/Telegram/SourceFiles/boxes/peers/edit_peer_info_box.cpp
 index d4b2b99ea1036022f3c97222851f0ae59971afc8..1d574e68fbe8774fe71c6a9e8e892c1ab1e51083 100644
 --- a/Telegram/SourceFiles/boxes/peers/edit_peer_info_box.cpp
@@ -152,10 +152,10 @@ index 41ff18fc93611b3b3c4c0c3e1d79e3798b6eed6f..bb65514f6d04e32a70d90a517192835d
  
  void CommunityInfo::collapsedChanged() {
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index f4ac872a532e2d5cc8f9e630da464af52cad8b40..bb1779d7817dc743144f433e27165a4833ffc58a 100644
+index ac4d30fcd1fc919c1744feebd85ebcc23c351c24..a66ec151e787f4d9e6b53d172706c5c2bd4a4d41 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -95,6 +95,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/filters/edit_filter_box.h"
  #include "boxes/peers/edit_forum_topic_box.h"
  #include "boxes/peer_list_box.h"
@@ -163,7 +163,7 @@ index f4ac872a532e2d5cc8f9e630da464af52cad8b40..bb1779d7817dc743144f433e27165a48
  #include "tele/tele_options.h"
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
-@@ -5028,6 +5029,7 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
+@@ -5142,6 +5143,7 @@ void InnerWidget::peerSearchReceived(Api::PeerSearchResult result) {
  	if (_state != WidgetState::Filtered) {
  		return;
  	}
@@ -208,7 +208,7 @@ index 78c1fcbee2d6fd9f6b0b41319574c38dce656c0b..c557bb42c4582bbb1fa392739c7bfc90
  		&& !(badgeUser && Data::IsUserOnline(badgeUser))
  		&& !subscribed
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 0579c8e9cd8669aa5f5c963f1e7c53b61cf5ec9d..d92a82804470dd8772ed79a73e3974ca06252597 100644
+index 73038e5a0865cc230196eeecdb4b056714dc6d89..e71c899d378d7bf6d6b4e498d20debcef01e95ea 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -93,6 +93,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -219,7 +219,7 @@ index 0579c8e9cd8669aa5f5c963f1e7c53b61cf5ec9d..d92a82804470dd8772ed79a73e3974ca
  #include "tele/tele_folders.h"
  #include "tele/tele_updater.h"
  #include "styles/style_dialogs.h"
-@@ -1051,7 +1052,7 @@ void Widget::chosenRow(const ChosenRow &row) {
+@@ -841,7 +842,7 @@ void Widget::chosenRow(const ChosenRow &row) {
  			|| (row.message.fullId.msg != ShowAtUnreadMsgId)) {
  			return nullptr;
  		}
@@ -252,7 +252,7 @@ index 0ce651570d10f0a64cc9f56cb0426b62ca053215..c3035bc7826c73a7e220282583dce221
  
  object_ptr<Ui::BoxContent> StarsExamplesBox(
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index 0c1f154f6faf47b0a13bf8994e54cb49c67484fb..f52a3d6caaf263b26a7376db820e5d53f9e60cfc 100644
+index 090de7ed4a1d3d088862448729f0a839cf66ee62..69aced47ba0cb3f214ab65808b6d9995a95c9e14 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
 @@ -84,6 +84,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

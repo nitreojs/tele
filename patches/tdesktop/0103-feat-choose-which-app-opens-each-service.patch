@@ -17,10 +17,10 @@ Subject: [PATCH] feat: choose which app opens each service
  create mode 100644 Telegram/SourceFiles/tele/tele_app_links_box.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 69475f42dc9283e84995ad5af2fd99611620d4d9..e49d691172159a276b94ca31ce7a0888cf077b43 100644
+index 60521ebd3945eb1a4785e629e2a828180ae36f38..2b4c61a556fe7d70dc4851ca134bce5f02a97153 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2648,6 +2648,8 @@ PRIVATE
+@@ -2658,6 +2658,8 @@ PRIVATE
      tele/tele_app_icons.h
      tele/tele_app_links.cpp
      tele/tele_app_links.h

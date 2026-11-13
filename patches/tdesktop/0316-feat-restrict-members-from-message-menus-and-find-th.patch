@@ -21,10 +21,10 @@ Subject: [PATCH] feat: restrict members from message menus and find them by id
  create mode 100644 Telegram/SourceFiles/tele/tele_restrict.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 25ee4f803f5dbe59bbe9b62cb7d5e2e8fbbbf9d4..a5a400bb8be98b239114a489fbfcda96f6d56360 100644
+index 074ee21a6be44ec00ac769689bebcec760f3d24d..e7810c50d0c0a12a0af2679f83fa4c5248470500 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3067,6 +3067,8 @@ PRIVATE
+@@ -3077,6 +3077,8 @@ PRIVATE
      tele/tele_regex_search.h
      tele/tele_remove_mine.cpp
      tele/tele_remove_mine.h
@@ -60,7 +60,7 @@ index 7ab48a7fc7a42faaff200d7049045e9734954b8d..0c1e7d082523055eac085b94514ec8c9
  			_timer.callOnce(AutoSearchTimeout);
  		} else {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index d688c3126d7d94b0feca53fec301a62a17f069f2..dacd1ac6494ac726c8158161fdede6a097d6bbe0 100644
+index afb64840ed03d783bac7a5e6e4a9fa7f6f4a9483..3871d8c726585003e54c393bee6d0837f049e585 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -136,6 +136,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -71,7 +71,7 @@ index d688c3126d7d94b0feca53fec301a62a17f069f2..dacd1ac6494ac726c8158161fdede6a0
  #include "tele/tele_bookmarks.h"
  #include "tele/tele_button_payload.h"
  #include "tele/tele_copy_markdown.h"
-@@ -3737,6 +3738,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3744,6 +3745,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderItem(itemId);
  				}, &st::menuIconBlock);
  			}
@@ -81,7 +81,7 @@ index d688c3126d7d94b0feca53fec301a62a17f069f2..dacd1ac6494ac726c8158161fdede6a0
  		}
  	} else { // maybe cursor on some text history item?
  		const auto albumPartItem = _dragStateItem;
-@@ -4070,6 +4074,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4077,6 +4081,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  					blockSenderAsGroup(itemId);
  				}, &st::menuIconBlock);
  			}

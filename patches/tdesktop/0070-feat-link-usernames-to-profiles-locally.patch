@@ -22,10 +22,10 @@ Subject: [PATCH] feat: link usernames to profiles locally
  create mode 100644 Telegram/SourceFiles/tele/tele_username_aliases.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 9908f4d40af0f2d5dc951cef55a9309a317525b3..7a04817403c943507e835d23ff005d64acb178cc 100644
+index ac74b7353b56b96b41654f642ea2817ee6dc61ef..bf5d4a6db57fa52e8f2690c73e90b6c7a2fa1e2f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2721,6 +2721,8 @@ PRIVATE
+@@ -2731,6 +2731,8 @@ PRIVATE
      tele/tele_updater.cpp
      tele/tele_updater.h
      tele/tele_uploads.h
@@ -71,7 +71,7 @@ index a97c68994a2a6fd30855a168ef04792f97566818..67cabe3354eb1b646a81dc26794ff5c9
  	const auto flags = PrepareConfirmedFileFlags(
  		session,
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 2683da648236a6d77d864119e210d08a8ef6b938..785b6bb8433d7ff5d5e7acfa9893ddbf5a568981 100644
+index 54030dab8054a9e0ddd025098aa37b54573dc6af..20cce41c96f5d8ce5967d568c148c9ce27026b51 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -82,7 +82,7 @@ index 2683da648236a6d77d864119e210d08a8ef6b938..785b6bb8433d7ff5d5e7acfa9893ddbf
  
  namespace {
  
-@@ -4826,6 +4827,7 @@ void ApiWrap::sendMessage(
+@@ -4849,6 +4850,7 @@ void ApiWrap::sendMessage(
  		_session->user()).flags;
  	TextUtilities::PrepareForSending(left, prepareFlags);
  	Tele::PrepareSentLinks(left);

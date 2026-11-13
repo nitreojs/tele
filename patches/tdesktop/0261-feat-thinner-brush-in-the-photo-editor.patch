@@ -17,10 +17,10 @@ Subject: [PATCH] feat: thinner brush in the photo editor
  create mode 100644 Telegram/SourceFiles/tele/tele_editor_brush.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index e2a9403d60ffb2e4b7a6c9fbc4294859d9ade29e..1ebcf870b377cdc4713b42164b9ad20fe1751197 100644
+index 821b0a4b144f91447fbcdf2b6cf0ee5d672ac28b..16034c73c317a1202957e060320e9b40065373ff 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2734,6 +2734,8 @@ PRIVATE
+@@ -2744,6 +2744,8 @@ PRIVATE
      tele/tele_deleted_section.h
      tele/tele_edit_history.cpp
      tele/tele_edit_history.h

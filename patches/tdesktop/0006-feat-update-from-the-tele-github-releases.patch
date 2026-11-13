@@ -18,10 +18,10 @@ Subject: [PATCH] feat: update from the tele github releases
  create mode 100644 Telegram/SourceFiles/tele/tele_updater.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1b428cce4309bdc40a1f82e74df57218c94cd794..bb50145f6e50c9f5ed8353f998c49911f1261df4 100644
+index 4d58e5d17dfdda648d712f877eb1c092e42b5065..c3e683808443b69609e25a1be60d2d4ed54b8e87 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2648,6 +2648,8 @@ PRIVATE
+@@ -2658,6 +2658,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -51,7 +51,7 @@ index 94b64dc33f204aac962b87e9744a611a6fb6a07d..26914a527168546c89bcd97ec001fb80
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 88cc11649fb7725f36ebdfa656a8206ac5c1502b..8221b12c87775e564bfcdc73e616cef7a6aa24cc 100644
+index 46fd8e20cb1d20dbb74a46054e138b4861e75cbc..4fafedbeae59162f93a9c4580c4986fa8f285f92 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 @@ -92,6 +92,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -62,7 +62,7 @@ index 88cc11649fb7725f36ebdfa656a8206ac5c1502b..8221b12c87775e564bfcdc73e616cef7
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
-@@ -692,6 +693,11 @@ Widget::Widget(
+@@ -482,6 +483,11 @@ Widget::Widget(
  		) | rpl::on_next([=] {
  			checkUpdateStatus();
  		}, lifetime());
@@ -74,7 +74,7 @@ index 88cc11649fb7725f36ebdfa656a8206ac5c1502b..8221b12c87775e564bfcdc73e616cef7
  	}
  
  	_cancelSearch->setClickedCallback([=] {
-@@ -2703,14 +2709,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
+@@ -2493,14 +2499,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
  }
  
  void Widget::checkUpdateStatus() {
@@ -92,7 +92,7 @@ index 88cc11649fb7725f36ebdfa656a8206ac5c1502b..8221b12c87775e564bfcdc73e616cef7
  		if (_updateTelegram) {
  			return;
  		}
-@@ -2723,6 +2729,10 @@ void Widget::checkUpdateStatus() {
+@@ -2513,6 +2519,10 @@ void Widget::checkUpdateStatus() {
  			true);
  		_updateTelegram->show();
  		_updateTelegram->setClickedCallback([] {

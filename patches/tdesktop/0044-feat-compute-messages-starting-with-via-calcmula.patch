@@ -17,10 +17,10 @@ Subject: [PATCH] feat: compute messages starting with = via calcmula
  create mode 100644 Telegram/SourceFiles/tele/tele_calcmula.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index c9aee13dfdbcecffde75734c977729469c3cd7be..e9cae34036f4a411eea586bbb690ebf3babd87d5 100644
+index a076a204025610cfe7510071113d4e005fea6a39..956fdb76a2b6d0090acc57f150cb210f0f56ba6f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2654,6 +2654,8 @@ PRIVATE
+@@ -2664,6 +2664,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -59,7 +59,7 @@ index 5035f0f09fee41b39a9b6ca28316e0f42d819eb0..460a81edc5c2dce50c47750fe5d991f5
  	const auto peer = history->peer;
  	const auto session = &history->session();
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index be51adc3850ddeb5aaaea49b64715d6e3bb92d01..ba50f14e8ec9a8f904633f7f694be5a8bcc38998 100644
+index 5b6973639469f373feefc0c10a1d29891f79c533..4b57d5851525ac58c859ee647a224ba65f6fe053 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70,7 +70,7 @@ index be51adc3850ddeb5aaaea49b64715d6e3bb92d01..ba50f14e8ec9a8f904633f7f694be5a8
  #include "tgw/tgw_storage.h"
  
  namespace {
-@@ -4357,6 +4358,9 @@ void ApiWrap::sendFiles(
+@@ -4380,6 +4381,9 @@ void ApiWrap::sendFiles(
  		SendMediaType type,
  		std::shared_ptr<SendingAlbum> album,
  		SendAction action) {
@@ -80,7 +80,7 @@ index be51adc3850ddeb5aaaea49b64715d6e3bb92d01..ba50f14e8ec9a8f904633f7f694be5a8
  	const auto &ephemeral = _session->ephemeralMessages();
  	if (album && !ephemeral.isEphemeralBotReply(action.replyTo.messageId)) {
  		const auto peer = action.history->peer;
-@@ -4765,6 +4769,9 @@ void ApiWrap::sendRichMessage(
+@@ -4788,6 +4792,9 @@ void ApiWrap::sendRichMessage(
  void ApiWrap::sendMessage(
  		MessageToSend &&message,
  		std::optional<MsgId> localMessageId) {

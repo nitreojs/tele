@@ -34,10 +34,10 @@ Subject: [PATCH] feat: show what's new in a local tele chat
  create mode 100644 Telegram/SourceFiles/tele/tele_changelog_section.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 41cdc25e0499a174b7e61ba14861df8eb77b40f8..370fb14e47edab4dfb852e82870d0d2add9f61e1 100644
+index a3a5c2e294f2d29c315a0c28b7b0fb6e21fdd146..9cded79e7c8ceb10536acd85e22ce628174d0d0b 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2662,6 +2662,10 @@ PRIVATE
+@@ -2672,6 +2672,10 @@ PRIVATE
      tele/tele_calls.h
      tele/tele_changelog.cpp
      tele/tele_changelog.h
@@ -280,7 +280,7 @@ index 95921b15c68fe48098983e3ee63415c7ee32e6ae..2f0182f39275180eede8fe07765aaedf
      <file alias="art/premium/flecks.png">../../art/premium/flecks.png</file>
      <file alias="art/premium/star_texture.svg">../../art/premium/star_texture.svg</file>
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 785b6bb8433d7ff5d5e7acfa9893ddbf5a568981..3e34ba74d6974b2ce7165f5e0ef8cab514e259b7 100644
+index 20cce41c96f5d8ce5967d568c148c9ce27026b51..85f23cc692d04347f31fed2caf27818cdbb693e4 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -112,6 +112,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -291,7 +291,7 @@ index 785b6bb8433d7ff5d5e7acfa9893ddbf5a568981..3e34ba74d6974b2ce7165f5e0ef8cab5
  #include "tele/tele_links.h"
  #include "tgw/tgw_storage.h"
  #include "tele/tele_deleted_reply.h"
-@@ -515,6 +516,9 @@ void ApiWrap::toggleHistoryArchived(
+@@ -522,6 +523,9 @@ void ApiWrap::toggleHistoryArchived(
  		not_null<History*> history,
  		bool archived,
  		Fn<void()> callback) {
@@ -301,7 +301,7 @@ index 785b6bb8433d7ff5d5e7acfa9893ddbf5a568981..3e34ba74d6974b2ce7165f5e0ef8cab5
  	if (const auto already = _historyArchivedRequests.take(history)) {
  		request(already->first).cancel();
  	}
-@@ -1237,7 +1241,7 @@ void ApiWrap::requestWallPaper(
+@@ -1247,7 +1251,7 @@ void ApiWrap::requestWallPaper(
  }
  
  void ApiWrap::requestFullPeer(not_null<PeerData*> peer) {
@@ -354,10 +354,10 @@ index 61600ea1f87f580b69a5f63799069ed573b1e83b..88f1b313d2a28c50d20b54c0316049f8
  		} else if (user->requiresPremiumToWrite()
  			&& !user->session().premium()) {
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index c3c284d68d7ddd6ff43ba3d13ab7071a217f107a..71244e46e70ba094e6f35a254dc7b11acce3b300 100644
+index 633f686b32518c72ba5e4f282c8ba3c4fe535e2a..181552b981ab4c58f81bcbffe807c8da23baded8 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "iv/iv_rich_page.h"
  #include "core/application.h"
  #include "apiwrap.h"
@@ -365,7 +365,7 @@ index c3c284d68d7ddd6ff43ba3d13ab7071a217f107a..71244e46e70ba094e6f35a254dc7b11a
  #include "tele/tele_deleted.h"
  #include "tele/tele_ghost.h"
  #include "tele/tele_send_order.h"
-@@ -420,6 +421,9 @@ void Histories::requestDialogEntry(
+@@ -421,6 +422,9 @@ void Histories::requestDialogEntry(
  			return;
  		}
  	}

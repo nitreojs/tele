@@ -28,10 +28,10 @@ Subject: [PATCH] feat: show checkmarks and custom verification everywhere
  create mode 100644 Telegram/SourceFiles/tele/tele_bubble_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index f816ec236a592a4c20296eec0e768a80bb4b3ba0..74687a9a0651ce32ec5660e343f2648426a969e3 100644
+index 12d994603cc8fe94721b8aba78007556431cca15..664878baf27faee1de54cb97ee5355c91e413536 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2642,10 +2642,14 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2652,10 +2652,14 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -47,10 +47,10 @@ index f816ec236a592a4c20296eec0e768a80bb4b3ba0..74687a9a0651ce32ec5660e343f26484
      tele/tele_button_payload.h
      tele/tele_options.cpp
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_preview.cpp b/Telegram/SourceFiles/history/view/history_view_chat_preview.cpp
-index ad73644d916bdc6ec6f39af559e9b9ab88373da2..28ca8b6f65722f30bcf30bca06820a0375cb8f1d 100644
+index 40922031babc0e28c889b6bdd90a6689f4ce518b..83679a7a266e1fff837559d64b5ac1e2a0c2b52d 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_preview.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_preview.cpp
-@@ -204,6 +204,7 @@ private:
+@@ -207,6 +207,7 @@ private:
  	const std::unique_ptr<Ui::FlatButton> _markRead;
  
  	Info::Profile::Badge _badge;
@@ -58,7 +58,7 @@ index ad73644d916bdc6ec6f39af559e9b9ab88373da2..28ca8b6f65722f30bcf30bca06820a03
  
  	QPointer<ListWidget> _inner;
  	std::unique_ptr<AboutView> _aboutView;
-@@ -264,22 +265,17 @@ struct StatusFields {
+@@ -267,22 +268,17 @@ struct StatusFields {
  }
  
  [[nodiscard]] rpl::producer<Info::Profile::Badge::Content> ContentForPeer(
@@ -86,7 +86,7 @@ index ad73644d916bdc6ec6f39af559e9b9ab88373da2..28ca8b6f65722f30bcf30bca06820a03
  }
  
  Item::Item(not_null<Ui::Menu::Menu*> parent, not_null<Data::Thread*> thread)
-@@ -304,7 +300,15 @@ Item::Item(not_null<Ui::Menu::Menu*> parent, not_null<Data::Thread*> thread)
+@@ -307,7 +303,15 @@ Item::Item(not_null<Ui::Menu::Menu*> parent, not_null<Data::Thread*> thread)
  		_top.get(),
  		st::settingsInfoPeerBadge,
  		_session,
@@ -103,7 +103,7 @@ index ad73644d916bdc6ec6f39af559e9b9ab88373da2..28ca8b6f65722f30bcf30bca06820a03
  		nullptr,
  		nullptr,
  		1) {
-@@ -403,13 +407,18 @@ void Item::setupTop() {
+@@ -445,13 +449,18 @@ void Item::setupTop() {
  	rpl::combine(
  		_top->widthValue(),
  		std::move(nameValue),
@@ -124,7 +124,7 @@ index ad73644d916bdc6ec6f39af559e9b9ab88373da2..28ca8b6f65722f30bcf30bca06820a03
  		if (status) {
  			name->move(st::previewTop.namePosition);
  		} else {
-@@ -421,6 +430,10 @@ void Item::setupTop() {
+@@ -463,6 +472,10 @@ void Item::setupTop() {
  			name->x() + name->width() + st::normalFont->spacew,
  			name->y(),
  			name->y() + name->height());
@@ -136,7 +136,7 @@ index ad73644d916bdc6ec6f39af559e9b9ab88373da2..28ca8b6f65722f30bcf30bca06820a03
  
  	_top->geometryValue() | rpl::on_next([=](QRect geometry) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 9e2a0cfc5aa411382d3674e1ac83a0be89c363bb..bbdd8f9ff1a846440c4bb5ac531ea638656d6fd2 100644
+index 7fb8d49f50ce22fd14df72c854b721c741ec3e01..9a9d44f34c95bd871cbfe4e810845fafa2c388bf 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -66,6 +66,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -286,7 +286,7 @@ index 9e2a0cfc5aa411382d3674e1ac83a0be89c363bb..bbdd8f9ff1a846440c4bb5ac531ea638
  	}
  	if (from->isPremium()
  		|| (from->isChannel()
-@@ -6472,7 +6508,8 @@ void Message::fromNameUpdated(int width) const {
+@@ -6474,7 +6510,8 @@ void Message::fromNameUpdated(int width) const {
  		- (_fromNameStatus
  			? (st::dialogsPremiumIcon.icon.width()
  				+ st::msgServiceFont->spacew)
@@ -915,7 +915,7 @@ index 1f7afedec511fb70d8040d11c9d72f24b6c1dae8..08596e3a22e60616b195530c2ee7f696
  
  int PeerBadge::drawTextBadge(Painter &p, const Descriptor &descriptor) {
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index 3752e32e83aeeaabc913c4bfc0af6907967af8ac..05c377c5622e67542de8a1b45282ab01f2a6319a 100644
+index ce50cadc18db4654987cc5f4d1a2adb335ad9103..53bf2d260fa42da993171a055fafb0f0d893baa8 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
 @@ -28,6 +28,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

@@ -14,7 +14,7 @@ Subject: [PATCH] feat: show when media was uploaded in the media viewer
  7 files changed, 55 insertions(+)
 
 diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
-index 3f09151df8d8ad2496aa22912dffec5443b7dedf..97d57e2d5c95e78c4f98178eadb2815efb34fc26 100644
+index e5b09a166ae1cc9bdf30b69026c84d0aa83fe247..ce9018f84eba3486acf6bc8ba37732ecc9df0b07 100644
 --- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 +++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
 @@ -1876,6 +1876,12 @@ void OverlayWidget::updateControls() {

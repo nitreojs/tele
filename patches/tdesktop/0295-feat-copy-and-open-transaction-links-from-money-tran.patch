@@ -13,7 +13,7 @@ Subject: [PATCH] feat: copy and open transaction links from money transfer
  5 files changed, 75 insertions(+), 11 deletions(-)
 
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 4a06ab6650bdc0ad29063320d74484db8f44293a..598aeaf96d31e54bfcb85efd4668c1cca21491bb 100644
+index 69cc0d3b7ddb063d9df0e042a5d351c435b48e49..fc29a8d4a9ca5c8d496790fbb2d282e2dab2dccc 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -154,6 +154,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -24,7 +24,7 @@ index 4a06ab6650bdc0ad29063320d74484db8f44293a..598aeaf96d31e54bfcb85efd4668c1cc
  #include "styles/style_chat.h"
  #include "styles/style_menu_icons.h"
  
-@@ -3763,6 +3764,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3770,6 +3771,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  							Ui::Menu::CreateAddActionCallback(_menu));
  					}
  				}

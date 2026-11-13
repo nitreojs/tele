@@ -16,10 +16,10 @@ Subject: [PATCH] feat: show what's new in tele after an update
  create mode 100644 Telegram/SourceFiles/tele/tele_changelog.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4fb02b6d25b6d5628d32d96a78afabf623520b83..be068ed0d075c1cd19224b552908aebe05fc2de8 100644
+index 9e908f1d8307507d2d8b61187e42d22dfbcf121e..9330c3c1eec9dc641c19d89537975d4f5bc2a63a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2652,6 +2652,8 @@ PRIVATE
+@@ -2662,6 +2662,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h

@@ -40,10 +40,10 @@ index b186d04787b984931427b4f78b1089514de52c93..3cd8387c08c5041997c215e2e5aa4194
  		return nullptr;
  	}
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 4feb759eadb792446601c11a8e3cc6d1bd1123b7..6f48725bb67b7bf1d174deec209e7f7a14d8e3fa 100644
+index 730ef50193c7922bba71f7982d99873c290be375..d2226d6e08e815289d054ad9b761b85ae476ccd2 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -3941,7 +3941,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3948,7 +3948,9 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	Tele::InsertMessageTools(
  		_menu.get(),
  		controller->uiShow(),
@@ -82,10 +82,10 @@ index a18014454eba067e917264ba3bcd4183fce9f32a..e71be20bd390d9425e240982eafe8fbe
  
  base::unique_qptr<Ui::PopupMenu> FillContextMenu(
 diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-index 9ccc9fe44639e01b360971dd6d7268376acb473d..ca73ac6bb309dc7ef3921b1a70027729d55f27ff 100644
+index adfd8e93830a2febdd9eaba50fa368bed2e6cef7..1b110d368380907a13b914d66c10fe10ad43faf0 100644
 --- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
-@@ -4602,6 +4602,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -4590,6 +4590,7 @@ void ListWidget::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  	request.view = _overElement;
  	request.item = overItem;
  	request.pointState = _overState.pointState;

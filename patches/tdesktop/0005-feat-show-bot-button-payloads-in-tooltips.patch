@@ -16,10 +16,10 @@ Subject: [PATCH] feat: show bot button payloads in tooltips
  create mode 100644 Telegram/SourceFiles/tele/tele_button_payload.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index bf17e6626afa109478017cc58edd77c94201d6d9..1b428cce4309bdc40a1f82e74df57218c94cd794 100644
+index d5884f9503f52ac41cbb47e8d75172c63a4d6020..4d58e5d17dfdda648d712f877eb1c092e42b5065 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2644,6 +2644,8 @@ PRIVATE
+@@ -2654,6 +2654,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_build.cpp
      tele/tele_build.h

@@ -16,10 +16,10 @@ Subject: [PATCH] fix: count typed emoji in recent emoji
  create mode 100644 Telegram/SourceFiles/tele/tele_recent_emoji.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index a083e6cb98678a05449cbc8c9566252d14153ff3..c892192abf60b388c608891e76acbe7060460532 100644
+index 1aadaac7a6e1f7773929eba3c7e209d97f3dbd7f..5e1178651fc7c655c4e2ca5ea9b7d2e35828ba20 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2790,6 +2790,8 @@ PRIVATE
+@@ -2800,6 +2800,8 @@ PRIVATE
      tele/tele_protected.h
      tele/tele_punctual_scheduled.cpp
      tele/tele_punctual_scheduled.h
@@ -77,7 +77,7 @@ index 67cabe3354eb1b646a81dc26794ff5c995eed8e7..3736f4c178ffb7d356926ab165d7408f
  
  	auto caption = TextWithEntities{
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index e874b7536d43992689bc66244393a0ece78d0129..d853980c0ebd93bc941911347f4269040201a2f3 100644
+index 8d775effb3c6f5170062b7c85bb325144a25407c..4e819fafbda0729bd1f5265e05cfeef94eff957f 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -121,6 +121,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -88,7 +88,7 @@ index e874b7536d43992689bc66244393a0ece78d0129..d853980c0ebd93bc941911347f426904
  
  namespace {
  
-@@ -4382,6 +4383,7 @@ void ApiWrap::sendFiles(
+@@ -4405,6 +4406,7 @@ void ApiWrap::sendFiles(
  	if (Tele::CalcmulaFiles(list, type, album, action)) {
  		return;
  	}
@@ -96,7 +96,7 @@ index e874b7536d43992689bc66244393a0ece78d0129..d853980c0ebd93bc941911347f426904
  	Tele::QuoteDeletedFiles(list, action);
  	const auto &ephemeral = _session->ephemeralMessages();
  	if (album && !ephemeral.isEphemeralBotReply(action.replyTo.messageId)) {
-@@ -4796,6 +4798,7 @@ void ApiWrap::sendMessage(
+@@ -4819,6 +4821,7 @@ void ApiWrap::sendMessage(
  	if (Tele::CalcmulaMessage(message)) {
  		return;
  	}

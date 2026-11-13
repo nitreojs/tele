@@ -36,10 +36,10 @@ Subject: [PATCH] feat: name people only for you
  create mode 100644 Telegram/SourceFiles/tele/tele_local_names.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 166074d00d01e56b72f3cfed0418e628865922f7..4217ba3fdac37ce1efe63e5a7378c308484e82be 100644
+index c05cfa029acf320c2bcea1e580facd36a7e7d380..9bb6eb96de2668dbccb7d638974bc47b097c075f 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2696,6 +2696,8 @@ PRIVATE
+@@ -2706,6 +2706,8 @@ PRIVATE
      tele/tele_ignored.h
      tele/tele_inline_via.cpp
      tele/tele_inline_via.h
@@ -317,7 +317,7 @@ index b36ca0e059eaac3a7dead912104a6a302f016296..793eb9355d03cdd96dc13106983a37bf
  		text = tr::lng_guest_chat_for(tr::now, lt_user, firstName);
  		if (availw < maxWidth) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
-index 950eae0e2469f440ab5492e99363ee26ac78054a..9f7a57843ddc916df4e73aa9d6af3bb6ad167d5c 100644
+index 870619fe5db0417b2028cc63e79e337860ff2ae0..af49e83ff730aa23c6bf813b65a980fe93e8e47b 100644
 --- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
 @@ -610,7 +610,7 @@ QString Reply::senderName(
@@ -434,7 +434,7 @@ index bcdf9cca55c4afcd34a8daec5a08cc9662234f2f..1bf3671d5e816223a985b01c8516f6ff
  				st::defaultDividerLabel.label,
  				st::defaultPopupMenu,
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index da0cedb03f13ab8c9824de5a70579045a1b5dd65..75721e6058581bfc8fa0127291148e1ff627ee6a 100644
+index 7625c8f5a631512c64ca748866d7c2e74382f884..6ea44f135ae4496c8b60856b758e0c6988dcc7ff 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -1473,8 +1473,8 @@ void TopBar::setupUserpicButton(
@@ -1071,7 +1071,7 @@ index 86b3175a449f33886ac8b9ddb865d8e98f769a1f..43829071f2e4014738d6d86060315ef5
  
  } // namespace Tele
 diff --git a/Telegram/SourceFiles/ui/controls/userpic_button.cpp b/Telegram/SourceFiles/ui/controls/userpic_button.cpp
-index 18c8b39bda1f25713ad255bd6145d57014901fae..838b13f12e8c3e2453bf6dd46f8dbd3f3f6ff94a 100644
+index 311da6199d5cf14f75d1814560ded7ef05672886..9f81077e4787cf8a03d6d3dcc0cd5fd83f40e96c 100644
 --- a/Telegram/SourceFiles/ui/controls/userpic_button.cpp
 +++ b/Telegram/SourceFiles/ui/controls/userpic_button.cpp
 @@ -330,8 +330,8 @@ void UserpicButton::choosePhotoLocally() {

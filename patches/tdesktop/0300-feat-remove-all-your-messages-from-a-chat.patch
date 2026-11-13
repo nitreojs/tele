@@ -21,10 +21,10 @@ Subject: [PATCH] feat: remove all your messages from a chat
  create mode 100644 Telegram/SourceFiles/tele/tele_remove_mine.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 59c68fa043bd4d79398454fbcf7605a42f8f916f..6284bfde4c41598905990deb0ae4656decef300b 100644
+index c3b7074edd8f58e52893236dc5a185fb6821c537..9e1e4682427e8fc5d3fbb13e61583d82474a1ef3 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2970,6 +2970,8 @@ PRIVATE
+@@ -2980,6 +2980,8 @@ PRIVATE
      tele/tele_reduce_motion.h
      tele/tele_regex_search.cpp
      tele/tele_regex_search.h
@@ -34,10 +34,10 @@ index 59c68fa043bd4d79398454fbcf7605a42f8f916f..6284bfde4c41598905990deb0ae4656d
      tele/tele_rich_quote.h
      tele/tele_rich_timestamps.cpp
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index 1c9ade5b508528dfce745137dbd4f9e6f7f3e0d8..030c089c08cff37af1c279933340edb150ee3ffe 100644
+index 4cac749eb35c40e10a82f637b4826849eec429e9..83871e7e9f76c082e1cba28e2288400870da6cc5 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
-@@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_delete_fail.h"
  #include "tele/tele_deleted.h"
  #include "tele/tele_ghost.h"
@@ -45,7 +45,7 @@ index 1c9ade5b508528dfce745137dbd4f9e6f7f3e0d8..030c089c08cff37af1c279933340edb1
  #include "tele/tele_select_many.h"
  #include "tele/tele_send_order.h"
  
-@@ -846,15 +847,22 @@ void Histories::deleteMessages(
+@@ -847,15 +848,22 @@ void Histories::deleteMessages(
  		}
  		return;
  	}

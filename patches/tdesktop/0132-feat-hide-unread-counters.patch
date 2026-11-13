@@ -21,10 +21,10 @@ Subject: [PATCH] feat: hide unread counters
  create mode 100644 Telegram/SourceFiles/tele/tele_counters.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 559cd4c543ed7571c1a2544290808aa43ca44a8c..3ae551d23c10d0294c3ef5c354c9e0cd332ba3bf 100644
+index 7f28942fc9194084b01f0494a7eca6eb894a0ac8..df9fb4e688a6c1f6786a772f683ecadf9dbd742d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2686,6 +2686,8 @@ PRIVATE
+@@ -2696,6 +2696,8 @@ PRIVATE
      tele/tele_communities.h
      tele/tele_corner_buttons.cpp
      tele/tele_corner_buttons.h
@@ -491,7 +491,7 @@ index 41c580a17e799a73a77992cd9a6e902e70ecfd30..8505fe4f33a42e86387843dcd06b8c62
  		Internal("tele-open-links-in-apps"),
  		Internal(kOptionShotView),
 diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
-index d45b8433aaf6bc5a81c875922500240edc47317b..8a7f23c4b87ce9578f4146497a5d3e2d13918f09 100644
+index e1e7e2681433fb4ee7a3997d5c7a19c7f56a7bee..e0abd8437687c97d67cef4340826853bb22d5e01 100644
 --- a/Telegram/SourceFiles/window/window_main_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_main_menu.cpp
 @@ -73,6 +73,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

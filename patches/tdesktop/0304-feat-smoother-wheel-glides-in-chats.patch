@@ -6,7 +6,7 @@ Subject: [PATCH] feat: smoother wheel glides in chats
 ---
  Telegram/CMakeLists.txt                       |   4 +
  .../Resources/tele/changelog_history.json     | 885 ++++++++++--------
- .../dialogs/dialogs_inner_widget.cpp          |  16 +-
+ .../dialogs/dialogs_inner_widget.cpp          |  18 +-
  .../history/history_inner_widget.cpp          | 174 +++-
  .../history/history_inner_widget.h            |  17 +
  .../SourceFiles/settings/settings_tele.cpp    |   4 +
@@ -19,17 +19,17 @@ Subject: [PATCH] feat: smoother wheel glides in chats
  .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
  .../SourceFiles/tele/tele_smooth_scroll.cpp   | 176 ++++
  .../SourceFiles/tele/tele_smooth_scroll.h     |  10 +
- 15 files changed, 1613 insertions(+), 416 deletions(-)
+ 15 files changed, 1615 insertions(+), 416 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_scroll_layer.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_scroll_layer.h
  create mode 100644 Telegram/SourceFiles/tele/tele_scroll_stats.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_scroll_stats.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1dc7f37b05ebb792802cdd3b4d47252317953a44..7c78bfd369fc196ab1ac96fa946ea048bd4f6659 100644
+index a73e3d2d2b8ae6319c1905a6b04485e421255bee..531fdf69f2563df3740c777fe74810c01ac87727 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3071,6 +3071,10 @@ PRIVATE
+@@ -3081,6 +3081,10 @@ PRIVATE
      tele/tele_rmb_beside_bubble.h
      tele/tele_screen_capture.cpp
      tele/tele_screen_capture.h
@@ -3238,10 +3238,10 @@ index d230bd04377109c51e64b69a8655a32cf4e24d6a..e9abfd45d7163b5ac148ff49ff2375ab
  			]
  		}
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-index 384e117649a3112403f5b5cdeac05da069c63f95..afd69a5288fc2723752aeae6fdf15915e36ad3c3 100644
+index ea04ab19c6d0a78ed6ea8de3e78b1f5754219e69..ac905566f74b61d991615dcccec4df6a585740fe 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.cpp
-@@ -103,6 +103,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -104,6 +104,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "tele/tele_local_pins.h"
  #include "tele/tele_options.h"
  #include "tele/tele_search_types.h"
@@ -3249,7 +3249,7 @@ index 384e117649a3112403f5b5cdeac05da069c63f95..afd69a5288fc2723752aeae6fdf15915
  #include "tele/tele_unsorted_folder.h"
  #include "tele/tele_username_aliases.h"
  #include "api/api_chat_filters.h"
-@@ -380,11 +381,10 @@ InnerWidget::InnerWidget(
+@@ -381,11 +382,10 @@ InnerWidget::InnerWidget(
  		}
  	}, lifetime());
  
@@ -3263,21 +3263,23 @@ index 384e117649a3112403f5b5cdeac05da069c63f95..afd69a5288fc2723752aeae6fdf15915
  
  	Core::App().notifications().settingsChanged(
  	) | rpl::on_next([=](Window::Notifications::ChangeType change) {
-@@ -1393,6 +1393,13 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
- 				}
+@@ -1468,6 +1468,15 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
+ 				p.translate(0, removedHeight);
+ 				removedPainted = true;
  			};
- 
 +			const auto exactRows = !reorderingPinned
++				&& !removedHeight
++				&& !archiveShift
 +				&& !_pinnedShiftAnimation.animating()
 +				&& (e->region().rectCount() > 1);
 +			const auto damaged = [&](int top, int height) {
 +				return !exactRows || e->region().intersects(
 +					QRect(0, skip + top, fullWidth, height));
 +			};
- 			auto i = list.findByY(dialogsClip.top() - skip);
+ 			auto i = list.findByY(dialogsClip.top() - skip - removedHeight);
  			if (_skipTopDialog && i != list.cend() && !(*i)->index()) {
  				++i;
-@@ -1415,7 +1422,8 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
+@@ -1492,7 +1501,8 @@ void InnerWidget::paintEvent(QPaintEvent *e) {
  					}
  
  					// Skip currently dragged chat to paint it above others after.
@@ -3288,7 +3290,7 @@ index 384e117649a3112403f5b5cdeac05da069c63f95..afd69a5288fc2723752aeae6fdf15915
  					}
  
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 527396c87bf063be11b7ac483baa6d9cceb99830..d688c3126d7d94b0feca53fec301a62a17f069f2 100644
+index 3561ccab872f055202ff498ca9ebd2788a06dafc..afb64840ed03d783bac7a5e6e4a9fa7f6f4a9483 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -65,6 +65,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -3552,7 +3554,7 @@ index 527396c87bf063be11b7ac483baa6d9cceb99830..d688c3126d7d94b0feca53fec301a62a
  	});
  
  	const auto processPainted = [&](
-@@ -1757,7 +1878,15 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
+@@ -1763,7 +1884,15 @@ void HistoryInner::paintEvent(QPaintEvent *e) {
  		context.translate(0, top);
  		p.translate(0, -top);
  	}
@@ -3568,7 +3570,7 @@ index 527396c87bf063be11b7ac483baa6d9cceb99830..d688c3126d7d94b0feca53fec301a62a
  	enumerateUserpics([&](not_null<Element*> view, int userpicTop) {
  		// stop the enumeration if the userpic is below the painted rect
  		if (userpicTop >= clip.top() + clip.height()) {
-@@ -4980,6 +5109,7 @@ void HistoryInner::updateSize() {
+@@ -4988,6 +5117,7 @@ void HistoryInner::updateSize() {
  			mouseActionUpdate(QCursor::pos());
  		}
  	} else {
@@ -3577,7 +3579,7 @@ index 527396c87bf063be11b7ac483baa6d9cceb99830..d688c3126d7d94b0feca53fec301a62a
  	}
  
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.h b/Telegram/SourceFiles/history/history_inner_widget.h
-index f7c738bb0cf1b3237e3de000fbb5ee85ca043f50..d204ecb2f2eb576bf971ed62d92e9bf1ade3cd00 100644
+index 35107cad8bb4999449f0ca2c3ac6314077082a53..c8fb143df4d3cf93ababb89848929f0998e5960a 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.h
 +++ b/Telegram/SourceFiles/history/history_inner_widget.h
 @@ -92,6 +92,10 @@ using namespace ::Ui;
@@ -3591,7 +3593,7 @@ index f7c738bb0cf1b3237e3de000fbb5ee85ca043f50..d204ecb2f2eb576bf971ed62d92e9bf1
  class HistoryInner;
  class HistoryMainElementDelegate;
  class HistoryMainElementDelegateMixin {
-@@ -443,6 +447,17 @@ private:
+@@ -444,6 +448,17 @@ private:
  		not_null<const Ui::ChatStyle*> st,
  		int width,
  		int height);
@@ -3609,7 +3611,7 @@ index f7c738bb0cf1b3237e3de000fbb5ee85ca043f50..d204ecb2f2eb576bf971ed62d92e9bf1
  
  	QPoint mapPointToItem(QPoint p, const Element *view) const;
  	QPoint mapPointToItem(QPoint p, const HistoryItem *item) const;
-@@ -742,6 +757,8 @@ private:
+@@ -746,6 +761,8 @@ private:
  
  	std::unique_ptr<Ui::ThanosEffectController> _thanosController;
  

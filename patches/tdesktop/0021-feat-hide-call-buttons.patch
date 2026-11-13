@@ -71,7 +71,7 @@ index 60d27d7ce2454d2d61199879cbeecb5c4ded341e..4a00a9a598ac4f55b1ef3c3efa37819b
  	}
  
 diff --git a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
-index 304a36fde5fd0bed9d4887469dcc0a2265cff7aa..463bb75921dc0cd2d55be0ffb16b44efadd71c50 100644
+index d6edaa0f335caa205b4ad93a27ec946ec4e3b012..6b2dc24be7ff4851a2bd29706ef0684635fb573d 100644
 --- a/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 +++ b/Telegram/SourceFiles/info/profile/info_profile_top_bar.cpp
 @@ -102,6 +102,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

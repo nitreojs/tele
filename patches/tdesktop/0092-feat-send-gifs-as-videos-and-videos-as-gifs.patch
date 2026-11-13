@@ -26,10 +26,10 @@ Subject: [PATCH] feat: send gifs as videos and videos as gifs
  create mode 100644 Telegram/SourceFiles/tele/tele_send_files.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 099e12cc5105e4e75fbfbceda5a34666c0ada6b1..bed0877ca2a9ef0229ece93d029810c56061e6d3 100644
+index 8fda3eb16673e84b906990e0ce7481cb209f275a..a80cd0eacec87784ef905b30ab564e644d682ca1 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2698,6 +2698,8 @@ PRIVATE
+@@ -2708,6 +2708,8 @@ PRIVATE
      tele/tele_edit_history_section.h
      tele/tele_folders.cpp
      tele/tele_folders.h
@@ -38,7 +38,7 @@ index 099e12cc5105e4e75fbfbceda5a34666c0ada6b1..bed0877ca2a9ef0229ece93d029810c5
      tele/tele_gifts.cpp
      tele/tele_gifts.h
      tele/tele_ghost.cpp
-@@ -2742,6 +2744,8 @@ PRIVATE
+@@ -2752,6 +2754,8 @@ PRIVATE
      tele/tele_rich_timestamps.h
      tele/tele_secret_media.cpp
      tele/tele_secret_media.h
@@ -48,7 +48,7 @@ index 099e12cc5105e4e75fbfbceda5a34666c0ada6b1..bed0877ca2a9ef0229ece93d029810c5
      tele/tele_send_order.h
      tele/tele_shortcuts.cpp
 diff --git a/Telegram/SourceFiles/boxes/send_files_box.cpp b/Telegram/SourceFiles/boxes/send_files_box.cpp
-index 992735071b2b7ba9f798a6737c4a20ed746763d3..bf04500c033568b730249e4390e51317e6010d00 100644
+index afaef6073f5689d0a8777cfc312dd8b92ac88774..1f3a74b3ff3217467bfb5d3c1bd1ae60b488080f 100644
 --- a/Telegram/SourceFiles/boxes/send_files_box.cpp
 +++ b/Telegram/SourceFiles/boxes/send_files_box.cpp
 @@ -34,6 +34,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -59,7 +59,7 @@ index 992735071b2b7ba9f798a6737c4a20ed746763d3..bf04500c033568b730249e4390e51317
  #include "tele/tele_link_rewrites.h"
  #include "base/event_filter.h"
  #include "base/call_delayed.h"
-@@ -1947,6 +1948,17 @@ void SendFilesBox::pushBlock(int from, int till) {
+@@ -1951,6 +1952,17 @@ void SendFilesBox::pushBlock(int from, int till) {
  				&icons.menuSpoiler,
  				spoilered);
  		}
@@ -102,7 +102,7 @@ index 597af283e1169a33d50b7fc52d77f57c394bcd0a..a0760e4f88aba7870389664f8611775c
  	}
  
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index 5b16359564bad67695c3142ffb960187304fd907..0fb91e313d29340fdab658dd9813b25780353970 100644
+index d5130c6a594acfc91d1d400b3c8d3d3f11e5499a..83533964d4f980135c1bbad550c962a143566e86 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
 @@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -113,7 +113,7 @@ index 5b16359564bad67695c3142ffb960187304fd907..0fb91e313d29340fdab658dd9813b257
  #include "tele/tele_ignored.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_shot.h"
-@@ -3945,6 +3946,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+@@ -3952,6 +3953,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
  		(isUponSelected > 1) ? getSelectedItems() : MessageIdsList(),
  		(isUponSelected != -2) ? _dragStateItem : nullptr,
  		width());

@@ -22,10 +22,10 @@ Subject: [PATCH] feat: call the app tele everywhere
  create mode 100644 Telegram/SourceFiles/tele/tele_app_name.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index be068ed0d075c1cd19224b552908aebe05fc2de8..148d26372ee42b83866b51636009cc18f7be4228 100644
+index 9330c3c1eec9dc641c19d89537975d4f5bc2a63a..5ce7d03f7e03fcab40bc7abaa55fc0de5546ccd9 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2644,6 +2644,8 @@ PRIVATE
+@@ -2654,6 +2654,8 @@ PRIVATE
      settings/settings_tele.h
      tele/tele_account_badges.cpp
      tele/tele_account_badges.h
@@ -201,7 +201,7 @@ index e25ad970e84686e9aca061d02c274048793b5ad4..8c73ef820d75a3047c566da96fdb60e0
   if(e.data&&e.data.t==='traffic'){const up=e.data.up,down=e.data.down;if(Number.isSafeInteger(up)&&up>=0&&Number.isSafeInteger(down)&&down>=0){traffic.up+=up;traffic.down+=down}return}
   if(e.data&&e.data.t==='close'){state.textContent='The proxy site closed the connection.';local.close()}}
 diff --git a/Telegram/SourceFiles/platform/linux/main_window_linux.cpp b/Telegram/SourceFiles/platform/linux/main_window_linux.cpp
-index 1a375253bf42bfd97525c8cdf78783893346ae81..2bc27869a1883d22299fd3c0e8f2ace567035e57 100644
+index d7ea7eb8cd070b450df0b5553e06aee72d4ef5bd..1ca1aa8730f9f89eb1e94055f77296b21208ca73 100644
 --- a/Telegram/SourceFiles/platform/linux/main_window_linux.cpp
 +++ b/Telegram/SourceFiles/platform/linux/main_window_linux.cpp
 @@ -221,7 +221,7 @@ void MainWindow::createGlobalMenu() {
@@ -223,7 +223,7 @@ index 1a375253bf42bfd97525c8cdf78783893346ae81..2bc27869a1883d22299fd3c0e8f2ace5
  			ensureWindowShown();
  			controller().show(Box(AboutBox));
 diff --git a/Telegram/SourceFiles/platform/mac/global_menu_mac.mm b/Telegram/SourceFiles/platform/mac/global_menu_mac.mm
-index d3e830c2a2d6fa297928e3905ab882c9fc8426f8..a973f2f300e637fa91996f4c5b2bde88c049e492 100644
+index 761e82394568b6a39d3ab1cdbaa2eead6a18df65..da301d8db09f65bdeecd412b362a9631284214bc 100644
 --- a/Telegram/SourceFiles/platform/mac/global_menu_mac.mm
 +++ b/Telegram/SourceFiles/platform/mac/global_menu_mac.mm
 @@ -426,7 +426,7 @@ void Manager::buildAppleMenu(QMenu *main) {

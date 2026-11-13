@@ -17,10 +17,10 @@ Subject: [PATCH] feat: search, filter and export star transactions
  create mode 100644 Telegram/SourceFiles/tele/tele_stars_tools.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 0abb06856e75cf13ab5b00c792aa6ab8a3908b27..be2944d3009fd7bd2444a6cbb962ffc36eb823e3 100644
+index d4a1b201d4254817bf8ad60e57b639c8756d9701..ca82e0bfbff3bfe774517f95ccd3f7a2c30a1e57 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2868,6 +2868,8 @@ PRIVATE
+@@ -2878,6 +2878,8 @@ PRIVATE
      tele/tele_silent.h
      tele/tele_spoilers.cpp
      tele/tele_spoilers.h

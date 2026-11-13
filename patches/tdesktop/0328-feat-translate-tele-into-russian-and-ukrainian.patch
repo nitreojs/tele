@@ -93,10 +93,10 @@ Subject: [PATCH] feat: translate tele into russian and ukrainian
  create mode 100644 Telegram/SourceFiles/tele/tele_translations.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 81e8b6e00d492e36c00b4afd10b8551afa6fca74..a865c318268b4c264572d1d9d449480b723cfc2f 100644
+index 37579b9029089105cf5fea9d6d76a52c694a03d9..608b5a41c2439b17a5f2d449795c24df2b9dab1a 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3107,6 +3107,8 @@ PRIVATE
+@@ -3117,6 +3117,8 @@ PRIVATE
      tele/tele_settings_io.h
      tele/tele_settings_io_box.cpp
      tele/tele_settings_io_box.h
@@ -105,7 +105,7 @@ index 81e8b6e00d492e36c00b4afd10b8551afa6fca74..a865c318268b4c264572d1d9d449480b
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
      tele/tele_shot.cpp
-@@ -3153,6 +3155,8 @@ PRIVATE
+@@ -3163,6 +3165,8 @@ PRIVATE
      tele/tele_tl_runtime.h
      tele/tele_translate_out.cpp
      tele/tele_translate_out.h

@@ -22,10 +22,10 @@ Subject: [PATCH] feat: show the last activity next to a hidden last seen
  create mode 100644 Telegram/SourceFiles/tele/tele_observed_activity.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 7088f258fb170e6bcd4e7b29ebe8faa5092c056f..31a4a117331536aa90afaf28cb4385917fe30707 100644
+index 23524875b9425f3e9ef21c498db0d5ceaeb03829..287f22956e03c162b43ae0a02d2e5ab9b64e9b46 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -3001,6 +3001,8 @@ PRIVATE
+@@ -3011,6 +3011,8 @@ PRIVATE
      tele/tele_notices_mentions.h
      tele/tele_notices_section.cpp
      tele/tele_notices_section.h
