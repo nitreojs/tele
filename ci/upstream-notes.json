@@ -4,6 +4,7 @@
   "Limit memory and processing work for widget layouts, images, fonts and canvases.",
   "Enforce script execution limits inside more array and string operations.",
   "Stop widgets after failed host calls and enforce host input and storage limits.",
-  "Prevent excessive work and memory use when parsing wallet data."
+  "Prevent excessive work and memory use when parsing wallet data.",
+  "Reject wallet contract initialization data containing more than 16 libraries."
  ]
 }
