@@ -2,11 +2,15 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 346 patches, newest release first.
+all 347 patches, newest release first.
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
 
 Telegram Desktop 7.4.4 brings widget and wallet hardening; no new tele features.
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [338](../patches/tdesktop/0338-chore-refresh-bundled-release-history.patch) | the bundled release history includes tele 27 | always on |
 
 ### [tele 26](https://github.com/nitreojs/tele/releases/tag/v7.4.3-tele.26)
 
