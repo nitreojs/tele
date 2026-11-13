@@ -274,7 +274,7 @@ runs after every finished Build run. when the run succeeded and its id equals th
 
 ## release notes
 
-`ci/notes.py` and `ci/announce.py` compare the patches of the release with those of the previous release. patches are matched by subject and compared by a hash of their changed lines only, so moved context after an upstream bump doesn't count as a change. the result is three lists: new, changed and dropped. a release on a newer tdesktop than the previous one opens with a `telegram desktop <version>` section made of upstream's own `changelog.txt` lines since the previous release's upstream.
+`ci/notes.py` and `ci/announce.py` compare the patches of the release with those of the previous release. patches are matched by subject and compared by a hash of their changed lines only, so moved context after an upstream bump doesn't count as a change. the result is three lists: new, changed and dropped. a release on a newer tdesktop than the previous one opens with a `telegram desktop <version>` section made of upstream's `changelog.txt` lines since the previous release's upstream, with duplicate entries removed. reviewed per-version replacements in `ci/upstream-notes.json` describe actual changes when upstream's notes are vague; release notes, channel posts and in-app JSON use the same parser.
 
 the text of each item comes from `docs/releases.md` (or `README.md` for releases older than that file). a row has to match this exactly, on one line:
 

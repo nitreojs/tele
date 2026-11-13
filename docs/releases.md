@@ -2,13 +2,16 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 347 patches, newest release first.
+all 346 patches, newest release first.
+
+### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
+
+Telegram Desktop 7.4.4 brings widget and wallet hardening; no new tele features.
 
 ### [tele 26](https://github.com/nitreojs/tele/releases/tag/v7.4.3-tele.26)
 
 | # | what it does | where to toggle |
 |---|---|---|
-| [338](../patches/tdesktop/0338-fix-render-auto-completed-code-blocks-immediately.patch) | auto-completed code blocks render as live markdown immediately, without deleting and undoing first. cursor placement and single-step undo stay unchanged | with 332 |
 | [1009](../patches/Telegram/ThirdParty/widget-sandbox/packages/ios/Sources/CQuickJS/quickjs/0001-fix-bound-eval-closure-scope-indexes.patch) | an extra bounds check rejects invalid scope indexes during direct eval instead of reading beyond the engine's variable table | always on |
 
 ### [tele 25](https://github.com/nitreojs/tele/releases/tag/v7.4.0-tele.25)
@@ -17,7 +20,7 @@ all 347 patches, newest release first.
 |---|---|---|
 | [330](../patches/tdesktop/0330-feat-turn-off-text-sending-animation.patch) | turn off the text sending animation immediately, without changing media animations or the order messages are sent in | tele → sending, off |
 | [331](../patches/tdesktop/0331-feat-pad-extreme-image-shapes-for-photo-sending.patch) | narrow and wide images get just enough black padding to send as photos, without stretching or cropping. the preview shows the padding; the original file stays untouched and sending as a file stays unpadded | tele → sending, off |
-| [332](../patches/tdesktop/0332-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions | tele → messages, off |
+| [332](../patches/tdesktop/0332-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions. auto-completed code blocks render as live markdown immediately | tele → messages, off |
 | [333](../patches/tdesktop/0333-feat-separate-music-video-voice-and-round-video-volu.patch) | music, videos, voice messages and round videos have separate saved volumes and mute levels. interface → playback → volumes has four sliders; the player, viewer, picture-in-picture and system controls change only their current media's volume | tele → interface |
 | [334](../patches/tdesktop/0334-fix-put-off-first-in-the-auto-delete-picker.patch) | the per-chat auto-delete picker starts with off, selected when auto-delete is disabled, instead of a separate disable button | always on |
 | [335](../patches/tdesktop/0335-feat-stop-selected-bots-without-deleting-their-chats.patch) | stop selected bots without deleting their chats, with a confirmation showing how many. people, groups and already stopped bots are skipped; narrow chat columns keep the action in an overflow menu | with 164 |

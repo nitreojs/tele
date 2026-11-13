@@ -109,7 +109,7 @@ index d1a2092c2fdb2fe82ecc767aeefbebf38a243449..e5870f93db99c857c1cb540760a6e5b1
  	AddGroupTitle(builder, u"Spoilers"_q);
  	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
 diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
-index a61d7c48019f0c33c77eb80ab570bf40cb93d00a..c4c374ece8ee3014fbfbb234c7172fbdd9b06367 100644
+index 4807fc5b9f442b296e3d9882f8ed1a0fc7460b1e..d928fd60986e82592c0f0e48817cfe958a2591b7 100644
 --- a/Telegram/SourceFiles/tele/tele_composer_editing.cpp
 +++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
 @@ -49,6 +49,7 @@ private:
