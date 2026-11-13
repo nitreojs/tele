@@ -312,6 +312,7 @@ jobs:
           rem source stages without their sources, so all three build again
           set "keys=%TBUILD%\Libraries\win64\cache_keys"
           if exist "%keys%\tdesktop_rust" if not exist "%TBUILD%\Libraries\win64\tdesktop_rust\out\src\wallet_engine\wallet_engine.cpp" del "%keys%\tdesktop_rust" "%keys%\tlottie" "%keys%\wallet-engine"
+          for %%s in (tlottie wallet-engine) do if exist "%keys%\%%s" if not exist "%TBUILD%\Libraries\win64\%%s\Cargo.toml" del "%keys%\%%s"
           %TBUILD%\tdesktop\Telegram\build\prepare\win.bat silent
 
       - name: Trim libraries

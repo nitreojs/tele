@@ -90,5 +90,6 @@ a failed or cancelled build on `main` opens a `build-failure` issue. the next an
 builds reuse earlier work, without changing what they produce:
 
 - **windows libraries** are kept in the actions cache, keyed by the windows sdk and `prepare.py`.
+- **Rust source stages** are cloned again when a trimmed cache lacks their `Cargo.toml`, even if their revision keys still match. a changed wallet patch can require rebuilding `tdesktop_rust` while the cached binding source is already present.
 - **windows and linux objects** are kept with ccache in the actions cache (windows: a pinned ccache release, at most 3 GB per branch; linux: saved from `main`). sources that use `__DATE__` or `__TIME__` are always compiled fresh, so the build date in the app stays right.
 - **macos** builds arm64 and x86_64 in parallel and joins them with `lipo`. the files that don't depend on the architecture have to come out identical, so the joined app holds the same files a single universal build makes. the macos libraries and the linux build environment live in ghcr.
