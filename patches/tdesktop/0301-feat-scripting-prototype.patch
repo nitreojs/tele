@@ -43,7 +43,7 @@ Subject: [PATCH] feat: scripting prototype
  Telegram/Resources/tele_html/mtp_console.js   |  1492 +-
  Telegram/SourceFiles/api/api_sending.cpp      |    15 +
  Telegram/SourceFiles/api/api_updates.cpp      |    10 +-
- Telegram/SourceFiles/apiwrap.cpp              |    39 +-
+ Telegram/SourceFiles/apiwrap.cpp              |    40 +-
  Telegram/SourceFiles/apiwrap.h                |     2 +-
  .../chat_helpers/emoji_list_widget.cpp        |    42 +-
  .../chat_helpers/field_autocomplete.cpp       |    60 +-
@@ -119,8 +119,8 @@ Subject: [PATCH] feat: scripting prototype
  .../tele/scripting/tele_script_gifts.h        |    17 +
  .../tele/scripting/tele_script_groupcalls.cpp |  1170 +
  .../tele/scripting/tele_script_groupcalls.h   |    12 +
- .../tele/scripting/tele_script_hooks.cpp      |  3179 +
- .../tele/scripting/tele_script_hooks.h        |   308 +
+ .../tele/scripting/tele_script_hooks.cpp      |  3183 +
+ .../tele/scripting/tele_script_hooks.h        |   310 +
  .../tele/scripting/tele_script_icons.cpp      |   597 +
  .../tele/scripting/tele_script_icons.h        |    28 +
  .../tele/scripting/tele_script_inline.cpp     |  1052 +
@@ -223,7 +223,7 @@ Subject: [PATCH] feat: scripting prototype
  .../SourceFiles/window/window_main_menu.cpp   |     2 +
  Telegram/cmake/lib_quickjs.cmake              |     1 -
  Telegram/cmake/quickjs/CMakeLists.txt         |     8 +
- 219 files changed, 114187 insertions(+), 655 deletions(-)
+ 219 files changed, 114194 insertions(+), 655 deletions(-)
  create mode 100644 Telegram/Resources/tele/scripting/chatui.js
  create mode 100644 Telegram/Resources/tele/scripting/crypto.js
  create mode 100644 Telegram/Resources/tele/scripting/data.js
@@ -70390,7 +70390,7 @@ index 13ae7d5a01c6cd6c2fe097d9d9f3cf35cb57c71b..ddf30f218eab78eaddd9c85105e832d3
  		}
  
 diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
-index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..7c4828be2e04ff777ebc70da4e1f6812c55dca66 100644
+index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..92ec015565daa3cc4d641e702b13d6e03736a87e 100644
 --- a/Telegram/SourceFiles/apiwrap.cpp
 +++ b/Telegram/SourceFiles/apiwrap.cpp
 @@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -70401,7 +70401,7 @@ index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..7c4828be2e04ff777ebc70da4e1f6812
  #include "tele/secret/secret_chats.h"
  #include "tele/tele_secret_media.h"
  #include "tele/tele_ghost.h"
-@@ -3977,6 +3978,13 @@ FullMsgId ApiWrap::forwardMessages(
+@@ -3977,6 +3978,14 @@ FullMsgId ApiWrap::forwardMessages(
  		Fn<void(const MessageIdsList&)> sentCallback) {
  	Expects(!draft.items.empty());
  
@@ -70409,13 +70409,14 @@ index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..7c4828be2e04ff777ebc70da4e1f6812
 +			_session,
 +			draft,
 +			action,
-+			successCallback)) {
-+		return;
++			successCallback,
++			sentCallback)) {
++		return {};
 +	}
  	auto &histories = _session->data().histories();
  
  	Tele::SendProtectedCopies(draft, action);
-@@ -4414,7 +4422,14 @@ void ApiWrap::sendFiles(
+@@ -4414,7 +4423,14 @@ void ApiWrap::sendFiles(
  		SendMediaType type,
  		std::shared_ptr<SendingAlbum> album,
  		SendAction action) {
@@ -70431,7 +70432,7 @@ index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..7c4828be2e04ff777ebc70da4e1f6812
  		return;
  	}
  	Tele::CountSentEmoji(action.history, list);
-@@ -4831,6 +4846,11 @@ void ApiWrap::sendMessage(
+@@ -4831,6 +4847,11 @@ void ApiWrap::sendMessage(
  		std::optional<MsgId> localMessageId) {
  	if (Tele::Secret::InterceptSend(message)) {
  		return;
@@ -70443,7 +70444,7 @@ index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..7c4828be2e04ff777ebc70da4e1f6812
  	} else if (Tele::CalcmulaMessage(message)) {
  		return;
  	}
-@@ -5193,13 +5213,26 @@ void ApiWrap::sendBotStart(
+@@ -5193,13 +5214,26 @@ void ApiWrap::sendBotStart(
  
  void ApiWrap::sendInlineResult(
  		not_null<UserData*> bot,
@@ -85741,10 +85742,10 @@ index 0000000000000000000000000000000000000000..d8409795b4290fcbfb1e670da9f5e332
 +} // namespace Tele::Scripting
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_hooks.cpp b/Telegram/SourceFiles/tele/scripting/tele_script_hooks.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..6c534dff5001ecdb467f4e1968f47c1cc675cdf3
+index 0000000000000000000000000000000000000000..f2c2fa17810ceb712a9d7b6a069a7c3e2522a45a
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_hooks.cpp
-@@ -0,0 +1,3179 @@
+@@ -0,0 +1,3183 @@
 +#include "tele/scripting/tele_script_messages.h"
 +#include "tele/scripting/tele_script_hooks.h"
 +#include "tele/tele_launch_flags.h"
@@ -86564,7 +86565,8 @@ index 0000000000000000000000000000000000000000..6c534dff5001ecdb467f4e1968f47c1c
 +	[[nodiscard]] bool interceptForward(
 +		Data::ResolvedForwardDraft &draft,
 +		const Api::SendAction &action,
-+		FnMut<void()> &done);
++		FnMut<void()> &done,
++		const Fn<void(const MessageIdsList&)> &sent);
 +	[[nodiscard]] std::vector<ScriptCommandRow> commands(
 +			not_null<PeerData*> peer) const {
 +		auto result = std::vector<ScriptCommandRow>();
@@ -88155,7 +88157,8 @@ index 0000000000000000000000000000000000000000..6c534dff5001ecdb467f4e1968f47c1c
 +bool Host::interceptForward(
 +		Data::ResolvedForwardDraft &draft,
 +		const Api::SendAction &action,
-+		FnMut<void()> &done) {
++		FnMut<void()> &done,
++		const Fn<void(const MessageIdsList&)> &sent) {
 +	const auto peer = action.history->peer;
 +	if (draft.items.empty() || !holds(peer, u"forward"_q)) {
 +		return false;
@@ -88194,7 +88197,8 @@ index 0000000000000000000000000000000000000000..6c534dff5001ecdb467f4e1968f47c1c
 +					.options = options,
 +				},
 +				copy,
-+				std::move(*callback));
++				std::move(*callback),
++				sent);
 +		},
 +	}));
 +	return true;
@@ -88423,9 +88427,10 @@ index 0000000000000000000000000000000000000000..6c534dff5001ecdb467f4e1968f47c1c
 +		not_null<Main::Session*> session,
 +		Data::ResolvedForwardDraft &draft,
 +		const Api::SendAction &action,
-+		FnMut<void()> &done) {
++		FnMut<void()> &done,
++		const Fn<void(const MessageIdsList&)> &sent) {
 +	const auto host = Host::Find(session);
-+	return host && host->interceptForward(draft, action, done);
++	return host && host->interceptForward(draft, action, done, sent);
 +}
 +
 +SendingFromScript::SendingFromScript() {
@@ -88926,12 +88931,13 @@ index 0000000000000000000000000000000000000000..6c534dff5001ecdb467f4e1968f47c1c
 +} // namespace Tele::Scripting
 diff --git a/Telegram/SourceFiles/tele/scripting/tele_script_hooks.h b/Telegram/SourceFiles/tele/scripting/tele_script_hooks.h
 new file mode 100644
-index 0000000000000000000000000000000000000000..ded448b9987dea048c84c57f5107e05a11aa504e
+index 0000000000000000000000000000000000000000..91a1eb8a413988076da4bdd8f11d93ac7dd27a51
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/scripting/tele_script_hooks.h
-@@ -0,0 +1,308 @@
+@@ -0,0 +1,310 @@
 +#pragma once
 +
++#include "data/data_types.h"
 +#include "mtproto/mtproto_response.h"
 +#include "tele/scripting/tele_script_ui.h"
 +#include "tele/tele_notices.h"
@@ -89033,7 +89039,8 @@ index 0000000000000000000000000000000000000000..ded448b9987dea048c84c57f5107e05a
 +	not_null<Main::Session*> session,
 +	Data::ResolvedForwardDraft &draft,
 +	const Api::SendAction &action,
-+	FnMut<void()> &done);
++	FnMut<void()> &done,
++	const Fn<void(const MessageIdsList&)> &sent);
 +
 +void AppendScriptActions(
 +	not_null<Ui::PopupMenu*> menu,
