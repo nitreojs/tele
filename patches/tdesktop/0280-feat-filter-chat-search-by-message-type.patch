@@ -453,10 +453,10 @@ index e4bd4eb1a0c80a2306a65333286d54adb2557a5c..ea04ab19c6d0a78ed6ea8de3e78b1f57
  			});
  			if (_controller->session().data().chatsListLoaded()) {
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h
-index 51388af316ca23e4505ca7a58beea83d8e158df3..a978ee03b2213e417eed58beac145a0e6733ad22 100644
+index ab01704b935948c7fec251cee35090bcb776669d..88eb1ba28d5d3077b6d4fc3e3d4bbff9f5221f84 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h
 +++ b/Telegram/SourceFiles/dialogs/dialogs_inner_widget.h
-@@ -776,6 +776,7 @@ private:
+@@ -774,6 +774,7 @@ private:
  	object_ptr<Ui::RpWidget> _loadingAnimation = { nullptr };
  	object_ptr<SearchEmpty> _searchEmpty = { nullptr };
  	SearchState _searchEmptyState;

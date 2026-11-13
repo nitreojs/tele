@@ -1,0 +1,9 @@
+{
+ "7.4.4": [
+  "Harden widget HTML, CSS and SVG rendering against malformed content.",
+  "Limit memory and processing work for widget layouts, images, fonts and canvases.",
+  "Enforce script execution limits inside more array and string operations.",
+  "Stop widgets after failed host calls and enforce host input and storage limits.",
+  "Prevent excessive work and memory use when parsing wallet data."
+ ]
+}

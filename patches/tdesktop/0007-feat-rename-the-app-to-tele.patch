@@ -43,7 +43,7 @@ index c3e683808443b69609e25a1be60d2d4ed54b8e87..edca55cae6b4c4115756c3e81a62ca40
  
  if (CMAKE_GENERATOR STREQUAL Xcode)
 diff --git a/Telegram/Resources/winrc/Telegram.rc b/Telegram/Resources/winrc/Telegram.rc
-index c0211e89cde027ceb59df796f630852bf60d0b3e..b58c307811476ebad93205dc481f24fbda6303a8 100644
+index 8bf0147adb785b3ce4940b855de5b6ba00065e1f..cf92a6a792c71f7a5d77830df30e038890236e97 100644
 --- a/Telegram/Resources/winrc/Telegram.rc
 +++ b/Telegram/Resources/winrc/Telegram.rc
 @@ -61,10 +61,10 @@ BEGIN
@@ -52,11 +52,11 @@ index c0211e89cde027ceb59df796f630852bf60d0b3e..b58c307811476ebad93205dc481f24fb
              VALUE "CompanyName", "Telegram FZ-LLC"
 -            VALUE "FileDescription", "Telegram Desktop"
 +            VALUE "FileDescription", "tele"
-             VALUE "FileVersion", "7.4.3.0"
+             VALUE "FileVersion", "7.4.4.0"
              VALUE "LegalCopyright", "Copyright (C) 2014-2026"
 -            VALUE "ProductName", "Telegram Desktop"
 +            VALUE "ProductName", "tele"
-             VALUE "ProductVersion", "7.4.3.0"
+             VALUE "ProductVersion", "7.4.4.0"
          END
      END
 diff --git a/Telegram/SourceFiles/api/api_authorizations.cpp b/Telegram/SourceFiles/api/api_authorizations.cpp
@@ -99,7 +99,7 @@ index 3e436f7087c3408cf06921031769eb27830a59af..f67141f7fed9b27976a89e7aef26bae0
  #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
  	// fallback session management is useless for tdesktop since it doesn't have
 diff --git a/Telegram/SourceFiles/core/version.h b/Telegram/SourceFiles/core/version.h
-index f2e8fb34f6669aeeb5910b4cd1da55b73b693209..6b574c605b9c11e80f2e5d500e9bb2955b141376 100644
+index a1a1aafa1b1b7f8b11fd4209f142cbe3c0b7f658..e910f50d3f1008597c2ef9631a335f93b21edce6 100644
 --- a/Telegram/SourceFiles/core/version.h
 +++ b/Telegram/SourceFiles/core/version.h
 @@ -20,8 +20,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -110,8 +110,8 @@ index f2e8fb34f6669aeeb5910b4cd1da55b73b693209..6b574c605b9c11e80f2e5d500e9bb295
 -constexpr auto AppFile = "Telegram"_cs;
 +constexpr auto AppName = "tele"_cs;
 +constexpr auto AppFile = "tele"_cs;
- constexpr auto AppVersion = 7004003;
- constexpr auto AppVersionStr = "7.4.3";
+ constexpr auto AppVersion = 7004004;
+ constexpr auto AppVersionStr = "7.4.4";
  constexpr auto AppBetaVersion = false;
 diff --git a/Telegram/SourceFiles/intro/intro_start.cpp b/Telegram/SourceFiles/intro/intro_start.cpp
 index d1b835a09a28eddf5b8e6d8a072b4b4f9315fdc2..49a477144e4a3a7494582e31b979554bcfa8a223 100644

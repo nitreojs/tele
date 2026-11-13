@@ -10,7 +10,7 @@ Subject: [PATCH] build: take wallet-engine from gettele/money for private key
  2 files changed, 5 insertions(+), 1 deletion(-)
 
 diff --git a/Telegram/build/docker/centos_env/Dockerfile b/Telegram/build/docker/centos_env/Dockerfile
-index 21ee7337f09d884a2c3ce0cc3cb2cdefcc21c174..e590ae95ad11cc7965543f0319dfb5efd3e19b23 100644
+index f4c448af1f13e7281f4ebfe7615978977af97285..ab28f13e68d6246fb71343092f6c299dfdf78921 100644
 --- a/Telegram/build/docker/centos_env/Dockerfile
 +++ b/Telegram/build/docker/centos_env/Dockerfile
 @@ -1017,6 +1017,8 @@ cd wallet-engine
@@ -23,7 +23,7 @@ index 21ee7337f09d884a2c3ce0cc3cb2cdefcc21c174..e590ae95ad11cc7965543f0319dfb5ef
  cd ..
  # One archive for every Rust library. Each staticlib carries its own copy of
 diff --git a/Telegram/build/prepare/prepare.py b/Telegram/build/prepare/prepare.py
-index c318e1fecb682d94c81066590d63b443309b81de..e1f7f7a7e8cdab681e7685de442f2c91cc49cecf 100644
+index cae06a0a0e304a3eb716db4841dca5bc68e8fc5b..65c134dadf15597d539dcdf8fb0c235851f31148 100644
 --- a/Telegram/build/prepare/prepare.py
 +++ b/Telegram/build/prepare/prepare.py
 @@ -2079,6 +2079,8 @@ win_mac:

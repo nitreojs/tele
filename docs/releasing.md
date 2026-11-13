@@ -62,7 +62,7 @@ when a platform fails, the others stay published and its clients keep the previo
 
 once every platform is out, the release notes list the new, changed and dropped patches with their rows from `docs/releases.md`, the downloads and the full patch table. when the announcement secrets are set, the release is also announced in the project's telegram channel: the new and changed patches grouped by the same categories as the in-app what's new, then the dropped ones. the channel also gets tele for android's releases, so the post is titled `tele for desktop <number> · <tdesktop version>` and ends with a `#desktop` footer.
 
-a release that moves to a newer tdesktop opens the notes, the post and the in-app what's new with a `telegram desktop <version>` section: upstream's own `changelog.txt` lines for every version after the previous release's upstream, betas included, oldest first. lines about build options are left out. if the changelog can't be fetched, a single "moved from" line stands in for it.
+a release that moves to a newer tdesktop opens the notes, the post and the in-app what's new with a `telegram desktop <version>` section: upstream's `changelog.txt` lines for every version after the previous release's upstream, betas included, oldest first. identical entries appear only once, and lines about build options are left out. when upstream's notes are vague, add reviewed replacement entries under that version in `ci/upstream-notes.json`, based on its actual changes and written in the same short, direct style. the shared parser applies these replacements to all three surfaces. if the changelog can't be fetched, a single "moved from" line stands in for it.
 
 ## signing and attestation
 

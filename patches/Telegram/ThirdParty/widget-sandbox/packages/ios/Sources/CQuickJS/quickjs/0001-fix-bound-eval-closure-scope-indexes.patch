@@ -8,10 +8,10 @@ Subject: [PATCH] fix: bound eval closure scope indexes
  1 file changed, 4 insertions(+)
 
 diff --git a/quickjs.c b/quickjs.c
-index 1c5b660b794a70ac16dae11f01b3b921e36ab171..786c46d8aaa724f452f9bc35036cc9b1a26a4207 100644
+index 9721dc52265fd9b1dcc9cf9d772395df35854c03..4e34439f17cba3bbdf0ef45cb816e98156becd3a 100644
 --- a/quickjs.c
 +++ b/quickjs.c
-@@ -35734,6 +35734,10 @@ static __exception int add_closure_variables(JSContext *ctx, JSFunctionDef *s,
+@@ -35747,6 +35747,10 @@ static __exception int add_closure_variables(JSContext *ctx, JSFunctionDef *s,
          return -1;
      /* Add lexical variables in scope at the point of evaluation */
      for (i = scope_idx; i >= 0;) {

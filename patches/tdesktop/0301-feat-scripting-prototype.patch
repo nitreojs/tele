@@ -70474,7 +70474,7 @@ index 19bdf2a45becfbae8c7fb86d72e85eefdf08f5ea..92ec015565daa3cc4d641e702b13d6e0
  	}
  	Tele::StripDeletedReply(action.history, action.replyTo);
 diff --git a/Telegram/SourceFiles/apiwrap.h b/Telegram/SourceFiles/apiwrap.h
-index 3497d4bbe75648d25acf31f28075e130a05d9888..c5025d524ecb67c215053fbce5e3910e21fcf89e 100644
+index f4c72e260cb106c2ca44349b36c6c192d07fbb40..d08521f1e6517b0323f3f7321f014b7d5e3fda2e 100644
 --- a/Telegram/SourceFiles/apiwrap.h
 +++ b/Telegram/SourceFiles/apiwrap.h
 @@ -422,7 +422,7 @@ public:

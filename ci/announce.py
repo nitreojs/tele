@@ -75,6 +75,8 @@ def upstream_changes(was, now):
     # telegram desktop's own changelog lines after `was` up to `now`, betas included because tele only follows stables
     if not was or not now or was == now:
         return []
+    with open(os.path.join(os.path.dirname(__file__), 'upstream-notes.json'), encoding='utf-8') as file:
+        replacements = json.load(file)
     try:
         with urllib.request.urlopen(CHANGELOG.format(tag=now), timeout=30) as response:
             text = response.read().decode('utf-8')
@@ -86,12 +88,14 @@ def upstream_changes(was, now):
         heading = VERSION.match(line)
         if heading:
             take = low < version_key(heading.group(1)) <= high
-            sections.append([] if take else None)
+            sections.append((heading.group(1), [] if take else None))
             continue
         line = line.strip()
-        if sections and sections[-1] is not None and line.startswith('- ') and 'build option' not in line:
-            sections[-1].append(line[2:].strip())
-    return [item for section in reversed(sections) if section for item in section]
+        if sections and sections[-1][1] is not None and line.startswith('- ') and 'build option' not in line:
+            sections[-1][1].append(line[2:].strip())
+    items = [item for version, section in reversed(sections) if section is not None
+             for item in replacements.get(version, section)]
+    return list(dict.fromkeys(items))
 
 
 def upstream_move(repo, previous, now):
