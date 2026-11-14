@@ -282,6 +282,7 @@ settings → tele → profiles and ids.
 | [302](../patches/tdesktop/0302-feat-fill-the-whole-profile-with-the-blurred-photo-s.patch) | with the blurred photo background on, the whole profile takes the colour of the photo's lower edge, not only its header, with the text kept readable | with 298 |
 | [319](../patches/tdesktop/0319-feat-show-the-last-activity-next-to-a-hidden-last-se.patch) | for people whose last seen is hidden, the chat header and profile show when tele last saw them write, type, read your messages or react: last seen recently (14:32). remembered across restarts. opening read info also remembers the DM and group read timestamps Telegram exposes. cached results count too, older receipts never replace newer activity, and no background lookups are added | tele → profiles and ids, off |
 | [322](../patches/tdesktop/0322-feat-show-typing-in-the-chat-list-with-a-hidden-last.patch) | chat list rows show typing, recording and choosing a sticker for people whose last seen is hidden, which telegram only shows in the open chat. bots stay as they are | tele → profiles and ids, off |
+| [340](../patches/tdesktop/0340-feat-delete-and-drag-select-several-gifts.patch) | gift selection can permanently delete eligible gifts after two confirmations, without receiving stars. delete is unavailable if any selected gift is ineligible. drag a contiguous range to select or deselect, with edge scrolling and ordinary clicks unchanged | with 184 |
 
 ### gift studio
 
@@ -352,6 +353,7 @@ settings → tele → updates.
 | [6](../patches/tdesktop/0006-feat-update-from-the-tele-github-releases.patch) | self-updates from these releases on windows, linux and macos, signed with ed25519. a failed update is retried sooner and a broken download continues where it stopped. macos updates preserve the app's dock pin | tele → updates, on |
 | [38](../patches/tdesktop/0038-feat-show-what-s-new-in-tele-after-an-update.patch) | after an update, you get a message with what's new in that tele version, visible only to you. fresh installs skip it | tele → updates, on |
 | [73](../patches/tdesktop/0073-feat-show-what-s-new-in-a-local-tele-chat.patch) | what's new comes from a local tele chat with its own profile, grouped by settings page, once per account the first time you open it after an update. a button opens the full changelog | with 38 |
+| [339](../patches/tdesktop/0339-feat-restore-the-classic-update-button-optionally.patch) | restore the update button's full gradient background in dark themes, with white text and icon. switches live; light themes and update behaviour stay unchanged | tele → updates, off |
 
 ## everywhere
 
