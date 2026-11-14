@@ -87,6 +87,12 @@ a dev build is a real client on a real account. set it up so a bug can't hurt an
 - **tele's own network off.** start with `-teleoffline` to keep tele away from the tele server, github updates and third-party services while you work on something unrelated. `-noteleserver` and `-noteleupdate` turn off one of them. see [launch flags](launch-flags.md).
 - **logs.** settings → tele → debug turns debug logs on, opens the logs folder and has an mtproto inspector that browses the logged requests and responses. upstream's `-debug` launch flag also turns debug logs on from the start.
 
+### native audio regression
+
+`ci/tests/audio_speed.cpp` is an overlay for upstream's `Telegram/SourceFiles/test/test_scenario.cpp` test-agent slot. it compares real FFmpeg output across playback-speed changes with and without a saved PCM chunk, using generated mono/stereo audio at two sample rates. it needs no account or audio output.
+
+use upstream's test-agent workflow in `Telegram/SourceFiles/test/README.md` with disposable data. restore the original scenario slot before exporting: the regression stays in this repository, not in the shipped client's task-specific scenario.
+
 ## making a change
 
 all work happens in the tdesktop tree, as commits on the `tele` branch.

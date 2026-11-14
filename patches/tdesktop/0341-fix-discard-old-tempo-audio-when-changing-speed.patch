@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 14 Nov 2026 20:28:33 +0300
+Subject: [PATCH] fix: discard old-tempo audio when changing speed
+
+---
+ .../SourceFiles/media/audio/media_audio_ffmpeg_loader.cpp    | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/Telegram/SourceFiles/media/audio/media_audio_ffmpeg_loader.cpp b/Telegram/SourceFiles/media/audio/media_audio_ffmpeg_loader.cpp
+index de930359f81f28a10ef6503dc2ab7914c341936f..0edbccccd256d15a31912843600cdf55a68f17e4 100644
+--- a/Telegram/SourceFiles/media/audio/media_audio_ffmpeg_loader.cpp
++++ b/Telegram/SourceFiles/media/audio/media_audio_ffmpeg_loader.cpp
+@@ -223,6 +223,11 @@ void AbstractAudioFFMpegLoader::dropFramesTill(int64 samples) {
+ }
+ 
+ int64 AbstractAudioFFMpegLoader::startReadingQueuedFrames(float64 newSpeed) {
++	// Original frames are replayed below; saved PCM still has the old tempo.
++	if (holdsSavedDecodedSamples()) {
++		auto oldSpeedSamples = QByteArray();
++		takeSavedDecodedSamples(&oldSpeedSamples);
++	}
+ 	changeSpeedFilter(newSpeed);
+ 	if (_framesQueued.empty()) {
+ 		_framesQueuedIndex = -1;

@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 349 patches, newest release first.
+all 351 patches, newest release first.
 
 ### tele 28 (unreleased)
 
@@ -10,6 +10,8 @@ all 349 patches, newest release first.
 |---|---|---|
 | [339](../patches/tdesktop/0339-feat-restore-the-classic-update-button-optionally.patch) | restore the update button's full gradient background in dark themes, with white text and icon. switches live, with a non-clickable preview in settings; light themes and update behaviour stay unchanged | tele → updates, off |
 | [340](../patches/tdesktop/0340-feat-delete-and-drag-select-several-gifts.patch) | gift selection can permanently delete eligible gifts after two confirmations, without receiving stars. delete is unavailable if any selected gift is ineligible. drag a contiguous range to select or deselect, with edge scrolling and ordinary clicks unchanged | with 184 |
+| [341](../patches/tdesktop/0341-fix-discard-old-tempo-audio-when-changing-speed.patch) | changing playback speed no longer reuses a waiting audio buffer at the old tempo, preventing duplicated or wrong-speed sound | always on |
+| [342](../patches/tdesktop/0342-fix-stop-marking-money-as-new.patch) | money is no longer marked as new in the main menu | always on |
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
 
