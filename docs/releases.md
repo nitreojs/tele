@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 351 patches, newest release first.
+all 353 patches, newest release first.
 
 ### tele 28 (unreleased)
 
@@ -12,6 +12,8 @@ all 351 patches, newest release first.
 | [340](../patches/tdesktop/0340-feat-delete-and-drag-select-several-gifts.patch) | gift selection can permanently delete eligible gifts after two confirmations, without receiving stars. delete is unavailable if any selected gift is ineligible. drag a contiguous range to select or deselect, with edge scrolling and ordinary clicks unchanged | with 184 |
 | [341](../patches/tdesktop/0341-fix-discard-old-tempo-audio-when-changing-speed.patch) | changing playback speed no longer reuses a waiting audio buffer at the old tempo, preventing duplicated or wrong-speed sound | always on |
 | [342](../patches/tdesktop/0342-fix-stop-marking-money-as-new.patch) | money is no longer marked as new in the main menu | always on |
+| [343](../patches/tdesktop/0343-feat-strip-invisible-links-when-copying.patch) | remove hyperlinks carried only by spaces or invisible characters when copying messages or selections, including formatted and rich-message copies. ordinary spacing, visible links, emoji and the original message stay unchanged | tele → messages → links, off |
+| [1010](../patches/Telegram/lib_ui/0008-feat-filter-hidden-text-links-on-copy.patch) | the native text exporters omit invisible link targets from both plain text and clipboard formatting | with 343 |
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
 

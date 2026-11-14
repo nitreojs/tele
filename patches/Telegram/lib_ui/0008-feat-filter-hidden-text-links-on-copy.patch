@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 15 Nov 2026 00:52:51 +0300
+Subject: [PATCH] feat: filter hidden text links on copy
+
+---
+ ui/integration.cpp      |  7 +++++++
+ ui/integration.h        |  5 +++++
+ ui/text/text.cpp        |  8 ++++++++
+ ui/text/text_entity.cpp | 22 ++++++++++++++++++++++
+ 4 files changed, 42 insertions(+)
+
+diff --git a/ui/integration.cpp b/ui/integration.cpp
+index 29b59a4da75358fda6f1bee1a6259991c4153d90..90169bd56231f6f1fa14f9cfc23612f20b1fccfb 100644
+--- a/ui/integration.cpp
++++ b/ui/integration.cpp
+@@ -88,6 +88,13 @@ QString Integration::convertTagToMimeTag(const QString &tagId) {
+ 	return tagId;
+ }
+ 
++bool Integration::skipLinkOnCopy(
++		const TextWithEntities &text,
++		int offset,
++		int length) {
++	return false;
++}
++
+ const Emoji::One *Integration::defaultEmojiVariant(const Emoji::One *emoji) {
+ 	return emoji;
+ }
+diff --git a/ui/integration.h b/ui/integration.h
+index 07b8779a3e7f1f2b31d8e56a114035a688832d45..432001f7957ada3ce95c518052d3acf61397a664 100644
+--- a/ui/integration.h
++++ b/ui/integration.h
+@@ -22,6 +22,7 @@ struct TextParseOptions;
+ class ClickHandler;
+ struct ClickContext;
+ struct EntityLinkData;
++struct TextWithEntities;
+ 
+ namespace Ui {
+ namespace Emoji {
+@@ -63,6 +64,10 @@ public:
+ 		const QVariant &context);
+ 	[[nodiscard]] virtual bool copyPreOnClick(const QVariant &context);
+ 	[[nodiscard]] virtual QString convertTagToMimeTag(const QString &tagId);
++	[[nodiscard]] virtual bool skipLinkOnCopy(
++		const TextWithEntities &text,
++		int offset,
++		int length);
+ 	[[nodiscard]] virtual const Emoji::One *defaultEmojiVariant(
+ 		const Emoji::One *emoji);
+ 	// [[nodiscard]] virtual bool allowClickHandlerActivation(
+diff --git a/ui/text/text.cpp b/ui/text/text.cpp
+index 625d5f83756356fbeb0e8c129433a738329beeb3..2e07773eaa84a1160fba4e3f47b59956edb18be6 100644
+--- a/ui/text/text.cpp
++++ b/ui/text/text.cpp
+@@ -2130,6 +2130,14 @@ TextForMimeData String::toText(
+ 			? QStringView(entity.data).mid(0, entity.data.size())
+ 			: inText;
+ 		const auto customTextLink = (entity.type == EntityType::CustomUrl);
++		if (composeExpanded
++			&& customTextLink
++			&& Integration::Instance().skipLinkOnCopy(
++				result.rich,
++				linkStart,
++				int(inText.size()))) {
++			return;
++		}
+ 		auto entityData = entity.data;
+ 		if (customTextLink) {
+ 			if (const auto external = UrlClickHandler::ExternalUrlFromInternalUrl(
+diff --git a/ui/text/text_entity.cpp b/ui/text/text_entity.cpp
+index 6691a69bd2bfd0691c9a859423a66fe44f83a03d..5a791619085deeb95a92c7bc35f3876a755f9637 100644
+--- a/ui/text/text_entity.cpp
++++ b/ui/text/text_entity.cpp
+@@ -2564,12 +2564,21 @@ TextForMimeData TextForMimeData::WithExpandedLinks(
+ 		result.expanded = text.text;
+ 	} else {
+ 		auto from = 0;
++		auto skipped = false;
+ 		for (const auto &entity : text.entities) {
+ 			if (entity.type() != EntityType::CustomUrl) {
+ 				continue;
+ 			} else if (!entity.validForText(text.text.size())) {
+ 				continue;
+ 			}
++			if (Ui::Integration::Exists()
++				&& Ui::Integration::Instance().skipLinkOnCopy(
++					text,
++					entity.offset(),
++					entity.length())) {
++				skipped = true;
++				continue;
++			}
+ 			// This logic is duplicated in Ui::Text::String::toText.
+ 			const auto external = UrlClickHandler::ExternalUrlFromInternalUrl(
+ 				entity.data());
+@@ -2590,6 +2599,19 @@ TextForMimeData TextForMimeData::WithExpandedLinks(
+ 			result.expanded.append(text.text.data() + from, add);
+ 			from = till;
+ 		}
++		if (skipped) {
++			auto &entities = result.rich.entities;
++			entities.erase(ranges::remove_if(
++				entities,
++				[&](const EntityInText &entity) {
++					return (entity.type() == EntityType::CustomUrl)
++						&& entity.validForText(text.text.size())
++						&& Ui::Integration::Instance().skipLinkOnCopy(
++							text,
++							entity.offset(),
++							entity.length());
++				}), entities.end());
++		}
+ 	}
+ 	return result;
+ }

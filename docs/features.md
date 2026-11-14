@@ -133,6 +133,8 @@ settings → tele → messages.
 | [325](../patches/tdesktop/0325-feat-seek-anywhere-on-video-messages.patch) | drag anywhere on a video message except its middle to seek, not only along its edge | tele → messages, off |
 | [332](../patches/tdesktop/0332-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions. auto-completed code blocks render as live markdown immediately | tele → messages, off |
 | [337](../patches/tdesktop/0337-feat-indent-selected-composer-lines.patch) | Tab indents selected lines and Shift+Tab removes one level, using 2 spaces, 4 spaces or tabs. formatting, custom emoji and selection direction stay intact, and each operation undoes in one step. ordinary Tab completion and focus navigation stay unchanged; works in chats, topics, replies and captions | tele → messages, off |
+| [343](../patches/tdesktop/0343-feat-strip-invisible-links-when-copying.patch) | remove hyperlinks carried only by spaces or invisible characters when copying messages or selections, including formatted and rich-message copies. ordinary spacing, visible links, emoji and the original message stay unchanged | tele → messages → links, off |
+| [1010](../patches/Telegram/lib_ui/0008-feat-filter-hidden-text-links-on-copy.patch) | the native text exporters omit invisible link targets from both plain text and clipboard formatting | with 343 |
 
 ## sending
 
