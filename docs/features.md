@@ -353,7 +353,7 @@ settings → tele → updates.
 | [6](../patches/tdesktop/0006-feat-update-from-the-tele-github-releases.patch) | self-updates from these releases on windows, linux and macos, signed with ed25519. a failed update is retried sooner and a broken download continues where it stopped. macos updates preserve the app's dock pin | tele → updates, on |
 | [38](../patches/tdesktop/0038-feat-show-what-s-new-in-tele-after-an-update.patch) | after an update, you get a message with what's new in that tele version, visible only to you. fresh installs skip it | tele → updates, on |
 | [73](../patches/tdesktop/0073-feat-show-what-s-new-in-a-local-tele-chat.patch) | what's new comes from a local tele chat with its own profile, grouped by settings page, once per account the first time you open it after an update. a button opens the full changelog | with 38 |
-| [339](../patches/tdesktop/0339-feat-restore-the-classic-update-button-optionally.patch) | restore the update button's full gradient background in dark themes, with white text and icon. switches live; light themes and update behaviour stay unchanged | tele → updates, off |
+| [339](../patches/tdesktop/0339-feat-restore-the-classic-update-button-optionally.patch) | restore the update button's full gradient background in dark themes, with white text and icon. switches live, with a non-clickable preview in settings; light themes and update behaviour stay unchanged | tele → updates, off |
 
 ## everywhere
 

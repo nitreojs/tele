@@ -4,17 +4,17 @@ Date: Sat, 14 Nov 2026 15:35:23 +0300
 Subject: [PATCH] feat: restore the classic update button optionally
 
 ---
- Telegram/Resources/tele/translations/ru.json  |  2 ++
- Telegram/Resources/tele/translations/uk.json  |  2 ++
- .../dialogs/ui/dialogs_bottom_button.cpp      |  8 +++++--
- .../SourceFiles/settings/settings_tele.cpp    |  1 +
- Telegram/SourceFiles/tele/tele_options.cpp    | 21 +++++++++++++++++++
- Telegram/SourceFiles/tele/tele_options.h      |  3 +++
+ Telegram/Resources/tele/translations/ru.json  |  3 ++
+ Telegram/Resources/tele/translations/uk.json  |  3 ++
+ .../dialogs/ui/dialogs_bottom_button.cpp      |  8 +++--
+ .../SourceFiles/settings/settings_tele.cpp    | 34 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 21 ++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  3 ++
  .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
- 7 files changed, 36 insertions(+), 2 deletions(-)
+ 7 files changed, 71 insertions(+), 2 deletions(-)
 
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
-index fe39fa84a687369e64b730e77a95f81669c199c6..4737de9a7e301c38aa14b2ca2ba6be9ae14554c8 100644
+index fe39fa84a687369e64b730e77a95f81669c199c6..0a5613c982f390899b0c716cfb59df6ce29d4e36 100644
 --- a/Telegram/Resources/tele/translations/ru.json
 +++ b/Telegram/Resources/tele/translations/ru.json
 @@ -691,6 +691,7 @@
@@ -25,7 +25,15 @@ index fe39fa84a687369e64b730e77a95f81669c199c6..4737de9a7e301c38aa14b2ca2ba6be9a
  		"Clear": "Очистить",
  		"Clear %1 deleted messages from this chat? They were kept only on this device.": {
  			"one": "Очистить %1 удалённое сообщение в этом чате? Оно хранилось только на этом устройстве.",
-@@ -2310,6 +2311,7 @@
+@@ -1572,6 +1573,7 @@
+ 		"Presets": "Шаблоны",
+ 		"Press a key combination. Backspace clears it, Escape cancels.": "Нажмите сочетание клавиш. Backspace очищает, Escape отменяет.",
+ 		"Press any button in tele for you.": "Нажимать любые кнопки в tele от вашего имени.",
++		"Preview": "Предпросмотр",
+ 		"Preview calcmula results while typing": "Показывать результаты calcmula при наборе",
+ 		"Preview chats in the chat area": "Предпросмотр чатов в области чата",
+ 		"Preview · messages stay unread": "Предпросмотр · сообщения останутся непрочитанными",
+@@ -2310,6 +2312,7 @@
  		"Use another link…": "Использовать другую ссылку…",
  		"Use link from the text": "Использовать ссылку из текста",
  		"Use the default folder": "Использовать папку по умолчанию",
@@ -34,7 +42,7 @@ index fe39fa84a687369e64b730e77a95f81669c199c6..4737de9a7e301c38aa14b2ca2ba6be9a
  		"UserTag": "UserTag",
  		"Username aliases": "Псевдонимы для чатов",
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
-index 2e0c0c2a61b9473be2cd9894f51da0f17abcdea5..0d185261f4106496304d953ed132f90e709c841a 100644
+index 2e0c0c2a61b9473be2cd9894f51da0f17abcdea5..6394e3dd66834a5f335462c04bee596cfceb194a 100644
 --- a/Telegram/Resources/tele/translations/uk.json
 +++ b/Telegram/Resources/tele/translations/uk.json
 @@ -691,6 +691,7 @@
@@ -45,7 +53,15 @@ index 2e0c0c2a61b9473be2cd9894f51da0f17abcdea5..0d185261f4106496304d953ed132f90e
  		"Clear": "Очистити",
  		"Clear %1 deleted messages from this chat? They were kept only on this device.": {
  			"one": "Очистити %1 видалене повідомлення в цьому чаті? Воно зберігалося лише на цьому пристрої.",
-@@ -2310,6 +2311,7 @@
+@@ -1572,6 +1573,7 @@
+ 		"Presets": "Шаблони",
+ 		"Press a key combination. Backspace clears it, Escape cancels.": "Натисніть комбінацію клавіш. Backspace очищує, Escape скасовує.",
+ 		"Press any button in tele for you.": "Натискати будь-які кнопки в tele замість вас.",
++		"Preview": "Попередній перегляд",
+ 		"Preview calcmula results while typing": "Показувати результати calcmula під час набору",
+ 		"Preview chats in the chat area": "Попередній перегляд чатів в області чату",
+ 		"Preview · messages stay unread": "Попередній перегляд · повідомлення залишаться непрочитаними",
+@@ -2310,6 +2312,7 @@
  		"Use another link…": "Використати інше посилання…",
  		"Use link from the text": "Використати посилання з тексту",
  		"Use the default folder": "Використовувати папку за замовчуванням",
@@ -85,14 +101,61 @@ index cc07c054f045bb51add5b7ab9d912a397e01a598..fac5b4520ee326d2057b9da782119136
  	}
  }
 diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
-index e5870f93db99c857c1cb540760a6e5b140e28b04..acb8935c347c65a3a0a9279c41b4136d85ae44c3 100644
+index e5870f93db99c857c1cb540760a6e5b140e28b04..9c008c8ac0a88a4817cf36b807108bdf1b7eb96a 100644
 --- a/Telegram/SourceFiles/settings/settings_tele.cpp
 +++ b/Telegram/SourceFiles/settings/settings_tele.cpp
-@@ -1205,6 +1205,7 @@ void AddGroupDivider(SectionBuilder &builder) {
+@@ -12,6 +12,7 @@
+ #include "data/data_chat.h"
+ #include "data/data_session.h"
+ #include "data/data_user.h"
++#include "dialogs/ui/dialogs_bottom_button.h"
+ #include "history/history.h"
+ #include "info/profile/info_profile_actions.h"
+ #include "lang/lang_keys.h"
+@@ -88,6 +89,7 @@
+ #include "window/window_session_controller.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_dialogs.h"
++#include "styles/style_dialogs_widget.h"
+ #include "styles/style_edit_peer_members.h"
+ #include "styles/style_info.h"
+ #include "styles/style_menu_icons.h"
+@@ -1205,6 +1207,38 @@ void AddGroupDivider(SectionBuilder &builder) {
  void AddUpdates(SectionBuilder &builder) {
  	AddOptionToggle(builder, ::Tele::kOptionAutoUpdate);
  	AddOptionToggle(builder, ::Tele::kOptionShowChangelog);
 +	AddOptionToggle(builder, ::Tele::kOptionClassicUpdateButton);
++	if (!Picked) {
++		builder.add([](const WidgetContext &ctx) {
++			auto preview = object_ptr<Ui::VerticalLayout>(ctx.container);
++			preview->setAttribute(Qt::WA_TransparentForMouseEvents);
++			preview->add(
++				object_ptr<Ui::FlatLabel>(
++					preview,
++					::Tele::Lower(u"Preview"_q),
++					st::settingsExperimentalAbout),
++				QMargins(0, 0, 0, st::settingsExperimentalAboutPadding.bottom()));
++			const auto button = preview->add(
++				object_ptr<Dialogs::BottomButton>(
++					preview,
++					tr::lng_update_telegram(tr::now),
++					st::dialogsUpdateButton,
++					st::dialogsInstallUpdate,
++					st::dialogsInstallUpdateOver,
++					true));
++			button->setFocusPolicy(Qt::NoFocus);
++			button->setCursor(Qt::ArrowCursor);
++			return SectionBuilder::WidgetToAdd{
++				.widget = std::move(preview),
++				.margin = QMargins(
++					st::settingsButtonNoIcon.padding.left(),
++					0,
++					st::settingsButtonNoIcon.padding.left(),
++					st::settingsExperimentalAboutPadding.bottom()),
++				.align = style::al_justify,
++			};
++		}, nullptr);
++	}
  	const auto controller = builder.controller();
  	const auto button = AddButton(builder, {
  		.id = u"tele-check-updates"_q,

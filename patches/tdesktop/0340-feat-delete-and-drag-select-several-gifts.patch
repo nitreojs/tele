@@ -10,12 +10,12 @@ Subject: [PATCH] feat: delete and drag-select several gifts
  .../settings/settings_credits_graphics.cpp    |  34 ++-
  .../settings/settings_credits_graphics.h      |   8 +
  Telegram/SourceFiles/tele/tele_gift_batch.cpp |   1 +
- Telegram/SourceFiles/tele/tele_gift_list.cpp  | 226 +++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_gift_list.cpp  | 230 +++++++++++++++++-
  Telegram/SourceFiles/tele/tele_gift_list.h    |  13 +-
- 8 files changed, 473 insertions(+), 30 deletions(-)
+ 8 files changed, 475 insertions(+), 32 deletions(-)
 
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
-index 4737de9a7e301c38aa14b2ca2ba6be9ae14554c8..6a4c01a8823d7594fe567019fb909aa1cd5a53c1 100644
+index 0a5613c982f390899b0c716cfb59df6ce29d4e36..afe60495a584cbff62f7f9d3919717326cb8736f 100644
 --- a/Telegram/Resources/tele/translations/ru.json
 +++ b/Telegram/Resources/tele/translations/ru.json
 @@ -144,6 +144,11 @@
@@ -74,7 +74,7 @@ index 4737de9a7e301c38aa14b2ca2ba6be9ae14554c8..6a4c01a8823d7594fe567019fb909aa1
  		"Dim hidden gifts": "Затемнять скрытые подарки",
  		"Disappearing media": "Исчезающие медиа",
  		"Discord": "Discord",
-@@ -2185,6 +2206,7 @@
+@@ -2186,6 +2207,7 @@
  		"This device still has the keys of a wallet you used before. Save its secret phrase, then remove it from this device to keep using your current wallet.": "На этом устройстве остались ключи кошелька, которым вы пользовались раньше. Сохраните его секретную фразу, затем удалите его с этого устройства, чтобы продолжить пользоваться текущим кошельком.",
  		"This emoji can't be used for a sticker": "Этот эмодзи нельзя использовать для стикера",
  		"This file can't be kept in a draft.": "Этот файл нельзя сохранить в черновике.",
@@ -83,7 +83,7 @@ index 4737de9a7e301c38aa14b2ca2ba6be9ae14554c8..6a4c01a8823d7594fe567019fb909aa1
  		"This isn't a tele settings file.": "Это не файл настроек tele.",
  		"This link doesn't point to a script.": "Эта ссылка не ведёт к скрипту.",
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
-index 0d185261f4106496304d953ed132f90e709c841a..fbab59d6bff3c10f5d30989a98aaec3d357dae03 100644
+index 6394e3dd66834a5f335462c04bee596cfceb194a..04004c022aa1c2dfb12e9c56816e6633686820bb 100644
 --- a/Telegram/Resources/tele/translations/uk.json
 +++ b/Telegram/Resources/tele/translations/uk.json
 @@ -144,6 +144,11 @@
@@ -142,7 +142,7 @@ index 0d185261f4106496304d953ed132f90e709c841a..fbab59d6bff3c10f5d30989a98aaec3d
  		"Dim hidden gifts": "Затемнювати приховані подарунки",
  		"Disappearing media": "Зникаючі медіа",
  		"Discord": "Discord",
-@@ -2185,6 +2206,7 @@
+@@ -2186,6 +2207,7 @@
  		"This device still has the keys of a wallet you used before. Save its secret phrase, then remove it from this device to keep using your current wallet.": "На цьому пристрої залишилися ключі гаманця, яким ви користувалися раніше. Збережіть його секретну фразу, потім видаліть його з цього пристрою, щоб і далі користуватися поточним гаманцем.",
  		"This emoji can't be used for a sticker": "Цей емодзі не можна використати для стікера",
  		"This file can't be kept in a draft.": "Цей файл не можна зберегти в чернетці.",
@@ -609,7 +609,7 @@ index 3fde784dbe93658ae2ac47c7a7c74905e69e8138..738b465b49d8b69d09c1a9009cd9b013
  	}
  	return false;
 diff --git a/Telegram/SourceFiles/tele/tele_gift_list.cpp b/Telegram/SourceFiles/tele/tele_gift_list.cpp
-index 630d2263189a476b7f9507d5e8a3ef2f4500f44e..2fbd8968e323f7cad9c070113f2cda04561818e6 100644
+index 630d2263189a476b7f9507d5e8a3ef2f4500f44e..ea0f42a0397c7c06bbced58d97865291b2e3dd35 100644
 --- a/Telegram/SourceFiles/tele/tele_gift_list.cpp
 +++ b/Telegram/SourceFiles/tele/tele_gift_list.cpp
 @@ -65,7 +65,8 @@ struct State {
@@ -885,6 +885,24 @@ index 630d2263189a476b7f9507d5e8a3ef2f4500f44e..2fbd8968e323f7cad9c070113f2cda04
  	}
  }
  
+@@ -1297,7 +1441,7 @@ void Bar::showOverflow() {
+ 	}
+ 	_menu = base::make_unique_q<Ui::PopupMenu>(
+ 		this,
+-		st::popupMenuWithIcons);
++		st::defaultPopupMenu);
+ 	for (const auto action : _overflow) {
+ 		const auto reason = Reason(_state, action);
+ 		const auto text = reason.isEmpty()
+@@ -1325,7 +1469,7 @@ void Bar::showCollections(QPoint global) {
+ 	}
+ 	_menu = base::make_unique_q<Ui::PopupMenu>(
+ 		this,
+-		st::popupMenuWithIcons);
++		st::defaultPopupMenu);
+ 	for (const auto &collection : collections) {
+ 		const auto id = collection.id;
+ 		const auto title = collection.title;
 @@ -1464,6 +1608,7 @@ void SetActive(not_null<State*> state, bool active) {
  	}
  	state->active = active;

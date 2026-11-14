@@ -8,7 +8,7 @@ all 349 patches, newest release first.
 
 | # | what it does | where to toggle |
 |---|---|---|
-| [339](../patches/tdesktop/0339-feat-restore-the-classic-update-button-optionally.patch) | restore the update button's full gradient background in dark themes, with white text and icon. switches live; light themes and update behaviour stay unchanged | tele → updates, off |
+| [339](../patches/tdesktop/0339-feat-restore-the-classic-update-button-optionally.patch) | restore the update button's full gradient background in dark themes, with white text and icon. switches live, with a non-clickable preview in settings; light themes and update behaviour stay unchanged | tele → updates, off |
 | [340](../patches/tdesktop/0340-feat-delete-and-drag-select-several-gifts.patch) | gift selection can permanently delete eligible gifts after two confirmations, without receiving stars. delete is unavailable if any selected gift is ineligible. drag a contiguous range to select or deselect, with edge scrolling and ordinary clicks unchanged | with 184 |
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
