@@ -460,6 +460,7 @@ always on, or without a switch of their own.
 | [338](../patches/tdesktop/0338-chore-refresh-bundled-release-history.patch) | the bundled release history includes tele 27 | always on |
 | [341](../patches/tdesktop/0341-fix-discard-old-tempo-audio-when-changing-speed.patch) | changing playback speed no longer reuses a waiting audio buffer at the old tempo, preventing duplicated or wrong-speed sound | always on |
 | [342](../patches/tdesktop/0342-fix-stop-marking-money-as-new.patch) | money is no longer marked as new in the main menu | always on |
+| [344](../patches/tdesktop/0344-fix-keep-emoji-in-message-ranks.patch) | custom ranks beside sender names in message bubbles keep their emoji, including emoji-only ranks | always on |
 | [1001](../patches/Telegram/lib_ui/0001-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 | [1005](../patches/Telegram/lib_ui/0005-fix-the-maximize-button-follows-the-real-window-stat.patch) | the maximize button of a window shows and does the right thing after resizing or moving the window drops its maximized or full screen state | always on |
 | [1008](../patches/Telegram/lib_rpl/0001-fix-topic-tabs-no-longer-crash-after-you-move-them.patch) | topic and direct message tabs no longer crash after you move them to the top, bottom or side and then scroll them. the cause was in the library that passes events around, so anything else that lost updates the same way is fixed too | always on |
