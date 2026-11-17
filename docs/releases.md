@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 354 patches, newest release first.
+all 355 patches, newest release first.
 
 ### tele 28 (unreleased)
 
@@ -15,6 +15,7 @@ all 354 patches, newest release first.
 | [343](../patches/tdesktop/0343-feat-strip-invisible-links-when-copying.patch) | remove hyperlinks carried only by spaces or invisible characters when copying messages or selections, including formatted and rich-message copies. ordinary spacing, visible links, emoji and the original message stay unchanged | tele → messages → links, off |
 | [1010](../patches/Telegram/lib_ui/0008-feat-filter-hidden-text-links-on-copy.patch) | the native text exporters omit invisible link targets from both plain text and clipboard formatting | with 343 |
 | [344](../patches/tdesktop/0344-fix-keep-emoji-in-message-ranks.patch) | custom ranks beside sender names in message bubbles keep their emoji, including emoji-only ranks | always on |
+| [345](../patches/tdesktop/0345-fix-show-sender-avatars-beside-forum-topic-tabs.patch) | incoming messages in forum groups keep their sender avatars when the topic tabs are on the left | always on |
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
 
