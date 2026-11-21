@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 355 patches, newest release first.
+all 356 patches, newest release first.
 
 ### tele 28 (unreleased)
 
@@ -16,6 +16,7 @@ all 355 patches, newest release first.
 | [1010](../patches/Telegram/lib_ui/0008-feat-filter-hidden-text-links-on-copy.patch) | the native text exporters omit invisible link targets from both plain text and clipboard formatting | with 343 |
 | [344](../patches/tdesktop/0344-fix-keep-emoji-in-message-ranks.patch) | custom ranks beside sender names in message bubbles keep their emoji, including emoji-only ranks | always on |
 | [345](../patches/tdesktop/0345-fix-show-sender-avatars-beside-forum-topic-tabs.patch) | incoming messages in forum groups keep their sender avatars when the topic tabs are on the left | always on |
+| [346](../patches/tdesktop/0346-fix-keep-typed-emoticons-literal.patch) | bracket auto-closing leaves typed emoticons such as `:(`, `=(` and `:-((` unchanged | with 332 |
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
 

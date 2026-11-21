@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 21 Nov 2026 04:05:34 +0300
+Subject: [PATCH] fix: keep typed emoticons literal
+
+---
+ .../SourceFiles/tele/tele_composer_editing.cpp    | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
+index d928fd60986e82592c0f0e48817cfe958a2591b7..9c7578b1cd3e2ca6e33e1ca37fc467f9e4594eb3 100644
+--- a/Telegram/SourceFiles/tele/tele_composer_editing.cpp
++++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
+@@ -24,6 +24,20 @@ namespace {
+ 	return ch == QChar(' ') || ch == QChar('\t');
+ }
+ 
++[[nodiscard]] bool ContinuesEmoticon(const QTextDocument &document, int end) {
++	while (end > 0 && document.characterAt(end - 1) == QChar('(')) {
++		--end;
++	}
++	if (end > 0 && document.characterAt(end - 1) == QChar('-')) {
++		--end;
++	}
++	if (!end) {
++		return false;
++	}
++	const auto eyes = document.characterAt(end - 1);
++	return eyes == QChar(':') || eyes == QChar(';') || eyes == QChar('=');
++}
++
+ [[nodiscard]] QChar Closer(QChar ch) {
+ 	switch (ch.unicode()) {
+ 	case '(': return QChar(')');
+@@ -253,6 +267,7 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
+ 			}
+ 		}
+ 		if (!closer.isNull()
++			&& (ch != QChar('(') || !ContinuesEmoticon(*_document, position))
+ 			&& (ch != QChar('<') || angleBoundary(position))) {
+ 			insertPair(ch, closer);
+ 			e->accept();
