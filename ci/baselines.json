@@ -1,5 +1,5 @@
 {
- "v7.4.3-tele.26": {
+ "v7.4.4-tele.27": {
   "-teleoffline keeps features that only use telegram": "2ce558e2f1557248b995fae97393bc3900dc8818f063be70608eeae116365071",
   "a line under every open group of tele settings": "50fa3ae8cab5eca021b80688ea04fdc7c34e46cf93405decdf6760d991eb0db8",
   "add a tele section to the settings": "7c2a2c032c92869f539a16fc668e3a8f6931dd2fc30f993b32e7a934055f498e",
@@ -209,6 +209,7 @@
   "recover deleted channel posts from forwards": "1be8b461274621b5e1452e7c8bd6347333fbf077ac10a76af071a158f383a646",
   "redesign the title template editor": "a9a13f27385f84be0d93c163bbe0274d992659b1d36174da73a38f6ab9a98a4b",
   "reduce motion": "0f5905cda64b03045e30344771b177e0e46beecac4ba0241d6a37203bf9765a9",
+  "refresh bundled release history": "64d8aa46d7d09d0e82ee2c8e1129d2159c75496a5af0688d4e143673c9d3034b",
   "regex search in loaded history": "c55c1dfa15b93b1902c6f58cfaa2c4bcca5f3dfde7f097a649c1e579aa6d1516",
   "regroup tele settings pages": "65e0e9ecb4585bac47876a55d526bf5c8c20e04dd8290825efd294f3195c196f",
   "regroup the sending settings": "4de3052f7a39234734fd162b28305ab6663ebf377d0c6e605bfb4ce42e3c8ec8",

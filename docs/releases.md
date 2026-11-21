@@ -4,7 +4,7 @@ every tele patch, grouped by the release that brought it, newest first. [feature
 
 all 357 patches, newest release first.
 
-### tele 28 (unreleased)
+### [tele 28](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.28)
 
 | # | what it does | where to toggle |
 |---|---|---|
