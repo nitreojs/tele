@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 21 Nov 2026 10:03:01 +0300
+Subject: [PATCH] fix: show member ranks without scrolling
+
+---
+ .../boxes/peers/edit_participants_box.cpp     | 33 +++++++------------
+ .../boxes/peers/edit_participants_box.h       |  2 +-
+ 2 files changed, 12 insertions(+), 23 deletions(-)
+
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp b/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp
+index b18678af70e3986fc2558b4b4fef051223d4ef7b..a1e5da06531fc802a3e9c0283713e06d1f655100 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp
++++ b/Telegram/SourceFiles/boxes/peers/edit_participants_box.cpp
+@@ -751,6 +751,9 @@ void ParticipantsAdditionalData::fillFromChannel(
+ 		const auto admin = information->lastAdmins.find(user);
+ 		const auto rank = information->memberRanks.find(peerToUser(user->id));
+ 		const auto restricted = information->lastRestricted.find(user);
++		if (rank != end(information->memberRanks) && !rank->second.isEmpty()) {
++			_memberRanks[user] = rank->second;
++		}
+ 		if (admin != information->lastAdmins.cend()) {
+ 			_restrictedRights.erase(user);
+ 			_kicked.erase(user);
+@@ -761,10 +764,6 @@ void ParticipantsAdditionalData::fillFromChannel(
+ 				_adminCanEdit.erase(user);
+ 			}
+ 			_adminRights.emplace(user, admin->second.rights);
+-			if (rank != end(information->memberRanks)
+-				&& !rank->second.isEmpty()) {
+-				_memberRanks[user] = rank->second;
+-			}
+ 		} else if (restricted != information->lastRestricted.cend()) {
+ 			_adminRights.erase(user);
+ 			_adminCanEdit.erase(user);
+@@ -1779,8 +1778,9 @@ void ParticipantsBoxController::loadMoreRows() {
+ 	}
+ 
+ 	const auto channel = _peer->asChannel();
+-	if (feedMegagroupLastParticipants()) {
+-		return;
++	// Cached rows can lack ranks. Fetch the first page even if they fill the viewport.
++	if (!_offset) {
++		feedMegagroupLastParticipants();
+ 	}
+ 
+ 	const auto filter = [&] {
+@@ -1869,14 +1869,14 @@ void ParticipantsBoxController::refreshDescription() {
+ 		: tr::lng_blocked_list_not_found(tr::now));
+ }
+ 
+-bool ParticipantsBoxController::feedMegagroupLastParticipants() {
++void ParticipantsBoxController::feedMegagroupLastParticipants() {
+ 	if ((_role != Role::Members && _role != Role::Profile)
+ 		|| delegate()->peerListFullRowsCount() > 0) {
+-		return false;
++		return;
+ 	}
+ 	const auto megagroup = _peer->asMegagroup();
+ 	if (!megagroup || !megagroup->canViewMembers()) {
+-		return false;
++		return;
+ 	}
+ 	const auto info = megagroup->mgInfo.get();
+ 	//
+@@ -1892,25 +1892,14 @@ bool ParticipantsBoxController::feedMegagroupLastParticipants() {
+ 	//	return false;
+ 	//}
+ 	if (info->lastParticipants.empty()) {
+-		return false;
++		return;
+ 	}
+ 
+-	auto added = false;
+ 	_additional.fillFromPeer();
+ 	for (const auto &user : info->lastParticipants) {
+-		if (appendRow(user)) {
+-			added = true;
+-		}
+-
+-		//
+-		// Don't count lastParticipants in _offset, because we don't know
+-		// their exact information (admin / creator / restricted), they
+-		// could simply be added from the last messages authors.
+-		//
+-		//++_offset;
++		appendRow(user);
+ 	}
+ 	resort();
+-	return added;
+ }
+ 
+ void ParticipantsBoxController::rowClicked(not_null<PeerListRow*> row) {
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_participants_box.h b/Telegram/SourceFiles/boxes/peers/edit_participants_box.h
+index a723798e2e60ab6860cc151b1a05bd002e2f49ac..247bd3fb18f48dc5c0f0dccb6fbf462904dab12a 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_participants_box.h
++++ b/Telegram/SourceFiles/boxes/peers/edit_participants_box.h
+@@ -314,7 +314,7 @@ private:
+ 	bool prependRow(not_null<PeerData*> participant);
+ 	bool removeRow(not_null<PeerData*> participant);
+ 	void refreshCustomStatus(not_null<PeerListRow*> row) const;
+-	bool feedMegagroupLastParticipants();
++	void feedMegagroupLastParticipants();
+ 	Type computeType(not_null<PeerData*> participant) const;
+ 	void recomputeTypeFor(not_null<PeerData*> participant);
+ 
