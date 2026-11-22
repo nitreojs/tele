@@ -135,6 +135,7 @@ settings → tele → messages.
 | [337](../patches/tdesktop/0337-feat-indent-selected-composer-lines.patch) | Tab indents selected lines and Shift+Tab removes one level, using 2 spaces, 4 spaces or tabs. formatting, custom emoji and selection direction stay intact, and each operation undoes in one step. ordinary Tab completion and focus navigation stay unchanged; works in chats, topics, replies and captions | tele → messages, off |
 | [343](../patches/tdesktop/0343-feat-strip-invisible-links-when-copying.patch) | remove hyperlinks carried only by spaces or invisible characters when copying messages or selections, including formatted and rich-message copies. ordinary spacing, visible links, emoji and the original message stay unchanged | tele → messages → links, off |
 | [346](../patches/tdesktop/0346-fix-keep-typed-emoticons-literal.patch) | bracket auto-closing leaves typed emoticons such as `:(`, `=(` and `:-((` unchanged | with 332 |
+| [349](../patches/tdesktop/0349-feat-show-matching-blockquotes-as-reply-quotes.patch) | show a leading text blockquote in the reply header when it exactly and uniquely matches a passage in the original rich message. clicking the header jumps to the passage; the sent message and native quotes stay unchanged | tele → messages, off |
 | [1010](../patches/Telegram/lib_ui/0008-feat-filter-hidden-text-links-on-copy.patch) | the native text exporters omit invisible link targets from both plain text and clipboard formatting | with 343 |
 
 ## sending

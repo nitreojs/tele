@@ -2,13 +2,14 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 358 patches, newest release first.
+all 359 patches, newest release first.
 
 ### tele 29 (unreleased)
 
 | # | what it does | where to toggle |
 |---|---|---|
 | [348](../patches/tdesktop/0348-fix-show-member-ranks-without-scrolling.patch) | show member ranks as soon as the Members list opens, without waiting for a scroll | with 347 |
+| [349](../patches/tdesktop/0349-feat-show-matching-blockquotes-as-reply-quotes.patch) | show a leading text blockquote in the reply header when it exactly and uniquely matches a passage in the original rich message. clicking the header jumps to the passage; the sent message and native quotes stay unchanged | tele → messages, off |
 
 ### [tele 28](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.28)
 
