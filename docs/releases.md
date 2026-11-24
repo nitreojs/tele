@@ -2,26 +2,26 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 370 patches, newest release first.
+all 368 patches, newest release first.
 
 ### tele 29 (unreleased)
 
 | # | what it does | where to toggle |
 |---|---|---|
-| [347](../patches/tdesktop/0347-fix-show-member-ranks-without-scrolling.patch) | show member ranks as soon as the Members list opens, without waiting for a scroll | with 346 |
-| [348](../patches/tdesktop/0348-feat-show-matching-blockquotes-as-reply-quotes.patch) | move a leading blockquote into the reply header when it uniquely matches the original rich message, including formatted selections and mixed blocks. expand rich quotes in place and jump back to the source; sent messages and native quotes stay unchanged | tele → messages, off |
-| [349](../patches/tdesktop/0349-fix-stalled-media-downloads-fall-back-to-the-regular.patch) | media downloads that keep timing out on a data center's media endpoint switch to its regular connection | always on |
-| [350](../patches/tdesktop/0350-feat-ship-the-widget-helper-with-updates.patch) | the updater installs telegram's widget helper next to tele, and a build missing its helper fetches it once, so bot widgets keep working | always on |
-| [351](../patches/tdesktop/0351-fix-replying-to-the-next-message-no-longer-steps-pas.patch) | ctrl+down on the newest message of a topic, thread or saved chat cancels the reply instead of stepping past the end of the list | always on |
-| [352](../patches/tdesktop/0352-feat-hide-stories-also-hides-story-posting.patch) | hide stories also hides every way to post one: the my story placeholder, the add story buttons in the chat list, search field and profile, post story in menus and reposting | with 3 |
-| [353](../patches/tdesktop/0353-feat-hide-bot-previews.patch) | hide the screenshots and videos bots show on their profile | tele → privacy, off |
-| [354](../patches/tdesktop/0354-fix-folder-emoji-icons-render-sharp.patch) | emoji folder icons render at their own size instead of a blurry scaled-down frame | always on |
-| [355](../patches/tdesktop/0355-feat-plain-search-calendar.patch) | the chat search calendar without photo and video thumbnails on its days, like before telegram desktop 7.4.6 | tele → chats, off |
-| [356](../patches/tdesktop/0356-feat-hide-gift-offers.patch) | hide incoming offers to buy your gifts in chats and the chat list, without notifications | tele → profiles and ids, off |
-| [357](../patches/tdesktop/0357-feat-turn-off-money-also-covers-on-chain-gift-offers.patch) | turn off money also hides incoming gift offers, the review and withdraw buttons on offer cards and the grams filter of the gift market | with 286 |
-| [358](../patches/tdesktop/0358-feat-turn-off-ai-features-also-covers-bot-info-editi.patch) | turn off ai features also removes the ai rewrite button and the translate actions when editing your bot's info | with 135 |
-| [359](../patches/tdesktop/0359-feat-local-password-for-on-chain-gift-actions.patch) | the local password also asks before buying, selling, repricing or unlisting a gift on-chain, making or withdrawing an offer and accepting one | with 185 |
-| [360](../patches/tdesktop/0360-feat-notify-about-incoming-money-transfers.patch) | incoming money transfers can show up on tele's notifications page and as a +N pill next to Money in the main menu until you open it. tele checks when telegram reports a new balance and every 10 minutes while Money is closed | tele → chats, off |
+| [345](../patches/tdesktop/0345-fix-show-member-ranks-without-scrolling.patch) | show member ranks as soon as the Members list opens, without waiting for a scroll | with 343 |
+| [346](../patches/tdesktop/0346-feat-show-matching-blockquotes-as-reply-quotes.patch) | move a leading blockquote into the reply header when it uniquely matches the original rich message, including formatted selections and mixed blocks. expand rich quotes in place and jump back to the source; sent messages and native quotes stay unchanged | tele → messages, off |
+| [347](../patches/tdesktop/0347-fix-stalled-media-downloads-fall-back-to-the-regular.patch) | media downloads that keep timing out on a data center's media endpoint switch to its regular connection | always on |
+| [348](../patches/tdesktop/0348-feat-ship-the-widget-helper-with-updates.patch) | the updater installs telegram's widget helper next to tele, and a build missing its helper fetches it once, so bot widgets keep working | always on |
+| [349](../patches/tdesktop/0349-fix-replying-to-the-next-message-no-longer-steps-pas.patch) | ctrl+down on the newest message of a topic, thread or saved chat cancels the reply instead of stepping past the end of the list | always on |
+| [350](../patches/tdesktop/0350-feat-hide-stories-also-hides-story-posting.patch) | hide stories also hides every way to post one: the my story placeholder, the add story buttons in the chat list, search field and profile, post story in menus and reposting | with 3 |
+| [351](../patches/tdesktop/0351-feat-hide-bot-previews.patch) | hide the screenshots and videos bots show on their profile | tele → privacy, off |
+| [352](../patches/tdesktop/0352-fix-folder-emoji-icons-render-sharp.patch) | emoji folder icons render at their own size instead of a blurry scaled-down frame | always on |
+| [353](../patches/tdesktop/0353-feat-plain-search-calendar.patch) | the chat search calendar without photo and video thumbnails on its days, like before telegram desktop 7.4.6 | tele → chats, off |
+| [354](../patches/tdesktop/0354-feat-hide-gift-offers.patch) | hide incoming offers to buy your gifts in chats and the chat list, without notifications | tele → profiles and ids, off |
+| [355](../patches/tdesktop/0355-feat-turn-off-money-also-covers-on-chain-gift-offers.patch) | turn off money also hides incoming gift offers, the review and withdraw buttons on offer cards and the grams filter of the gift market | with 286 |
+| [356](../patches/tdesktop/0356-feat-turn-off-ai-features-also-covers-bot-info-editi.patch) | turn off ai features also removes the ai rewrite button and the translate actions when editing your bot's info | with 135 |
+| [357](../patches/tdesktop/0357-feat-local-password-for-on-chain-gift-actions.patch) | the local password also asks before buying, selling, repricing or unlisting a gift on-chain, making or withdrawing an offer and accepting one | with 185 |
+| [358](../patches/tdesktop/0358-feat-notify-about-incoming-money-transfers.patch) | incoming money transfers can show up on tele's notifications page and as a +N pill next to Money in the main menu until you open it. tele checks when telegram reports a new balance and every 10 minutes while Money is closed | tele → chats, off |
 
 ### [tele 28](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.28)
 
@@ -33,10 +33,8 @@ all 370 patches, newest release first.
 | [341](../patches/tdesktop/0341-fix-stop-marking-money-as-new.patch) | money is no longer marked as new in the main menu | always on |
 | [342](../patches/tdesktop/0342-feat-strip-invisible-links-when-copying.patch) | remove hyperlinks carried only by spaces or invisible characters when copying messages or selections, including formatted and rich-message copies. ordinary spacing, visible links, emoji and the original message stay unchanged | tele → messages → links, off |
 | [1010](../patches/Telegram/lib_ui/0008-feat-filter-hidden-text-links-on-copy.patch) | the native text exporters omit invisible link targets from both plain text and clipboard formatting | with 342 |
-| [343](../patches/tdesktop/0343-fix-keep-emoji-in-message-ranks.patch) | custom ranks beside sender names in message bubbles keep their emoji, including emoji-only ranks | always on |
+| [343](../patches/tdesktop/0343-fix-keep-emoji-in-message-ranks.patch) | custom ranks beside sender names in message bubbles keep their emoji, including emoji-only ranks. ranks in the Members list render emoji using the same emoji set as message bubbles instead of relying on the system font | always on |
 | [344](../patches/tdesktop/0344-fix-show-sender-avatars-beside-forum-topic-tabs.patch) | incoming messages in forum groups keep their sender avatars when the topic tabs are on the left | always on |
-| [345](../patches/tdesktop/0345-fix-keep-typed-emoticons-literal.patch) | bracket auto-closing leaves typed emoticons such as `:(`, `=(` and `:-((` unchanged | with 331 |
-| [346](../patches/tdesktop/0346-fix-render-emoji-in-members-list-ranks.patch) | ranks in the Members list render emoji using the same emoji set as message bubbles instead of relying on the system font | with 343 |
 
 ### [tele 27](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.27)
 
@@ -58,7 +56,7 @@ Telegram Desktop 7.4.4 brings widget and wallet hardening; no new tele features.
 |---|---|---|
 | [329](../patches/tdesktop/0329-feat-turn-off-text-sending-animation.patch) | turn off the text sending animation immediately, without changing media animations or the order messages are sent in | tele → sending, off |
 | [330](../patches/tdesktop/0330-feat-pad-extreme-image-shapes-for-photo-sending.patch) | narrow and wide images get just enough black padding to send as photos, without stretching or cropping. the preview shows the padding; the original file stays untouched and sending as a file stays unpadded | tele → sending, off |
-| [331](../patches/tdesktop/0331-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions. auto-completed code blocks render as live markdown immediately | tele → messages, off |
+| [331](../patches/tdesktop/0331-feat-add-optional-composer-editing-helpers.patch) | three independent composer helpers: wrap selected text in quotes, brackets, bold markers or backticks; auto-close brackets and end-of-line triple-backtick blocks; keep indentation on newlines. doubled angle brackets produce matching «guillemets». untouched automatic pairs delete together, each operation undoes in one step, and sending shortcuts stay unchanged. works in chats, topics, replies and captions. auto-completed code blocks render as live markdown immediately. bracket auto-closing leaves typed emoticons such as `:(`, `=(` and `:-((` unchanged | tele → messages, off |
 | [332](../patches/tdesktop/0332-feat-separate-music-video-voice-and-round-video-volu.patch) | music, videos, voice messages and round videos have separate saved volumes and mute levels. interface → playback → volumes has four sliders; the player, viewer, picture-in-picture and system controls change only their current media's volume | tele → interface |
 | [333](../patches/tdesktop/0333-fix-put-off-first-in-the-auto-delete-picker.patch) | the per-chat auto-delete picker starts with off, selected when auto-delete is disabled, instead of a separate disable button | always on |
 | [334](../patches/tdesktop/0334-feat-stop-selected-bots-without-deleting-their-chats.patch) | stop selected bots without deleting their chats, with a confirmation showing how many. people, groups and already stopped bots are skipped; narrow chat columns keep the action in an overflow menu | with 163 |

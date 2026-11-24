@@ -14,12 +14,12 @@ Subject: [PATCH] feat: add optional composer editing helpers
  .../boxes/send_gif_with_caption_box.cpp       |   2 +
  .../chat_helpers/message_field.cpp            |   2 +
  .../SourceFiles/settings/settings_tele.cpp    |  13 +
- .../tele/tele_composer_editing.cpp            | 496 ++++++++++++
+ .../tele/tele_composer_editing.cpp            | 511 ++++++++++++
  .../SourceFiles/tele/tele_composer_editing.h  |  11 +
  Telegram/SourceFiles/tele/tele_options.cpp    |  30 +
  Telegram/SourceFiles/tele/tele_options.h      |   6 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   3 +
- 15 files changed, 963 insertions(+), 377 deletions(-)
+ 15 files changed, 978 insertions(+), 377 deletions(-)
  create mode 100644 Telegram/SourceFiles/tele/tele_composer_editing.cpp
  create mode 100644 Telegram/SourceFiles/tele/tele_composer_editing.h
 
@@ -3440,10 +3440,10 @@ index 8b94a6fb2a04afb70dc03bfdf5da54683a1e4313..69a8f115ed3b635e725652c8a0658d5d
  	AddGroupDivider(builder);
 diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
 new file mode 100644
-index 0000000000000000000000000000000000000000..4807fc5b9f442b296e3d9882f8ed1a0fc7460b1e
+index 0000000000000000000000000000000000000000..2df329bfe124303a8097d4f8295571788e50e963
 --- /dev/null
 +++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
-@@ -0,0 +1,496 @@
+@@ -0,0 +1,511 @@
 +#include "tele/tele_composer_editing.h"
 +
 +#include "base/options.h"
@@ -3468,6 +3468,20 @@ index 0000000000000000000000000000000000000000..4807fc5b9f442b296e3d9882f8ed1a0f
 +
 +[[nodiscard]] bool IsIndent(QChar ch) {
 +	return ch == QChar(' ') || ch == QChar('\t');
++}
++
++[[nodiscard]] bool ContinuesEmoticon(const QTextDocument &document, int end) {
++	while (end > 0 && document.characterAt(end - 1) == QChar('(')) {
++		--end;
++	}
++	if (end > 0 && document.characterAt(end - 1) == QChar('-')) {
++		--end;
++	}
++	if (!end) {
++		return false;
++	}
++	const auto eyes = document.characterAt(end - 1);
++	return eyes == QChar(':') || eyes == QChar(';') || eyes == QChar('=');
 +}
 +
 +[[nodiscard]] QChar Closer(QChar ch) {
@@ -3686,6 +3700,7 @@ index 0000000000000000000000000000000000000000..4807fc5b9f442b296e3d9882f8ed1a0f
 +			}
 +		}
 +		if (!closer.isNull()
++			&& (ch != QChar('(') || !ContinuesEmoticon(*_document, position))
 +			&& (ch != QChar('<') || angleBoundary(position))) {
 +			insertPair(ch, closer);
 +			e->accept();

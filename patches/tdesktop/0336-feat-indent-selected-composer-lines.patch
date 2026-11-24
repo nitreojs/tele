@@ -109,10 +109,10 @@ index d1a2092c2fdb2fe82ecc767aeefbebf38a243449..e5870f93db99c857c1cb540760a6e5b1
  	AddGroupTitle(builder, u"Spoilers"_q);
  	AddOptionToggle(builder, ::Tele::kOptionRevealSpoilers);
 diff --git a/Telegram/SourceFiles/tele/tele_composer_editing.cpp b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
-index 4807fc5b9f442b296e3d9882f8ed1a0fc7460b1e..d928fd60986e82592c0f0e48817cfe958a2591b7 100644
+index 2df329bfe124303a8097d4f8295571788e50e963..9c7578b1cd3e2ca6e33e1ca37fc467f9e4594eb3 100644
 --- a/Telegram/SourceFiles/tele/tele_composer_editing.cpp
 +++ b/Telegram/SourceFiles/tele/tele_composer_editing.cpp
-@@ -49,6 +49,7 @@ private:
+@@ -63,6 +63,7 @@ private:
  
  	bool eventFilter(QObject *object, QEvent *event) override;
  	bool keyPress(not_null<QKeyEvent*> e);
@@ -120,7 +120,7 @@ index 4807fc5b9f442b296e3d9882f8ed1a0fc7460b1e..d928fd60986e82592c0f0e48817cfe95
  	void wrap(QChar opening, QChar closing);
  	void insertPair(QChar opening, QChar closing);
  	void convertAngles(Pair pair);
-@@ -131,6 +132,19 @@ bool ComposerEditing::eventFilter(QObject *object, QEvent *event) {
+@@ -145,6 +146,19 @@ bool ComposerEditing::eventFilter(QObject *object, QEvent *event) {
  }
  
  bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
@@ -140,7 +140,7 @@ index 4807fc5b9f442b296e3d9882f8ed1a0fc7460b1e..d928fd60986e82592c0f0e48817cfe95
  	const auto wrapEnabled = WrapSelectedText();
  	const auto pairsEnabled = AutoCloseBrackets();
  	const auto indentEnabled = KeepIndentation();
-@@ -149,7 +163,6 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
+@@ -163,7 +177,6 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
  	}
  	const auto cursor = _field->textCursor();
  	const auto position = cursor.position();
@@ -148,7 +148,7 @@ index 4807fc5b9f442b296e3d9882f8ed1a0fc7460b1e..d928fd60986e82592c0f0e48817cfe95
  	const auto altGr = modifiers.testFlag(Qt::ControlModifier)
  		&& modifiers.testFlag(Qt::AltModifier)
  		&& !modifiers.testFlag(Qt::MetaModifier);
-@@ -266,6 +279,85 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
+@@ -281,6 +294,85 @@ bool ComposerEditing::keyPress(not_null<QKeyEvent*> e) {
  	return false;
  }
  
