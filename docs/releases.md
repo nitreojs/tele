@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 369 patches, newest release first.
+all 368 patches, newest release first.
 
 ### tele 29 (unreleased)
 
@@ -22,7 +22,6 @@ all 369 patches, newest release first.
 | [356](../patches/tdesktop/0356-feat-turn-off-ai-features-also-covers-bot-info-editi.patch) | turn off ai features also removes the ai rewrite button and the translate actions when editing your bot's info | with 135 |
 | [357](../patches/tdesktop/0357-feat-local-password-for-on-chain-gift-actions.patch) | the local password also asks before buying, selling, repricing or unlisting a gift on-chain, making or withdrawing an offer and accepting one | with 185 |
 | [358](../patches/tdesktop/0358-feat-notify-about-incoming-money-transfers.patch) | incoming money transfers can show up on tele's notifications page and as a +N pill next to Money in the main menu until you open it. tele checks when telegram reports a new balance and every 10 minutes while Money is closed | tele → chats, off |
-| [359](../patches/tdesktop/0359-chore-refresh-bundled-release-history.patch) | the bundled release history includes tele 28 | always on |
 
 ### [tele 28](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.28)
 
