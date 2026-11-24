@@ -4,14 +4,14 @@ Date: Tue, 24 Nov 2026 10:27:04 +0300
 Subject: [PATCH] fix: folder emoji icons render sharp
 
 ---
- Telegram/SourceFiles/ui/filter_title_icon.cpp | 33 +++++++++++++++++--
- 1 file changed, 30 insertions(+), 3 deletions(-)
+ Telegram/SourceFiles/ui/filter_title_icon.cpp | 34 +++++++++++++++++--
+ 1 file changed, 31 insertions(+), 3 deletions(-)
 
 diff --git a/Telegram/SourceFiles/ui/filter_title_icon.cpp b/Telegram/SourceFiles/ui/filter_title_icon.cpp
-index 2e1014889e60baefc6f88bcb1489e72d21c1dd1d..d6b53004dcfbd8edb15ce5d51ea7a4e4cca6faae 100644
+index 2e1014889e60baefc6f88bcb1489e72d21c1dd1d..e7ac7a5b491e055add06c6011acb1cb386a632b9 100644
 --- a/Telegram/SourceFiles/ui/filter_title_icon.cpp
 +++ b/Telegram/SourceFiles/ui/filter_title_icon.cpp
-@@ -116,14 +116,41 @@ FilterEmojiIconPaint MakeFilterEmojiIcon(
+@@ -116,14 +116,42 @@ FilterEmojiIconPaint MakeFilterEmojiIcon(
  			icon.document,
  			[widget] { widget->update(); },
  			kTag));
@@ -30,12 +30,13 @@ index 2e1014889e60baefc6f88bcb1489e72d21c1dd1d..d6b53004dcfbd8edb15ce5d51ea7a4e4
  			rect,
  			QRect(0, 0, size, size));
 +		// Render at the icon's own size: downscaling the large frame blurs.
++		// Instances are shared per size tag, so a Large one would ignore it.
 +		if (size > 0 && exact->size != size) {
 +			exact->size = size;
 +			exact->emoji = document->owner().customEmojiManager().create(
 +				document,
 +				[widget] { widget->update(); },
-+				kTag,
++				Data::CustomEmojiSizeTag::SetIcon,
 +				size);
 +		}
 +		if (exact->emoji && exact->emoji->ready()) {

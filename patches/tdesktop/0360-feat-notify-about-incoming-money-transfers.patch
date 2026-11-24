@@ -1,0 +1,779 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:49:37 +0300
+Subject: [PATCH] feat: notify about incoming money transfers
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ Telegram/Resources/tele/translations/ru.json  |   6 +
+ Telegram/Resources/tele/translations/uk.json  |   6 +
+ Telegram/SourceFiles/main/main_session.cpp    |   2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  10 +
+ .../SourceFiles/tele/tele_money_incoming.cpp  | 378 ++++++++++++++++++
+ .../SourceFiles/tele/tele_money_incoming.h    |  25 ++
+ Telegram/SourceFiles/tele/tele_notices.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_notices.h      |   1 +
+ .../SourceFiles/tele/tele_notices_section.cpp |   5 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  29 ++
+ Telegram/SourceFiles/tele/tele_options.h      |   5 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   2 +
+ Telegram/SourceFiles/wallet/wallet_panel.cpp  |   2 +
+ .../SourceFiles/window/window_main_menu.cpp   |   6 +
+ 15 files changed, 480 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_money_incoming.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_money_incoming.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index b9ce64dbb96a16a7622c3abe24cf2c9d5a577045..d8df44dfa2f8576ad207d5414c01d688baba6e51 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2946,6 +2946,8 @@ PRIVATE
+     tele/tele_communities.h
+     tele/tele_gift_offers.cpp
+     tele/tele_gift_offers.h
++    tele/tele_money_incoming.cpp
++    tele/tele_money_incoming.h
+     tele/tele_compact_folders.cpp
+     tele/tele_compact_folders.h
+     tele/tele_copy_markdown.cpp
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 327d4137ca1f7a5368c91bf890079969985dced1..bfee8944af6872630a64043b9ea60fd17bdbcd2c 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -484,6 +484,7 @@
+ 		": zlib failed": ": ошибка zlib",
+ 		":dd MMM": ":dd MMM",
+ 		":h:mm ap": ":h:mm ap",
++		"A +N pill next to Money in the main menu until you open it.": "Метка +N рядом с Money в главном меню, пока вы его не откроете.",
+ 		"A chat's menu can pick its own folder.": "В меню чата можно выбрать свою папку.",
+ 		"A direct link to a .ts or .js file. It goes into the scripts folder and stays off until you turn it on. tele checks the link for new versions.": "Прямая ссылка на файл .ts или .js. Он попадёт в папку скриптов и будет выключен, пока вы его не включите. tele проверяет ссылку на новые версии.",
+ 		"A direct link to the newest version of this .ts or .js file. tele checks it when you open the Scripts manager and every 6 hours, and offers an update when its version is newer. Leave it empty to stop checking.": "Прямая ссылка на последнюю версию этого файла .ts или .js. tele проверяет её при открытии менеджера скриптов и каждые 6 часов и предлагает обновление, если версия новее. Оставьте поле пустым, чтобы не проверять.",
+@@ -1092,6 +1093,7 @@
+ 		"Freeze report sent": "Отчёт о зависании отправлен",
+ 		"Friend": "Друг",
+ 		"From": "От",
++		"From %1": "От %1",
+ 		"From a chat's menu, in chats where you can't unpin.": "Через меню чата там, где вы не можете открепить сообщения.",
+ 		"From a folder's menu, on this device only.": "Из меню папки, только на этом устройстве.",
+ 		"From color": "Начальный цвет",
+@@ -1210,6 +1212,8 @@
+ 		"Includes the gift button the message field shows on birthdays.": "Также скрывает кнопку подарка, которая появляется в поле ввода в дни рождения.",
+ 		"Including you": "Включая вас",
+ 		"Incoming": "Входящие",
++		"Incoming transfer": "Входящий перевод",
++		"Incoming transfers in notifications": "Входящие переводы в уведомлениях",
+ 		"Indent selected lines with Tab": "Отступы в выделенных строках по Tab",
+ 		"Indentation": "Отступ",
+ 		"Info": "Инфо",
+@@ -1284,6 +1288,7 @@
+ 		"Link rewrites": "Замена ссылок",
+ 		"Links": "Ссылки",
+ 		"Links to a mini app you've opened before skip the terms box.": "Для мини-приложений, которые вы уже открывали, окно с условиями не показывается.",
++		"Listed on tele's Notifications page.": "Показываются на странице уведомлений tele.",
+ 		"Lists": "Списки",
+ 		"Live story skipped: watching it shows you to its author.": "Трансляция пропущена: автор увидит, что вы её смотрите.",
+ 		"Load": "Загрузить",
+@@ -1421,6 +1426,7 @@
+ 		"New rule": "Новое правило",
+ 		"New settings": "Новые настройки",
+ 		"New submenu": "Новое подменю",
++		"New transfers badge": "Значок новых переводов",
+ 		"No aliases yet. Pick Add alias in a chat's menu.": "Псевдонимов пока нет. Выберите «Добавить псевдоним» в меню чата.",
+ 		"No bookmarks": "Нет закладок",
+ 		"No chats yet. Pick Background for me in a chat's menu.": "Чатов пока нет. Выберите «Свой фон чата» в меню чата.",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index 51e92c1e425943484365b3d946c28593beb770c7..819281292cf7cac474d1db12171ffd2901cbcd68 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -484,6 +484,7 @@
+ 		": zlib failed": ": помилка zlib",
+ 		":dd MMM": ":dd MMM",
+ 		":h:mm ap": ":h:mm ap",
++		"A +N pill next to Money in the main menu until you open it.": "Позначка +N поруч із Money в головному меню, доки ви його не відкриєте.",
+ 		"A chat's menu can pick its own folder.": "У меню чату можна вибрати для нього окрему папку.",
+ 		"A direct link to a .ts or .js file. It goes into the scripts folder and stays off until you turn it on. tele checks the link for new versions.": "Пряме посилання на файл .ts або .js. Він потрапить до папки скриптів і буде вимкнений, доки ви його не увімкнете. tele перевірятиме, чи є за цим посиланням нові версії.",
+ 		"A direct link to the newest version of this .ts or .js file. tele checks it when you open the Scripts manager and every 6 hours, and offers an update when its version is newer. Leave it empty to stop checking.": "Пряме посилання на найновішу версію цього файлу .ts або .js. tele перевіряє його, коли ви відкриваєте менеджер скриптів, і кожні 6 годин, та пропонує оновлення, якщо версія новіша. Залиште порожнім, щоб не перевіряти.",
+@@ -1092,6 +1093,7 @@
+ 		"Freeze report sent": "Звіт про зависання надіслано",
+ 		"Friend": "Друг",
+ 		"From": "Від",
++		"From %1": "Від %1",
+ 		"From a chat's menu, in chats where you can't unpin.": "З меню чату, в чатах, де ви не можете відкріпити.",
+ 		"From a folder's menu, on this device only.": "З меню папки, лише на цьому пристрої.",
+ 		"From color": "Початковий колір",
+@@ -1210,6 +1212,8 @@
+ 		"Includes the gift button the message field shows on birthdays.": "Включно з кнопкою подарунка в полі введення в дні народження.",
+ 		"Including you": "Включно з вами",
+ 		"Incoming": "Вхідні",
++		"Incoming transfer": "Вхідний переказ",
++		"Incoming transfers in notifications": "Вхідні перекази в сповіщеннях",
+ 		"Indent selected lines with Tab": "Відступи у виділених рядках клавішею Tab",
+ 		"Indentation": "Відступ",
+ 		"Info": "Інфо",
+@@ -1284,6 +1288,7 @@
+ 		"Link rewrites": "Заміна посилань",
+ 		"Links": "Посилання",
+ 		"Links to a mini app you've opened before skip the terms box.": "Посилання на міні-застосунки, які ви вже відкривали, не показують вікно з умовами.",
++		"Listed on tele's Notifications page.": "Показуються на сторінці сповіщень tele.",
+ 		"Lists": "Списки",
+ 		"Live story skipped: watching it shows you to its author.": "Трансляцію в історії пропущено: під час перегляду автор побачить вас.",
+ 		"Load": "Завантажити",
+@@ -1421,6 +1426,7 @@
+ 		"New rule": "Нове правило",
+ 		"New settings": "Нові налаштування",
+ 		"New submenu": "Нове підменю",
++		"New transfers badge": "Значок нових переказів",
+ 		"No aliases yet. Pick Add alias in a chat's menu.": "Псевдонімів поки немає. Виберіть «Додати псевдонім» у меню чату.",
+ 		"No bookmarks": "Немає закладок",
+ 		"No chats yet. Pick Background for me in a chat's menu.": "Чатів поки немає. Виберіть «Фон для мене» в меню чату.",
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index 7188a99a1362ae9d26c5016f5aac56843f94cbf8..3f0bd912d0b55064ee5f8a2115b52a3f516b3f59 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -71,6 +71,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_communities.h"
+ #include "tele/tele_gift_offers.h"
++#include "tele/tele_money_incoming.h"
+ #include "tele/tele_kept_chats.h"
+ #include "tele/tele_kept_store.h"
+ #include "tele/tele_local_pins.h"
+@@ -305,6 +306,7 @@ Session::Session(
+ 	Tele::SetupProtectedCopies(this);
+ 	Tele::SetupCommunities(this);
+ 	Tele::SetupGiftOffers(this);
++	Tele::SetupMoneyIncoming(this);
+ 	Tele::SetupLocalPins(this);
+ 	Tele::SetupBookmarks(this);
+ 	Tele::SetupNoAi(this);
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 19daa2b655f410f023248555cd0827f83d3b7da6..240228dd3b5352b47b1352473a4943811357f963 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3122,6 +3122,16 @@ void FillChats(SectionBuilder &builder) {
+ 		::Tele::kOptionMoneyHideBalances,
+ 		{ u"wallet"_q, u"balance"_q, u"earnings"_q, u"walt"_q },
+ 		{ Off(::Tele::kOptionNoMoney) });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionIncomingTransfersNotify,
++		{ u"wallet"_q, u"grams"_q, u"received"_q },
++		{ Off(::Tele::kOptionNoMoney) });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionIncomingTransfersBadge,
++		{ u"wallet"_q, u"grams"_q, u"received"_q, u"counter"_q },
++		{ Off(::Tele::kOptionNoMoney) });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionNoWidgets,
+diff --git a/Telegram/SourceFiles/tele/tele_money_incoming.cpp b/Telegram/SourceFiles/tele/tele_money_incoming.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..125fc76b1944293d1c8a5968a06ed9db4d97501d
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_money_incoming.cpp
+@@ -0,0 +1,378 @@
++#include "tele/tele_money_incoming.h"
++
++#include "apiwrap.h"
++#include "base/timer.h"
++#include "data/data_session.h"
++#include "data/data_user.h"
++#include "data/data_channel.h"
++#include "history/history_item_helpers.h"
++#include "main/main_app_config.h"
++#include "main/main_session.h"
++#include "storage/details/storage_file_utilities.h"
++#include "storage/serialize_common.h"
++#include "storage/storage_account.h"
++#include "tele/tele_lowercase.h"
++#include "tele/tele_notices.h"
++#include "tele/tele_options.h"
++#include "ui/new_badges.h"
++#include "ui/rp_widget.h"
++#include "wallet/wallet_session.h"
++#include "styles/style_settings.h"
++
++#include <QtCore/QDir>
++#include <QtCore/QFile>
++#include <QtCore/QFileInfo>
++#include <QtCore/QSaveFile>
++
++namespace Tele {
++namespace {
++
++using namespace Storage::details;
++
++// The server pushes updateWalletState when the balance changes; this only
++// covers a push that never came.
++constexpr auto kPollInterval = 10 * 60 * crl::time(1000);
++constexpr auto kPageLimit = 20;
++constexpr auto kMaxSeen = 200;
++constexpr auto kMagic = quint32(0x7E1E4D49);
++constexpr auto kVersion = qint32(1);
++
++class Tracker final {
++public:
++	explicit Tracker(not_null<Main::Session*> session);
++	~Tracker();
++
++	[[nodiscard]] rpl::producer<int> unseenValue() const;
++	void markSeen();
++
++private:
++	[[nodiscard]] bool active() const;
++	[[nodiscard]] QString path() const;
++	void refreshActive();
++	void poll();
++	void check();
++	void apply(const MTPwallet_Transactions &result);
++	void remember(const QString &id);
++	void read();
++	void write();
++
++	const not_null<Main::Session*> _session;
++	base::Timer _timer;
++	rpl::variable<int> _unseen = 0;
++	std::deque<QString> _order;
++	base::flat_set<QString> _seen;
++	bool _baseline = false;
++	int64 _balance = -1;
++	mtpRequestId _requestId = 0;
++	rpl::lifetime _lifetime;
++
++};
++
++[[nodiscard]] base::flat_map<
++	not_null<Main::Session*>,
++	std::unique_ptr<Tracker>> &Registry() {
++	static auto result = base::flat_map<
++		not_null<Main::Session*>,
++		std::unique_ptr<Tracker>>();
++	return result;
++}
++
++[[nodiscard]] Tracker *Find(not_null<Main::Session*> session) {
++	const auto i = Registry().find(session);
++	return (i != end(Registry())) ? i->second.get() : nullptr;
++}
++
++[[nodiscard]] QString FromText(
++		not_null<Main::Session*> session,
++		const MTPWalletTransactionPeer &peer) {
++	const auto shortAddress = [](const QString &address) {
++		return (address.size() > 12)
++			? (address.left(4) + QString::fromUtf8("\xe2\x80\xa6")
++				+ address.right(4))
++			: address;
++	};
++	return peer.match([&](const MTPDwalletTransactionPeerUser &data) {
++		const auto user = session->data().userLoaded(data.vuser_id());
++		return user ? user->name() : shortAddress(qs(data.vaddress()));
++	}, [&](const MTPDwalletTransactionPeerChannel &data) {
++		const auto channel = session->data().channelLoaded(
++			data.vchannel_id());
++		return channel ? channel->name() : shortAddress(qs(data.vaddress()));
++	}, [&](const MTPDwalletTransactionPeerAddress &data) {
++		const auto domain = data.vdomain();
++		return domain ? qs(*domain) : shortAddress(qs(data.vaddress()));
++	}, [&](const MTPDwalletTransactionPeerOnramp &data) {
++		return qs(data.vprovider_name());
++	}, [](const auto &) {
++		return QString();
++	});
++}
++
++Tracker::Tracker(not_null<Main::Session*> session)
++: _session(session)
++, _timer([=] { poll(); }) {
++	read();
++	rpl::merge(
++		MoneyIncomingChanges(),
++		_session->appConfig().value() | rpl::to_empty
++	) | rpl::on_next([=] {
++		refreshActive();
++	}, _lifetime);
++	_session->wallet().balanceNanoValue(
++	) | rpl::on_next([=](int64 balance) {
++		const auto grew = (_balance >= 0) && (balance > _balance);
++		_balance = balance;
++		if (grew && active()) {
++			check();
++		}
++	}, _lifetime);
++	refreshActive();
++}
++
++Tracker::~Tracker() {
++	write();
++	if (_requestId) {
++		_session->api().request(base::take(_requestId)).cancel();
++	}
++}
++
++bool Tracker::active() const {
++	return (IncomingTransfersNotify() || IncomingTransfersBadge())
++		&& _session->appConfig().walletAvailable();
++}
++
++void Tracker::refreshActive() {
++	if (!active()) {
++		_timer.cancel();
++		if (!IncomingTransfersBadge() && _unseen.current()) {
++			_unseen = 0;
++			write();
++		}
++		return;
++	}
++	if (!_timer.isActive()) {
++		_timer.callEach(kPollInterval);
++	}
++	if (!_baseline) {
++		check();
++	}
++}
++
++void Tracker::poll() {
++	// While Money is open it polls the history itself.
++	if (active() && !_session->wallet().panel()) {
++		check();
++	}
++}
++
++void Tracker::check() {
++	if (_requestId) {
++		return;
++	}
++	using Flag = MTPwallet_GetTransactions::Flag;
++	_requestId = _session->api().request(MTPwallet_GetTransactions(
++		MTP_flags(Flag::f_inbound),
++		MTP_string(),
++		MTP_int(kPageLimit)
++	)).done([=](const MTPwallet_Transactions &result) {
++		_requestId = 0;
++		apply(result);
++	}).fail([=] {
++		_requestId = 0;
++	}).send();
++}
++
++void Tracker::apply(const MTPwallet_Transactions &result) {
++	const auto &data = result.data();
++	_session->data().processUsers(data.vusers());
++	_session->data().processChats(data.vchats());
++	const auto &list = data.vtransactions().v;
++	const auto first = !_baseline;
++	_baseline = true;
++	auto added = 0;
++	// The page is newest first: announce the oldest new one first.
++	for (auto i = list.size(); i != 0;) {
++		const auto &item = list[--i].data();
++		const auto id = qs(item.vid());
++		if (_seen.contains(id)) {
++			continue;
++		}
++		remember(id);
++		if (first
++			|| !item.is_incoming()
++			|| item.is_failed()
++			|| item.is_key_change()
++			|| item.is_suspected_spam()
++			|| item.vnft()
++			|| item.vamount().v <= 0) {
++			continue;
++		}
++		++added;
++		if (IncomingTransfersNotify()) {
++			const auto from = FromText(_session, item.vpeer());
++			Notify(_session, {
++				.kind = NoticeKind::Money,
++				.tone = NoticeTone::Success,
++				.date = item.vdate().v,
++				.title = u"+"_q + PrepareGramAmountText(item.vamount().v),
++				.text = { from.isEmpty()
++					? Lower(u"Incoming transfer"_q)
++					: Lower(u"From %1"_q).arg(from) },
++			});
++		}
++	}
++	if (added && IncomingTransfersBadge()) {
++		_unseen = _unseen.current() + added;
++	}
++	write();
++}
++
++void Tracker::remember(const QString &id) {
++	_seen.emplace(id);
++	_order.push_back(id);
++	while (_order.size() > kMaxSeen) {
++		_seen.remove(_order.front());
++		_order.pop_front();
++	}
++}
++
++rpl::producer<int> Tracker::unseenValue() const {
++	return _unseen.value();
++}
++
++void Tracker::markSeen() {
++	if (_unseen.current()) {
++		_unseen = 0;
++		write();
++	}
++}
++
++QString Tracker::path() const {
++	const auto support = _session->local().supportModePath();
++	return QFileInfo(support).absolutePath() + u"/tele_money_incoming"_q;
++}
++
++void Tracker::read() {
++	const auto key = _session->local().peekLegacyLocalKey();
++	auto file = QFile(path());
++	if (!key || !file.open(QIODevice::ReadOnly)) {
++		return;
++	}
++	auto stream = QDataStream(&file);
++	stream.setVersion(QDataStream::Qt_5_1);
++	auto magic = quint32();
++	auto version = qint32();
++	auto encrypted = QByteArray();
++	stream >> magic >> version >> encrypted;
++	auto data = EncryptedDescriptor();
++	if (stream.status() != QDataStream::Ok
++		|| magic != kMagic
++		|| version != kVersion
++		|| !DecryptLocal(data, encrypted, key)) {
++		return;
++	}
++	auto unseen = qint32();
++	auto count = qint32();
++	data.stream >> unseen >> count;
++	if (data.stream.status() != QDataStream::Ok
++		|| unseen < 0
++		|| count < 0
++		|| count > kMaxSeen) {
++		return;
++	}
++	for (auto i = 0; i != count; ++i) {
++		auto id = QString();
++		data.stream >> id;
++		if (data.stream.status() != QDataStream::Ok) {
++			return;
++		}
++		remember(id);
++	}
++	_baseline = true;
++	_unseen = unseen;
++}
++
++void Tracker::write() {
++	const auto key = _session->local().peekLegacyLocalKey();
++	if (!key || !_baseline) {
++		return;
++	}
++	auto size = int(sizeof(qint32) * 2);
++	for (const auto &id : _order) {
++		size += Serialize::stringSize(id);
++	}
++	auto data = EncryptedDescriptor(size);
++	data.stream << qint32(_unseen.current()) << qint32(_order.size());
++	for (const auto &id : _order) {
++		data.stream << id;
++	}
++	const auto path = this->path();
++	QDir().mkpath(QFileInfo(path).absolutePath());
++	auto file = QSaveFile(path);
++	if (!file.open(QIODevice::WriteOnly)) {
++		return;
++	}
++	auto stream = QDataStream(&file);
++	stream.setVersion(QDataStream::Qt_5_1);
++	stream << kMagic << kVersion << PrepareEncrypted(data, key);
++	if (stream.status() == QDataStream::Ok) {
++		file.commit();
++	}
++}
++
++} // namespace
++
++void SetupMoneyIncoming(not_null<Main::Session*> session) {
++	Registry().emplace(session, std::make_unique<Tracker>(session));
++	session->lifetime().add([=] {
++		Registry().remove(session);
++	});
++}
++
++void MoneyIncomingSeen(not_null<Main::Session*> session) {
++	if (const auto tracker = Find(session)) {
++		tracker->markSeen();
++	}
++}
++
++void AddMoneyIncomingBadge(
++		not_null<Ui::RpWidget*> button,
++		not_null<Main::Session*> session,
++		rpl::producer<QString> text,
++		const style::SettingsButton &st) {
++	const auto tracker = Find(session);
++	if (!tracker) {
++		return;
++	}
++	auto count = tracker->unseenValue();
++	const auto badge = Ui::NewBadge::CreateNewBadge(
++		button,
++		rpl::duplicate(count) | rpl::map([](int value) {
++			return u"+"_q + QString::number(value);
++		}));
++	rpl::combine(
++		std::move(text),
++		std::move(count),
++		button->widthValue(),
++		badge->widthValue()
++	) | rpl::on_next([=, &st](
++			const QString &text,
++			int count,
++			int width,
++			int) {
++		const auto left = st.padding.left()
++			+ st.style.font->width(text)
++			+ st.style.font->spacew;
++		const auto available = width - left - st.padding.right();
++		badge->setVisible(count > 0 && available >= badge->width());
++		if (!badge->isHidden()) {
++			const auto top = st.padding.top()
++				+ st.style.font->ascent
++				- st::settingsPremiumNewBadge.style.font->ascent
++				- st::settingsPremiumNewBadgePadding.top();
++			badge->moveToLeft(left, top, width);
++		}
++	}, badge->lifetime());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_money_incoming.h b/Telegram/SourceFiles/tele/tele_money_incoming.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..7c73fe3a37fdcd40b5659fbb1f734e6f9f95acf0
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_money_incoming.h
+@@ -0,0 +1,25 @@
++#pragma once
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class RpWidget;
++} // namespace Ui
++
++namespace style {
++struct SettingsButton;
++} // namespace style
++
++namespace Tele {
++
++void SetupMoneyIncoming(not_null<Main::Session*> session);
++void MoneyIncomingSeen(not_null<Main::Session*> session);
++void AddMoneyIncomingBadge(
++	not_null<Ui::RpWidget*> button,
++	not_null<Main::Session*> session,
++	rpl::producer<QString> text,
++	const style::SettingsButton &st);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_notices.cpp b/Telegram/SourceFiles/tele/tele_notices.cpp
+index 0365538c133fc122bdc024a951981e12d57d18ee..ce5329b5abfeb24d69776929d13c544053f4621b 100644
+--- a/Telegram/SourceFiles/tele/tele_notices.cpp
++++ b/Telegram/SourceFiles/tele/tele_notices.cpp
+@@ -62,6 +62,7 @@ constexpr auto kKindNames = std::array{
+ 	std::pair{ NoticeKind::Mention, "mention" },
+ 	std::pair{ NoticeKind::Copy, "copy" },
+ 	std::pair{ NoticeKind::Script, "script" },
++	std::pair{ NoticeKind::Money, "money" },
+ };
+ 
+ constexpr auto kToneNames = std::array{
+diff --git a/Telegram/SourceFiles/tele/tele_notices.h b/Telegram/SourceFiles/tele/tele_notices.h
+index dbdebf06d3dcb8885218fcc0168307b311c58ac3..214af6e6e0e66fc3a20fc212dc1a307fa7e2db22 100644
+--- a/Telegram/SourceFiles/tele/tele_notices.h
++++ b/Telegram/SourceFiles/tele/tele_notices.h
+@@ -23,6 +23,7 @@ enum class NoticeKind : uchar {
+ 	Mention,
+ 	Copy,
+ 	Script,
++	Money,
+ };
+ 
+ enum class NoticeTone : uchar {
+diff --git a/Telegram/SourceFiles/tele/tele_notices_section.cpp b/Telegram/SourceFiles/tele/tele_notices_section.cpp
+index 4056522d5e1af3ac162fad05e7de63013df0e461..08d5f1d9583958eba15418649f7e8d6f5542366d 100644
+--- a/Telegram/SourceFiles/tele/tele_notices_section.cpp
++++ b/Telegram/SourceFiles/tele/tele_notices_section.cpp
+@@ -21,6 +21,7 @@
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "ui/wrap/vertical_layout.h"
++#include "wallet/wallet_panel.h"
+ #include "window/window_session_controller.h"
+ #include "styles/style_basic.h"
+ #include "styles/style_dialogs.h"
+@@ -121,6 +122,7 @@ enum class Filter : uchar {
+ 	case NoticeKind::Mention: return MentionIcon(reply);
+ 	case NoticeKind::Copy: return st::menuIconCopy;
+ 	case NoticeKind::Script: return st::menuIconExperimental;
++	case NoticeKind::Money: return st::menuIconGrams;
+ 	}
+ 	Unexpected("Kind in Tele::KindIcon.");
+ }
+@@ -143,6 +145,7 @@ enum class Filter : uchar {
+ 	case NoticeKind::Mention: return st::settingsIconBg4;
+ 	case NoticeKind::Copy: return st::settingsIconBg3;
+ 	case NoticeKind::Script: return st::settingsIconBg6;
++	case NoticeKind::Money: return st::settingsIconBg2;
+ 	}
+ 	Unexpected("Kind in Tele::KindColor.");
+ }
+@@ -600,6 +603,8 @@ void Entry::activate() {
+ 		TextUtilities::SetClipboardText(TextForMimeData::Rich(
+ 			base::duplicate(_notice.value)));
+ 		_controller->showToast(Lower(u"Copied to clipboard."_q));
++	} else if (_notice.kind == NoticeKind::Money) {
++		Wallet::ShowWallet(&_controller->session());
+ 	} else if (_notice.kind == NoticeKind::Mention && _notice.peer) {
+ 		ShowMentionNotice(_controller, _notice);
+ 	} else if (_notice.peer) {
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index d1d05508eac082344e83428db7e5e9fdb7f997c7..41d601da9f67328ae5781c83780ac81eee7d172d 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -82,6 +82,8 @@ const char kOptionNoAi[] = "tele-no-ai";
+ const char kOptionNoMoney[] = "tele-no-money";
+ const char kOptionNoWidgets[] = "tele-no-widgets";
+ const char kOptionMoneyHideBalances[] = "tele-money-hide-balances";
++const char kOptionIncomingTransfersNotify[] = "tele-money-incoming-notify";
++const char kOptionIncomingTransfersBadge[] = "tele-money-incoming-badge";
+ const char kOptionEmojiPanelClick[] = "tele-emoji-panel-click";
+ const char kOptionAttachMenuClick[] = "tele-attach-menu-click";
+ const char kOptionPinSets[] = "tele-pin-sets";
+@@ -747,6 +749,19 @@ base::options::toggle NoMoneyOption({
+ 	.restartRequired = true,
+ });
+ 
++base::options::toggle IncomingTransfersNotifyOption({
++	.id = kOptionIncomingTransfersNotify,
++	.name = "Incoming transfers in notifications",
++	.description = "Listed on tele's Notifications page.",
++});
++
++base::options::toggle IncomingTransfersBadgeOption({
++	.id = kOptionIncomingTransfersBadge,
++	.name = "New transfers badge",
++	.description = "A +N pill next to Money in the main menu until you "
++		"open it.",
++});
++
+ base::options::toggle NoWidgetsOption({
+ 	.id = kOptionNoWidgets,
+ 	.name = "Turn off widgets",
+@@ -2566,6 +2581,20 @@ bool NoAi() {
+ 	return NoAiOption.value();
+ }
+ 
++bool IncomingTransfersNotify() {
++	return !NoMoney() && IncomingTransfersNotifyOption.value();
++}
++
++bool IncomingTransfersBadge() {
++	return !NoMoney() && IncomingTransfersBadgeOption.value();
++}
++
++rpl::producer<> MoneyIncomingChanges() {
++	return rpl::merge(
++		IncomingTransfersNotifyOption.changes(),
++		IncomingTransfersBadgeOption.changes());
++}
++
+ bool NoMoney() {
+ 	return NoMoneyOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index c441320f5c7cf3f29f8df76ca8c6cf1f0289313c..ede36c5368f068e5440ae8a513c517c2ffbe916b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -77,6 +77,8 @@ extern const char kOptionNoAi[];
+ extern const char kOptionNoMoney[];
+ extern const char kOptionNoWidgets[];
+ extern const char kOptionMoneyHideBalances[];
++extern const char kOptionIncomingTransfersNotify[];
++extern const char kOptionIncomingTransfersBadge[];
+ extern const char kOptionEmojiPanelClick[];
+ extern const char kOptionAttachMenuClick[];
+ extern const char kOptionPinSets[];
+@@ -391,6 +393,9 @@ void SetReactionsOrder(const QString &value);
+ [[nodiscard]] rpl::producer<QString> ReactionsOrderValue();
+ [[nodiscard]] bool NoAi();
+ [[nodiscard]] bool NoMoney();
++[[nodiscard]] bool IncomingTransfersNotify();
++[[nodiscard]] bool IncomingTransfersBadge();
++[[nodiscard]] rpl::producer<> MoneyIncomingChanges();
+ [[nodiscard]] bool NoWidgets();
+ [[nodiscard]] rpl::producer<bool> MoneyHideBalancesValue();
+ void SetMoneyHideBalances(bool hidden);
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 63f8608563f55551be141e566e2af65e674d3eab..d9f6a98a4c65f63a1cee4f1f2a86a1dbf7058a9b 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -184,6 +184,8 @@ struct Spec {
+ 		Toggle(kOptionNoMoney),
+ 		Toggle(kOptionNoWidgets),
+ 		Toggle(kOptionMoneyHideBalances),
++		Toggle(kOptionIncomingTransfersNotify),
++		Toggle(kOptionIncomingTransfersBadge),
+ 		Toggle(kOptionEmojiPanelClick),
+ 		Toggle(kOptionAttachMenuClick),
+ 		Toggle(kOptionPinSets),
+diff --git a/Telegram/SourceFiles/wallet/wallet_panel.cpp b/Telegram/SourceFiles/wallet/wallet_panel.cpp
+index 4bc56ca95a4f364546b18adbf3a357c90e031909..97f70b96fec1a2e38766050a3663cce3765f6941 100644
+--- a/Telegram/SourceFiles/wallet/wallet_panel.cpp
++++ b/Telegram/SourceFiles/wallet/wallet_panel.cpp
+@@ -18,6 +18,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_domain.h"
+ #include "main/main_session.h"
+ #include "tele/tele_no_money.h"
++#include "tele/tele_money_incoming.h"
+ #include "ui/controls/ton_common.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+ #include "ui/widgets/separate_panel.h"
+@@ -69,6 +70,7 @@ namespace {
+ } // namespace
+ 
+ not_null<Ui::SeparatePanel*> ShowWallet(not_null<Main::Session*> session) {
++	Tele::MoneyIncomingSeen(session);
+ 	auto &wallet = session->wallet();
+ 	wallet.tonConnect().refreshSessions();
+ 	RefreshOwnCard(session);
+diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
+index 0f4ed81ce7b86c4431cd8195cd84f3880dbee2bc..fc21fed3decfacf059a74123b00af5d0f4d4c6a4 100644
+--- a/Telegram/SourceFiles/window/window_main_menu.cpp
++++ b/Telegram/SourceFiles/window/window_main_menu.cpp
+@@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_counters.h"
+ #include "tele/tele_ghost.h"
+ #include "tele/tele_gift_studio_menu.h"
++#include "tele/tele_money_incoming.h"
+ #include "tele/tele_new_settings.h"
+ #include "tele/tele_streamer_mode.h"
+ #include "tele/scripting/tele_script_menus_ui.h"
+@@ -758,6 +759,11 @@ void MainMenu::setupMenu() {
+ 			controller->window().hideSettingsAndLayer();
+ 			Wallet::ShowWallet(session);
+ 		});
++		Tele::AddMoneyIncomingBadge(
++			wallet->entity(),
++			session,
++			tr::lng_wallet_menu(),
++			st::mainMenuButton);
+ 	} else {
+ 		addAction(
+ 			tr::lng_profile_add_contact(),

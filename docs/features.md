@@ -91,6 +91,7 @@ settings → tele → chats.
 | [355](../patches/tdesktop/0355-feat-plain-search-calendar.patch) | the chat search calendar without photo and video thumbnails on its days, like before telegram desktop 7.4.6 | tele → chats, off |
 | [357](../patches/tdesktop/0357-feat-turn-off-money-also-covers-on-chain-gift-offers.patch) | turn off money also hides incoming gift offers, the review and withdraw buttons on offer cards and the grams filter of the gift market | with 286 |
 | [358](../patches/tdesktop/0358-feat-turn-off-ai-features-also-covers-bot-info-editi.patch) | turn off ai features also removes the ai rewrite button and the translate actions when editing your bot's info | with 135 |
+| [360](../patches/tdesktop/0360-feat-notify-about-incoming-money-transfers.patch) | incoming money transfers can show up on tele's notifications page and as a +N pill next to Money in the main menu until you open it. tele checks when telegram reports a new balance and every 10 minutes while Money is closed | tele → chats, off |
 
 ## messages
 
