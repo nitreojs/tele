@@ -7,7 +7,8 @@ Subject: [PATCH] feat: ship the widget helper with updates
  Telegram/Resources/tele/translations/ru.json |   3 +
  Telegram/Resources/tele/translations/uk.json |   3 +
  Telegram/SourceFiles/tele/tele_updater.cpp   | 170 +++++++++++++++++--
- 3 files changed, 158 insertions(+), 18 deletions(-)
+ Telegram/cmake/telegram_widget_helper.cmake  |   3 +-
+ 4 files changed, 160 insertions(+), 19 deletions(-)
 
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
 index 2c12cffdc4364e2478aa849a15bd5fcf16c2c527..505226b2a8db2651feeeedfd858f50cc5e7763e0 100644
@@ -347,3 +348,17 @@ index 3989dd630c127fededee9358b35f241437a42f42..195bfb49a00b2bb9f7b7fb0f413dc7e2
  		fail(u"can't put the new binary in place"_q);
  		return;
  	}
+diff --git a/Telegram/cmake/telegram_widget_helper.cmake b/Telegram/cmake/telegram_widget_helper.cmake
+index fa64430cc2042c5c7a3c7e66e79485c0fbe27711..164494c13df6d3dab45a03de9f3d28405b565023 100644
+--- a/Telegram/cmake/telegram_widget_helper.cmake
++++ b/Telegram/cmake/telegram_widget_helper.cmake
+@@ -198,7 +198,8 @@ else()
+     if (DESKTOP_APP_USE_PACKAGED)
+         include(GNUInstallDirs)
+         set(widget_helper_destination "${CMAKE_INSTALL_BINDIR}/TelegramHelpers")
+-        if (NOT DESKTOP_APP_SPECIAL_TARGET)
++        # tele release zips are portable: they keep upstream's TelegramHelpers layout and pin.
++        if (NOT DESKTOP_APP_SPECIAL_TARGET AND NOT TELE_BUILD)
+             file(RELATIVE_PATH widget_helper_folder
+                 "${CMAKE_INSTALL_FULL_BINDIR}"
+                 "${CMAKE_INSTALL_FULL_LIBEXECDIR}/TelegramDesktop")
