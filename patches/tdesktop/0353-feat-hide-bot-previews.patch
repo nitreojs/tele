@@ -1,0 +1,151 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:26:03 +0300
+Subject: [PATCH] feat: hide bot previews
+
+---
+ Telegram/Resources/tele/translations/ru.json          |  2 ++
+ Telegram/Resources/tele/translations/uk.json          |  2 ++
+ .../info/profile/info_profile_inner_widget.cpp        |  2 +-
+ Telegram/SourceFiles/settings/settings_tele.cpp       |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp            | 11 +++++++++++
+ Telegram/SourceFiles/tele/tele_options.h              |  2 ++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp        |  1 +
+ 7 files changed, 23 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 505226b2a8db2651feeeedfd858f50cc5e7763e0..5486cb96f6d50db2364d95b9be9b1927e140afe9 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -1141,6 +1141,7 @@
+ 		"Hide": "Скрыть",
+ 		"Hide and show the pinned bar": "Скрывать и показывать панель закреплённых сообщений",
+ 		"Hide birthday banners and effects": "Скрывать баннеры и эффекты дней рождения",
++		"Hide bot previews": "Скрывать превью ботов",
+ 		"Hide bubble tails": "Скрывать хвостики облачков",
+ 		"Hide communities": "Скрывать сообщества",
+ 		"Hide ignored messages completely": "Полностью скрывать игнорируемые сообщения",
+@@ -2159,6 +2160,7 @@
+ 		"The request is malformed.": "Некорректный запрос.",
+ 		"The rich message can't be read": "Не удаётся прочитать расширенное сообщение",
+ 		"The same passcode as tele's local passcode. It locks tele at startup only if Lock Telegram with passcode is on in its settings.": "Тот же код-пароль, что и локальный код-пароль tele. Он блокирует tele при запуске, только если в настройках код-пароля включено «Использовать для Telegram».",
++		"The screenshots and videos bots show on their profile.": "Скриншоты и видео, которые боты показывают в профиле.",
+ 		"The script isn't running.": "Скрипт не запущен.",
+ 		"The secret chat answer is invalid.": "Неверный ответ на запрос создания секретного чата.",
+ 		"The secret chat ended.": "Секретный чат завершён.",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index 37570dea3a3a58b1c3c4c4f1b27c9ab88b6c8ad8..a26a0b518305fc1f3df284f1191c591d6f4055b2 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -1141,6 +1141,7 @@
+ 		"Hide": "Приховувати",
+ 		"Hide and show the pinned bar": "Приховувати й показувати панель закріплених",
+ 		"Hide birthday banners and effects": "Приховати банери й ефекти днів народження",
++		"Hide bot previews": "Приховувати прев’ю ботів",
+ 		"Hide bubble tails": "Приховати хвостики бульбашок",
+ 		"Hide communities": "Приховати спільноти",
+ 		"Hide ignored messages completely": "Повністю приховувати ігноровані повідомлення",
+@@ -2159,6 +2160,7 @@
+ 		"The request is malformed.": "Некоректний запит.",
+ 		"The rich message can't be read": "Не вдається прочитати розширене повідомлення",
+ 		"The same passcode as tele's local passcode. It locks tele at startup only if Lock Telegram with passcode is on in its settings.": "Той самий код доступу, що й локальний код доступу tele. Він блокує tele під час запуску, лише якщо в налаштуваннях коду доступу ввімкнено «Блокувати Telegram кодом доступу».",
++		"The screenshots and videos bots show on their profile.": "Знімки екрана й відео, які боти показують у профілі.",
+ 		"The script isn't running.": "Скрипт не запущений.",
+ 		"The secret chat answer is invalid.": "Некоректна відповідь секретного чату.",
+ 		"The secret chat ended.": "Секретний чат завершено.",
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
+index 67d6fb1651b8e2501070f092141263f751060796..a0022262d8742fd10b28bbbaf61b19582a00187e 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_inner_widget.cpp
+@@ -219,7 +219,7 @@ object_ptr<Ui::RpWidget> InnerWidget::setupContent(
+ 			? _sublist->sublistPeer()->id
+ 			: PeerId();
+ 		auto tabs = std::vector<MediaTabDescriptor>();
+-		if (bot) {
++		if (bot && !Tele::HideBotPreviews()) {
+ 			tabs.push_back(MakeBotMediaPreviewsTab(bot));
+ 		}
+ 		const auto countValue = [&](Storage::SharedMediaType type) {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 9997e4ae441f8866c4a3d5345b47d2ec412b7fce..fce3a4d11ccf8fd459864dfa7afa07d66dd35868 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3903,6 +3903,10 @@ void FillPrivacy(SectionBuilder &builder) {
+ 		::Tele::kOptionInvisibleStories,
+ 		{},
+ 		{ Off(::Tele::kOptionHideStories) });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideBotPreviews,
++		{ u"bots"_q, u"screenshots"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Drafts"_q);
+ 	AddLocalDrafts(builder);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 86946e3e9b206ac600ea4c215d490a4af87f6f09..28af222589ec861658b69c53e42f80aeb04e688b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -7,6 +7,7 @@ namespace Tele {
+ 
+ const char kOptionHideStories[] = "tele-hide-stories";
+ const char kOptionInvisibleStories[] = "tele-invisible-stories";
++const char kOptionHideBotPreviews[] = "tele-hide-bot-previews";
+ const char kOptionGhost[] = "tele-ghost";
+ const char kOptionGhostInMenu[] = "tele-ghost-in-menu";
+ const char kOptionGhostRead[] = "tele-ghost-read";
+@@ -293,6 +294,12 @@ base::options::toggle InvisibleStoriesOption({
+ 	.description = "Reactions, replies and live stories still reveal you.",
+ });
+ 
++base::options::toggle HideBotPreviewsOption({
++	.id = kOptionHideBotPreviews,
++	.name = "Hide bot previews",
++	.description = "The screenshots and videos bots show on their profile.",
++});
++
+ base::options::toggle GhostOption({
+ 	.id = kOptionGhost,
+ 	.name = "Ghost mode",
+@@ -1981,6 +1988,10 @@ bool WatchStoriesInvisibly() {
+ 	return InvisibleStoriesOption.value();
+ }
+ 
++bool HideBotPreviews() {
++	return HideBotPreviewsOption.value();
++}
++
+ bool GhostStories() {
+ 	return GhostStoriesOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index b8fb91a15c6b9b2f4a59120a81126de0a5e399db..6d28d7dfad6c8b0b40cae128e624a78114ea59fd 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -4,6 +4,7 @@ namespace Tele {
+ 
+ extern const char kOptionHideStories[];
+ extern const char kOptionInvisibleStories[];
++extern const char kOptionHideBotPreviews[];
+ extern const char kOptionGhost[];
+ extern const char kOptionGhostRead[];
+ extern const char kOptionGhostReadOnReply[];
+@@ -276,6 +277,7 @@ extern const char kOptionRemoveMyMessages[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool WatchStoriesInvisibly();
++[[nodiscard]] bool HideBotPreviews();
+ [[nodiscard]] bool GhostStories();
+ [[nodiscard]] rpl::producer<> InvisibleStoriesChanges();
+ [[nodiscard]] bool Ghost();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 7ca90047dae3cb4cac45544e779bc4e24ccaad2c..4501aa2cd8768e2f7be95846493538f4b4444892 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -111,6 +111,7 @@ struct Spec {
+ 	static const auto result = std::vector<Spec>{
+ 		Toggle(kOptionHideStories),
+ 		Toggle(kOptionInvisibleStories),
++		Toggle(kOptionHideBotPreviews),
+ 		Toggle(kOptionGhost),
+ 		Toggle(kOptionGhostInMenu),
+ 		Toggle(kOptionGhostRead),

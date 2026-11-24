@@ -4,9 +4,67 @@ Date: Tue, 24 Nov 2026 08:39:35 +0300
 Subject: [PATCH] feat: ship the widget helper with updates
 
 ---
- Telegram/SourceFiles/tele/tele_updater.cpp | 170 ++++++++++++++++++---
- 1 file changed, 152 insertions(+), 18 deletions(-)
+ Telegram/Resources/tele/translations/ru.json |   3 +
+ Telegram/Resources/tele/translations/uk.json |   3 +
+ Telegram/SourceFiles/tele/tele_updater.cpp   | 170 +++++++++++++++++--
+ 3 files changed, 158 insertions(+), 18 deletions(-)
 
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 2c12cffdc4364e2478aa849a15bd5fcf16c2c527..505226b2a8db2651feeeedfd858f50cc5e7763e0 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -2510,6 +2510,7 @@
+ 		"can't put the new app in place: %1": "не удалось поставить новое приложение на место: %1",
+ 		"can't put the new binary in place": "не удалось поставить новый файл на место",
+ 		"can't put the new exe in place": "не удалось поставить новый exe на место",
++		"can't put the new widget helper in place": "не удалось установить новый помощник виджетов",
+ 		"can't read ": "не удаётся прочитать ",
+ 		"can't read %1": "can't read %1",
+ 		"can't read the archive": "не удалось прочитать архив",
+@@ -2523,6 +2524,7 @@
+ 		"can't strip types": "не удаётся удалить типы",
+ 		"can't unpack %1 from the archive": "не удалось распаковать %1 из архива",
+ 		"can't write %1": "не удалось записать %1",
++		"can't write the widget helper next to tele": "не удалось записать помощник виджетов рядом с tele",
+ 		"can't write to the tele folder, download %1 from GitHub by hand": "нет доступа на запись в папку tele, скачайте %1 с GitHub вручную",
+ 		"change notification settings": "изменять настройки уведомлений",
+ 		"chat history": "история чата",
+@@ -2883,6 +2885,7 @@
+ 		"unknown rarity": "редкость неизвестна",
+ 		"unpacked app doesn't match the feed": "распакованное приложение не совпадает с фидом",
+ 		"unpacked exe doesn't match the feed": "распакованный exe не совпадает с фидом",
++		"unpacked widget helper doesn't match the feed": "распакованный помощник виджетов не совпадает с фидом",
+ 		"unsafe link %1 in the archive": "небезопасная ссылка %1 в архиве",
+ 		"unsafe path %1 in the archive": "небезопасный путь %1 в архиве",
+ 		"unsupported media": "неподдерживаемые медиа",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index 9752f3361882a540cc561e5f8bcfa4883fb212a3..37570dea3a3a58b1c3c4c4f1b27c9ab88b6c8ad8 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -2510,6 +2510,7 @@
+ 		"can't put the new app in place: %1": "не вдалося поставити новий застосунок на місце: %1",
+ 		"can't put the new binary in place": "не вдалося поставити новий файл на місце",
+ 		"can't put the new exe in place": "не вдалося поставити новий exe на місце",
++		"can't put the new widget helper in place": "не вдалося встановити новий помічник віджетів",
+ 		"can't read ": "не вдається прочитати ",
+ 		"can't read %1": "can't read %1",
+ 		"can't read the archive": "не вдалося прочитати архів",
+@@ -2523,6 +2524,7 @@
+ 		"can't strip types": "не вдається видалити типи",
+ 		"can't unpack %1 from the archive": "не вдалося розпакувати %1 з архіву",
+ 		"can't write %1": "не вдалося записати %1",
++		"can't write the widget helper next to tele": "не вдалося записати помічник віджетів поруч із tele",
+ 		"can't write to the tele folder, download %1 from GitHub by hand": "немає доступу на запис до папки tele, завантажте %1 з GitHub вручну",
+ 		"change notification settings": "змінювати налаштування сповіщень",
+ 		"chat history": "історія чату",
+@@ -2883,6 +2885,7 @@
+ 		"unknown rarity": "рідкість невідома",
+ 		"unpacked app doesn't match the feed": "розпакований застосунок не збігається з фідом",
+ 		"unpacked exe doesn't match the feed": "розпакований exe не збігається з фідом",
++		"unpacked widget helper doesn't match the feed": "розпакований помічник віджетів не збігається з фідом",
+ 		"unsafe link %1 in the archive": "небезпечне посилання %1 в архіві",
+ 		"unsafe path %1 in the archive": "небезпечний шлях %1 в архіві",
+ 		"unsupported media": "непідтримувані медіа",
 diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
 index 3989dd630c127fededee9358b35f241437a42f42..195bfb49a00b2bb9f7b7fb0f413dc7e23154b553 100644
 --- a/Telegram/SourceFiles/tele/tele_updater.cpp

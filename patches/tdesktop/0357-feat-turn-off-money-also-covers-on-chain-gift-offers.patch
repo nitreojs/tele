@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:30:49 +0300
+Subject: [PATCH] feat: turn off money also covers on-chain gift offers and the
+ grams filter
+
+---
+ .../SourceFiles/history/history_gift_onchain_offer.cpp     | 7 +++++--
+ Telegram/SourceFiles/main/main_app_config.cpp              | 6 +++++-
+ Telegram/SourceFiles/tele/tele_gift_offers.cpp             | 2 +-
+ 3 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_gift_onchain_offer.cpp b/Telegram/SourceFiles/history/history_gift_onchain_offer.cpp
+index b326d7f4dfc42ff9c183999d11e404a115783743..9929d25327e4bad90f2e60eaab87987f61c0faf3 100644
+--- a/Telegram/SourceFiles/history/history_gift_onchain_offer.cpp
++++ b/Telegram/SourceFiles/history/history_gift_onchain_offer.cpp
+@@ -16,6 +16,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history_item_components.h"
+ #include "history/history_item_helpers.h"
+ #include "lang/lang_keys.h"
++#include "tele/tele_options.h"
+ 
+ namespace {
+ 
+@@ -225,7 +226,8 @@ GiftOnchainOfferState ComputeGiftOnchainOfferState(
+ bool GiftOnchainOfferReviewable(
+ 		not_null<const HistoryServiceGiftOnchainOffer*> offer,
+ 		TimeId now) {
+-	return offer->gift
++	return !Tele::NoMoney()
++		&& offer->gift
+ 		&& !offer->buyer
+ 		&& (ComputeGiftOnchainOfferState(offer, now) == State::Open);
+ }
+@@ -241,7 +243,8 @@ bool CanWithdrawGiftOnchainOffer(
+ 		not_null<const HistoryItem*> item,
+ 		TimeId now) {
+ 	const auto offer = item->Get<HistoryServiceGiftOnchainOffer>();
+-	return offer
++	return !Tele::NoMoney()
++		&& offer
+ 		&& offer->gift
+ 		&& offer->buyer
+ 		&& item->isRegular()
+diff --git a/Telegram/SourceFiles/main/main_app_config.cpp b/Telegram/SourceFiles/main/main_app_config.cpp
+index d95af254c3d21b2066cd25b1e9705aae9a2a9bc2..d00bac8bad1f4968607350c95b0bb52efa9364b7 100644
+--- a/Telegram/SourceFiles/main/main_app_config.cpp
++++ b/Telegram/SourceFiles/main/main_app_config.cpp
+@@ -203,6 +203,9 @@ bool AppConfig::giftResaleFragmentEnabled() const {
+ }
+ 
+ GiftResaleFilterMode AppConfig::giftResaleTonFilter() const {
++	if (Tele::NoMoney()) {
++		return GiftResaleFilterMode::Hidden;
++	}
+ 	return ParseGiftResaleFilterMode(
+ 		get<QString>(u"stargifts_ton_resale"_q, u"default"_q));
+ }
+@@ -213,7 +216,8 @@ GiftResaleFilterMode AppConfig::giftResaleStarsFilter() const {
+ }
+ 
+ bool AppConfig::giftOnchainOffersEnabled() const {
+-	return get<bool>(u"onchain_stargift_offers_enabled"_q, true);
++	return !Tele::NoMoney()
++		&& get<bool>(u"onchain_stargift_offers_enabled"_q, true);
+ }
+ 
+ int AppConfig::pollOptionsLimit() const {
+diff --git a/Telegram/SourceFiles/tele/tele_gift_offers.cpp b/Telegram/SourceFiles/tele/tele_gift_offers.cpp
+index e582aa30425758e34d035493a14d0501a6c8087c..62654ba2bad08d59501facb13cff4d091619cd7b 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_offers.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_offers.cpp
+@@ -34,7 +34,7 @@ void RefreshOfferViews(not_null<Main::Session*> session) {
+ } // namespace
+ 
+ bool GiftOfferHidden(not_null<const HistoryItem*> item) {
+-	return HideGiftOffers() && IsIncomingGiftOffer(item);
++	return (HideGiftOffers() || NoMoney()) && IsIncomingGiftOffer(item);
+ }
+ 
+ bool GiftOfferServiceHidden(not_null<const HistoryView::Element*> view) {

@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:32:04 +0300
+Subject: [PATCH] feat: turn off ai features also covers bot info editing
+
+---
+ .../boxes/peers/bot_info_language_button.cpp           | 10 ++++++----
+ Telegram/SourceFiles/boxes/peers/edit_bot_info_box.cpp |  5 ++++-
+ .../boxes/peers/edit_bot_info_box_content.cpp          |  3 ++-
+ .../boxes/peers/edit_bot_info_box_content.h            |  1 +
+ 4 files changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/Telegram/SourceFiles/boxes/peers/bot_info_language_button.cpp b/Telegram/SourceFiles/boxes/peers/bot_info_language_button.cpp
+index ca42c07c62b00230cf87d4c147038458f806f253..66589d8e075852856e5c63faf5a2359a9c0e9cd5 100644
+--- a/Telegram/SourceFiles/boxes/peers/bot_info_language_button.cpp
++++ b/Telegram/SourceFiles/boxes/peers/bot_info_language_button.cpp
+@@ -262,10 +262,12 @@ void FillBotInfoLanguageMenu(
+ 			state->loadingAction->setEnabled(false);
+ 		}
+ 		menu->addSeparator();
+-		menu->addAction(
+-			tr::lng_bot_languages_translate(tr::now),
+-			translate,
+-			&st::menuIconTranslate);
++		if (translate) {
++			menu->addAction(
++				tr::lng_bot_languages_translate(tr::now),
++				translate,
++				&st::menuIconTranslate);
++		}
+ 		menu->addAction(
+ 			tr::lng_bot_languages_add(tr::now),
+ 			add,
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_bot_info_box.cpp b/Telegram/SourceFiles/boxes/peers/edit_bot_info_box.cpp
+index f4184205d8730678fd1db2ec68ac653104f1d3f9..b1eb56dcdcf516055ae1e9b0a01cca505d1d6183 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_bot_info_box.cpp
++++ b/Telegram/SourceFiles/boxes/peers/edit_bot_info_box.cpp
+@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/view/controls/history_view_compose_ai_button.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_options.h"
+ #include "ui/controls/compose_ai_button_factory.h"
+ #include "ui/layers/generic_box.h"
+ #include "ui/widgets/fields/input_field.h"
+@@ -88,7 +89,8 @@ void EditBotInfoBox(
+ 			Fn<QString()> source) {
+ 		AddAiButton(box, bot, field, std::move(source));
+ 	});
+-	const auto hideAi = base::options::value<bool>(Ui::kOptionHideAiButton);
++	const auto hideAi = base::options::value<bool>(Ui::kOptionHideAiButton)
++		|| Tele::NoAi();
+ 	EditBotInfoBoxContent(box, {
+ 		.localization = bot->session().api().botInfoLocalizations().get(bot),
+ 		.username = bot->username(),
+@@ -104,6 +106,7 @@ void EditBotInfoBox(
+ 			(*emoji)->attach(field);
+ 		},
+ 		.addAiButton = hideAi ? AddAi() : addAiButton,
++		.noTranslate = Tele::NoAi(),
+ 		.chooseImportFile = [=](Fn<void(QByteArray, QString)> done) {
+ 			FileDialog::GetOpenPath(
+ 				box.get(),
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.cpp b/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.cpp
+index 94977b99ed9e0334a88c4df373eb185b2e932f4d..2e5f4c5629e78ca4ad32a7f3258e519f0e66816e 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.cpp
++++ b/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.cpp
+@@ -114,6 +114,7 @@ void EditBotInfoBoxContent(
+ 	const auto introPreview = args.introPreview;
+ 	const auto addEmojiButton = args.addEmojiButton;
+ 	const auto addAiButton = args.addAiButton;
++	const auto noTranslate = args.noTranslate;
+ 	const auto chooseImportFile = args.chooseImportFile;
+ 	const auto chooseExportFile = args.chooseExportFile;
+ 	const auto draft = &localization->draft();
+@@ -450,7 +451,7 @@ void EditBotInfoBoxContent(
+ 			}),
+ 			.choose = choose,
+ 			.add = addLanguage,
+-			.translate = translateTo,
++			.translate = noTranslate ? Fn<void()>() : translateTo,
+ 		});
+ 		popup(button);
+ 	};
+diff --git a/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.h b/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.h
+index 6e8943e6e270b05ddef45e85f6c0400f5a9f9dad..b253be95702b12ee5ed7f7e6a63dcb3199409767 100644
+--- a/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.h
++++ b/Telegram/SourceFiles/boxes/peers/edit_bot_info_box_content.h
+@@ -29,6 +29,7 @@ struct EditBotInfoBoxArgs {
+ 	Fn<void(
+ 		not_null<Ui::InputField*> field,
+ 		Fn<QString()> source)> addAiButton;
++	bool noTranslate = false;
+ 	Fn<void(
+ 		Fn<void(QByteArray content, QString path)> done)> chooseImportFile;
+ 	Fn<void(QString name, Fn<void(QString path)> done)> chooseExportFile;

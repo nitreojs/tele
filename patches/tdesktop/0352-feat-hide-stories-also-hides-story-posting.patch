@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:23:43 +0300
+Subject: [PATCH] feat: hide stories also hides story posting
+
+---
+ Telegram/SourceFiles/main/main_app_config.cpp             | 3 +++
+ Telegram/SourceFiles/media/stories/media_stories_post.cpp | 4 +++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/main/main_app_config.cpp b/Telegram/SourceFiles/main/main_app_config.cpp
+index 8f585fa9c02e3fcd6b11b82f2f1a5de05ac9cd85..d95af254c3d21b2066cd25b1e9705aae9a2a9bc2 100644
+--- a/Telegram/SourceFiles/main/main_app_config.cpp
++++ b/Telegram/SourceFiles/main/main_app_config.cpp
+@@ -314,6 +314,9 @@ int AppConfig::storiesAlbumLimit() const {
+ }
+ 
+ bool AppConfig::storiesPostingAvailable() const {
++	if (Tele::HideStories()) {
++		return false;
++	}
+ 	const auto value = get<QString>(u"stories_posting"_q, u"enabled"_q);
+ 	return (value != u"disabled"_q);
+ }
+diff --git a/Telegram/SourceFiles/media/stories/media_stories_post.cpp b/Telegram/SourceFiles/media/stories/media_stories_post.cpp
+index 966bf31046371df7c521bb9227f907a28d1b69f3..09bf197b830e7181ae159ae81f53158def03b1a2 100644
+--- a/Telegram/SourceFiles/media/stories/media_stories_post.cpp
++++ b/Telegram/SourceFiles/media/stories/media_stories_post.cpp
+@@ -55,6 +55,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/file_download_web.h"
+ #include "storage/localimageloader.h"
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_options.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/image/image.h"
+ #include "ui/layers/generic_box.h"
+@@ -1244,7 +1245,8 @@ void ChooseStoryMedia(
+ }
+ 
+ bool CanPostStory(not_null<PeerData*> peer) {
+-	return peer->canPostStories()
++	return !Tele::HideStories()
++		&& peer->canPostStories()
+ 		&& peer->session().appConfig().storiesPostingAvailable();
+ }
+ 

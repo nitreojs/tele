@@ -1,0 +1,338 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:29:43 +0300
+Subject: [PATCH] feat: hide gift offers
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ Telegram/Resources/tele/translations/ru.json  |  2 +
+ Telegram/Resources/tele/translations/uk.json  |  2 +
+ .../history/view/history_view_element.cpp     |  4 +-
+ Telegram/SourceFiles/main/main_session.cpp    |  2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  4 ++
+ .../SourceFiles/tele/tele_gift_offers.cpp     | 51 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_gift_offers.h  | 20 ++++++++
+ Telegram/SourceFiles/tele/tele_ignored.cpp    |  6 ++-
+ Telegram/SourceFiles/tele/tele_options.cpp    | 15 ++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  3 ++
+ .../SourceFiles/tele/tele_settings_io.cpp     |  1 +
+ .../window/notifications_manager.cpp          |  2 +
+ 13 files changed, 111 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_offers.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_gift_offers.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index e4e1594d90d1abe973239742d44011eaa7e84016..b9ce64dbb96a16a7622c3abe24cf2c9d5a577045 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2944,6 +2944,8 @@ PRIVATE
+     tele/tele_confirm_send.h
+     tele/tele_communities.cpp
+     tele/tele_communities.h
++    tele/tele_gift_offers.cpp
++    tele/tele_gift_offers.h
+     tele/tele_compact_folders.cpp
+     tele/tele_compact_folders.h
+     tele/tele_copy_markdown.cpp
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 5b3633e969e7053c629a17f1d5e5afb9ac549f46..327d4137ca1f7a5368c91bf890079969985dced1 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -1144,6 +1144,7 @@
+ 		"Hide bot previews": "Скрывать превью ботов",
+ 		"Hide bubble tails": "Скрывать хвостики облачков",
+ 		"Hide communities": "Скрывать сообщества",
++		"Hide gift offers": "Скрывать предложения за подарки",
+ 		"Hide ignored messages completely": "Полностью скрывать игнорируемые сообщения",
+ 		"Hide message previews in the chat list": "Скрывать предпросмотр сообщений в списке чатов",
+ 		"Hide other balances": "Скрывать другие балансы",
+@@ -1483,6 +1484,7 @@
+ 		"Number": "Номер",
+ 		"Off": "Выкл.",
+ 		"Off for this launch: it downloads the parts from api.changes.tg.": "Отключено на этот запуск: для работы нужна загрузка компонентов с api.changes.tg.",
++		"Offers to buy your gifts, with their notifications.": "Предложения купить ваши подарки вместе с уведомлениями.",
+ 		"Older than the uploading media.": "Ответы на сообщения, которые старше загружающегося медиа.",
+ 		"On": "Вкл.",
+ 		"On my way, be there in": "Уже еду, буду через",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index b84cf204f01286d4d0fbcc723dc78bc141dcc62f..51e92c1e425943484365b3d946c28593beb770c7 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -1144,6 +1144,7 @@
+ 		"Hide bot previews": "Приховувати прев’ю ботів",
+ 		"Hide bubble tails": "Приховати хвостики бульбашок",
+ 		"Hide communities": "Приховати спільноти",
++		"Hide gift offers": "Приховувати пропозиції за подарунки",
+ 		"Hide ignored messages completely": "Повністю приховувати ігноровані повідомлення",
+ 		"Hide message previews in the chat list": "Приховати попередній перегляд повідомлень у списку чатів",
+ 		"Hide other balances": "Приховати інші баланси",
+@@ -1483,6 +1484,7 @@
+ 		"Number": "Номер",
+ 		"Off": "Вимкнено",
+ 		"Off for this launch: it downloads the parts from api.changes.tg.": "Вимкнено на цей запуск: завантажує частини з api.changes.tg.",
++		"Offers to buy your gifts, with their notifications.": "Пропозиції купити ваші подарунки разом зі сповіщеннями.",
+ 		"Older than the uploading media.": "Старіші за медіа, яке ще завантажується.",
+ 		"On": "Увімкнено",
+ 		"On my way, be there in": "Вже їду, буду через",
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index 8a9fc3b583dccee8125570dcd01d98b23d801e8b..a9b8705d7d45aec6cc055f3ed6eba4fde1afdca0 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -77,6 +77,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/scripting/tele_script_messages.h"
+ #include "tele/tele_code_lines.h"
+ #include "tele/tele_communities.h"
++#include "tele/tele_gift_offers.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_invisible.h"
+ #include "tele/tele_options.h"
+@@ -1662,7 +1663,8 @@ bool Element::isHidden() const {
+ 	return isHiddenByGroup()
+ 		|| Tele::IgnoredHidden(this)
+ 		|| Tele::Scripting::DecoratedHidden(data())
+-		|| Tele::CommunityServiceHidden(this);
++		|| Tele::CommunityServiceHidden(this)
++		|| Tele::GiftOfferServiceHidden(this);
+ }
+ 
+ void Element::overrideMedia(std::unique_ptr<Media> media) {
+diff --git a/Telegram/SourceFiles/main/main_session.cpp b/Telegram/SourceFiles/main/main_session.cpp
+index 5c73067fe6c1b12b31a0b57582e9c0f405616dd3..7188a99a1362ae9d26c5016f5aac56843f94cbf8 100644
+--- a/Telegram/SourceFiles/main/main_session.cpp
++++ b/Telegram/SourceFiles/main/main_session.cpp
+@@ -70,6 +70,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/secret/secret_chats.h"
+ #include "tele/tele_bookmarks.h"
+ #include "tele/tele_communities.h"
++#include "tele/tele_gift_offers.h"
+ #include "tele/tele_kept_chats.h"
+ #include "tele/tele_kept_store.h"
+ #include "tele/tele_local_pins.h"
+@@ -303,6 +304,7 @@ Session::Session(
+ 	Tele::SetupPunctualScheduled(this);
+ 	Tele::SetupProtectedCopies(this);
+ 	Tele::SetupCommunities(this);
++	Tele::SetupGiftOffers(this);
+ 	Tele::SetupLocalPins(this);
+ 	Tele::SetupBookmarks(this);
+ 	Tele::SetupNoAi(this);
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 406f73c516d39e6d2f5a57d4bd412ed96c401db0..19daa2b655f410f023248555cd0827f83d3b7da6 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -4097,6 +4097,10 @@ void FillProfiles(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionGiftSelect,
+ 		{ u"bulk"_q, u"hide"_q, u"transfer"_q, u"pin"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionHideGiftOffers,
++		{ u"offer"_q, u"grams"_q, u"on-chain"_q });
+ 	AddGiftStudio(builder);
+ 	AddGiftGrid(builder);
+ 	AddOptionToggle(
+diff --git a/Telegram/SourceFiles/tele/tele_gift_offers.cpp b/Telegram/SourceFiles/tele/tele_gift_offers.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..e582aa30425758e34d035493a14d0501a6c8087c
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_offers.cpp
+@@ -0,0 +1,51 @@
++#include "tele/tele_gift_offers.h"
++
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "history/history_item_components.h"
++#include "history/view/history_view_element.h"
++#include "main/main_session.h"
++#include "tele/tele_ignored.h"
++#include "tele/tele_options.h"
++
++namespace Tele {
++namespace {
++
++[[nodiscard]] bool IsIncomingGiftOffer(not_null<const HistoryItem*> item) {
++	return !item->out() && item->Has<HistoryServiceGiftOnchainOffer>();
++}
++
++void RefreshOfferViews(not_null<Main::Session*> session) {
++	auto items = base::flat_set<not_null<HistoryItem*>>();
++	EnumerateViews([&](not_null<HistoryView::Element*> view) {
++		const auto item = view->data();
++		if (&item->history()->session() == session
++			&& IsIncomingGiftOffer(item)) {
++			items.emplace(item);
++		}
++	});
++	for (const auto &item : items) {
++		session->data().requestItemViewRefresh(item);
++		item->history()->updateChatListEntry();
++	}
++}
++
++} // namespace
++
++bool GiftOfferHidden(not_null<const HistoryItem*> item) {
++	return HideGiftOffers() && IsIncomingGiftOffer(item);
++}
++
++bool GiftOfferServiceHidden(not_null<const HistoryView::Element*> view) {
++	return GiftOfferHidden(view->data());
++}
++
++void SetupGiftOffers(not_null<Main::Session*> session) {
++	HideGiftOffersChanges(
++	) | rpl::on_next([=] {
++		RefreshOfferViews(session);
++	}, session->lifetime());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_gift_offers.h b/Telegram/SourceFiles/tele/tele_gift_offers.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..1c7d830c1d622e07472a21b4512bbcabc3fde5da
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_gift_offers.h
+@@ -0,0 +1,20 @@
++#pragma once
++
++class HistoryItem;
++
++namespace HistoryView {
++class Element;
++} // namespace HistoryView
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Tele {
++
++[[nodiscard]] bool GiftOfferHidden(not_null<const HistoryItem*> item);
++[[nodiscard]] bool GiftOfferServiceHidden(
++	not_null<const HistoryView::Element*> view);
++void SetupGiftOffers(not_null<Main::Session*> session);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
+index 118c64e11ea07714c18bdf62e670f40b5da78600..35f05dec032aff0fa9ade32bf747239a986ec258 100644
+--- a/Telegram/SourceFiles/tele/tele_ignored.cpp
++++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
+@@ -1,4 +1,5 @@
+ #include "tele/tele_ignored.h"
++#include "tele/tele_gift_offers.h"
+ 
+ #include "apiwrap.h"
+ #include "data/data_forum_topic.h"
+@@ -308,7 +309,7 @@ bool MutedIgnored(not_null<const HistoryItem*> item) {
+ HistoryItem *ShownChatListMessage(
+ 		not_null<Dialogs::Entry*> entry,
+ 		HistoryItem *item) {
+-	if (!IgnoredItem(item)) {
++	if (!item || (!IgnoredItem(item) && !GiftOfferHidden(item))) {
+ 		return item;
+ 	}
+ 	const auto topic = entry->asTopic();
+@@ -322,7 +323,8 @@ HistoryItem *ShownChatListMessage(
+ 		const auto candidate = view->data();
+ 		if ((!topic || candidate->topic() == topic)
+ 			&& (!sublist || candidate->savedSublist() == sublist)
+-			&& !IgnoredItem(candidate)) {
++			&& !IgnoredItem(candidate)
++			&& !GiftOfferHidden(candidate)) {
+ 			return candidate;
+ 		}
+ 	}
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 23880dddcf987ba557be1eed059f12e6762d8f92..d1d05508eac082344e83428db7e5e9fdb7f997c7 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -58,6 +58,7 @@ const char kOptionLinkPreviews[] = "tele-link-previews";
+ const char kOptionLinkPreviewMenu[] = "tele-link-preview-menu";
+ const char kOptionHideAllChats[] = "tele-hide-all-chats";
+ const char kOptionHideCommunities[] = "tele-hide-communities";
++const char kOptionHideGiftOffers[] = "tele-hide-gift-offers";
+ const char kOptionHideSimilar[] = "tele-hide-similar";
+ const char kOptionHideSimilarJoin[] = "tele-hide-similar-join";
+ const char kOptionHideSimilarProfile[] = "tele-hide-similar-profile";
+@@ -615,6 +616,12 @@ base::options::toggle HideCommunitiesOption({
+ 	.description = "Their chats stay in the list as regular chats.",
+ });
+ 
++base::options::toggle HideGiftOffersOption({
++	.id = kOptionHideGiftOffers,
++	.name = "Hide gift offers",
++	.description = "Offers to buy your gifts, with their notifications.",
++});
++
+ base::options::toggle HideSimilarOption({
+ 	.id = kOptionHideSimilar,
+ 	.name = "Hide similar channels",
+@@ -2411,6 +2418,14 @@ rpl::producer<> HideCommunitiesChanges() {
+ 	return HideCommunitiesOption.changes();
+ }
+ 
++bool HideGiftOffers() {
++	return HideGiftOffersOption.value();
++}
++
++rpl::producer<> HideGiftOffersChanges() {
++	return HideGiftOffersOption.changes();
++}
++
+ bool HideSimilarAfterJoin() {
+ 	return HideSimilarOption.value() && HideSimilarJoinOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index cafeb4a1e0befe38f213c3ddd067c0b520f11e55..c441320f5c7cf3f29f8df76ca8c6cf1f0289313c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -52,6 +52,7 @@ extern const char kOptionLinkPreviews[];
+ extern const char kOptionLinkPreviewMenu[];
+ extern const char kOptionHideAllChats[];
+ extern const char kOptionHideCommunities[];
++extern const char kOptionHideGiftOffers[];
+ extern const char kOptionHideSimilar[];
+ extern const char kOptionHideSimilarJoin[];
+ extern const char kOptionHideSimilarProfile[];
+@@ -356,6 +357,8 @@ void SetLinkPreviews(const QString &value);
+ [[nodiscard]] rpl::producer<> HideAllChatsChanges();
+ [[nodiscard]] bool HideCommunities();
+ [[nodiscard]] rpl::producer<> HideCommunitiesChanges();
++[[nodiscard]] bool HideGiftOffers();
++[[nodiscard]] rpl::producer<> HideGiftOffersChanges();
+ [[nodiscard]] bool HideSimilarAfterJoin();
+ [[nodiscard]] bool HideSimilarInProfiles();
+ [[nodiscard]] bool JumpToFirst();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index e7183cf61538402e2f7a591f7eb97809b60bcdc3..63f8608563f55551be141e566e2af65e674d3eab 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -157,6 +157,7 @@ struct Spec {
+ 		Toggle(kOptionRewritePreviewOnly),
+ 		Toggle(kOptionHideAllChats),
+ 		Toggle(kOptionHideCommunities),
++		Toggle(kOptionHideGiftOffers),
+ 		Toggle(kOptionHideSimilar),
+ 		Toggle(kOptionHideSimilarJoin),
+ 		Toggle(kOptionHideSimilarProfile),
+diff --git a/Telegram/SourceFiles/window/notifications_manager.cpp b/Telegram/SourceFiles/window/notifications_manager.cpp
+index 532307c988451ea87c84f7973c25efc84f1772b5..88360fbef2a3b6a8c9933a7fc948ea00808b52f8 100644
+--- a/Telegram/SourceFiles/window/notifications_manager.cpp
++++ b/Telegram/SourceFiles/window/notifications_manager.cpp
+@@ -44,6 +44,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "main/main_session_settings.h"
+ #include "tele/scripting/tele_script_hooks.h"
++#include "tele/tele_gift_offers.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_mute.h"
+ #include "tele/tele_options.h"
+@@ -331,6 +332,7 @@ System::SkipState System::skipNotification(
+ 		|| Tele::SilencedCompletely(thread)
+ 		|| (messageType && item->skipNotification())
+ 		|| (messageType && Tele::MutedIgnored(item))
++		|| Tele::GiftOfferHidden(item)
+ 		|| (type == Data::ItemNotificationType::Reaction
+ 			&& skipSentNotification(item, _sentReactionNotifications))
+ 		|| (type == Data::ItemNotificationType::PollVote

@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 361 patches, newest release first.
+all 369 patches, newest release first.
 
 ### tele 29 (unreleased)
 
@@ -13,6 +13,14 @@ all 361 patches, newest release first.
 | [349](../patches/tdesktop/0349-fix-stalled-media-downloads-fall-back-to-the-regular.patch) | media downloads that keep timing out on a data center's media endpoint switch to its regular connection | always on |
 | [350](../patches/tdesktop/0350-feat-ship-the-widget-helper-with-updates.patch) | the updater installs telegram's widget helper next to tele, and a build missing its helper fetches it once, so bot widgets keep working | always on |
 | [351](../patches/tdesktop/0351-fix-replying-to-the-next-message-no-longer-steps-pas.patch) | ctrl+down on the newest message of a topic, thread or saved chat cancels the reply instead of stepping past the end of the list | always on |
+| [352](../patches/tdesktop/0352-feat-hide-stories-also-hides-story-posting.patch) | hide stories also hides every way to post one: the my story placeholder, the add story buttons in the chat list, search field and profile, post story in menus and reposting | with 3 |
+| [353](../patches/tdesktop/0353-feat-hide-bot-previews.patch) | hide the screenshots and videos bots show on their profile | tele → privacy, off |
+| [354](../patches/tdesktop/0354-fix-folder-emoji-icons-render-sharp.patch) | emoji folder icons render at their own size instead of a blurry scaled-down frame | always on |
+| [355](../patches/tdesktop/0355-feat-plain-search-calendar.patch) | the chat search calendar without photo and video thumbnails on its days, like before telegram desktop 7.4.6 | tele → chats, off |
+| [356](../patches/tdesktop/0356-feat-hide-gift-offers.patch) | hide incoming offers to buy your gifts in chats and the chat list, without notifications | tele → profiles and ids, off |
+| [357](../patches/tdesktop/0357-feat-turn-off-money-also-covers-on-chain-gift-offers.patch) | turn off money also hides incoming gift offers, the review and withdraw buttons on offer cards and the grams filter of the gift market | with 286 |
+| [358](../patches/tdesktop/0358-feat-turn-off-ai-features-also-covers-bot-info-editi.patch) | turn off ai features also removes the ai rewrite button and the translate actions when editing your bot's info | with 135 |
+| [359](../patches/tdesktop/0359-feat-local-password-for-on-chain-gift-actions.patch) | the local password also asks before buying, selling, repricing or unlisting a gift on-chain, making or withdrawing an offer and accepting one | with 185 |
 
 ### [tele 28](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.28)
 

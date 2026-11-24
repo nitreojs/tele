@@ -88,6 +88,9 @@ settings → tele → chats.
 | [311](../patches/tdesktop/0311-feat-filter-stickers-and-emoji-by-format.patch) | filter your sticker and emoji sets by format (static, animated, video or mixed), sort them, and archive or remove every shown set at once. the panel's search filters by format too, and custom emoji sets get their own list under stickers you have | tele → chats, off |
 | [316](../patches/tdesktop/0316-feat-open-json-code-text-and-csv-files-in-tele.patch) | json, code, text, log and csv files up to 1 mb open in tele's markdown viewer instead of another app: json is pretty-printed, code is highlighted, csv and tsv show as tables. long files come in parts of about 2,000 lines with continuing line numbers | tele → chats, on |
 | [328](../patches/tdesktop/0328-feat-turn-off-bot-widgets.patch) | turn off bot widgets: after restarting, they show a static notice and keep their captions, without running scripts or making widget requests | tele → chats, off, needs a restart |
+| [355](../patches/tdesktop/0355-feat-plain-search-calendar.patch) | the chat search calendar without photo and video thumbnails on its days, like before telegram desktop 7.4.6 | tele → chats, off |
+| [357](../patches/tdesktop/0357-feat-turn-off-money-also-covers-on-chain-gift-offers.patch) | turn off money also hides incoming gift offers, the review and withdraw buttons on offer cards and the grams filter of the gift market | with 286 |
+| [358](../patches/tdesktop/0358-feat-turn-off-ai-features-also-covers-bot-info-editi.patch) | turn off ai features also removes the ai rewrite button and the translate actions when editing your bot's info | with 135 |
 
 ## messages
 
@@ -244,6 +247,9 @@ settings → tele → privacy.
 | [226](../patches/tdesktop/0226-feat-ignored-users-and-hidden-words-can-stay-silent.patch) | messages from ignored users and with hidden words don't notify or count as unread, and the chat list doesn't preview them | tele → privacy, on |
 | [227](../patches/tdesktop/0227-fix-invisible-stories-follow-ghost-settings-and-surv.patch) | watching stories invisibly follows per-chat ghost settings, keeps who you watched across restarts, and asks before a live story, which shows you to its author | with 4 |
 | [291](../patches/tdesktop/0291-fix-closing-the-rich-editor-keeps-drafts-on-this-dev.patch) | closing the rich message editor saves its draft on this device and closes, when drafts stay on this device and in secret chats, instead of trying the cloud | with 92 |
+| [352](../patches/tdesktop/0352-feat-hide-stories-also-hides-story-posting.patch) | hide stories also hides every way to post one: the my story placeholder, the add story buttons in the chat list, search field and profile, post story in menus and reposting | with 3 |
+| [353](../patches/tdesktop/0353-feat-hide-bot-previews.patch) | hide the screenshots and videos bots show on their profile | tele → privacy, off |
+| [359](../patches/tdesktop/0359-feat-local-password-for-on-chain-gift-actions.patch) | the local password also asks before buying, selling, repricing or unlisting a gift on-chain, making or withdrawing an offer and accepting one | with 185 |
 
 ## profiles and ids
 
@@ -287,6 +293,7 @@ settings → tele → profiles and ids.
 | [318](../patches/tdesktop/0318-feat-show-the-last-activity-next-to-a-hidden-last-se.patch) | for people whose last seen is hidden, the chat header and profile show when tele last saw them write, type, read your messages or react: last seen recently (14:32). remembered across restarts. opening read info also remembers the DM and group read timestamps Telegram exposes. cached results count too, older receipts never replace newer activity, and no background lookups are added | tele → profiles and ids, off |
 | [321](../patches/tdesktop/0321-feat-show-typing-in-the-chat-list-with-a-hidden-last.patch) | chat list rows show typing, recording and choosing a sticker for people whose last seen is hidden, which telegram only shows in the open chat. bots stay as they are | tele → profiles and ids, off |
 | [339](../patches/tdesktop/0339-feat-delete-and-drag-select-several-gifts.patch) | gift selection can permanently delete eligible gifts after two confirmations, without receiving stars. delete is unavailable if any selected gift is ineligible. drag a contiguous range to select or deselect, with edge scrolling and ordinary clicks unchanged | with 183 |
+| [356](../patches/tdesktop/0356-feat-hide-gift-offers.patch) | hide incoming offers to buy your gifts in chats and the chat list, without notifications | tele → profiles and ids, off |
 
 ### gift studio
 
@@ -468,6 +475,7 @@ always on, or without a switch of their own.
 | [349](../patches/tdesktop/0349-fix-stalled-media-downloads-fall-back-to-the-regular.patch) | media downloads that keep timing out on a data center's media endpoint switch to its regular connection | always on |
 | [350](../patches/tdesktop/0350-feat-ship-the-widget-helper-with-updates.patch) | the updater installs telegram's widget helper next to tele, and a build missing its helper fetches it once, so bot widgets keep working | always on |
 | [351](../patches/tdesktop/0351-fix-replying-to-the-next-message-no-longer-steps-pas.patch) | ctrl+down on the newest message of a topic, thread or saved chat cancels the reply instead of stepping past the end of the list | always on |
+| [354](../patches/tdesktop/0354-fix-folder-emoji-icons-render-sharp.patch) | emoji folder icons render at their own size instead of a blurry scaled-down frame | always on |
 | [1001](../patches/Telegram/lib_ui/0001-fix-unbreakable-characters-no-longer-scroll-text-fie.patch) | a text field with a long run of characters that can't wrap no longer scrolls sideways and hides everything else | always on |
 | [1005](../patches/Telegram/lib_ui/0005-fix-the-maximize-button-follows-the-real-window-stat.patch) | the maximize button of a window shows and does the right thing after resizing or moving the window drops its maximized or full screen state | always on |
 | [1008](../patches/Telegram/lib_rpl/0001-fix-topic-tabs-no-longer-crash-after-you-move-them.patch) | topic and direct message tabs no longer crash after you move them to the top, bottom or side and then scroll them. the cause was in the library that passes events around, so anything else that lost updates the same way is fixed too | always on |

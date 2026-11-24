@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:27:04 +0300
+Subject: [PATCH] fix: folder emoji icons render sharp
+
+---
+ Telegram/SourceFiles/ui/filter_title_icon.cpp | 33 +++++++++++++++++--
+ 1 file changed, 30 insertions(+), 3 deletions(-)
+
+diff --git a/Telegram/SourceFiles/ui/filter_title_icon.cpp b/Telegram/SourceFiles/ui/filter_title_icon.cpp
+index 2e1014889e60baefc6f88bcb1489e72d21c1dd1d..d6b53004dcfbd8edb15ce5d51ea7a4e4cca6faae 100644
+--- a/Telegram/SourceFiles/ui/filter_title_icon.cpp
++++ b/Telegram/SourceFiles/ui/filter_title_icon.cpp
+@@ -116,14 +116,41 @@ FilterEmojiIconPaint MakeFilterEmojiIcon(
+ 			icon.document,
+ 			[widget] { widget->update(); },
+ 			kTag));
++	struct Exact {
++		std::unique_ptr<Text::CustomEmoji> emoji;
++		int size = 0;
++	};
++	const auto exact = std::make_shared<Exact>();
++	const auto document = icon.document;
+ 	return [=](QPainter &p, QRect rect, QColor color) {
+-		if (!emoji->ready()) {
+-			return false;
+-		}
+ 		const auto size = std::min(rect.width(), rect.height());
+ 		const auto target = style::centerrect(
+ 			rect,
+ 			QRect(0, 0, size, size));
++		// Render at the icon's own size: downscaling the large frame blurs.
++		if (size > 0 && exact->size != size) {
++			exact->size = size;
++			exact->emoji = document->owner().customEmojiManager().create(
++				document,
++				[widget] { widget->update(); },
++				kTag,
++				size);
++		}
++		if (exact->emoji && exact->emoji->ready()) {
++			exact->emoji->paint(
++				p,
++				{
++					.textColor = color,
++					.now = crl::now(),
++					.scale = 1.,
++					.position = target.topLeft(),
++					.paused = paused && paused(),
++					.internal = { .forceFirstFrame = isStatic },
++				});
++			return true;
++		} else if (!emoji->ready()) {
++			return false;
++		}
+ 		const auto scale = size / float64(frameSize);
+ 		p.save();
+ 		p.translate(target.topLeft());

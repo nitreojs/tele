@@ -4,8 +4,8 @@ Date: Sun, 22 Nov 2026 11:38:23 +0300
 Subject: [PATCH] feat: show matching blockquotes as reply quotes
 
 ---
- Telegram/Resources/tele/translations/ru.json  |   2 +
- Telegram/Resources/tele/translations/uk.json  |   2 +
+ Telegram/Resources/tele/translations/ru.json  |   5 +
+ Telegram/Resources/tele/translations/uk.json  |   5 +
  Telegram/SourceFiles/data/data_msg_id.h       |   8 +-
  .../admin_log/history_admin_log_inner.cpp     |   3 +-
  .../history_view_highlight_manager.cpp        |   7 +-
@@ -30,13 +30,21 @@ Subject: [PATCH] feat: show matching blockquotes as reply quotes
  Telegram/SourceFiles/tele/tele_rich_quote.h   |  16 +
  .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
  Telegram/SourceFiles/ui/chat/chat_style.h     |   8 +-
- 26 files changed, 1284 insertions(+), 44 deletions(-)
+ 26 files changed, 1290 insertions(+), 44 deletions(-)
 
 diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
-index 06307a225335bee5874578cc6113552e3c8005e2..de0661e3e6e2dea2a44348eb6aefa9f04cdafc09 100644
+index 06307a225335bee5874578cc6113552e3c8005e2..2c12cffdc4364e2478aa849a15bd5fcf16c2c527 100644
 --- a/Telegram/Resources/tele/translations/ru.json
 +++ b/Telegram/Resources/tele/translations/ru.json
-@@ -1388,6 +1388,7 @@
+@@ -749,6 +749,7 @@
+ 		"Confirmations": "Подтверждения",
+ 		"Connect to any server on the internet.": "Подключаться к любому серверу в интернете.",
+ 		"Connect to these servers: %1.": "Подключаться к этим серверам: %1.",
++		"Content Too Long": "Content Too Long",
+ 		"Continue": "Продолжить",
+ 		"Control tele: the theme and colors, the window title and badge, the music player.": "Управлять tele: темой и цветами, заголовком и значком окна, музыкальным плеером.",
+ 		"Convert %1 to %2 stars? This can't be undone.": {
+@@ -1388,6 +1389,7 @@
  		"Move right": "Сдвинуть вправо",
  		"Move to submenu": "Переместить в подменю",
  		"Moved": "Перенесено",
@@ -44,7 +52,15 @@ index 06307a225335bee5874578cc6113552e3c8005e2..de0661e3e6e2dea2a44348eb6aefa9f0
  		"Multiple quotes": "Несколько цитат",
  		"Music": "Музыка",
  		"Mute folder": "Выключить уведомления папки",
-@@ -1976,6 +1977,7 @@
+@@ -1590,6 +1592,7 @@
+ 		"Point": "Точка",
+ 		"Posted to a local tele chat when you open each account, gone after a restart.": "Появляется в локальном чате tele при открытии каждого аккаунта и исчезает после перезапуска.",
+ 		"Power user": "Для опытных",
++		"Prepare Failed": "Prepare Failed",
+ 		"Preparing the gifts…": "Подготовка подарков…",
+ 		"Presets": "Шаблоны",
+ 		"Press a key combination. Backspace clears it, Escape cancels.": "Нажмите сочетание клавиш. Backspace очищает, Escape отменяет.",
+@@ -1976,6 +1979,7 @@
  		"Show hidden characters": "Показывать скрытые символы",
  		"Show in folder": "Показать в папке",
  		"Show less": "Свернуть",
@@ -52,11 +68,27 @@ index 06307a225335bee5874578cc6113552e3c8005e2..de0661e3e6e2dea2a44348eb6aefa9f0
  		"Show message ID in the message menu": "Показывать ID в меню сообщения",
  		"Show more": "Показать больше",
  		"Show notifications.": "Показывать уведомления.",
+@@ -2304,6 +2308,7 @@
+ 		"Unread counters": "Счётчики непрочитанных",
+ 		"Unsorted": "Без папки",
+ 		"Unsorted folder": "Папка для чатов без папки",
++		"Unsupported Block": "Unsupported Block",
+ 		"Up to 10000; deleting and forwarding go out in parts of 100.": "До 10000; удаление и пересылка идут частями по 100.",
+ 		"Update": "Обновить",
+ 		"Update %1 from %2 to %3? Its file is replaced and the old one goes to the recycle bin.": "Обновить %1 с %2 до %3? Файл будет заменён, а старый попадёт в корзину.",
 diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
-index 3c6c9d09154d65a1d8c4fbc3065a79b1a58f78ba..dd68ad06c49a9d5949e9755b6f2584de51c3e7ea 100644
+index 3c6c9d09154d65a1d8c4fbc3065a79b1a58f78ba..9752f3361882a540cc561e5f8bcfa4883fb212a3 100644
 --- a/Telegram/Resources/tele/translations/uk.json
 +++ b/Telegram/Resources/tele/translations/uk.json
-@@ -1388,6 +1388,7 @@
+@@ -749,6 +749,7 @@
+ 		"Confirmations": "Підтвердження",
+ 		"Connect to any server on the internet.": "Підключатися до будь-якого сервера в інтернеті.",
+ 		"Connect to these servers: %1.": "Підключатися до цих серверів: %1.",
++		"Content Too Long": "Content Too Long",
+ 		"Continue": "Продовжити",
+ 		"Control tele: the theme and colors, the window title and badge, the music player.": "Керувати tele: тема й кольори, заголовок і значок вікна, музичний плеєр.",
+ 		"Convert %1 to %2 stars? This can't be undone.": {
+@@ -1388,6 +1389,7 @@
  		"Move right": "Перемістити праворуч",
  		"Move to submenu": "Перемістити в підменю",
  		"Moved": "Перенесено",
@@ -64,7 +96,15 @@ index 3c6c9d09154d65a1d8c4fbc3065a79b1a58f78ba..dd68ad06c49a9d5949e9755b6f2584de
  		"Multiple quotes": "Кілька цитат",
  		"Music": "Музика",
  		"Mute folder": "Вимкнути звук папки",
-@@ -1976,6 +1977,7 @@
+@@ -1590,6 +1592,7 @@
+ 		"Point": "Точка",
+ 		"Posted to a local tele chat when you open each account, gone after a restart.": "З'являється в локальному чаті tele, коли ви відкриваєте кожен акаунт; зникає після перезапуску.",
+ 		"Power user": "Для досвідчених",
++		"Prepare Failed": "Prepare Failed",
+ 		"Preparing the gifts…": "Підготовка подарунків…",
+ 		"Presets": "Шаблони",
+ 		"Press a key combination. Backspace clears it, Escape cancels.": "Натисніть комбінацію клавіш. Backspace очищує, Escape скасовує.",
+@@ -1976,6 +1979,7 @@
  		"Show hidden characters": "Показувати приховані символи",
  		"Show in folder": "Показати в папці",
  		"Show less": "Згорнути",
@@ -72,6 +112,14 @@ index 3c6c9d09154d65a1d8c4fbc3065a79b1a58f78ba..dd68ad06c49a9d5949e9755b6f2584de
  		"Show message ID in the message menu": "Показувати ID у меню повідомлення",
  		"Show more": "Показати більше",
  		"Show notifications.": "Показувати сповіщення.",
+@@ -2304,6 +2308,7 @@
+ 		"Unread counters": "Лічильники непрочитаних",
+ 		"Unsorted": "Нерозібране",
+ 		"Unsorted folder": "Папка «Нерозібране»",
++		"Unsupported Block": "Unsupported Block",
+ 		"Up to 10000; deleting and forwarding go out in parts of 100.": "До 10000; видалення й пересилання виконуються частинами по 100.",
+ 		"Update": "Оновити",
+ 		"Update %1 from %2 to %3? Its file is replaced and the old one goes to the recycle bin.": "Оновити %1 з %2 до %3? Файл буде замінено, а старий потрапить до кошика.",
 diff --git a/Telegram/SourceFiles/data/data_msg_id.h b/Telegram/SourceFiles/data/data_msg_id.h
 index 8e9e856be87a7b3c3f4d8b50123794270c51273c..1af282ab9d8c14444127af8e1ae0247c104d73e4 100644
 --- a/Telegram/SourceFiles/data/data_msg_id.h

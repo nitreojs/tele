@@ -1,0 +1,152 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:28:03 +0300
+Subject: [PATCH] feat: plain search calendar
+
+---
+ Telegram/Resources/tele/translations/ru.json          |  2 ++
+ Telegram/Resources/tele/translations/uk.json          |  2 ++
+ Telegram/SourceFiles/settings/settings_tele.cpp       |  4 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp            | 11 +++++++++++
+ Telegram/SourceFiles/tele/tele_options.h              |  2 ++
+ Telegram/SourceFiles/tele/tele_settings_io.cpp        |  1 +
+ .../SourceFiles/window/window_session_controller.cpp  |  3 ++-
+ 7 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 5486cb96f6d50db2364d95b9be9b1927e140afe9..5b3633e969e7053c629a17f1d5e5afb9ac549f46 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -1587,6 +1587,7 @@
+ 		"Pinned": "Закреплён",
+ 		"Pinned reactions keep their place in every message menu.": "Закреплённые реакции остаются на своём месте в каждом меню сообщения.",
+ 		"Pixiv": "Pixiv",
++		"Plain search calendar": "Простой календарь поиска",
+ 		"Platform": "Platform",
+ 		"Play": "Воспроизвести",
+ 		"Playback": "Воспроизведение",
+@@ -2404,6 +2405,7 @@
+ 		"With text": "С текстом",
+ 		"Withdrawals/refunds": "Выводы и возвраты",
+ 		"Without a username": "Без имени пользователя",
++		"Without photo and video thumbnails on its days.": "Дни без миниатюр фото и видео.",
+ 		"Without you": "Без вас",
+ 		"Wrap selected text": "Обрамлять выделенный текст",
+ 		"Write a draft, Enter saves it": "Напишите черновик, Enter сохранит его",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index a26a0b518305fc1f3df284f1191c591d6f4055b2..b84cf204f01286d4d0fbcc723dc78bc141dcc62f 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -1587,6 +1587,7 @@
+ 		"Pinned": "Закріплено",
+ 		"Pinned reactions keep their place in every message menu.": "Закріплені реакції лишаються на своєму місці в кожному меню повідомлення.",
+ 		"Pixiv": "Pixiv",
++		"Plain search calendar": "Простий календар пошуку",
+ 		"Platform": "Platform",
+ 		"Play": "Відтворити",
+ 		"Playback": "Відтворення",
+@@ -2404,6 +2405,7 @@
+ 		"With text": "З текстом",
+ 		"Withdrawals/refunds": "Виведення та повернення",
+ 		"Without a username": "Без імені користувача",
++		"Without photo and video thumbnails on its days.": "Дні без мініатюр фото й відео.",
+ 		"Without you": "Без вас",
+ 		"Wrap selected text": "Обрамляти виділений текст",
+ 		"Write a draft, Enter saves it": "Напишіть чернетку, Enter збереже її",
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index fce3a4d11ccf8fd459864dfa7afa07d66dd35868..406f73c516d39e6d2f5a57d4bd412ed96c401db0 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3139,6 +3139,10 @@ void FillChats(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionSearchTypes,
+ 		{ u"photos"_q, u"videos"_q, u"files"_q, u"media"_q, u"links"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionPlainSearchCalendar,
++		{ u"calendar"_q, u"thumbnails"_q, u"date"_q });
+ 	AddOptionToggle(
+ 		builder,
+ 		::Tele::kOptionPinnedBarMenu,
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 28af222589ec861658b69c53e42f80aeb04e688b..23880dddcf987ba557be1eed059f12e6762d8f92 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -30,6 +30,7 @@ const char kOptionGroupQuickReplies[] = "tele-group-quick-replies";
+ const char kOptionQuickRepliesByName[] = "tele-quick-replies-by-name";
+ const char kOptionRegexSearch[] = "tele-regex-search";
+ const char kOptionSearchTypes[] = "tele-search-types";
++const char kOptionPlainSearchCalendar[] = "tele-plain-search-calendar";
+ const char kOptionBubbleBadges[] = "tele-bubble-badges";
+ const char kOptionOnlineInBigGroups[] = "tele-online-in-big-groups";
+ const char kOptionHideCalls[] = "tele-hide-calls";
+@@ -443,6 +444,12 @@ base::options::toggle SearchTypesOption({
+ 		"type.",
+ });
+ 
++base::options::toggle PlainSearchCalendarOption({
++	.id = kOptionPlainSearchCalendar,
++	.name = "Plain search calendar",
++	.description = "Without photo and video thumbnails on its days.",
++});
++
+ base::options::toggle LowercaseOption({
+ 	.id = kOptionLowercase,
+ 	.name = "Lowercase everything",
+@@ -2158,6 +2165,10 @@ bool SearchTypes() {
+ 	return SearchTypesOption.value();
+ }
+ 
++bool PlainSearchCalendar() {
++	return PlainSearchCalendarOption.value();
++}
++
+ rpl::producer<bool> SearchTypesValue() {
+ 	return rpl::single(
+ 		rpl::empty
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 6d28d7dfad6c8b0b40cae128e624a78114ea59fd..cafeb4a1e0befe38f213c3ddd067c0b520f11e55 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -26,6 +26,7 @@ extern const char kOptionGroupQuickReplies[];
+ extern const char kOptionQuickRepliesByName[];
+ extern const char kOptionRegexSearch[];
+ extern const char kOptionSearchTypes[];
++extern const char kOptionPlainSearchCalendar[];
+ extern const char kOptionBubbleBadges[];
+ extern const char kOptionOnlineInBigGroups[];
+ extern const char kOptionCallButton[];
+@@ -310,6 +311,7 @@ void SetKnownSettings(const QString &value);
+ [[nodiscard]] bool RegexSearchInChats();
+ [[nodiscard]] rpl::producer<bool> RegexSearchInChatsValue();
+ [[nodiscard]] bool SearchTypes();
++[[nodiscard]] bool PlainSearchCalendar();
+ [[nodiscard]] rpl::producer<bool> SearchTypesValue();
+ [[nodiscard]] bool BubbleBadges();
+ [[nodiscard]] bool OnlineInBigGroups();
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 4501aa2cd8768e2f7be95846493538f4b4444892..e7183cf61538402e2f7a591f7eb97809b60bcdc3 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -135,6 +135,7 @@ struct Spec {
+ 		Toggle(kOptionQuickRepliesByName),
+ 		Toggle(kOptionRegexSearch),
+ 		Toggle(kOptionSearchTypes),
++		Toggle(kOptionPlainSearchCalendar),
+ 		Toggle(kOptionBubbleBadges),
+ 		Toggle(kOptionOnlineInBigGroups),
+ 		Toggle(kOptionLowercase),
+diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
+index 5d3b97ffb5a2c0ef612a175230d73fa3362a1963..e8c8525f8c3f51a09fe27e0f211809eea1921ded 100644
+--- a/Telegram/SourceFiles/window/window_session_controller.cpp
++++ b/Telegram/SourceFiles/window/window_session_controller.cpp
+@@ -3228,7 +3228,8 @@ void SessionController::showCalendar(ShowCalendarDescriptor &&descriptor) {
+ 		using Factory = Fn<void(QDate, Ui::CalendarImageSetter)>;
+ 		using CustomJump = Fn<void(const QDate &, Fn<void()>)>;
+ 		const auto hasMediaFilter = descriptor.mediaPhoto || descriptor.mediaVideo;
+-		if (!hasMediaFilter && (topic || sublist)) {
++		if (!hasMediaFilter
++			&& (topic || sublist || Tele::PlainSearchCalendar())) {
+ 			return {};
+ 		}
+ 		const auto search = std::make_shared<Api::SearchCalendarController>(
