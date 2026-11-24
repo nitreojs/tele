@@ -134,7 +134,7 @@ index bb268d6a0ff6ab3c2109c852603315854aba3b8d..b60b959ef868dac9023a7bfbf5d4bb2d
  } // namespace Animations
  } // namespace Ui
 diff --git a/ui/effects/animations.h b/ui/effects/animations.h
-index a5447936123e8b4dd673bcd8c904838181dc8a6a..128b636f846f6dbb5259c1ed3748c290553b27d4 100644
+index b5501f1f62f5ae7a0d7fa70b25fe7d9f462db9e1..82385d0e814f2537060d94f60a64c659b08d6f6f 100644
 --- a/ui/effects/animations.h
 +++ b/ui/effects/animations.h
 @@ -170,6 +170,11 @@ public:

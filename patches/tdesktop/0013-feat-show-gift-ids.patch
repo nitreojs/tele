@@ -17,10 +17,10 @@ Subject: [PATCH] feat: show gift ids
  create mode 100644 Telegram/SourceFiles/tele/tele_gifts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 664878baf27faee1de54cb97ee5355c91e413536..47a45e062029a7fbd7c6b5a57d732045c07ba62f 100644
+index a4862d105e67da3eab78e34d0424b4834b2fa79e..b57dd8e479e9991e85420374e785050ad6bc7ecc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2662,6 +2662,8 @@ PRIVATE
+@@ -2789,6 +2789,8 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -30,7 +30,7 @@ index 664878baf27faee1de54cb97ee5355c91e413536..47a45e062029a7fbd7c6b5a57d732045
      tele/tele_options.h
      tele/tele_shortcuts.cpp
 diff --git a/Telegram/SourceFiles/boxes/gift_premium_box.cpp b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
-index a49bf7288706c534a3760c806fcc984704ca4aac..db08ae30662372c6ce8b9b6399802e2b4ba65411 100644
+index f7451cee36eedc4c299f6c45c649da98b40ac86b..7bac2093a0814cd9fd164610f330a447390661d0 100644
 --- a/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 +++ b/Telegram/SourceFiles/boxes/gift_premium_box.cpp
 @@ -45,6 +45,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -41,7 +41,7 @@ index a49bf7288706c534a3760c806fcc984704ca4aac..db08ae30662372c6ce8b9b6399802e2b
  #include "ui/basic_click_handlers.h" // UrlClickHandler::Open.
  #include "ui/boxes/boost_box.h" // StartFireworks.
  #include "ui/boxes/confirm_box.h"
-@@ -1511,6 +1512,7 @@ void AddStarGiftTable(
+@@ -1515,6 +1516,7 @@ void AddStarGiftTable(
  		&& (entry.in || entry.bareGiftOwnerId == selfBareId);
  	const auto giftToChannel = entry.giftChannelSavedId
  		&& peerIsChannel(PeerId(entry.bareEntryOwnerId));
@@ -50,10 +50,10 @@ index a49bf7288706c534a3760c806fcc984704ca4aac..db08ae30662372c6ce8b9b6399802e2b
  	const auto tooltip = std::make_shared<TableRowTooltipData>(
  		TableRowTooltipData{ .parent = container });
 diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-index 8fb8606a24b6ad04f47fdb734ab9f62bef610601..4784386251b18e988be112cb165446d434fbb4d4 100644
+index 213a389d8183e529a76639affac5a35fe9d2d030..5e1a5ea2491c46de9fee79dee3aaaead5ba8ee56 100644
 --- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
 +++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
-@@ -2169,15 +2169,12 @@ void GenericCreditsEntryBody(
+@@ -2215,15 +2215,12 @@ void GenericCreditsEntryBody(
  	Ui::AddSkip(content);
  
  	const auto addGiftLinkTON = [&] {

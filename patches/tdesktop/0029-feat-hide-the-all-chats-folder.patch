@@ -1,0 +1,607 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 05:05:30 +0300
+Subject: [PATCH] feat: hide the all chats folder
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/data/data_chat_filters.cpp    |   4 +
+ .../SourceFiles/dialogs/dialogs_widget.cpp    |   4 +-
+ .../SourceFiles/settings/settings_tele.cpp    |   1 +
+ Telegram/SourceFiles/tele/tele_folders.cpp    | 128 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_folders.h      |  30 ++++
+ Telegram/SourceFiles/tele/tele_options.cpp    |  16 +++
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ .../ui/widgets/chat_filters_tabs_strip.cpp    |  37 +++--
+ .../window/window_filters_menu.cpp            |  24 ++--
+ .../window/window_session_controller.cpp      |   7 +-
+ 11 files changed, 227 insertions(+), 29 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_folders.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_folders.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index b03cf0b92417fe57bbbec74b3792cd2c9d38aebe..e09bece78f13906b90dd51af9de2152e65c6e80b 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2795,6 +2795,8 @@ PRIVATE
+     tele/tele_deleted_section.h
+     tele/tele_edit_history.cpp
+     tele/tele_edit_history.h
++    tele/tele_folders.cpp
++    tele/tele_folders.h
+     tele/tele_gifts.cpp
+     tele/tele_gifts.h
+     tele/tele_ignored.cpp
+diff --git a/Telegram/SourceFiles/data/data_chat_filters.cpp b/Telegram/SourceFiles/data/data_chat_filters.cpp
+index f85bc2d413b9486f4b54d538e9d1e79758818784..7eba8addc7a361eee5e5e806d6836d25df75d269 100644
+--- a/Telegram/SourceFiles/data/data_chat_filters.cpp
++++ b/Telegram/SourceFiles/data/data_chat_filters.cpp
+@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/chat/more_chats_bar.h"
+ #include "main/main_session.h"
+ #include "main/main_app_config.h"
++#include "tele/tele_folders.h"
+ #include "apiwrap.h"
+ 
+ namespace Data {
+@@ -908,6 +909,9 @@ FilterId ChatFilters::defaultId() const {
+ FilterId ChatFilters::lookupId(int index) const {
+ 	Expects(index >= 0 && index < _list.size());
+ 
++	if (const auto id = Tele::FolderTabId(&_owner->session(), index)) {
++		return *id;
++	}
+ 	if (_owner->session().user()->isPremium() || !_list.front().id()) {
+ 		return _list[index].id();
+ 	}
+diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
+index baf751659c6cea5a53719695d91ae4fa6a9acac1..39fbef8bf88b12b4acab076a719078aea4c89ec1 100644
+--- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
++++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
+@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "info/profile/info_profile_values.h"
+ #include "info/info_memento.h"
+ #include "inline_bots/bot_attach_web_view.h"
++#include "tele/tele_folders.h"
+ #include "tele/tele_updater.h"
+ #include "styles/style_dialogs.h"
+ #include "styles/style_chat.h"
+@@ -3025,8 +3026,7 @@ void Widget::escape(CancelSearchOptions options) {
+ 		} else if (controller()->activeChatEntryCurrent().key) {
+ 			controller()->content()->dialogsCancelled();
+ 		} else if (controller()->isPrimary()) {
+-			const auto filters = &session().data().chatsFilters();
+-			const auto &list = filters->list();
++			const auto &list = Tele::FolderTabs(&session());
+ 			const auto first = list.empty() ? FilterId() : list.front().id();
+ 			if (controller()->activeChatsFilterCurrent() != first) {
+ 				controller()->setActiveChatsFilter(first);
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 1a02580fcfd7bd251d05f48bdcb862b0fa840106..7136a0f8bf59556a44ee02d0fc6dbb46a8c68378 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -628,6 +628,7 @@ void TeleSection::setupContent() {
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideCalls);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideSponsored);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionNoLinkWarning);
++	AddOptionToggle(content, controller(), ::Tele::kOptionHideAllChats);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+diff --git a/Telegram/SourceFiles/tele/tele_folders.cpp b/Telegram/SourceFiles/tele/tele_folders.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..ef9d0e1c1f667446feed9769f89a4816a26f3c29
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_folders.cpp
+@@ -0,0 +1,128 @@
++#include "tele/tele_folders.h"
++
++#include "data/data_chat_filters.h"
++#include "data/data_session.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++#include "window/window_session_controller.h"
++
++namespace Tele {
++namespace {
++
++using Tabs = std::vector<Data::ChatFilter>;
++
++[[nodiscard]] std::map<not_null<Main::Session*>, Tabs> &TabsCache() {
++	static auto result = std::map<not_null<Main::Session*>, Tabs>();
++	return result;
++}
++
++[[nodiscard]] bool SameTabs(const Tabs &tabs, const Tabs &list) {
++	auto i = begin(tabs);
++	for (const auto &filter : list) {
++		if (!filter.id()) {
++			continue;
++		} else if (i == end(tabs)
++			|| i->id() != filter.id()
++			|| *i != filter
++			|| i->pinned() != filter.pinned()) {
++			return false;
++		}
++		++i;
++	}
++	return (i == end(tabs));
++}
++
++} // namespace
++
++int HiddenFolderTabs(not_null<Main::Session*> session) {
++	const auto &list = session->data().chatsFilters().list();
++	return (HideAllChats()
++		&& list.size() > 1
++		&& ranges::contains(list, FilterId(), &Data::ChatFilter::id))
++		? 1
++		: 0;
++}
++
++const std::vector<Data::ChatFilter> &FolderTabs(
++		not_null<Main::Session*> session) {
++	const auto &list = session->data().chatsFilters().list();
++	if (!HiddenFolderTabs(session)) {
++		return list;
++	}
++	auto &cache = TabsCache();
++	auto i = cache.find(session);
++	if (i == end(cache)) {
++		i = cache.emplace(session, Tabs()).first;
++		session->lifetime().add([=] {
++			TabsCache().erase(session);
++		});
++	}
++	auto &tabs = i->second;
++	if (!SameTabs(tabs, list)) {
++		tabs.clear();
++		for (const auto &filter : list) {
++			if (filter.id()) {
++				tabs.push_back(filter);
++			}
++		}
++	}
++	return tabs;
++}
++
++std::optional<FilterId> FolderTabId(
++		not_null<Main::Session*> session,
++		int index) {
++	if (!HiddenFolderTabs(session)) {
++		return std::nullopt;
++	}
++	const auto &tabs = FolderTabs(session);
++	return tabs[std::clamp(index, 0, int(tabs.size()) - 1)].id();
++}
++
++void RestoreHiddenFolderTabs(
++		not_null<Main::Session*> session,
++		std::vector<FilterId> &order) {
++	if (ranges::contains(order, FilterId())) {
++		return;
++	}
++	const auto &list = session->data().chatsFilters().list();
++	const auto i = ranges::find(list, FilterId(), &Data::ChatFilter::id);
++	if (i == end(list)) {
++		return;
++	}
++	const auto position = std::min(
++		int(i - begin(list)),
++		int(order.size()));
++	order.insert(begin(order) + position, FilterId());
++}
++
++rpl::producer<> FolderTabsChanges(not_null<Main::Session*> session) {
++	return rpl::merge(
++		session->data().chatsFilters().changed(),
++		HideAllChatsChanges());
++}
++
++void SetupFolderTabs(not_null<Window::SessionController*> controller) {
++	const auto session = &controller->session();
++	const auto check = [=] {
++		const auto filters = &session->data().chatsFilters();
++		if (controller->isPrimary()
++			&& filters->loaded()
++			&& !controller->activeChatsFilterCurrent()
++			&& !controller->openedFolder().current()
++			&& !controller->openedCommunity().current()
++			&& HiddenFolderTabs(session)) {
++			controller->setActiveChatsFilter(filters->defaultId());
++		}
++	};
++	rpl::merge(
++		FolderTabsChanges(session),
++		controller->activeChatsFilter() | rpl::to_empty,
++		controller->openedFolder().changes() | rpl::to_empty,
++		controller->openedCommunity().changes() | rpl::to_empty
++	) | rpl::on_next([=] {
++		crl::on_main(controller, check);
++	}, controller->lifetime());
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_folders.h b/Telegram/SourceFiles/tele/tele_folders.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..d3b96761b106c72a0a024802d0d11190d804d8f8
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_folders.h
+@@ -0,0 +1,30 @@
++#pragma once
++
++namespace Data {
++class ChatFilter;
++} // namespace Data
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++[[nodiscard]] int HiddenFolderTabs(not_null<Main::Session*> session);
++[[nodiscard]] const std::vector<Data::ChatFilter> &FolderTabs(
++	not_null<Main::Session*> session);
++[[nodiscard]] std::optional<FilterId> FolderTabId(
++	not_null<Main::Session*> session,
++	int index);
++void RestoreHiddenFolderTabs(
++	not_null<Main::Session*> session,
++	std::vector<FilterId> &order);
++[[nodiscard]] rpl::producer<> FolderTabsChanges(
++	not_null<Main::Session*> session);
++void SetupFolderTabs(not_null<Window::SessionController*> controller);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 145bcbae00517c6448d35466758e502f7301cbfd..3a4eb6d5f95efed66d63d4af07073b496cb82fc7 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -14,6 +14,7 @@ const char kOptionHideCalls[] = "tele-hide-calls";
+ const char kOptionLowercase[] = "tele-lowercase";
+ const char kOptionHideSponsored[] = "tele-hide-sponsored";
+ const char kOptionNoLinkWarning[] = "tele-no-link-warning";
++const char kOptionHideAllChats[] = "tele-hide-all-chats";
+ const char kOptionShowGiftIds[] = "tele-show-gift-ids";
+ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
+ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
+@@ -113,6 +114,13 @@ base::options::toggle NoLinkWarningOption({
+ 		"prompts still ask.",
+ });
+ 
++base::options::toggle HideAllChatsOption({
++	.id = kOptionHideAllChats,
++	.name = "Hide the All chats folder",
++	.description = "When you have folders, All chats disappears from "
++		"the folder tabs and the chat list opens on your first folder.",
++});
++
+ base::options::toggle ShowGiftIdsOption({
+ 	.id = kOptionShowGiftIds,
+ 	.name = "Show gift IDs",
+@@ -293,6 +301,14 @@ bool NoLinkWarning() {
+ 	return NoLinkWarningOption.value();
+ }
+ 
++bool HideAllChats() {
++	return HideAllChatsOption.value();
++}
++
++rpl::producer<> HideAllChatsChanges() {
++	return HideAllChatsOption.changes();
++}
++
+ bool ShowGiftIds() {
+ 	return ShowGiftIdsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 6a986a4c16f4589ea75fefbcb3894984b1d7ebdf..eaf058704d83cdd7117c6ddd98b0de88bc418e1e 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -12,6 +12,7 @@ extern const char kOptionHideCalls[];
+ extern const char kOptionLowercase[];
+ extern const char kOptionHideSponsored[];
+ extern const char kOptionNoLinkWarning[];
++extern const char kOptionHideAllChats[];
+ extern const char kOptionShowGiftIds[];
+ extern const char kOptionPeerIdsWithoutSpaces[];
+ extern const char kOptionBotApiPeerIds[];
+@@ -41,6 +42,8 @@ extern const char kOptionTitleTemplate[];
+ [[nodiscard]] bool HideSponsored();
+ [[nodiscard]] rpl::producer<bool> HideSponsoredValue();
+ [[nodiscard]] bool NoLinkWarning();
++[[nodiscard]] bool HideAllChats();
++[[nodiscard]] rpl::producer<> HideAllChatsChanges();
+ [[nodiscard]] bool ShowGiftIds();
+ [[nodiscard]] bool PeerIdsWithoutSpaces();
+ [[nodiscard]] bool BotApiPeerIds();
+diff --git a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+index 52f748018aa6785d77c118d6a371df8128f8e86b..c37accf50ff88ed6b138885a33637b035d92c4a1 100644
+--- a/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
++++ b/Telegram/SourceFiles/ui/widgets/chat_filters_tabs_strip.cpp
+@@ -24,6 +24,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_mark_as_read.h"
+ #include "main/main_session.h"
+ #include "settings/sections/settings_folders.h"
++#include "tele/tele_folders.h"
+ #include "ui/widgets/menu/menu_action.h"
+ #include "ui/filter_icons.h"
+ #include "ui/power_saving.h"
+@@ -71,7 +72,7 @@ void ShowMenu(
+ 
+ 	auto id = FilterId(0);
+ 	{
+-		const auto &list = session->data().chatsFilters().list();
++		const auto &list = Tele::FolderTabs(session);
+ 		if (index < 0 || index >= list.size()) {
+ 			return;
+ 		}
+@@ -142,7 +143,7 @@ void ShowFiltersListMenu(
+ 		not_null<State*> state,
+ 		int active,
+ 		Fn<void(int)> changeActive) {
+-	const auto &list = session->data().chatsFilters().list();
++	const auto &list = Tele::FolderTabs(session);
+ 
+ 	state->menu = base::make_unique_q<Ui::PopupMenu>(
+ 		parent,
+@@ -151,7 +152,8 @@ void ShowFiltersListMenu(
+ 	const auto reorderAll = session->user()->isPremium();
+ 	const auto maxLimit = (reorderAll ? 1 : 0)
+ 		+ Data::PremiumLimits(session).dialogFiltersCurrent();
+-	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit;
++	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit
++		- Tele::HiddenFolderTabs(session);
+ 
+ 	for (auto i = 0; i < list.size(); ++i) {
+ 		const auto title = list[i].title();
+@@ -233,7 +235,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 	const auto state = wrap->lifetime().make_state<State>();
+ 	const auto reassignUnreadValue = [=] {
+ 		state->reorderLifetime.destroy();
+-		const auto &list = session->data().chatsFilters().list();
++		const auto &list = Tele::FolderTabs(session);
+ 		auto includeMuted = Data::IncludeMutedCounterFoldersValue();
+ 		for (auto i = 0; i < list.size(); i++) {
+ 			rpl::combine(
+@@ -264,7 +266,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 			}
+ 
+ 			const auto filters = &session->data().chatsFilters();
+-			const auto &list = filters->list();
++			const auto &list = Tele::FolderTabs(session);
+ 			if (!session->user()->isPremium()) {
+ 				if (list[0].id() != FilterId()) {
+ 					filters->moveAllToFront();
+@@ -279,6 +281,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 				&Data::ChatFilter::id
+ 			) | ranges::to_vector;
+ 			base::reorder(order, oldPosition, newPosition);
++			Tele::RestoreHiddenFolderTabs(session, order);
+ 
+ 			state->ignoreRefresh = true;
+ 			filters->saveOrder(order);
+@@ -314,7 +317,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 						: slider->width();
+ 					if (x >= left && x < right) {
+ 						const auto &list
+-							= session->data().chatsFilters().list();
++							= Tele::FolderTabs(session);
+ 						return (i < list.size())
+ 							? list[i].id()
+ 							: FilterId();
+@@ -324,7 +327,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 			},
+ 			[=] { return state->lastFilterId.value_or(FilterId()); },
+ 			[=](FilterId id) {
+-				const auto &list = session->data().chatsFilters().list();
++				const auto &list = Tele::FolderTabs(session);
+ 				for (auto i = 0; i < list.size(); i++) {
+ 					if (list[i].id() == id) {
+ 						slider->selectSection(i);
+@@ -372,14 +375,15 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 	};
+ 
+ 	const auto filterByIndex = [=](int index) -> const Data::ChatFilter& {
+-		const auto &list = session->data().chatsFilters().list();
++		const auto &list = Tele::FolderTabs(session);
+ 		Assert(index >= 0 && index < list.size());
+ 		return list[index];
+ 	};
+ 
+ 	const auto rebuild = [=] {
+-		const auto &list = session->data().chatsFilters().list();
+-		if ((list.size() <= 1 && !slider->width()) || state->ignoreRefresh) {
++		const auto &list = Tele::FolderTabs(session);
++		if ((!session->data().chatsFilters().has() && !slider->width())
++			|| state->ignoreRefresh) {
+ 			return;
+ 		}
+ 		const auto context = Core::TextContext({ .session = session });
+@@ -446,7 +450,8 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 			const auto reorderAll = session->user()->isPremium();
+ 			const auto maxLimit = (reorderAll ? 1 : 0)
+ 				+ Data::PremiumLimits(session).dialogFiltersCurrent();
+-			const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit;
++			const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit
++				- Tele::HiddenFolderTabs(session);
+ 			slider->setLockedFrom((premiumFrom >= list.size())
+ 				? 0
+ 				: premiumFrom);
+@@ -456,7 +461,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 			if (state->reorder) {
+ 				state->reorder->cancel();
+ 				state->reorder->clearPinnedIntervals();
+-				if (!reorderAll) {
++				if (!reorderAll && !Tele::HiddenFolderTabs(session)) {
+ 					state->reorder->addPinnedInterval(0, 1);
+ 				}
+ 				state->reorder->addPinnedInterval(
+@@ -499,7 +504,7 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 		if (trackActiveFilterAndUnreadAndReorder) {
+ 			controller->activeChatsFilter(
+ 			) | rpl::on_next([=](FilterId id) {
+-				const auto &list = session->data().chatsFilters().list();
++				const auto &list = Tele::FolderTabs(session);
+ 				for (auto i = 0; i < list.size(); ++i) {
+ 					if (list[i].id() == id) {
+ 						state->ignoreActivation = true;
+@@ -540,14 +545,16 @@ not_null<Ui::RpWidget*> AddChatFiltersTabsStrip(
+ 					[=](int i) { slider->setActiveSection(i); });
+ 			}
+ 		}, state->rebuildLifetime);
+-		wrap->toggle((list.size() > 1), anim::type::instant);
++		wrap->toggle(
++			session->data().chatsFilters().has(),
++			anim::type::instant);
+ 
+ 		if (state->reorder) {
+ 			state->reorder->start();
+ 		}
+ 	};
+ 	rpl::combine(
+-		session->data().chatsFilters().changed(),
++		Tele::FolderTabsChanges(session),
+ 		Data::AmPremiumValue(session) | rpl::to_empty
+ 	) | rpl::on_next(rebuild, wrap->lifetime());
+ 	state->titleIconResolved.events(
+diff --git a/Telegram/SourceFiles/window/window_filters_menu.cpp b/Telegram/SourceFiles/window/window_filters_menu.cpp
+index 8434d48c751f33572ba2e33c9fd13788d108fead..50386e1e78132f60ef614bb20e1661fc09581765 100644
+--- a/Telegram/SourceFiles/window/window_filters_menu.cpp
++++ b/Telegram/SourceFiles/window/window_filters_menu.cpp
+@@ -43,6 +43,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/premium_limits_box.h"
+ #include "settings/sections/settings_folders.h"
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_folders.h"
+ #include "api/api_chat_filters.h"
+ #include "apiwrap.h"
+ #include "styles/style_widgets.h"
+@@ -155,9 +156,9 @@ void FiltersMenu::setup() {
+ 
+ 	auto premium = Data::AmPremiumValue(&_session->session());
+ 
+-	const auto filters = &_session->session().data().chatsFilters();
+ 	rpl::combine(
+-		rpl::single(rpl::empty) | rpl::then(filters->changed()),
++		rpl::single(rpl::empty) | rpl::then(
++			Tele::FolderTabsChanges(&_session->session())),
+ 		std::move(premium)
+ 	) | rpl::on_next([=] {
+ 		refresh();
+@@ -273,7 +274,7 @@ void FiltersMenu::scrollToButton(not_null<Ui::RpWidget*> widget) {
+ }
+ 
+ void FiltersMenu::applyFilterAt(int start, int delta) {
+-	const auto &list = _session->session().data().chatsFilters().list();
++	const auto &list = Tele::FolderTabs(&_session->session());
+ 	const auto count = int(list.size());
+ 	// Move focus to the folder at `start`, then in the `delta` direction,
+ 	// stopping at the bounds (no wrap). Arrow keys only move focus; activation
+@@ -295,7 +296,7 @@ void FiltersMenu::applyFilterAt(int start, int delta) {
+ }
+ 
+ void FiltersMenu::moveToFilter(int delta) {
+-	const auto &list = _session->session().data().chatsFilters().list();
++	const auto &list = Tele::FolderTabs(&_session->session());
+ 	const auto count = int(list.size());
+ 	// Move relative to the currently focused folder, so navigation continues
+ 	// from a locked one (which only takes focus, without becoming active); fall
+@@ -315,7 +316,7 @@ void FiltersMenu::moveToFilter(int delta) {
+ 
+ void FiltersMenu::moveToFilterEdge(int delta) {
+ 	const auto count = int(
+-		_session->session().data().chatsFilters().list().size());
++		Tele::FolderTabs(&_session->session()).size());
+ 	applyFilterAt((delta > 0) ? 0 : (count - 1), delta);
+ }
+ 
+@@ -361,13 +362,15 @@ void FiltersMenu::refresh() {
+ 	_reorder->clearPinnedIntervals();
+ 	const auto maxLimit = (reorderAll ? 1 : 0)
+ 		+ Data::PremiumLimits(&_session->session()).dialogFiltersCurrent();
+-	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit;
+-	if (!reorderAll) {
++	const auto hidden = Tele::HiddenFolderTabs(&_session->session());
++	const auto &list = Tele::FolderTabs(&_session->session());
++	const auto premiumFrom = (reorderAll ? 0 : 1) + maxLimit - hidden;
++	if (!reorderAll && !hidden) {
+ 		_reorder->addPinnedInterval(0, 1);
+ 	}
+ 	_reorder->addPinnedInterval(
+ 		premiumFrom,
+-		std::max(1, int(filters->list().size()) - maxLimit));
++		std::max(1, int(list.size()) - maxLimit));
+ 
+ 	// Remember which folder holds keyboard focus so the roving Tab-stop can be
+ 	// re-established on its replacement after the rebuild: the new buttons are
+@@ -386,7 +389,7 @@ void FiltersMenu::refresh() {
+ 	using Mode = Ui::ChatsFiltersTabsMode;
+ 	const auto withIcons = (tabsMode() != Mode::TextOnly);
+ 	_titleIconsLifetime.destroy();
+-	for (const auto &filter : filters->list()) {
++	for (const auto &filter : list) {
+ 		const auto nextIsLocked = (now.size() >= premiumFrom);
+ 		if (nextIsLocked && (currentFilter == filter.id())) {
+ 			_session->setActiveChatsFilter(FilterId(0));
+@@ -826,7 +829,7 @@ void FiltersMenu::applyReorder(
+ 	}
+ 
+ 	const auto filters = &_session->session().data().chatsFilters();
+-	const auto &list = filters->list();
++	const auto &list = Tele::FolderTabs(&_session->session());
+ 	if (!premium()) {
+ 		if (list[0].id() != FilterId()) {
+ 			filters->moveAllToFront();
+@@ -845,6 +848,7 @@ void FiltersMenu::applyReorder(
+ 		&Data::ChatFilter::id
+ 	) | ranges::to_vector;
+ 	base::reorder(order, oldPosition, newPosition);
++	Tele::RestoreHiddenFolderTabs(&_session->session(), order);
+ 
+ 	_ignoreRefresh = true;
+ 	filters->saveOrder(order);
+diff --git a/Telegram/SourceFiles/window/window_session_controller.cpp b/Telegram/SourceFiles/window/window_session_controller.cpp
+index 2e42e91fdd3fbaaff6234e80c82a27cc65ca07ed..a5699e64590b2e21a9d33a76f6ef6b04f4e6691a 100644
+--- a/Telegram/SourceFiles/window/window_session_controller.cpp
++++ b/Telegram/SourceFiles/window/window_session_controller.cpp
+@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "settings/sections/settings_main.h"
+ #include "settings/sections/settings_premium.h"
+ #include "settings/sections/settings_privacy_security.h"
++#include "tele/tele_folders.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_window.h"
+ #include "styles/style_dialogs.h"
+@@ -1862,6 +1863,7 @@ SessionController::SessionController(
+ 		checkOpenedFilter();
+ 		crl::on_main(this, processFiltersMenu);
+ 	}, lifetime());
++	Tele::SetupFolderTabs(this);
+ 
+ 	session->data().itemIdChanged(
+ 	) | rpl::on_next([=](Data::Session::IdChange change) {
+@@ -4355,7 +4357,7 @@ bool CheckAndJumpToNearChatsFilter(
+ 		bool jump) {
+ 	const auto id = controller->activeChatsFilterCurrent();
+ 	const auto session = &controller->session();
+-	const auto list = &session->data().chatsFilters().list();
++	const auto list = &Tele::FolderTabs(session);
+ 	const auto index = int(ranges::find(
+ 		*list,
+ 		id,
+@@ -4368,7 +4370,8 @@ bool CheckAndJumpToNearChatsFilter(
+ 	if (changed >= int(list->size()) || changed < 0) {
+ 		return false;
+ 	}
+-	if (changed > Data::PremiumLimits(session).dialogFiltersCurrent()) {
++	if (changed > Data::PremiumLimits(session).dialogFiltersCurrent()
++			- Tele::HiddenFolderTabs(session)) {
+ 		return false;
+ 	}
+ 	if (jump) {

@@ -23,10 +23,10 @@ Subject: [PATCH] feat: apply verification and marks from the tele server
  create mode 100644 Telegram/SourceFiles/tele/tele_badges.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 37c0a2d4bb650c8d51eacb26420ac1ba2fe0b957..ab1bdeae526d9937971e714aa2efd997e897ff67 100644
+index 795fee4bc1668d97a452f5563b30863771609b61..f59ed49e444a29b7dd59ab9b34ff03b10344aadc 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2652,6 +2652,8 @@ nice_target_sources(Telegram ${src_loc}
+@@ -2779,6 +2779,8 @@ nice_target_sources(Telegram ${src_loc}
  PRIVATE
      settings/settings_tele.cpp
      settings/settings_tele.h
@@ -57,10 +57,10 @@ index 25a3d32ffbffc5c03ff707a9fd3f8041379df34a..41b6085f81e3fca3b5b5d1b331f7685c
  		if (update.flags & UpdateFlag::BarSettings) {
  			const auto byPeer = _rowsByPeer.find(update.peer);
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 26914a527168546c89bcd97ec001fb8067e70f5d..45ada6f36cf90e3224b8f2d13b33aacbff1db43b 100644
+index da6f477a5095561459e3fcd8a68ad1e0d58caa0e..0f60ce85363a7b592905c9b4fe47bc3ae9075ac7 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -107,6 +107,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -108,6 +108,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "core/cached_webview_availability.h"
  #include "test/test_agent.h"
  #include "tele/tele_updater.h"
@@ -68,7 +68,7 @@ index 26914a527168546c89bcd97ec001fb8067e70f5d..45ada6f36cf90e3224b8f2d13b33aacb
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -359,6 +360,7 @@ void Application::run() {
+@@ -361,6 +362,7 @@ void Application::run() {
  	Storage::ClearStaleArchiveFiles();
  	Webview::ClearStaleTemporaryStorage();
  	Tele::StartUpdater();
@@ -77,7 +77,7 @@ index 26914a527168546c89bcd97ec001fb8067e70f5d..45ada6f36cf90e3224b8f2d13b33aacb
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/data/data_channel.cpp b/Telegram/SourceFiles/data/data_channel.cpp
-index 6444659d325d8f583095d86f14d7e8299e2be03d..93993edf85386d156fdda704a1a30372306744d7 100644
+index 56ed65c07f68c53e2c1a5f5c4d24a16eb94c38a6..0ed04996e752e84adb135680b1b99830528a2a82 100644
 --- a/Telegram/SourceFiles/data/data_channel.cpp
 +++ b/Telegram/SourceFiles/data/data_channel.cpp
 @@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -127,7 +127,7 @@ index d43652efdee6c597ca9bb81e6df9280018ec280b..ede3e14049321fb5bd9a40342fed8b74
  }
  
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index 9a9d1a2ed06494d7ff816eeec6631cf11e1fecc3..ad7b8ab0d904cba723bd1cc640f2cde2d9466002 100644
+index 4fd0ed4d1f3ab67bc964480c6dcbbd6f53dbd363..c5280879d1d5ebe9966c10bc8615a50a8f7367cb 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
 @@ -95,6 +95,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -138,7 +138,7 @@ index 9a9d1a2ed06494d7ff816eeec6631cf11e1fecc3..ad7b8ab0d904cba723bd1cc640f2cde2
  
  namespace Data {
  namespace {
-@@ -770,9 +771,9 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
+@@ -772,9 +773,9 @@ not_null<UserData*> Session::processUser(const MTPUser &data) {
  			? std::optional<Data::Stories::PeerSourceState>()
  			: stories().peerSourceState(result, *data.vstories_max_id());
  		const auto flagsSet = (data.is_deleted() ? Flag::Deleted : Flag())
@@ -151,7 +151,7 @@ index 9a9d1a2ed06494d7ff816eeec6631cf11e1fecc3..ad7b8ab0d904cba723bd1cc640f2cde2
  			| (data.is_bot_inline_geo() ? Flag::BotInlineGeo : Flag())
  			| (data.is_bot_forum_view() ? Flag::Forum : Flag())
  			| (data.is_premium() ? Flag::Premium : Flag())
-@@ -1181,9 +1182,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
+@@ -1184,9 +1185,9 @@ not_null<PeerData*> Session::processChat(const MTPChat &data) {
  			? std::optional<Data::Stories::PeerSourceState>()
  			: stories().peerSourceState(channel, *data.vstories_max_id());
  		const auto flagsSet = (data.is_broadcast() ? Flag::Broadcast : Flag())
@@ -165,7 +165,7 @@ index 9a9d1a2ed06494d7ff816eeec6631cf11e1fecc3..ad7b8ab0d904cba723bd1cc640f2cde2
  			| (data.is_gigagroup() ? Flag::Gigagroup : Flag())
  			| (hasUsername ? Flag::Username : Flag())
 diff --git a/Telegram/SourceFiles/data/data_user.cpp b/Telegram/SourceFiles/data/data_user.cpp
-index a912e38becb513ae1a64ac28ef3da9f9a51c0702..ac613a80d2997190a3957ea52badc6d9c9e85cc9 100644
+index cd2e898438f684e7abe7dcc68193d0d8cdfcc2b6..32024f9d5161c0ed71c4d63db30ac15fc82412e4 100644
 --- a/Telegram/SourceFiles/data/data_user.cpp
 +++ b/Telegram/SourceFiles/data/data_user.cpp
 @@ -40,6 +40,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -176,7 +176,7 @@ index a912e38becb513ae1a64ac28ef3da9f9a51c0702..ac613a80d2997190a3957ea52badc6d9
  #include "wallet/wallet_own_card.h"
  #include "wallet/wallet_session.h"
  #include "window/notifications_manager.h"
-@@ -786,6 +787,7 @@ bool UserData::isOldWalletBot() const {
+@@ -791,6 +792,7 @@ bool UserData::isOldWalletBot() const {
  }
  
  void UserData::setBotVerifyDetails(Ui::BotVerifyDetails details) {

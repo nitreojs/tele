@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 18 Nov 2026 02:40:04 +0300
+Subject: [PATCH] fix: show sender avatars beside forum topic tabs
+
+---
+ Telegram/SourceFiles/history/history_widget.cpp  |  8 ++++++--
+ .../history/view/history_view_chat_section.cpp   | 16 ++++++++++------
+ 2 files changed, 16 insertions(+), 8 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index 9d5c8fca42b13bea516a6d1336faffb0c7705b15..6f45a25e9b9221284c98bf19613f20a02c8d3f7c 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -10933,12 +10933,16 @@ void HistoryWidget::validateSubsectionTabs() {
+ 		_subsectionTabs = nullptr;
+ 		updateControlsGeometry();
+ 	}, _subsectionTabsLifetime);
++	const auto hideUserpics = [=] {
++		return (_subsectionTabs->leftSkip() > 0)
++			&& !(_history->peer->isMegagroup() && _history->peer->forum());
++	};
+ 	_subsectionTabs->layoutRequests() | rpl::on_next([=] {
+-		_list->toggleRemoveFromUserpics(_subsectionTabs->leftSkip() > 0);
++		_list->toggleRemoveFromUserpics(hideUserpics());
+ 		updateControlsGeometry();
+ 		orderWidgets();
+ 	}, _subsectionTabsLifetime);
+-	_list->toggleRemoveFromUserpics(_subsectionTabs->leftSkip() > 0);
++	_list->toggleRemoveFromUserpics(hideUserpics());
+ 	updateControlsGeometry();
+ 	orderWidgets();
+ }
+diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+index 36548b1915e456cf727f1a0e1fa343daaa3de991..5194b14b2df371f6e325134b07ecad1aebdfcc60 100644
+--- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+@@ -3051,17 +3051,21 @@ void ChatWidget::validateSubsectionTabs() {
+ 		_subsectionTabs = nullptr;
+ 		updateControlsGeometry();
+ 	}, _subsectionTabsLifetime);
++	const auto sidebarMode = [=]() -> std::optional<ElementChatMode> {
++		if (!_subsectionTabs->leftSkip()) {
++			return std::nullopt;
++		}
++		return (_peer->isMegagroup() && _peer->forum())
++			? ElementChatMode::Default
++			: ElementChatMode::Narrow;
++	};
+ 	_subsectionTabs->layoutRequests() | rpl::on_next([=] {
+-		_inner->overrideChatMode((_subsectionTabs->leftSkip() > 0)
+-			? ElementChatMode::Narrow
+-			: std::optional<ElementChatMode>());
++		_inner->overrideChatMode(sidebarMode());
+ 		updateControlsGeometry();
+ 		updateSubsectionTabsGeometry();
+ 		orderWidgets();
+ 	}, _subsectionTabsLifetime);
+-	_inner->overrideChatMode((_subsectionTabs->leftSkip() > 0)
+-		? ElementChatMode::Narrow
+-		: std::optional<ElementChatMode>());
++	_inner->overrideChatMode(sidebarMode());
+ 	updateControlsGeometry();
+ 	updateSubsectionTabsGeometry();
+ 	orderWidgets();

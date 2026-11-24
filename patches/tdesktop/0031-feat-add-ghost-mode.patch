@@ -1,0 +1,1412 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 05:12:59 +0300
+Subject: [PATCH] feat: add ghost mode
+
+---
+ Telegram/CMakeLists.txt                       |   2 +
+ .../SourceFiles/api/api_send_progress.cpp     |   4 +
+ Telegram/SourceFiles/api/api_sending.cpp      |   2 +
+ Telegram/SourceFiles/api/api_updates.cpp      |   4 +-
+ Telegram/SourceFiles/apiwrap.cpp              |  18 +-
+ .../chat_helpers/emoji_interactions.cpp       |   8 +
+ Telegram/SourceFiles/data/data_histories.cpp  |   5 +
+ .../SourceFiles/data/data_replies_list.cpp    |   4 +
+ .../SourceFiles/data/data_saved_sublist.cpp   |   4 +
+ .../history/history_inner_widget.cpp          |   2 +
+ .../SourceFiles/history/history_widget.cpp    |   4 +-
+ .../view/history_view_chat_section.cpp        |   4 +-
+ .../view/history_view_context_menu.cpp        |   2 +
+ Telegram/SourceFiles/menu/menu_send.cpp       |  13 +
+ .../SourceFiles/settings/settings_tele.cpp    | 151 ++++++
+ Telegram/SourceFiles/tele/tele_ghost.cpp      | 474 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_ghost.h        |  73 +++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 138 ++++-
+ Telegram/SourceFiles/tele/tele_options.h      |  19 +
+ .../SourceFiles/window/window_main_menu.cpp   |   3 +
+ .../SourceFiles/window/window_peer_menu.cpp   |   2 +
+ 21 files changed, 928 insertions(+), 8 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_ghost.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_ghost.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index 815d210cab2ef91bcda0f6abdf40a749270019bf..ab45c4c5d81f3edac58373c5b2143ac4593a5781 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2799,6 +2799,8 @@ PRIVATE
+     tele/tele_folders.h
+     tele/tele_gifts.cpp
+     tele/tele_gifts.h
++    tele/tele_ghost.cpp
++    tele/tele_ghost.h
+     tele/tele_ignored.cpp
+     tele/tele_ignored.h
+     tele/tele_lowercase.cpp
+diff --git a/Telegram/SourceFiles/api/api_send_progress.cpp b/Telegram/SourceFiles/api/api_send_progress.cpp
+index 206520e201e3b38c5c9c2e049994d826d9bc088a..0972afe10edabb90d6f1c9d7dc4dc55258e88e87 100644
+--- a/Telegram/SourceFiles/api/api_send_progress.cpp
++++ b/Telegram/SourceFiles/api/api_send_progress.cpp
+@@ -14,6 +14,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "base/unixtime.h"
+ #include "data/data_peer_values.h"
+ #include "apiwrap.h"
++#include "tele/tele_ghost.h"
+ 
+ namespace Api {
+ namespace {
+@@ -152,6 +153,9 @@ void SendProgressManager::send(const Key &key, int progress) {
+ }
+ 
+ bool SendProgressManager::skipRequest(const Key &key) const {
++	if (Tele::HideTyping(key.history->peer)) {
++		return true;
++	}
+ 	const auto user = key.history->peer->asUser();
+ 	if (!user) {
+ 		return false;
+diff --git a/Telegram/SourceFiles/api/api_sending.cpp b/Telegram/SourceFiles/api/api_sending.cpp
+index b2c03b3eb06b6884e6c6a54a35644b7811cb8115..5035f0f09fee41b39a9b6ca28316e0f42d819eb0 100644
+--- a/Telegram/SourceFiles/api/api_sending.cpp
++++ b/Telegram/SourceFiles/api/api_sending.cpp
+@@ -37,6 +37,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/file_upload.h"
+ #include "mainwidget.h"
+ #include "apiwrap.h"
++#include "tele/tele_ghost.h"
+ 
+ namespace Api {
+ namespace {
+@@ -213,6 +214,7 @@ void SendExistingMedia(
+ 
+ 	message.action.clearDraft = false;
+ 	message.action.generateLocal = true;
++	Tele::ApplyGhostSchedule(message.action, message.textWithTags.text);
+ 	api->sendAction(message.action);
+ 
+ 	const auto newId = FullMsgId(
+diff --git a/Telegram/SourceFiles/api/api_updates.cpp b/Telegram/SourceFiles/api/api_updates.cpp
+index cbcae38d6575aa078a01393e752608bfd043fc0e..dfe744ead2a16718dc7b6684a306f4afecc68e8c 100644
+--- a/Telegram/SourceFiles/api/api_updates.cpp
++++ b/Telegram/SourceFiles/api/api_updates.cpp
+@@ -78,6 +78,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/boxes/confirm_box.h"
+ #include "apiwrap.h"
+ #include "ui/text/format_values.h" // Ui::FormatPhone
++#include "tele/tele_ghost.h"
+ 
+ namespace Api {
+ namespace {
+@@ -1082,7 +1083,8 @@ void Updates::updateOnline(crl::time lastNonIdleTime, bool gotOtherOffline) {
+ 	});
+ 
+ 	const auto &config = _session->serverConfig();
+-	bool isOnline = Core::App().hasActiveWindow(&session());
++	bool isOnline = Core::App().hasActiveWindow(&session())
++		&& !Tele::HideOnline();
+ 	int updateIn = config.onlineUpdatePeriod;
+ 	Assert(updateIn >= 0);
+ 	if (isOnline) {
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index 2346d584c1bbd159a6f3e7ea24455f0b8e4b1f26..f6896823f743d1812acc7d276e07615c0d26d019 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -111,6 +111,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/file_upload.h"
+ #include "storage/storage_account.h"
+ #include "tele/tele_secret_media.h"
++#include "tele/tele_ghost.h"
+ #include "tgw/tgw_storage.h"
+ 
+ namespace {
+@@ -1494,7 +1495,8 @@ void ApiWrap::markContentsRead(
+ 	for (const auto &item : items) {
+ 		if (Tele::KeepsSecretMedia(item)
+ 			|| !item->markContentsRead(true)
+-			|| !item->isRegular()) {
++			|| !item->isRegular()
++			|| Tele::HideRead(item->history()->peer)) {
+ 			continue;
+ 		}
+ 		if (const auto channel = item->history()->peer->asChannel()) {
+@@ -1521,7 +1523,8 @@ void ApiWrap::markContentsRead(
+ void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
+ 	if (Tele::KeepsSecretMedia(item)
+ 		|| !item->markContentsRead(true)
+-		|| !item->isRegular()) {
++		|| !item->isRegular()
++		|| Tele::HideRead(item->history()->peer)) {
+ 		return;
+ 	}
+ 	const auto ids = MTP_vector<MTPint>(1, MTP_int(item->id));
+@@ -3902,7 +3905,7 @@ mtpRequestId ApiWrap::requestGlobalMedia(
+ }
+ 
+ void ApiWrap::sendAction(const SendAction &action) {
+-	if (!action.options.scheduled
++	if ((!action.options.scheduled || Tele::IsGhostScheduled(action))
+ 		&& !action.options.shortcutId
+ 		&& !action.replaceMediaOf) {
+ 		const auto topicRootId = action.replyTo.topicRootId;
+@@ -3920,6 +3923,7 @@ void ApiWrap::sendAction(const SendAction &action) {
+ 		} else {
+ 			_session->data().histories().readInbox(action.history);
+ 		}
++		Tele::ReadOnSend(action);
+ 		action.history->getReadyFor(ShowAtTheEndMsgId);
+ 	}
+ 	_sendActions.fire_copy(action);
+@@ -4019,6 +4023,7 @@ FullMsgId ApiWrap::forwardMessages(
+ 	if (!action.options.scheduled && !action.options.shortcutId) {
+ 		histories.readInbox(history);
+ 	}
++	Tele::ApplyGhostSchedule(action);
+ 	const auto sendAs = action.options.sendAs;
+ 	const auto silentPost = ShouldSendSilent(peer, action.options);
+ 
+@@ -4339,7 +4344,7 @@ void ApiWrap::sendVoiceMessage(
+ 		std::shared_ptr<Media::Encode::VideoSource> videoSource,
+ 		const SendAction &action) {
+ 	const auto caption = TextWithTags();
+-	const auto to = FileLoadTaskOptions(action);
++	const auto to = FileLoadTaskOptions(Tele::WithGhostSchedule(action));
+ 	_fileLoader->addTask(
+ 		std::make_unique<FileLoadTask>(FileLoadTask::VoiceArgs{
+ 			.session = &session(),
+@@ -4416,6 +4421,7 @@ void ApiWrap::sendFiles(
+ 		&& ranges::any_of(list.files, &Ui::PreparedFile::ttlSeconds)) {
+ 		album = nullptr;
+ 	}
++	Tele::ApplyGhostSchedule(action, list);
+ 	const auto to = FileLoadTaskOptions(action);
+ 	const auto animationAsGif = !Data::RestrictionError(
+ 		action.history->peer,
+@@ -4814,6 +4820,7 @@ void ApiWrap::sendMessage(
+ 
+ 	auto action = message.action;
+ 	action.generateLocal = true;
++	Tele::ApplyGhostSchedule(action);
+ 	sendAction(action);
+ 
+ 	const auto clearCloudDraft = action.clearDraft;
+@@ -5169,6 +5176,7 @@ void ApiWrap::sendInlineResult(
+ 		std::optional<MsgId> localMessageId,
+ 		Fn<void(bool)> done) {
+ 	StripEphemeralReply(_session, action.replyTo);
++	Tele::ApplyGhostSchedule(action);
+ 	sendAction(action);
+ 
+ 	const auto history = action.history;
+@@ -5411,6 +5419,7 @@ void ApiWrap::sendMediaWithRandomId(
+ 	const auto history = item->history();
+ 	const auto replyTo = item->replyTo();
+ 	const auto peer = history->peer;
++	Tele::RefreshGhostSchedule(peer, options);
+ 
+ 	if (_session->ephemeralMessages().sendMedia(item, media)) {
+ 		if (done) {
+@@ -5681,6 +5690,7 @@ void ApiWrap::sendAlbumIfReady(not_null<SendingAlbum*> album) {
+ 		return;
+ 	}
+ 	const auto history = sample->history();
++	Tele::RefreshGhostSchedule(history->peer, album->options);
+ 	const auto sendAs = album->options.sendAs;
+ 	const auto starsPaid = std::min(
+ 		history->peer->starsPerMessageChecked() * int(medias.size()),
+diff --git a/Telegram/SourceFiles/chat_helpers/emoji_interactions.cpp b/Telegram/SourceFiles/chat_helpers/emoji_interactions.cpp
+index df4816a79fb6e33e0e93053a9fa10abbcfbcccdb..afe8c3508f12c360c8c77a5a1462ac31ec5341db 100644
+--- a/Telegram/SourceFiles/chat_helpers/emoji_interactions.cpp
++++ b/Telegram/SourceFiles/chat_helpers/emoji_interactions.cpp
+@@ -21,6 +21,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/emoji_config.h"
+ #include "base/random.h"
+ #include "apiwrap.h"
++#include "tele/tele_ghost.h"
+ 
+ #include <QtCore/QJsonDocument>
+ #include <QtCore/QJsonArray>
+@@ -320,6 +321,10 @@ void EmojiInteractions::sendAccumulatedOutgoing(
+ 	}
+ 	const auto peer = item->history()->peer;
+ 	const auto emoji = from->emoji;
++	if (Tele::HideTyping(peer)) {
++		animations.erase(from, till);
++		return;
++	}
+ 	const auto requestId = _session->api().request(MTPmessages_SetTyping(
+ 		MTP_flags(0),
+ 		peer->input(),
+@@ -477,6 +482,9 @@ void EmojiInteractions::playStarted(not_null<PeerData*> peer, QString emoji) {
+ 	if (i != end(map) && now - i->second < kAccumulateSeenRequests) {
+ 		return;
+ 	}
++	if (Tele::HideTyping(peer)) {
++		return;
++	}
+ 	_session->api().request(MTPmessages_SetTyping(
+ 		MTP_flags(0),
+ 		peer->input(),
+diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
+index 81d3f813cd4400d068d4067ee76af8a9283142db..1c02aea63f68fc2390ce20a309500fda682cba0c 100644
+--- a/Telegram/SourceFiles/data/data_histories.cpp
++++ b/Telegram/SourceFiles/data/data_histories.cpp
+@@ -36,6 +36,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/application.h"
+ #include "apiwrap.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_ghost.h"
+ 
+ namespace Data {
+ namespace {
+@@ -750,6 +751,10 @@ void Histories::sendReadRequests() {
+ void Histories::sendReadRequest(not_null<History*> history, State &state) {
+ 	Expects(state.willReadTill > state.sentReadTill);
+ 
++	if (Tele::SkipReadInbox(history, state.willReadTill)) {
++		state.willReadTill = 0;
++		return;
++	}
+ 	const auto tillId = state.sentReadTill = base::take(state.willReadTill);
+ 	state.willReadWhen = 0;
+ 	state.sentReadDone = false;
+diff --git a/Telegram/SourceFiles/data/data_replies_list.cpp b/Telegram/SourceFiles/data/data_replies_list.cpp
+index 1fe311852a2fe977e58252367b7855e6774eb69e..048891da32cf1138ff967f7a75827616229a389d 100644
+--- a/Telegram/SourceFiles/data/data_replies_list.cpp
++++ b/Telegram/SourceFiles/data/data_replies_list.cpp
+@@ -23,6 +23,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "core/application.h"
+ #include "lang/lang_keys.h"
+ #include "apiwrap.h"
++#include "tele/tele_ghost.h"
+ 
+ namespace Data {
+ namespace {
+@@ -970,6 +971,9 @@ void RepliesList::sendReadTillRequest() {
+ 	}
+ 	const auto api = &_history->session().api();
+ 	api->request(base::take(_readRequestId)).cancel();
++	if (Tele::HideRead(_history->peer)) {
++		return;
++	}
+ 
+ 	_readRequestId = api->request(MTPmessages_ReadDiscussion(
+ 		_history->peer->input(),
+diff --git a/Telegram/SourceFiles/data/data_saved_sublist.cpp b/Telegram/SourceFiles/data/data_saved_sublist.cpp
+index 13ed122841cb45ce576f0658c3b157d335fc77d1..37e534df12a57865b42d45e19c58a3c42b1aeec8 100644
+--- a/Telegram/SourceFiles/data/data_saved_sublist.cpp
++++ b/Telegram/SourceFiles/data/data_saved_sublist.cpp
+@@ -25,6 +25,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history_item.h"
+ #include "history/history_unread_things.h"
+ #include "main/main_session.h"
++#include "tele/tele_ghost.h"
+ #include "window/notifications_manager.h"
+ 
+ namespace Data {
+@@ -655,6 +656,9 @@ void SavedSublist::sendReadTillRequest() {
+ 	}
+ 	const auto api = &_parent->session().api();
+ 	api->request(base::take(_readRequestId)).cancel();
++	if (Tele::HideRead(parentChat)) {
++		return;
++	}
+ 
+ 	_sentReadTill = computeInboxReadTillFull();
+ 	_readRequestId = api->request(MTPmessages_ReadSavedHistory(
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index 3851bf45e2f53b253949361adf74adc51bbbd074..a7e6aeb6c8963f49cbf0fde48ec1506c085e4220 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_button_payload.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_message_menu.h"
+@@ -3110,6 +3111,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			controller,
+ 			albumPartItem ? albumPartItem : item);
+ 		Tele::AddMarkViewedAction(_menu.get(), item);
++		Tele::AddMarkReadAction(_menu.get(), item);
+ 		if (session->factchecks().canEdit(item)) {
+ 			const auto text = item->factcheckText();
+ 			const auto phrase = text.empty()
+diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
+index e0791b0e5dea04fd14698f87b607543ac958553b..7bf468956093f5811931d8d5a9ceab5b2414bda5 100644
+--- a/Telegram/SourceFiles/history/history_widget.cpp
++++ b/Telegram/SourceFiles/history/history_widget.cpp
+@@ -175,6 +175,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/file_upload.h"
+ #include "storage/storage_folder_archive.h"
+ #include "storage/storage_media_prepare.h"
++#include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
+ #include "media/audio/media_audio.h"
+ #include "media/audio/media_audio_capture.h"
+@@ -1197,7 +1198,8 @@ HistoryWidget::HistoryWidget(
+ 		const auto lastKeyboardUsed = lastForceReplyReplied(
+ 			action.replyTo.messageId);
+ 		if (action.replaceMediaOf) {
+-		} else if (action.options.scheduled) {
++		} else if (action.options.scheduled
++			&& !Tele::IsGhostScheduled(action)) {
+ 			cancelReplyOrSuggest(lastKeyboardUsed);
+ 			crl::on_main(this, [=, history = action.history] {
+ 				controller->showSection(
+diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+index 1bd61e0b1edbbf46a5658f86063d293de55a86c3..b6f923be988532b15a2d1dfe8c46b0197746227d 100644
+--- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
+@@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "support/support_autocomplete.h"
+ #include "support/support_common.h"
+ #include "support/support_preload.h"
++#include "tele/tele_ghost.h"
+ #include "tele/tele_shortcuts.h"
+ #include "inline_bots/inline_bot_result.h"
+ #include "info/profile/info_profile_values.h"
+@@ -777,7 +778,8 @@ ChatWidget::ChatWidget(
+ 					cancelledSuggest = cancelSuggestPost();
+ 				}
+ 			}
+-			if (action.options.scheduled) {
++			if (action.options.scheduled
++				&& !Tele::IsGhostScheduled(action)) {
+ 				if (_topic) {
+ 					crl::on_main(this, [=, t = _topic] {
+ 						controller->showSection(
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index f20c629154ff6183cddaf36e505aeee2c3d80b14..72fef2e08729c8cc3f95050c56c45c21554c3d2d 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -120,6 +120,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_message_menu.h"
++#include "tele/tele_ghost.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_layers.h"
+@@ -1396,6 +1397,7 @@ void AddTopMessageActions(
+ 	AddEditMessageAction(menu, request, list);
+ 	Tele::AddEditHistoryAction(menu, request.navigation, request.item);
+ 	Tele::AddMarkViewedAction(menu, request.item);
++	Tele::AddMarkReadAction(menu, request.item);
+ 	AddFactcheckAction(menu, request, list);
+ 	AddPinMessageAction(menu, request, list);
+ 	AddViewStatisticsAction(menu, request, list);
+diff --git a/Telegram/SourceFiles/menu/menu_send.cpp b/Telegram/SourceFiles/menu/menu_send.cpp
+index e140c6933a4d921a7b866c780ceaec843d9cbb7a..c9b965322b3e58573f9799e77e4a6c678fe5cdcd 100644
+--- a/Telegram/SourceFiles/menu/menu_send.cpp
++++ b/Telegram/SourceFiles/menu/menu_send.cpp
+@@ -53,6 +53,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "main/main_session.h"
+ #include "apiwrap.h"
+ #include "settings/sections/settings_premium.h"
++#include "tele/tele_ghost.h"
+ #include "window/themes/window_theme.h"
+ #include "window/section_widget.h"
+ #include "styles/style_chat.h"
+@@ -979,6 +980,11 @@ void SetupUnreadMentionsMenu(
+ 		const auto peer = thread->peer();
+ 		const auto topic = thread->asTopic();
+ 		const auto rootId = topic ? topic->rootId() : 0;
++		if (Tele::HideRead(peer)) {
++			done();
++			peer->owner().history(peer)->clearUnreadMentionsFor(rootId);
++			return;
++		}
+ 		using Flag = MTPmessages_ReadMentions::Flag;
+ 		peer->session().api().request(MTPmessages_ReadMentions(
+ 			MTP_flags(rootId ? Flag::f_top_msg_id : Flag()),
+@@ -1021,6 +1027,13 @@ void SetupUnreadReactionsMenu(
+ 		const auto sublist = thread->asSublist();
+ 		const auto peer = thread->peer();
+ 		const auto rootId = topic ? topic->rootId() : 0;
++		if (Tele::HideRead(peer)) {
++			done();
++			peer->owner().history(peer)->clearUnreadReactionsFor(
++				rootId,
++				sublist);
++			return;
++		}
+ 		using Flag = MTPmessages_ReadReactions::Flag;
+ 		peer->session().api().request(MTPmessages_ReadReactions(
+ 			MTP_flags((rootId ? Flag::f_top_msg_id : Flag(0))
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 939a1d69d4954b71df365b357b57474eb74dea1a..ff5fd6c0d483c1e20c631e3aba7de25c31fe78ba 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -16,6 +16,7 @@
+ #include "settings/settings_common_session.h"
+ #include "tele/tele_badges.h"
+ #include "tele/tele_build.h"
++#include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+@@ -586,6 +587,144 @@ void AddIgnoredUsers(
+ 		st::settingsExperimentalAboutPadding);
+ }
+ 
++class GhostChatRow final : public PeerListRowWithLink {
++public:
++	explicit GhostChatRow(not_null<PeerData*> peer)
++	: PeerListRowWithLink(peer) {
++	}
++
++	QString generateName() override {
++		return peer()->isMinimalLoaded()
++			? PeerListRowWithLink::generateName()
++			: u"Unknown chat"_q;
++	}
++
++};
++
++class GhostChatsController final : public PeerListController {
++public:
++	explicit GhostChatsController(
++		not_null<Window::SessionController*> window);
++
++	Main::Session &session() const override;
++	void prepare() override;
++	void rowClicked(not_null<PeerListRow*> row) override;
++	void rowRightActionClicked(not_null<PeerListRow*> row) override;
++
++private:
++	void refreshRows();
++
++	const not_null<Window::SessionController*> _window;
++
++};
++
++GhostChatsController::GhostChatsController(
++	not_null<Window::SessionController*> window)
++: _window(window) {
++}
++
++Main::Session &GhostChatsController::session() const {
++	return _window->session();
++}
++
++void GhostChatsController::prepare() {
++	delegate()->peerListSetTitle(rpl::single(u"Ghost mode in chats"_q));
++	::Tele::GhostChatsChanges(
++	) | rpl::on_next([=] {
++		refreshRows();
++	}, lifetime());
++	refreshRows();
++}
++
++void GhostChatsController::refreshRows() {
++	const auto chats = ::Tele::GhostChats(&session());
++	auto keep = base::flat_set<PeerListRowId>();
++	for (const auto &chat : chats) {
++		keep.emplace(chat.id.value);
++	}
++	for (auto i = delegate()->peerListFullRowsCount(); i != 0;) {
++		const auto row = delegate()->peerListRowAt(--i);
++		if (!keep.contains(row->id())) {
++			delegate()->peerListRemoveRow(row);
++		}
++	}
++	for (const auto &chat : chats) {
++		auto row = delegate()->peerListFindRow(chat.id.value);
++		if (!row) {
++			auto created = std::make_unique<GhostChatRow>(
++				session().data().peer(chat.id));
++			created->setActionLink(u"Remove"_q);
++			row = created.get();
++			delegate()->peerListAppendRow(std::move(created));
++		}
++		row->setCustomStatus(
++			(chat.mode == ::Tele::GhostOverride::Always)
++				? u"Always ghost"_q
++				: u"Never ghost"_q);
++	}
++	setDescriptionText(chats.empty()
++		? u"No chats yet. Pick Ghost mode in this chat in a chat's "
++			"menu."_q
++		: QString());
++	delegate()->peerListRefreshRows();
++}
++
++void GhostChatsController::rowClicked(not_null<PeerListRow*> row) {
++	const auto peer = row->peer();
++	if (!peer->isMinimalLoaded()) {
++		return;
++	}
++	const auto window = _window;
++	crl::on_main(window, [=] {
++		window->showPeerInfo(peer);
++	});
++}
++
++void GhostChatsController::rowRightActionClicked(
++		not_null<PeerListRow*> row) {
++	const auto peer = row->peer();
++	crl::on_main(_window, [=] {
++		::Tele::SetChatGhostOverride(peer, ::Tele::GhostOverride::Default);
++	});
++}
++
++void ShowGhostChatsBox(not_null<Window::SessionController*> window) {
++	auto initBox = [=](not_null<PeerListBox*> box) {
++		box->addButton(tr::lng_close(), [=] {
++			box->closeBox();
++		});
++	};
++	window->show(Box<PeerListBox>(
++		std::make_unique<GhostChatsController>(window),
++		std::move(initBox)));
++}
++
++void AddGhostChats(
++		not_null<Ui::VerticalLayout*> container,
++		not_null<Window::SessionController*> controller) {
++	const auto &option = base::options::lookup<QString>(
++		::Tele::kOptionGhostChats);
++	const auto button = AddButtonWithLabel(
++		container,
++		rpl::single(option.name()),
++		::Tele::GhostChatsCountValue(
++			&controller->session()
++		) | rpl::map([](int count) {
++			return count ? QString::number(count) : u"none"_q;
++		}),
++		st::settingsButtonNoIcon);
++	button->setClickedCallback([=] {
++		ShowGhostChatsBox(controller);
++	});
++	SetupLink(button, option.id());
++	container->add(
++		object_ptr<Ui::FlatLabel>(
++			container,
++			option.description(),
++			st::settingsExperimentalAbout),
++		st::settingsExperimentalAboutPadding);
++}
++
+ TeleSection::TeleSection(
+ 	QWidget *parent,
+ 	not_null<Window::SessionController*> controller)
+@@ -617,6 +756,18 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
++	Ui::AddSubsectionTitle(content, rpl::single(u"Ghost mode"_q));
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhost);
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhostRead);
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhostReadOnReply);
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhostTyping);
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhostOnline);
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhostSchedule);
++	AddOptionToggle(content, controller(), ::Tele::kOptionGhostStories);
++	AddGhostChats(content, controller());
++	Ui::AddSkip(content);
++	Ui::AddDivider(content);
++	Ui::AddSkip(content);
+ 	Ui::AddSubsectionTitle(content, rpl::single(u"Bots"_q));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionButtonPayloads);
+ 	Ui::AddSkip(content);
+diff --git a/Telegram/SourceFiles/tele/tele_ghost.cpp b/Telegram/SourceFiles/tele/tele_ghost.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..b43d5943b72c8a1e3ed57016b78b0cbba7928803
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_ghost.cpp
+@@ -0,0 +1,474 @@
++#include "tele/tele_ghost.h"
++
++#include "api/api_common.h"
++#include "api/api_updates.h"
++#include "apiwrap.h"
++#include "base/unixtime.h"
++#include "core/application.h"
++#include "core/core_settings.h"
++#include "data/components/ephemeral_messages.h"
++#include "data/data_channel.h"
++#include "data/data_forum_topic.h"
++#include "data/data_peer.h"
++#include "data/data_saved_sublist.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "main/main_account.h"
++#include "main/main_domain.h"
++#include "main/main_session.h"
++#include "settings/settings_common.h"
++#include "tele/tele_options.h"
++#include "ui/chat/attach/attach_prepare.h"
++#include "ui/widgets/buttons.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "ui/widgets/popup_menu.h"
++#include "ui/wrap/vertical_layout.h"
++#include "styles/style_media_player.h"
++#include "styles/style_menu_icons.h"
++#include "styles/style_window.h"
++
++namespace Tele {
++namespace {
++
++template <typename Callback>
++void EnumerateSessions(Callback &&callback) {
++	if (!Core::IsAppLaunched()) {
++		return;
++	}
++	for (const auto &[index, account] : Core::App().domain().accounts()) {
++		if (const auto session = account->maybeSession()) {
++			callback(not_null<Main::Session*>(session));
++		}
++	}
++}
++
++constexpr auto kTestBit = BareId(1) << 63;
++constexpr auto kChannelShift = int64(1000000000000LL);
++constexpr auto kScheduleDelay = TimeId(12);
++constexpr auto kScheduleProxyDelay = TimeId(15);
++
++using Key = BareId;
++
++struct State {
++	State();
++
++	base::flat_map<Key, GhostOverride> overrides;
++	rpl::event_stream<> changes;
++	rpl::lifetime lifetime;
++};
++
++[[nodiscard]] Key MakeKey(PeerId id, bool test) {
++	return id.value | (test ? kTestBit : Key());
++}
++
++[[nodiscard]] Key PeerKey(not_null<PeerData*> peer) {
++	return MakeKey(peer->id, peer->session().isTestMode());
++}
++
++[[nodiscard]] PeerId KeyPeer(Key key) {
++	return PeerId(key & ~kTestBit);
++}
++
++[[nodiscard]] PeerId ParseBotApiId(const QString &text) {
++	auto ok = false;
++	const auto id = text.toLongLong(&ok);
++	if (!ok || !id) {
++		return PeerId();
++	} else if (id > 0) {
++		return peerFromUser(UserId(uint64(id)));
++	} else if (id > -kChannelShift) {
++		return peerFromChat(ChatId(uint64(-id)));
++	}
++	return peerFromChannel(ChannelId(uint64(-id - kChannelShift)));
++}
++
++[[nodiscard]] QString BotApiId(PeerId id) {
++	const auto bare = int64(id.value & PeerId::kChatTypeMask);
++	return QString::number(peerIsChat(id)
++		? -bare
++		: peerIsChannel(id)
++		? -(kChannelShift + bare)
++		: bare);
++}
++
++[[nodiscard]] base::flat_map<Key, GhostOverride> Parse(
++		const QString &value) {
++	auto result = base::flat_map<Key, GhostOverride>();
++	for (const auto &part : value.split(QChar(','), Qt::SkipEmptyParts)) {
++		auto entry = part.trimmed();
++		const auto test = entry.startsWith(u"test:"_q);
++		if (test) {
++			entry = entry.mid(5);
++		}
++		const auto pair = entry.split(QChar('='));
++		if (pair.size() != 2) {
++			continue;
++		}
++		const auto text = pair[1].trimmed();
++		const auto mode = (text == u"always"_q)
++			? GhostOverride::Always
++			: (text == u"never"_q)
++			? GhostOverride::Never
++			: GhostOverride::Default;
++		const auto id = ParseBotApiId(pair[0].trimmed());
++		if (id && mode != GhostOverride::Default) {
++			result[MakeKey(id, test)] = mode;
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] QString Serialize(
++		const base::flat_map<Key, GhostOverride> &overrides) {
++	auto list = QStringList();
++	list.reserve(int(overrides.size()));
++	for (const auto &[key, mode] : overrides) {
++		const auto id = BotApiId(KeyPeer(key));
++		const auto text = (mode == GhostOverride::Always)
++			? u"always"_q
++			: u"never"_q;
++		list.push_back(((key & kTestBit) ? u"test:"_q : QString())
++			+ id
++			+ '='
++			+ text);
++	}
++	return list.join(QChar(','));
++}
++
++State::State() {
++	GhostChatsValue(
++	) | rpl::on_next([=](const QString &value) {
++		overrides = Parse(value);
++		changes.fire({});
++	}, lifetime);
++
++	GhostOnlineChanges(
++	) | rpl::on_next([] {
++		EnumerateSessions([](not_null<Main::Session*> session) {
++			session->updates().updateOnline();
++		});
++	}, lifetime);
++}
++
++State &Get() {
++	static State state;
++	return state;
++}
++
++[[nodiscard]] bool Ghosted(not_null<PeerData*> peer) {
++	switch (ChatGhostOverride(peer)) {
++	case GhostOverride::Always: return true;
++	case GhostOverride::Never: return false;
++	case GhostOverride::Default: break;
++	}
++	return Ghost();
++}
++
++void SendRead(
++		not_null<History*> history,
++		MsgId rootId,
++		PeerData *sublistPeer,
++		MsgId tillId) {
++	if (!IsServerMsgId(tillId)) {
++		return;
++	}
++	const auto peer = history->peer;
++	auto &api = peer->session().api();
++	if (rootId) {
++		api.request(MTPmessages_ReadDiscussion(
++			peer->input(),
++			MTP_int(rootId),
++			MTP_int(tillId)
++		)).send();
++	} else if (sublistPeer) {
++		api.request(MTPmessages_ReadSavedHistory(
++			peer->input(),
++			sublistPeer->input(),
++			MTP_int(tillId)
++		)).send();
++	} else if (const auto channel = peer->asChannel()) {
++		api.request(MTPchannels_ReadHistory(
++			channel->inputChannel(),
++			MTP_int(tillId)
++		)).send();
++	} else {
++		api.request(MTPmessages_ReadHistory(
++			peer->input(),
++			MTP_int(tillId)
++		)).done([=](const MTPmessages_AffectedMessages &result) {
++			peer->session().api().applyAffectedMessages(peer, result);
++		}).send();
++	}
++}
++
++void MarkReadTill(not_null<HistoryItem*> item) {
++	const auto history = item->history();
++	if (history->isForum()) {
++		SendRead(history, item->topicRootId(), nullptr, item->id);
++	} else if (history->amMonoforumAdmin()) {
++		if (const auto sublistPeerId = item->sublistPeerId()) {
++			SendRead(
++				history,
++				0,
++				history->owner().peer(sublistPeerId),
++				item->id);
++		}
++	} else {
++		SendRead(history, 0, nullptr, item->id);
++	}
++}
++
++[[nodiscard]] MsgId LastServerId(not_null<History*> history) {
++	if (history->lastServerMessageKnown()) {
++		const auto last = history->lastServerMessage();
++		return last ? last->id : MsgId();
++	}
++	return history->maxMsgId();
++}
++
++[[nodiscard]] TimeId ScheduleDelay() {
++	return Core::App().settings().proxy().isEnabled()
++		? kScheduleProxyDelay
++		: kScheduleDelay;
++}
++
++[[nodiscard]] bool CanGhostSchedule(
++		const Api::SendAction &action,
++		const QString &caption) {
++	const auto peer = action.history->peer;
++	const auto &options = action.options;
++	const auto &replyTo = action.replyTo;
++	return GhostSchedule()
++		&& Ghosted(peer)
++		&& !options.scheduled
++		&& !options.shortcutId
++		&& !options.welcomeTemplate
++		&& !options.suggest
++		&& !options.price
++		&& !options.ttlSeconds
++		&& !options.stakeNanoTon
++		&& !action.replaceMediaOf
++		&& !replyTo.storyId
++		&& !replyTo.monoforumPeerId
++		&& (!replyTo.topicRootId || peer->isForum())
++		&& !peer->isSelf()
++		&& !peer->isBot()
++		&& !peer->starsPerMessageChecked()
++		&& !peer->session().ephemeralMessages().wouldSendMedia(
++			peer,
++			replyTo,
++			caption);
++}
++
++} // namespace
++
++bool HideRead(not_null<PeerData*> peer) {
++	return GhostRead() && Ghosted(peer);
++}
++
++bool HideTyping(not_null<PeerData*> peer) {
++	return GhostTyping() && Ghosted(peer);
++}
++
++bool HideOnline() {
++	Get();
++	return Ghost() && GhostOnline();
++}
++
++bool SkipReadInbox(not_null<History*> history, MsgId tillId) {
++	if (!HideRead(history->peer)) {
++		return false;
++	}
++	crl::on_main(&history->session(), [=] {
++		history->inboxRead(tillId);
++	});
++	return true;
++}
++
++void ReadOnSend(const Api::SendAction &action) {
++	const auto history = action.history;
++	const auto peer = history->peer;
++	if (!GhostReadOnReply() || !HideRead(peer)) {
++		return;
++	}
++	const auto topicRootId = action.replyTo.topicRootId;
++	const auto monoforumPeerId = action.replyTo.monoforumPeerId;
++	const auto topic = topicRootId
++		? peer->forumTopicFor(topicRootId)
++		: nullptr;
++	const auto sublist = monoforumPeerId
++		? peer->monoforumSublistFor(monoforumPeerId)
++		: nullptr;
++	if (topic) {
++		SendRead(
++			history,
++			topicRootId,
++			nullptr,
++			topic->lastKnownServerMessageId());
++	} else if (sublist) {
++		SendRead(
++			history,
++			0,
++			sublist->sublistPeer(),
++			sublist->lastKnownServerMessageId());
++	} else {
++		SendRead(history, 0, nullptr, LastServerId(history));
++	}
++}
++
++void ApplyGhostSchedule(Api::SendAction &action, const QString &caption) {
++	if (CanGhostSchedule(action, caption)) {
++		action.options.scheduled = base::unixtime::now() + ScheduleDelay();
++	}
++}
++
++void ApplyGhostSchedule(
++		Api::SendAction &action,
++		const Ui::PreparedList &list) {
++	for (const auto &file : list.files) {
++		if (file.ttlSeconds || !CanGhostSchedule(action, file.caption.text)) {
++			return;
++		}
++	}
++	ApplyGhostSchedule(action);
++}
++
++Api::SendAction WithGhostSchedule(Api::SendAction action) {
++	ApplyGhostSchedule(action);
++	return action;
++}
++
++bool IsGhostScheduled(const Api::SendAction &action) {
++	const auto scheduled = action.options.scheduled;
++	return scheduled
++		&& GhostSchedule()
++		&& Ghosted(action.history->peer)
++		&& (scheduled <= base::unixtime::now() + kScheduleProxyDelay);
++}
++
++void RefreshGhostSchedule(
++		not_null<PeerData*> peer,
++		Api::SendOptions &options) {
++	if (!options.scheduled || !GhostSchedule() || !Ghosted(peer)) {
++		return;
++	}
++	const auto earliest = base::unixtime::now() + ScheduleDelay();
++	if (options.scheduled < earliest) {
++		options.scheduled = earliest;
++	}
++}
++
++void AddMarkReadAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
++	if (!item
++		|| !item->isRegular()
++		|| !IsServerMsgId(item->id)
++		|| item->history()->peer->isSelf()
++		|| !HideRead(item->history()->peer)) {
++		return;
++	}
++	const auto session = &item->history()->session();
++	const auto itemId = item->fullId();
++	menu->addAction(u"Mark as read up to here"_q, [=] {
++		if (const auto item = session->data().message(itemId)) {
++			MarkReadTill(item);
++		}
++	}, &st::menuIconMarkRead);
++}
++
++void AddGhostMenuToggle(not_null<Ui::VerticalLayout*> container) {
++	const auto button = Settings::AddButtonWithIcon(
++		container,
++		rpl::single(u"Ghost mode"_q),
++		st::mainMenuButton,
++		{ &st::menuIconStealth });
++	button->toggleOn(GhostValue());
++	button->toggledChanges(
++	) | rpl::filter([](bool enabled) {
++		return (enabled != Ghost());
++	}) | rpl::on_next([](bool enabled) {
++		SetGhost(enabled);
++	}, button->lifetime());
++}
++
++GhostOverride ChatGhostOverride(not_null<PeerData*> peer) {
++	const auto &overrides = Get().overrides;
++	if (overrides.empty()) {
++		return GhostOverride::Default;
++	}
++	const auto i = overrides.find(PeerKey(peer));
++	return (i != end(overrides)) ? i->second : GhostOverride::Default;
++}
++
++void SetChatGhostOverride(
++		not_null<PeerData*> peer,
++		GhostOverride mode) {
++	auto overrides = Get().overrides;
++	const auto key = PeerKey(peer);
++	if (mode == GhostOverride::Default) {
++		if (!overrides.remove(key)) {
++			return;
++		}
++	} else if (const auto i = overrides.find(key); i != end(overrides)) {
++		if (i->second == mode) {
++			return;
++		}
++		i->second = mode;
++	} else {
++		overrides.emplace(key, mode);
++	}
++	SetGhostChats(Serialize(overrides));
++}
++
++std::vector<GhostChat> GhostChats(not_null<Main::Session*> session) {
++	const auto test = session->isTestMode();
++	auto result = std::vector<GhostChat>();
++	for (const auto &[key, mode] : Get().overrides) {
++		if (((key & kTestBit) != 0) == test) {
++			result.push_back({ KeyPeer(key), mode });
++		}
++	}
++	return result;
++}
++
++rpl::producer<> GhostChatsChanges() {
++	return Get().changes.events();
++}
++
++rpl::producer<int> GhostChatsCountValue(not_null<Main::Session*> session) {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		GhostChatsChanges()
++	) | rpl::map([=] {
++		return int(GhostChats(session).size());
++	});
++}
++
++void AddGhostChatAction(
++		PeerData *peer,
++		const Ui::Menu::MenuCallback &addAction) {
++	if (!peer || peer->isSelf()) {
++		return;
++	}
++	const auto now = ChatGhostOverride(peer);
++	addAction({
++		.text = u"Ghost mode in this chat"_q,
++		.handler = nullptr,
++		.icon = &st::menuIconStealth,
++		.fillSubmenu = [=](not_null<Ui::PopupMenu*> menu) {
++			const auto add = [&](const QString &text, GhostOverride value) {
++				menu->addAction(text, [=] {
++					SetChatGhostOverride(peer, value);
++				}, (now == value) ? &st::mediaPlayerMenuCheck : nullptr);
++			};
++			add(
++				(Ghost() ? u"Default (on)"_q : u"Default (off)"_q),
++				GhostOverride::Default);
++			add(u"Always ghost"_q, GhostOverride::Always);
++			add(u"Never ghost"_q, GhostOverride::Never);
++		},
++	});
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_ghost.h b/Telegram/SourceFiles/tele/tele_ghost.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..df4f394418bf70ffefa2dcd8035febd3d1910c87
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_ghost.h
+@@ -0,0 +1,73 @@
++#pragma once
++
++class History;
++class HistoryItem;
++class PeerData;
++
++namespace Api {
++struct SendAction;
++struct SendOptions;
++} // namespace Api
++
++namespace Main {
++class Session;
++} // namespace Main
++
++namespace Ui {
++class PopupMenu;
++class VerticalLayout;
++struct PreparedList;
++} // namespace Ui
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Tele {
++
++enum class GhostOverride : uchar {
++	Default,
++	Always,
++	Never,
++};
++
++struct GhostChat {
++	PeerId id;
++	GhostOverride mode = GhostOverride::Default;
++};
++
++[[nodiscard]] bool HideRead(not_null<PeerData*> peer);
++[[nodiscard]] bool HideTyping(not_null<PeerData*> peer);
++[[nodiscard]] bool HideOnline();
++[[nodiscard]] bool SkipReadInbox(not_null<History*> history, MsgId tillId);
++void ReadOnSend(const Api::SendAction &action);
++
++void ApplyGhostSchedule(
++	Api::SendAction &action,
++	const QString &caption = QString());
++void ApplyGhostSchedule(
++	Api::SendAction &action,
++	const Ui::PreparedList &list);
++[[nodiscard]] Api::SendAction WithGhostSchedule(Api::SendAction action);
++[[nodiscard]] bool IsGhostScheduled(const Api::SendAction &action);
++void RefreshGhostSchedule(
++	not_null<PeerData*> peer,
++	Api::SendOptions &options);
++
++void AddMarkReadAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item);
++void AddGhostMenuToggle(not_null<Ui::VerticalLayout*> container);
++
++[[nodiscard]] GhostOverride ChatGhostOverride(not_null<PeerData*> peer);
++void SetChatGhostOverride(
++	not_null<PeerData*> peer,
++	GhostOverride mode);
++[[nodiscard]] std::vector<GhostChat> GhostChats(
++	not_null<Main::Session*> session);
++[[nodiscard]] rpl::producer<> GhostChatsChanges();
++[[nodiscard]] rpl::producer<int> GhostChatsCountValue(
++	not_null<Main::Session*> session);
++void AddGhostChatAction(
++	PeerData *peer,
++	const Ui::Menu::MenuCallback &addAction);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 1e8625f75f9d6d8cc269359922aeaed64478dfac..2d4583e768bfc2827f84bfd0e450f7f0eabdbd9b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -6,6 +6,14 @@ namespace Tele {
+ 
+ const char kOptionHideStories[] = "tele-hide-stories";
+ const char kOptionInvisibleStories[] = "tele-invisible-stories";
++const char kOptionGhost[] = "tele-ghost";
++const char kOptionGhostRead[] = "tele-ghost-read";
++const char kOptionGhostReadOnReply[] = "tele-ghost-read-on-reply";
++const char kOptionGhostTyping[] = "tele-ghost-typing";
++const char kOptionGhostOnline[] = "tele-ghost-online";
++const char kOptionGhostSchedule[] = "tele-ghost-schedule";
++const char kOptionGhostStories[] = "tele-ghost-stories";
++const char kOptionGhostChats[] = "tele-ghost-chats";
+ const char kOptionButtonPayloads[] = "tele-button-payloads";
+ const char kOptionAutoUpdate[] = "tele-auto-update";
+ const char kOptionGroupQuickReplies[] = "tele-group-quick-replies";
+@@ -52,6 +60,75 @@ base::options::toggle InvisibleStoriesOption({
+ 		"reveal you, and live stories can't be opened.",
+ });
+ 
++base::options::toggle GhostOption({
++	.id = kOptionGhost,
++	.name = "Ghost mode",
++	.description = "Hide your activity from others, the way the switches "
++		"below say. Flip it quickly from the main menu.",
++});
++
++base::options::toggle GhostReadOption({
++	.id = kOptionGhostRead,
++	.name = "Don't send read receipts",
++	.description = "Chats you open look read only in tele: the server and "
++		"the senders still see the messages as unread, and they come back "
++		"unread after a restart. Played voice and video messages, seen "
++		"mentions and reactions aren't reported either. Right-click a "
++		"message to mark the chat read up to it for real.",
++	.defaultValue = true,
++});
++
++base::options::toggle GhostReadOnReplyOption({
++	.id = kOptionGhostReadOnReply,
++	.name = "Mark as read when I reply",
++	.description = "Sending a message into a chat reads it for real, "
++		"since replying shows you've seen it anyway.",
++	.defaultValue = true,
++});
++
++base::options::toggle GhostTypingOption({
++	.id = kOptionGhostTyping,
++	.name = "Don't send typing",
++	.description = "Others don't see you typing, recording, uploading, "
++		"choosing a sticker or watching animated emoji they sent.",
++	.defaultValue = true,
++});
++
++base::options::toggle GhostOnlineOption({
++	.id = kOptionGhostOnline,
++	.name = "Don't go online",
++	.description = "Having tele open doesn't show you online. Sending a "
++		"message still does for a while: the server marks you online "
++		"by itself, unless messages are sent as scheduled.",
++	.defaultValue = true,
++});
++
++base::options::toggle GhostScheduleOption({
++	.id = kOptionGhostSchedule,
++	.name = "Send messages as scheduled",
++	.description = "While ghost mode is on for a chat, sending a message "
++		"schedules it a few seconds ahead in the same chat, so the server "
++		"delivers it without marking you online. It arrives a few seconds "
++		"late. Bots, Saved Messages, paid chats and view-once media are "
++		"sent right away.",
++});
++
++base::options::toggle GhostStoriesOption({
++	.id = kOptionGhostStories,
++	.name = "Don't mark stories as viewed",
++	.description = "Watch stories invisibly, like the switch in Stories "
++		"does, with the same limits.",
++	.defaultValue = true,
++});
++
++base::options::option<QString> GhostChatsOption({
++	.id = kOptionGhostChats,
++	.name = "Ghost mode in chats",
++	.description = "Chats that are always or never ghosted, whatever the "
++		"switch above says. This covers read receipts, typing and sending "
++		"as scheduled, online status stays global. Set it in a chat's menu.",
++});
++
+ base::options::toggle ButtonPayloadsOption({
+ 	.id = kOptionButtonPayloads,
+ 	.name = "Show bot button payloads",
+@@ -250,7 +327,66 @@ bool HideStories() {
+ }
+ 
+ bool InvisibleStories() {
+-	return InvisibleStoriesOption.value();
++	return InvisibleStoriesOption.value()
++		|| (GhostOption.value() && GhostStoriesOption.value());
++}
++
++bool Ghost() {
++	return GhostOption.value();
++}
++
++rpl::producer<bool> GhostValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		GhostOption.changes()
++	) | rpl::map([] {
++		return GhostOption.value();
++	});
++}
++
++void SetGhost(bool enabled) {
++	GhostOption.set(enabled);
++}
++
++bool GhostRead() {
++	return GhostReadOption.value();
++}
++
++bool GhostReadOnReply() {
++	return GhostReadOnReplyOption.value();
++}
++
++bool GhostTyping() {
++	return GhostTypingOption.value();
++}
++
++bool GhostOnline() {
++	return GhostOnlineOption.value();
++}
++
++rpl::producer<> GhostOnlineChanges() {
++	return rpl::merge(
++		GhostOption.changes(),
++		GhostOnlineOption.changes());
++}
++
++bool GhostSchedule() {
++	return GhostScheduleOption.value();
++}
++
++void SetGhostChats(const QString &value) {
++	GhostChatsOption.set(value);
++}
++
++rpl::producer<QString> GhostChatsValue() {
++	return rpl::single(
++		rpl::empty
++	) | rpl::then(
++		GhostChatsOption.changes()
++	) | rpl::map([] {
++		return GhostChatsOption.value();
++	});
+ }
+ 
+ bool ButtonPayloads() {
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index db0fc99215c2a3c9dd163d3a98de82cdfc03061c..86987aef83f3e594f44f0871e657b8c592561293 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -4,6 +4,14 @@ namespace Tele {
+ 
+ extern const char kOptionHideStories[];
+ extern const char kOptionInvisibleStories[];
++extern const char kOptionGhost[];
++extern const char kOptionGhostRead[];
++extern const char kOptionGhostReadOnReply[];
++extern const char kOptionGhostTyping[];
++extern const char kOptionGhostOnline[];
++extern const char kOptionGhostSchedule[];
++extern const char kOptionGhostStories[];
++extern const char kOptionGhostChats[];
+ extern const char kOptionButtonPayloads[];
+ extern const char kOptionAutoUpdate[];
+ extern const char kOptionGroupQuickReplies[];
+@@ -32,6 +40,17 @@ extern const char kOptionTitleTemplate[];
+ 
+ [[nodiscard]] bool HideStories();
+ [[nodiscard]] bool InvisibleStories();
++[[nodiscard]] bool Ghost();
++[[nodiscard]] rpl::producer<bool> GhostValue();
++void SetGhost(bool enabled);
++[[nodiscard]] bool GhostRead();
++[[nodiscard]] bool GhostReadOnReply();
++[[nodiscard]] bool GhostTyping();
++[[nodiscard]] bool GhostOnline();
++[[nodiscard]] rpl::producer<> GhostOnlineChanges();
++[[nodiscard]] bool GhostSchedule();
++void SetGhostChats(const QString &value);
++[[nodiscard]] rpl::producer<QString> GhostChatsValue();
+ [[nodiscard]] bool ButtonPayloads();
+ [[nodiscard]] bool AutoUpdate();
+ [[nodiscard]] rpl::producer<bool> AutoUpdateValue();
+diff --git a/Telegram/SourceFiles/window/window_main_menu.cpp b/Telegram/SourceFiles/window/window_main_menu.cpp
+index 53bf2d260fa42da993171a055fafb0f0d893baa8..fcabe40d2d3a3d087a7c336edc588769bba1a6fb 100644
+--- a/Telegram/SourceFiles/window/window_main_menu.cpp
++++ b/Telegram/SourceFiles/window/window_main_menu.cpp
+@@ -72,6 +72,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "window/window_main_menu_helpers.h"
+ #include "window/window_peer_menu.h"
+ #include "window/window_session_controller.h"
++#include "tele/tele_ghost.h"
+ #include "styles/style_chat.h" // popupMenuExpandedSeparator
+ #include "styles/style_menu_icons.h"
+ #include "styles/style_settings.h"
+@@ -818,6 +819,8 @@ void MainMenu::setupMenu() {
+ 			_nightThemeSwitches.fire_copy(*darkMode);
+ 		}
+ 	}, _nightThemeToggle->lifetime());
++
++	Tele::AddGhostMenuToggle(_menu);
+ }
+ 
+ void MainMenu::resizeEvent(QResizeEvent *e) {
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index d824bd9958d098cd357c6fa48ce06e8549625133..a4d15a2a90ece42bf730cfbfbfd869d4780a39f0 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -131,6 +131,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/peers/manage_community_box.h"
+ #include "boxes/premium_preview_box.h"
+ #include "tele/tele_deleted_section.h"
++#include "tele/tele_ghost.h"
+ #include "tele/tele_ignored.h"
+ #include "tele/tele_jump_to_first.h"
+ #include "styles/style_chat.h"
+@@ -1968,6 +1969,7 @@ void Filler::fillContextMenuActions() {
+ 
+ void Filler::fillHistoryActions() {
+ 	addToggleMuteSubmenu(true);
++	Tele::AddGhostChatAction(_peer, _addAction);
+ 	addCreateTopic();
+ 	addInfo();
+ 	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);

@@ -13,10 +13,10 @@ Subject: [PATCH] feat: show the tele build number in the title bar
  create mode 100644 Telegram/SourceFiles/tele/tele_build.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 1601b508121fd2710d2ac0613ea378a7cee2aa9b..1857325ca442dd9b88dbcd2ecc6af904e397e15d 100644
+index 917e8bfd42d1139b63a461fb9a1ec2159b826d7a..c7c2bee4976b247a8d6cd2d292309c36ed34718d 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2647,6 +2647,17 @@ if (TDESKTOP_L10N_CAPTURE)
+@@ -2774,6 +2774,17 @@ if (TDESKTOP_L10N_CAPTURE)
      include(${TDESKTOP_L10N_CAPTURE}/capture.cmake)
  endif()
  
@@ -70,7 +70,7 @@ index 0000000000000000000000000000000000000000..2e2bceb142dfe499e63f170dc41128d2
 +
 +} // namespace Tele
 diff --git a/Telegram/SourceFiles/window/main_window.cpp b/Telegram/SourceFiles/window/main_window.cpp
-index 62f8c797ca550ab5524439f7bfc6ae7ebb9f2956..a5df2cac24b82a17ffcdacc51b3833c90a494c97 100644
+index 75038d55481531b961aa8f1cb9d729e75c95dd71..bda81cad5d8505d353de1bba3bbe3317defbfe9f 100644
 --- a/Telegram/SourceFiles/window/main_window.cpp
 +++ b/Telegram/SourceFiles/window/main_window.cpp
 @@ -48,6 +48,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -81,7 +81,7 @@ index 62f8c797ca550ab5524439f7bfc6ae7ebb9f2956..a5df2cac24b82a17ffcdacc51b3833c9
  #include "styles/style_window.h"
  #include "styles/style_dialogs.h" // ChildSkip().x() for new child windows.
  
-@@ -578,9 +579,7 @@ void MainWindow::init() {
+@@ -583,9 +584,7 @@ void MainWindow::init() {
  		}, lifetime());
  	}
  	refreshTitleWidget();
@@ -92,7 +92,7 @@ index 62f8c797ca550ab5524439f7bfc6ae7ebb9f2956..a5df2cac24b82a17ffcdacc51b3833c9
  
  	updateTitle();
  	updateWindowIcon();
-@@ -720,7 +719,7 @@ void MainWindow::setupCanaryTitleLabel() {
+@@ -736,7 +735,7 @@ void MainWindow::setupCanaryTitleLabel() {
  	const auto label = Ui::CreateTitleSubWidget(
  		title,
  		st::titleSubWidgetStyle,
@@ -101,7 +101,7 @@ index 62f8c797ca550ab5524439f7bfc6ae7ebb9f2956..a5df2cac24b82a17ffcdacc51b3833c9
  		layout->value(
  		) | rpl::map([](const Ui::Platform::TitleLayout &layout) {
  			return layout.onLeft() ? style::al_right : style::al_left;
-@@ -735,11 +734,9 @@ void MainWindow::setupCanaryTitleLabel() {
+@@ -751,11 +750,9 @@ void MainWindow::setupCanaryTitleLabel() {
  }
  
  QString MainWindow::nativeTitleSuffix() const {

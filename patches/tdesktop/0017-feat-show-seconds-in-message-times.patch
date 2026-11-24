@@ -18,10 +18,10 @@ Subject: [PATCH] feat: show seconds in message times
  create mode 100644 Telegram/SourceFiles/tele/tele_time.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 738326d721d1f2179c0faf4c2f615f8dd0e369d1..b15f77d71ec49553d044c38139633795a4d68783 100644
+index 1f03d96ced819c038e6b90864923bece768b765d..8af3b8bc969c17c71c5b74014b565be9b140f999 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2672,6 +2672,8 @@ PRIVATE
+@@ -2799,6 +2799,8 @@ PRIVATE
      tele/tele_peer_id.h
      tele/tele_shortcuts.cpp
      tele/tele_shortcuts.h
@@ -63,7 +63,7 @@ index 76ba89ec88660844bdcfa42d15ab34531957a3d5..bb3e431f7b5dbf3d51145882f9549983
  	const auto afterAuthorWidth = st::msgDateFont->width(afterAuthor);
  	const auto authorWidth = st::msgDateFont->width(author);
 diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
-index 3294916e3653f7ddff1adeef4eee81e532ecf609..ad70a3d0a0b179b13118ff156eb229a7eb79caf1 100644
+index 021daa90881c2717e3cfa5180deec0528a850e99..109c2ab67486c1448a42f7551c3945568af3cd5f 100644
 --- a/Telegram/SourceFiles/history/view/history_view_element.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
 @@ -75,6 +75,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

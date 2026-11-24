@@ -18,10 +18,10 @@ Subject: [PATCH] feat: send quick replies in groups and channels
  create mode 100644 Telegram/SourceFiles/tele/tele_shortcuts.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index edca55cae6b4c4115756c3e81a62ca408682af53..37c0a2d4bb650c8d51eacb26420ac1ba2fe0b957 100644
+index 9f1f0e15c751fd40aecbab9d02d664e5c6768a77..795fee4bc1668d97a452f5563b30863771609b61 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2658,6 +2658,8 @@ PRIVATE
+@@ -2785,6 +2785,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -31,7 +31,7 @@ index edca55cae6b4c4115756c3e81a62ca408682af53..37c0a2d4bb650c8d51eacb26420ac1ba
      tele/tele_updater.h
  )
 diff --git a/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp b/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
-index 416b167977c01bd7a7fdb6c0e1fb3e5f1b233b03..22e0145a7dee370c476896aeec93925c1c341d78 100644
+index d35f35823911f2c3de5da25f7b4ee2ee4a197df6..e3b508eebecf8a5da48485a6e3349143ced150b2 100644
 --- a/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
 +++ b/Telegram/SourceFiles/chat_helpers/field_autocomplete.cpp
 @@ -39,6 +39,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -105,10 +105,10 @@ index 416b167977c01bd7a7fdb6c0e1fb3e5f1b233b03..22e0145a7dee370c476896aeec93925c
  	) | rpl::on_next([=](FieldAutocomplete::BotCommandChosen data) {
  		if (!features().autocompleteCommands) {
 diff --git a/Telegram/SourceFiles/history/history_widget.cpp b/Telegram/SourceFiles/history/history_widget.cpp
-index 895fb7cd133c06e2d83a03a6ea1c9e77477f71bb..03a5c9a24b200004b141f9f5bbf20384c3c26115 100644
+index 93b3d303454ce61123a4fe032a82d55cdfa16f5a..e0791b0e5dea04fd14698f87b607543ac958553b 100644
 --- a/Telegram/SourceFiles/history/history_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_widget.cpp
-@@ -174,6 +174,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -175,6 +175,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "storage/file_upload.h"
  #include "storage/storage_folder_archive.h"
  #include "storage/storage_media_prepare.h"
@@ -116,7 +116,7 @@ index 895fb7cd133c06e2d83a03a6ea1c9e77477f71bb..03a5c9a24b200004b141f9f5bbf20384
  #include "media/audio/media_audio.h"
  #include "media/audio/media_audio_capture.h"
  #include "media/player/media_player_instance.h"
-@@ -2043,7 +2044,12 @@ void HistoryWidget::initFieldAutocomplete() {
+@@ -2044,7 +2045,12 @@ void HistoryWidget::initFieldAutocomplete() {
  				controller(),
  				PremiumFeature::QuickReplies);
  		} else if (shortcutId) {
@@ -131,7 +131,7 @@ index 895fb7cd133c06e2d83a03a6ea1c9e77477f71bb..03a5c9a24b200004b141f9f5bbf20384
  			setFieldText(_field->getTextWithTagsPart(
  				_field->textCursor().position()));
 diff --git a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
-index 22d8f65f0361ad42e496a54d6d24d1b88578d1a4..89210d80324699cfc6c74d60c021c1bffbc34253 100644
+index a22384062bb5f9c546a038669de5fbd1b1042da9..1bd61e0b1edbbf46a5658f86063d293de55a86c3 100644
 --- a/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_chat_section.cpp
 @@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL

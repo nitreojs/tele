@@ -440,7 +440,13 @@ jobs:
 
       - name: Package
         shell: bash
-        run: 7z a -tzip "tele-$RELEASE_TAG-win64.zip" "$TBUILD/tdesktop/out/Release/tele.exe" > /dev/null
+        run: |
+          # the widget helper keeps its path: tele.exe checks it next to itself in modules\x64
+          cd "$TBUILD/tdesktop/out/Release"
+          test -f modules/x64/TelegramWidgetHelper.exe
+          7z a -tzip "$GITHUB_WORKSPACE/tele-$RELEASE_TAG-win64.zip" tele.exe modules/x64/TelegramWidgetHelper.exe > /dev/null
+          cd "$GITHUB_WORKSPACE"
+          [ "$(unzip -Z1 "tele-$RELEASE_TAG-win64.zip" | sort | tr '\n' ' ')" = "modules/x64/TelegramWidgetHelper.exe tele.exe " ]
 
       - name: Attest the build
         uses: actions/attest@v4
@@ -673,9 +679,11 @@ jobs:
           objcopy --only-keep-debug "$binary" tele.debug
           zip -9 -X -q "$GITHUB_WORKSPACE/tele-$RELEASE_TAG-linux64-symbols.zip" tele.debug
           strip --strip-all "$binary"
-          (cd tdesktop/out/Release && zip -9 -X -q "$GITHUB_WORKSPACE/tele-$RELEASE_TAG-linux64.zip" tele)
+          # the widget helper is already stripped and pinned by its sha256 in tele: never touch it
+          test -x tdesktop/out/Release/TelegramHelpers/TelegramWidgetHelper
+          (cd tdesktop/out/Release && zip -9 -X -q "$GITHUB_WORKSPACE/tele-$RELEASE_TAG-linux64.zip" tele TelegramHelpers/TelegramWidgetHelper)
           [ "$(stat -c%s "tele-$RELEASE_TAG-linux64.zip")" -lt $((512 * 1024 * 1024)) ]
-          [ "$(unzip -Z1 "tele-$RELEASE_TAG-linux64.zip")" = tele ]
+          [ "$(unzip -Z1 "tele-$RELEASE_TAG-linux64.zip" | sort | tr '\n' ' ')" = "TelegramHelpers/TelegramWidgetHelper tele " ]
 
       - name: Attest the build
         uses: actions/attest@v4
@@ -978,7 +986,9 @@ jobs:
           cp "$app/Contents/MacOS/tele" "$RUNNER_TEMP/symbols/tele"
           (cd "$RUNNER_TEMP/symbols" && zip -9 -X -q "$GITHUB_WORKSPACE/tele-$RELEASE_TAG-macos-symbols.zip" tele)
           strip "$app/Contents/MacOS/tele"
-          find "$app/Contents/Helpers" -type f -perm -u+x -print0 2>/dev/null \
+          # the widget helper was signed in its build and tele pins each slice's cdhash: lipo keeps them, a re-sign wouldn't
+          codesign --verify --strict "$app/Contents/Helpers/TelegramWidgetHelper"
+          find "$app/Contents/Helpers" -type f -perm -u+x ! -name TelegramWidgetHelper -print0 2>/dev/null \
             | xargs -0 -I{} codesign --force --sign - --timestamp=none "{}"
           codesign --force --sign - --timestamp=none --entitlements tdesktop/Telegram/Telegram/Telegram.entitlements "$app"
           codesign --verify --strict --deep --verbose=2 "$app"

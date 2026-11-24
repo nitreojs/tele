@@ -18,10 +18,10 @@ Subject: [PATCH] feat: update from the tele github releases
  create mode 100644 Telegram/SourceFiles/tele/tele_updater.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 4d58e5d17dfdda648d712f877eb1c092e42b5065..c3e683808443b69609e25a1be60d2d4ed54b8e87 100644
+index 79b63feb0872583c1f51137b34a15c234192c44d..d7515f499daa8b1062294acc4ad16195aab33e97 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2658,6 +2658,8 @@ PRIVATE
+@@ -2785,6 +2785,8 @@ PRIVATE
      tele/tele_button_payload.h
      tele/tele_options.cpp
      tele/tele_options.h
@@ -31,10 +31,10 @@ index 4d58e5d17dfdda648d712f877eb1c092e42b5065..c3e683808443b69609e25a1be60d2d4e
  set_source_files_properties(${src_loc}/tele/tele_build.cpp
  PROPERTIES
 diff --git a/Telegram/SourceFiles/core/application.cpp b/Telegram/SourceFiles/core/application.cpp
-index 94b64dc33f204aac962b87e9744a611a6fb6a07d..26914a527168546c89bcd97ec001fb8067e70f5d 100644
+index a611b97d55717417bb382a8008d00461080afe60..da6f477a5095561459e3fcd8a68ad1e0d58caa0e 100644
 --- a/Telegram/SourceFiles/core/application.cpp
 +++ b/Telegram/SourceFiles/core/application.cpp
-@@ -106,6 +106,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -107,6 +107,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "ui/boxes/confirm_box.h"
  #include "core/cached_webview_availability.h"
  #include "test/test_agent.h"
@@ -42,7 +42,7 @@ index 94b64dc33f204aac962b87e9744a611a6fb6a07d..26914a527168546c89bcd97ec001fb80
  
  #include <QtCore/QStandardPaths>
  #include <QtCore/QMimeDatabase>
-@@ -357,6 +358,7 @@ void Application::run() {
+@@ -359,6 +360,7 @@ void Application::run() {
  	Media::Encode::ClearStaleTempFiles();
  	Storage::ClearStaleArchiveFiles();
  	Webview::ClearStaleTemporaryStorage();
@@ -51,10 +51,10 @@ index 94b64dc33f204aac962b87e9744a611a6fb6a07d..26914a527168546c89bcd97ec001fb80
  	if (MediaControlsManager::Supported()) {
  		_mediaControlsManager = std::make_unique<MediaControlsManager>();
 diff --git a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-index 46fd8e20cb1d20dbb74a46054e138b4861e75cbc..4fafedbeae59162f93a9c4580c4986fa8f285f92 100644
+index dda2b0d14c5caf8a2b4c3f9764b8204f7b291b90..baf751659c6cea5a53719695d91ae4fa6a9acac1 100644
 --- a/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
 +++ b/Telegram/SourceFiles/dialogs/dialogs_widget.cpp
-@@ -92,6 +92,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -98,6 +98,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "info/profile/info_profile_values.h"
  #include "info/info_memento.h"
  #include "inline_bots/bot_attach_web_view.h"
@@ -62,7 +62,7 @@ index 46fd8e20cb1d20dbb74a46054e138b4861e75cbc..4fafedbeae59162f93a9c4580c4986fa
  #include "styles/style_dialogs.h"
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
-@@ -482,6 +483,11 @@ Widget::Widget(
+@@ -493,6 +494,11 @@ Widget::Widget(
  		) | rpl::on_next([=] {
  			checkUpdateStatus();
  		}, lifetime());
@@ -74,7 +74,7 @@ index 46fd8e20cb1d20dbb74a46054e138b4861e75cbc..4fafedbeae59162f93a9c4580c4986fa
  	}
  
  	_cancelSearch->setClickedCallback([=] {
-@@ -2493,14 +2499,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
+@@ -2603,14 +2609,14 @@ QPixmap Widget::grabForFolderSlideAnimation() {
  }
  
  void Widget::checkUpdateStatus() {
@@ -92,7 +92,7 @@ index 46fd8e20cb1d20dbb74a46054e138b4861e75cbc..4fafedbeae59162f93a9c4580c4986fa
  		if (_updateTelegram) {
  			return;
  		}
-@@ -2513,6 +2519,10 @@ void Widget::checkUpdateStatus() {
+@@ -2623,6 +2629,10 @@ void Widget::checkUpdateStatus() {
  			true);
  		_updateTelegram->show();
  		_updateTelegram->setClickedCallback([] {
@@ -104,10 +104,10 @@ index 46fd8e20cb1d20dbb74a46054e138b4861e75cbc..4fafedbeae59162f93a9c4580c4986fa
  			Core::Restart();
  		});
 diff --git a/Telegram/SourceFiles/platform/mac/launcher_mac.mm b/Telegram/SourceFiles/platform/mac/launcher_mac.mm
-index 8fecc6bfc5d4b850faa8c3b14dab486b11e5a714..4a8059c3a71db6ade0f27589f4f9069f4e226aa5 100644
+index b49fb54dc926d7b1b369805a6103190a8d271d5e..4cee48e0308b91457fdc1b928e695c2876fe0350 100644
 --- a/Telegram/SourceFiles/platform/mac/launcher_mac.mm
 +++ b/Telegram/SourceFiles/platform/mac/launcher_mac.mm
-@@ -33,7 +33,7 @@ bool Launcher::launchUpdater(UpdaterLaunch action) {
+@@ -40,7 +40,7 @@ bool Launcher::launchUpdater(UpdaterLaunch action) {
  	}
  	@autoreleasepool {
  

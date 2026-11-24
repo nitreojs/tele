@@ -1,0 +1,947 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 06:07:48 +0300
+Subject: [PATCH] feat: lowercase tele's own texts too
+
+---
+ .../SourceFiles/core/crash_report_window.cpp  |   6 +-
+ .../info/profile/info_profile_actions.cpp     |   5 +-
+ Telegram/SourceFiles/intro/intro_start.cpp    |   3 +-
+ .../media/view/media_view_overlay_widget.cpp  |   5 +-
+ .../SourceFiles/settings/settings_tele.cpp    | 104 +++++++++---------
+ .../SourceFiles/tele/tele_button_payload.cpp  |   5 +-
+ .../SourceFiles/tele/tele_deleted_section.cpp |  15 +--
+ .../SourceFiles/tele/tele_edit_history.cpp    |  15 +--
+ Telegram/SourceFiles/tele/tele_ghost.cpp      |  13 ++-
+ Telegram/SourceFiles/tele/tele_gifts.cpp      |   5 +-
+ Telegram/SourceFiles/tele/tele_ignored.cpp    |   5 +-
+ .../SourceFiles/tele/tele_jump_to_first.cpp   |   3 +-
+ .../SourceFiles/tele/tele_message_menu.cpp    |   5 +-
+ Telegram/SourceFiles/tele/tele_peer_id.cpp    |  11 +-
+ .../SourceFiles/tele/tele_secret_media.cpp    |   3 +-
+ Telegram/SourceFiles/tele/tele_title.cpp      |   3 +-
+ Telegram/SourceFiles/tele/tele_updater.cpp    |   5 +-
+ Telegram/SourceFiles/tele/tele_view_tl.cpp    |   5 +-
+ 18 files changed, 116 insertions(+), 100 deletions(-)
+
+diff --git a/Telegram/SourceFiles/core/crash_report_window.cpp b/Telegram/SourceFiles/core/crash_report_window.cpp
+index 03e025f6e6c5d035592393f89702bcca24b92030..843cb0b1891890dad39b28c621f4f93d3a9fbfdb 100644
+--- a/Telegram/SourceFiles/core/crash_report_window.cpp
++++ b/Telegram/SourceFiles/core/crash_report_window.cpp
+@@ -114,7 +114,7 @@ PreLaunchLabel::PreLaunchLabel(QWidget *parent) : QLabel(parent) {
+ };
+ 
+ void PreLaunchLabel::setText(const QString &text) {
+-	QLabel::setText(text);
++	QLabel::setText(Tele::Lower(text));
+ 	updateGeometry();
+ 	resize(sizeHint());
+ }
+@@ -212,7 +212,7 @@ PreLaunchButton::PreLaunchButton(QWidget *parent, bool confirm) : QPushButton(pa
+ };
+ 
+ void PreLaunchButton::setText(const QString &text) {
+-	QPushButton::setText(text);
++	QPushButton::setText(Tele::Lower(text));
+ 	updateGeometry();
+ 	resize(sizeHint());
+ }
+@@ -236,7 +236,7 @@ PreLaunchCheckbox::PreLaunchCheckbox(QWidget *parent) : QCheckBox(parent) {
+ };
+ 
+ void PreLaunchCheckbox::setText(const QString &text) {
+-	QCheckBox::setText(text);
++	QCheckBox::setText(Tele::Lower(text));
+ 	updateGeometry();
+ 	resize(sizeHint());
+ }
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+index d9a383bea51010b0c51d11bfa5998b5707cfedd6..cf7eea245471dff3ef9f37a47e5eae843d38954e 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+@@ -78,6 +78,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_mute.h"
+ #include "settings/settings_common.h"
+ #include "support/support_helper.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_peer_id.h"
+ #include "ui/boxes/peer_qr_box.h"
+@@ -1860,7 +1861,7 @@ BlockPart DetailsFiller::makeInfo() {
+ 	if (!_topic && ShowPeerIdBelowAbout.value()) {
+ 		Tele::SetupPeerIdLabel(
+ 			addInfoOneLine(
+-				u"ID"_q,
++				Tele::Lower(u"ID"_q),
+ 				Tele::PeerIdTextValue(_peer),
+ 				QString()).text,
+ 			_peer,
+@@ -1869,7 +1870,7 @@ BlockPart DetailsFiller::makeInfo() {
+ 	if (!_topic && Tele::ShowDc()) {
+ 		Tele::SetupPeerDcLabel(
+ 			addInfoOneLine(
+-				u"DC"_q,
++				Tele::Lower(u"DC"_q),
+ 				Tele::PeerDcTextValue(_peer),
+ 				QString()).text,
+ 			_peer,
+diff --git a/Telegram/SourceFiles/intro/intro_start.cpp b/Telegram/SourceFiles/intro/intro_start.cpp
+index 49a477144e4a3a7494582e31b979554bcfa8a223..be9392d75f764e8acc96511e500a69e6743adc2e 100644
+--- a/Telegram/SourceFiles/intro/intro_start.cpp
++++ b/Telegram/SourceFiles/intro/intro_start.cpp
+@@ -12,6 +12,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "intro/intro_phone.h"
+ #include "ui/widgets/buttons.h"
+ #include "ui/widgets/labels.h"
++#include "tele/tele_lowercase.h"
+ #include "main/main_account.h"
+ #include "main/main_app_config.h"
+ 
+@@ -26,7 +27,7 @@ StartWidget::StartWidget(
+ 	setMouseTracking(true);
+ 	setTitleText(rpl::single(u"tele"_q));
+ 	setDescriptionText(rpl::single(
+-		u"Welcome to tele, a Telegram Desktop fork.\nIt's fast and secure."_q));
++		Tele::Lower(u"Welcome to tele, a Telegram Desktop fork.\nIt's fast and secure."_q)));
+ 	show();
+ }
+ 
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index d076dbe243fe6ff5e34dca55b3efbaf473510bbe..537277aa12eb561c7b21e5c58365f9f56c99e841 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -122,6 +122,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "styles/style_menu_icons.h"
+ #include "styles/style_ttl_media.h"
+ #include "platform/platform_text_recognition.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_secret_media.h"
+ #include "tele/tele_view_tl.h"
+@@ -4685,7 +4686,7 @@ void OverlayWidget::show(OpenRequest request) {
+ 	if (story && Tele::HideStories()) {
+ 		return;
+ 	} else if (story && story->call() && Tele::InvisibleStories()) {
+-		Ui::Toast::Show(u"Live stories can't be watched invisibly."_q);
++		Ui::Toast::Show(Tele::Lower(u"Live stories can't be watched invisibly."_q));
+ 		return;
+ 	}
+ 	const auto document = story ? story->document() : request.document();
+@@ -5054,7 +5055,7 @@ void OverlayWidget::displayVideoStream(
+ 		const std::shared_ptr<Data::GroupCall> &call,
+ 		anim::activation activation) {
+ 	if (_stories && Tele::InvisibleStories()) {
+-		Ui::Toast::Show(u"Live stories can't be watched invisibly."_q);
++		Ui::Toast::Show(Tele::Lower(u"Live stories can't be watched invisibly."_q));
+ 		close();
+ 		return;
+ 	}
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 0aba283d6766ec3e9dc6870018933624006f5ba4..ee42faab20b039a07644c60cb67292777f2d25d3 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -184,23 +184,23 @@ void AddOptionToggle(
+ 	switch (status.state) {
+ 	case State::Disabled:
+ 		return status.error.isEmpty()
+-			? u"Local builds don't update themselves."_q
+-			: status.error;
++			? ::Tele::Lower(u"Local builds don't update themselves."_q)
++			: ::Tele::Lower(status.error);
+ 	case State::Idle:
+-		return u"Not checked yet."_q;
++		return ::Tele::Lower(u"Not checked yet."_q);
+ 	case State::Checking:
+-		return u"Checking for updates..."_q;
++		return ::Tele::Lower(u"Checking for updates..."_q);
+ 	case State::Latest:
+-		return u"You have the latest build."_q;
++		return ::Tele::Lower(u"You have the latest build."_q);
+ 	case State::Downloading:
+ 		return (status.total > 0)
+-			? u"Downloading %1: %2%"_q.arg(status.tag).arg(
++			? ::Tele::Lower(u"Downloading %1: %2%"_q).arg(status.tag).arg(
+ 				status.ready * 100 / status.total)
+-			: u"Downloading %1..."_q.arg(status.tag);
++			: ::Tele::Lower(u"Downloading %1..."_q).arg(status.tag);
+ 	case State::Ready:
+ 		return u"%1 is ready, restart to update."_q.arg(status.tag);
+ 	case State::Failed:
+-		return u"Update failed: %1"_q.arg(status.error);
++		return ::Tele::Lower(u"Update failed: %1"_q).arg(status.error);
+ 	}
+ 	return QString();
+ }
+@@ -209,7 +209,7 @@ void AddUpdates(not_null<Ui::VerticalLayout*> container) {
+ 	const auto button = container->add(object_ptr<Button>(
+ 		container,
+ 		::Tele::UpdateReadyValue() | rpl::map([](bool ready) {
+-			return ready ? u"Restart to update"_q : u"Check for updates"_q;
++			return ::Tele::Lower(ready ? u"Restart to update"_q : u"Check for updates"_q);
+ 		}),
+ 		st::settingsButtonNoIcon));
+ 	button->setClickedCallback([] {
+@@ -227,7 +227,7 @@ void ServerBox(not_null<Ui::GenericBox*> box) {
+ 	const auto field = box->addRow(object_ptr<Ui::InputField>(
+ 		box,
+ 		st::defaultInputField,
+-		rpl::single(u"Server URL"_q),
++		rpl::single(::Tele::Lower(u"Server URL"_q)),
+ 		::Tele::ServerUrl()));
+ 	const auto save = [=] {
+ 		const auto url = ::Tele::NormalizeServerUrl(field->getLastText());
+@@ -249,7 +249,7 @@ void ServerBox(not_null<Ui::GenericBox*> box) {
+ 	box->addButton(tr::lng_cancel(), [=] {
+ 		box->closeBox();
+ 	});
+-	box->addLeftButton(rpl::single(u"Reset"_q), [=] {
++	box->addLeftButton(rpl::single(::Tele::Lower(u"Reset"_q)), [=] {
+ 		::Tele::SetServerUrl(base::options::lookup<QString>(
+ 			::Tele::kOptionServerUrl).defaultValue());
+ 		box->closeBox();
+@@ -263,7 +263,7 @@ void AddServer(
+ 		::Tele::kOptionServerUrl);
+ 	const auto server = AddButtonWithLabel(
+ 		container,
+-		rpl::single(u"Server"_q),
++		rpl::single(::Tele::Lower(u"Server"_q)),
+ 		::Tele::ServerUrlValue() | rpl::map([](const QString &url) {
+ 			return url.isEmpty() ? u"off"_q : url;
+ 		}),
+@@ -274,7 +274,7 @@ void AddServer(
+ 	SetupLink(server, option.id());
+ 	const auto refresh = container->add(object_ptr<Button>(
+ 		container,
+-		rpl::single(u"Refresh now"_q),
++		rpl::single(::Tele::Lower(u"Refresh now"_q)),
+ 		st::settingsButtonNoIcon));
+ 	refresh->setClickedCallback([=] {
+ 		::Tele::RefreshBadges(crl::guard(controller, [=](QString text) {
+@@ -285,7 +285,7 @@ void AddServer(
+ 	container->add(
+ 		object_ptr<Ui::FlatLabel>(
+ 			container,
+-			option.description(),
++			::Tele::Lower(option.description()),
+ 			st::settingsExperimentalAbout),
+ 		st::settingsExperimentalAboutPadding);
+ }
+@@ -293,11 +293,11 @@ void AddServer(
+ void TitleBox(
+ 		not_null<Ui::GenericBox*> box,
+ 		not_null<Window::Controller*> window) {
+-	box->setTitle(rpl::single(u"Title bar label"_q));
++	box->setTitle(rpl::single(::Tele::Lower(u"Title bar label"_q)));
+ 	const auto field = box->addRow(object_ptr<Ui::InputField>(
+ 		box,
+ 		st::defaultInputField,
+-		rpl::single(u"Template"_q),
++		rpl::single(::Tele::Lower(u"Template"_q)),
+ 		::Tele::TitleTemplate()));
+ 	const auto preview = box->addRow(object_ptr<Ui::FlatLabel>(
+ 		box,
+@@ -339,7 +339,7 @@ void TitleBox(
+ 	box->addButton(tr::lng_cancel(), [=] {
+ 		box->closeBox();
+ 	});
+-	box->addLeftButton(rpl::single(u"Reset"_q), [=] {
++	box->addLeftButton(rpl::single(::Tele::Lower(u"Reset"_q)), [=] {
+ 		field->setText(base::options::lookup<QString>(
+ 			::Tele::kOptionTitleTemplate).defaultValue());
+ 		refresh();
+@@ -353,7 +353,7 @@ void AddTitle(
+ 		::Tele::kOptionTitleTemplate);
+ 	const auto button = AddButtonWithLabel(
+ 		container,
+-		rpl::single(u"Label"_q),
++		rpl::single(::Tele::Lower(u"Label"_q)),
+ 		::Tele::TitleTemplateValue() | rpl::map([](const QString &text) {
+ 			return text.isEmpty() ? u"off"_q : text;
+ 		}),
+@@ -365,7 +365,7 @@ void AddTitle(
+ 	container->add(
+ 		object_ptr<Ui::FlatLabel>(
+ 			container,
+-			option.description(),
++			::Tele::Lower(option.description()),
+ 			st::settingsExperimentalAbout),
+ 		st::settingsExperimentalAboutPadding);
+ }
+@@ -379,7 +379,7 @@ public:
+ 	QString generateName() override {
+ 		return peer()->isMinimalLoaded()
+ 			? PeerListRowWithLink::generateName()
+-			: u"Unknown user"_q;
++			: ::Tele::Lower(u"Unknown user"_q);
+ 	}
+ 
+ };
+@@ -434,7 +434,7 @@ Main::Session &IgnoredController::session() const {
+ }
+ 
+ void IgnoredController::prepare() {
+-	delegate()->peerListSetTitle(rpl::single(u"Ignored users"_q));
++	delegate()->peerListSetTitle(rpl::single(::Tele::Lower(u"Ignored users"_q)));
+ 	::Tele::IgnoredChanges(
+ 	) | rpl::on_next([=] {
+ 		refreshRows();
+@@ -461,8 +461,8 @@ void IgnoredController::refreshRows() {
+ 		}
+ 	}
+ 	setDescriptionText(users.empty()
+-		? u"Nobody is ignored. Right-click a userpic in a group "
+-			"to ignore someone."_q
++		? ::Tele::Lower(u"Nobody is ignored. Right-click a userpic in a group "
++			"to ignore someone."_q)
+ 		: QString());
+ 	delegate()->peerListRefreshRows();
+ }
+@@ -488,10 +488,10 @@ void IgnoredController::rowRightActionClicked(not_null<PeerListRow*> row) {
+ std::unique_ptr<PeerListRow> IgnoredController::createRow(
+ 		not_null<UserData*> user) const {
+ 	auto row = std::make_unique<IgnoredRow>(user);
+-	row->setActionLink(u"Remove"_q);
++	row->setActionLink(::Tele::Lower(u"Remove"_q));
+ 	const auto username = user->username();
+ 	row->setCustomStatus(username.isEmpty()
+-		? u"ID %1"_q.arg(peerToUser(user->id).bare)
++		? ::Tele::Lower(u"ID %1"_q).arg(peerToUser(user->id).bare)
+ 		: u"@%1"_q.arg(username));
+ 	return row;
+ }
+@@ -507,7 +507,7 @@ Main::Session &IgnorePeerController::session() const {
+ }
+ 
+ void IgnorePeerController::prepareViewHook() {
+-	delegate()->peerListSetTitle(rpl::single(u"Ignore user"_q));
++	delegate()->peerListSetTitle(rpl::single(::Tele::Lower(u"Ignore user"_q)));
+ }
+ 
+ void IgnorePeerController::rowClicked(not_null<PeerListRow*> row) {
+@@ -552,7 +552,7 @@ void ShowIgnoredBox(not_null<Window::SessionController*> window) {
+ 		box->addButton(tr::lng_close(), [=] {
+ 			box->closeBox();
+ 		});
+-		box->addLeftButton(rpl::single(u"Add"_q), [=] {
++		box->addLeftButton(rpl::single(::Tele::Lower(u"Add"_q)), [=] {
+ 			ShowIgnoreUserBox(window);
+ 		});
+ 	};
+@@ -568,7 +568,7 @@ void AddIgnoredUsers(
+ 		::Tele::kOptionIgnoredUsers);
+ 	const auto button = AddButtonWithLabel(
+ 		container,
+-		rpl::single(u"Ignored users"_q),
++		rpl::single(::Tele::Lower(u"Ignored users"_q)),
+ 		::Tele::IgnoredCountValue(
+ 			&controller->session()
+ 		) | rpl::map([](int count) {
+@@ -582,7 +582,7 @@ void AddIgnoredUsers(
+ 	container->add(
+ 		object_ptr<Ui::FlatLabel>(
+ 			container,
+-			option.description(),
++			::Tele::Lower(option.description()),
+ 			st::settingsExperimentalAbout),
+ 		st::settingsExperimentalAboutPadding);
+ }
+@@ -596,7 +596,7 @@ public:
+ 	QString generateName() override {
+ 		return peer()->isMinimalLoaded()
+ 			? PeerListRowWithLink::generateName()
+-			: u"Unknown chat"_q;
++			: ::Tele::Lower(u"Unknown chat"_q);
+ 	}
+ 
+ };
+@@ -628,7 +628,7 @@ Main::Session &GhostChatsController::session() const {
+ }
+ 
+ void GhostChatsController::prepare() {
+-	delegate()->peerListSetTitle(rpl::single(u"Ghost mode in chats"_q));
++	delegate()->peerListSetTitle(rpl::single(::Tele::Lower(u"Ghost mode in chats"_q)));
+ 	::Tele::GhostChatsChanges(
+ 	) | rpl::on_next([=] {
+ 		refreshRows();
+@@ -653,18 +653,18 @@ void GhostChatsController::refreshRows() {
+ 		if (!row) {
+ 			auto created = std::make_unique<GhostChatRow>(
+ 				session().data().peer(chat.id));
+-			created->setActionLink(u"Remove"_q);
++			created->setActionLink(::Tele::Lower(u"Remove"_q));
+ 			row = created.get();
+ 			delegate()->peerListAppendRow(std::move(created));
+ 		}
+ 		row->setCustomStatus(
+ 			(chat.mode == ::Tele::GhostOverride::Always)
+-				? u"Always ghost"_q
+-				: u"Never ghost"_q);
++				? ::Tele::Lower(u"Always ghost"_q)
++				: ::Tele::Lower(u"Never ghost"_q));
+ 	}
+ 	setDescriptionText(chats.empty()
+-		? u"No chats yet. Pick Ghost mode in this chat in a chat's "
+-			"menu."_q
++		? ::Tele::Lower(u"No chats yet. Pick Ghost mode in this chat in a chat's "
++			"menu."_q)
+ 		: QString());
+ 	delegate()->peerListRefreshRows();
+ }
+@@ -706,7 +706,7 @@ void AddGhostChats(
+ 		::Tele::kOptionGhostChats);
+ 	const auto button = AddButtonWithLabel(
+ 		container,
+-		rpl::single(option.name()),
++		rpl::single(::Tele::Lower(option.name())),
+ 		::Tele::GhostChatsCountValue(
+ 			&controller->session()
+ 		) | rpl::map([](int count) {
+@@ -720,7 +720,7 @@ void AddGhostChats(
+ 	container->add(
+ 		object_ptr<Ui::FlatLabel>(
+ 			container,
+-			option.description(),
++			::Tele::Lower(option.description()),
+ 			st::settingsExperimentalAbout),
+ 		st::settingsExperimentalAboutPadding);
+ }
+@@ -740,23 +740,23 @@ void TeleSection::setupContent() {
+ 	const auto content = Ui::CreateChild<Ui::VerticalLayout>(this);
+ 
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Title bar"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Title bar"_q)));
+ 	AddTitle(content, controller());
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Interface"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Interface"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionLowercase);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Stories"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Stories"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideStories);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionInvisibleStories);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Ghost mode"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Ghost mode"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionGhost);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionGhostRead);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionGhostReadOnReply);
+@@ -768,12 +768,12 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Bots"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Bots"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionButtonPayloads);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Chats"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Chats"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionGroupQuickReplies);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionBubbleBadges);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideCalls);
+@@ -785,13 +785,13 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Ignoring"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Ignoring"_q)));
+ 	AddIgnoredUsers(content, controller());
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideIgnored);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Messages"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Messages"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionMessageSeconds);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionEditHistory);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionKeepDeleted);
+@@ -801,12 +801,12 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Gifts"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Gifts"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionShowGiftIds);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"IDs"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"IDs"_q)));
+ 	AddOptionToggle(
+ 		content,
+ 		controller(),
+@@ -818,19 +818,19 @@ void TeleSection::setupContent() {
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Server"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Server"_q)));
+ 	AddServer(content, controller());
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+-	Ui::AddSubsectionTitle(content, rpl::single(u"Updates"_q));
++	Ui::AddSubsectionTitle(content, rpl::single(::Tele::Lower(u"Updates"_q)));
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionAutoUpdate);
+ 	AddUpdates(content);
+ 	Ui::AddSkip(content);
+ 
+-	const auto build = u"Telegram Desktop %1 with tele patches, build %2."_q.arg(
++	const auto build = ::Tele::Lower(u"Telegram Desktop %1 with tele patches, build %2."_q.arg(
+ 		QString::fromLatin1(AppVersionStr),
+-		::Tele::TitleLabel());
++		::Tele::TitleLabel()));
+ 	Ui::AddDividerText(
+ 		content,
+ 		::Tele::UpdateStatusValue(
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+index 935f08c13ce4a6086f0321ad3fee5691807a00b5..6d1a90b8543261db3a76959e2caf2822505285fb 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.cpp
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -10,6 +10,7 @@
+ #include "inline_bots/bot_attach_web_view.h"
+ #include "lang/lang_keys.h"
+ #include "main/session/session_show.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/popup_menu.h"
+@@ -330,10 +331,10 @@ void AddCopyButtonPayloadAction(
+ 	if (text.isEmpty()) {
+ 		return;
+ 	}
+-	menu->addAction(action, [=] {
++	menu->addAction(Lower(action), [=] {
+ 		QGuiApplication::clipboard()->setText(text);
+ 		show->showToast({
+-			.text = { toast },
++			.text = { Lower(toast) },
+ 			.iconLottie = u"toast/copy"_q,
+ 			.iconLottieSize = st::toastLottieIconSize,
+ 		});
+diff --git a/Telegram/SourceFiles/tele/tele_deleted_section.cpp b/Telegram/SourceFiles/tele/tele_deleted_section.cpp
+index 3fe513fcb98679649b20db8188701627b2d01c03..4cd2a38faba077e5fcb1a61a32ac33efe1100221 100644
+--- a/Telegram/SourceFiles/tele/tele_deleted_section.cpp
++++ b/Telegram/SourceFiles/tele/tele_deleted_section.cpp
+@@ -8,6 +8,7 @@
+ #include "history/view/history_view_top_bar_widget.h"
+ #include "main/main_session.h"
+ #include "tele/tele_deleted.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/boxes/confirm_box.h"
+ #include "ui/chat/chat_style.h"
+@@ -31,8 +32,8 @@ using namespace HistoryView;
+ 
+ [[nodiscard]] QString CountText(int count) {
+ 	return (count == 1)
+-		? u"1 deleted message"_q
+-		: u"%1 deleted messages"_q.arg(count);
++		? Lower(u"1 deleted message"_q)
++		: Lower(u"%1 deleted messages"_q).arg(count);
+ }
+ 
+ void ConfirmClear(
+@@ -44,15 +45,15 @@ void ConfirmClear(
+ 	}
+ 	const auto weak = base::make_weak(history.get());
+ 	controller->show(Ui::MakeConfirmBox({
+-		.text = u"Clear %1 from this chat? "
+-			"They were kept only on this device."_q.arg(CountText(count)),
++		.text = Lower(u"Clear %1 from this chat? "
++			"They were kept only on this device."_q).arg(CountText(count)),
+ 		.confirmed = [=](Fn<void()> &&close) {
+ 			close();
+ 			if (const auto strong = weak.get()) {
+ 				ClearKeptDeleted(strong);
+ 			}
+ 		},
+-		.confirmText = u"Clear"_q,
++		.confirmText = Lower(u"Clear"_q),
+ 		.confirmStyle = &st::attentionBoxButton,
+ 	}));
+ }
+@@ -209,7 +210,7 @@ DeletedWidget::DeletedWidget(
+ 	controller->chatStyle()->value(lifetime(), st::historyScroll)))
+ , _clearButton(std::make_unique<Ui::FlatButton>(
+ 	this,
+-	u"Clear all"_q.toUpper(),
++	Lower(u"Clear all"_q.toUpper()),
+ 	st::historyComposeButton)) {
+ 	controller->chatStyle()->paletteChanged(
+ 	) | rpl::on_next([=] {
+@@ -766,7 +767,7 @@ void AddDeletedActions(
+ 	if (!count) {
+ 		return;
+ 	}
+-	addAction(u"Deleted messages (%1)"_q.arg(count), [=] {
++	addAction(Lower(u"Deleted messages (%1)"_q).arg(count), [=] {
+ 		controller->showSection(std::make_shared<DeletedMemento>(history));
+ 	}, &st::menuIconDelete);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_edit_history.cpp b/Telegram/SourceFiles/tele/tele_edit_history.cpp
+index fe79dde3e9d6f18f6949a77a5eca54e904438436..5afcb65649dfc1555e5cf4cd8e85c2ce4a23c6b4 100644
+--- a/Telegram/SourceFiles/tele/tele_edit_history.cpp
++++ b/Telegram/SourceFiles/tele/tele_edit_history.cpp
+@@ -13,6 +13,7 @@
+ #include "history/history_item_components.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/layers/generic_box.h"
+ #include "ui/widgets/labels.h"
+@@ -220,18 +221,18 @@ State::State() {
+ 		const auto date = FormatDate(version.date);
+ 		auto header = (i + 1 < count)
+ 			? (version.original
+-				? u"Original, %1"_q.arg(date)
+-				: u"Edited %1"_q.arg(date))
++				? Lower(u"Original, %1"_q).arg(date)
++				: Lower(u"Edited %1"_q).arg(date))
+ 			: (version.original
+-				? u"Current, original, %1"_q.arg(date)
+-				: u"Current, edited %1"_q.arg(date));
++				? Lower(u"Current, original, %1"_q).arg(date)
++				: Lower(u"Current, edited %1"_q).arg(date));
+ 		const auto mediaChanged = (i > 0
+ 				&& !SameMedia(list[i - 1].content, content))
+ 			|| (i + 1 < count
+ 				&& !SameMedia(list[i + 1].content, content));
+ 		if (!content.media.isEmpty()
+ 			&& (content.text.empty() || mediaChanged)) {
+-			header += u" \u00B7 "_q + content.media;
++			header += u" \u00B7 "_q + Lower(content.media);
+ 		}
+ 		result.push_back({
+ 			.header = std::move(header),
+@@ -245,7 +246,7 @@ void EditHistoryBox(
+ 		not_null<Ui::GenericBox*> box,
+ 		not_null<Main::Session*> session,
+ 		std::vector<Entry> entries) {
+-	box->setTitle(rpl::single(u"Edit history"_q));
++	box->setTitle(rpl::single(Lower(u"Edit history"_q)));
+ 	box->setWidth(st::boxWideWidth);
+ 	const auto padding = style::margins(
+ 		st::boxRowPadding.left(),
+@@ -327,7 +328,7 @@ void AddEditHistoryAction(
+ 	const auto session = &target->history()->session();
+ 	const auto itemId = target->fullId();
+ 	const auto controller = navigation->parentController();
+-	menu->addAction(u"Edit history"_q, [=] {
++	menu->addAction(Lower(u"Edit history"_q), [=] {
+ 		const auto item = session->data().message(itemId);
+ 		const auto record = item ? Versions(item) : nullptr;
+ 		if (record) {
+diff --git a/Telegram/SourceFiles/tele/tele_ghost.cpp b/Telegram/SourceFiles/tele/tele_ghost.cpp
+index b43d5943b72c8a1e3ed57016b78b0cbba7928803..7772d51fd1d7c2deb381822953e1682822cd60ad 100644
+--- a/Telegram/SourceFiles/tele/tele_ghost.cpp
++++ b/Telegram/SourceFiles/tele/tele_ghost.cpp
+@@ -18,6 +18,7 @@
+ #include "main/main_domain.h"
+ #include "main/main_session.h"
+ #include "settings/settings_common.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/chat/attach/attach_prepare.h"
+ #include "ui/widgets/buttons.h"
+@@ -369,7 +370,7 @@ void AddMarkReadAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+ 	}
+ 	const auto session = &item->history()->session();
+ 	const auto itemId = item->fullId();
+-	menu->addAction(u"Mark as read up to here"_q, [=] {
++	menu->addAction(Lower(u"Mark as read up to here"_q), [=] {
+ 		if (const auto item = session->data().message(itemId)) {
+ 			MarkReadTill(item);
+ 		}
+@@ -379,7 +380,7 @@ void AddMarkReadAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+ void AddGhostMenuToggle(not_null<Ui::VerticalLayout*> container) {
+ 	const auto button = Settings::AddButtonWithIcon(
+ 		container,
+-		rpl::single(u"Ghost mode"_q),
++		rpl::single(Lower(u"Ghost mode"_q)),
+ 		st::mainMenuButton,
+ 		{ &st::menuIconStealth });
+ 	button->toggleOn(GhostValue());
+@@ -453,7 +454,7 @@ void AddGhostChatAction(
+ 	}
+ 	const auto now = ChatGhostOverride(peer);
+ 	addAction({
+-		.text = u"Ghost mode in this chat"_q,
++		.text = Lower(u"Ghost mode in this chat"_q),
+ 		.handler = nullptr,
+ 		.icon = &st::menuIconStealth,
+ 		.fillSubmenu = [=](not_null<Ui::PopupMenu*> menu) {
+@@ -463,10 +464,10 @@ void AddGhostChatAction(
+ 				}, (now == value) ? &st::mediaPlayerMenuCheck : nullptr);
+ 			};
+ 			add(
+-				(Ghost() ? u"Default (on)"_q : u"Default (off)"_q),
++				(Ghost() ? Lower(u"Default (on)"_q) : Lower(u"Default (off)"_q)),
+ 				GhostOverride::Default);
+-			add(u"Always ghost"_q, GhostOverride::Always);
+-			add(u"Never ghost"_q, GhostOverride::Never);
++			add(Lower(u"Always ghost"_q), GhostOverride::Always);
++			add(Lower(u"Never ghost"_q), GhostOverride::Never);
+ 		},
+ 	});
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_gifts.cpp b/Telegram/SourceFiles/tele/tele_gifts.cpp
+index ec8564599dec4ebedfc8512504b404f0473f8e1d..a50ec73cbc1059b1eb9d91b22f4c112bf6685de9 100644
+--- a/Telegram/SourceFiles/tele/tele_gifts.cpp
++++ b/Telegram/SourceFiles/tele/tele_gifts.cpp
+@@ -2,6 +2,7 @@
+ 
+ #include "chat_helpers/compose/compose_show.h"
+ #include "data/data_star_gift.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/controls/table_rows.h"
+ #include "ui/text/text_utilities.h"
+@@ -28,13 +29,13 @@ void AddGiftIdRow(
+ 	label->setClickHandlerFilter([=](const auto &...) {
+ 		TextUtilities::SetClipboardText(TextForMimeData::Simple(id));
+ 		show->showToast({
+-			.text = { u"Gift ID copied to clipboard."_q },
++			.text = { Lower(u"Gift ID copied to clipboard."_q) },
+ 			.iconLottie = u"toast/copy"_q,
+ 			.iconLottieSize = st::toastLottieIconSize,
+ 		});
+ 		return false;
+ 	});
+-	Ui::AddTableRow(table, rpl::single(u"Gift ID"_q), std::move(label));
++	Ui::AddTableRow(table, rpl::single(Lower(u"Gift ID"_q)), std::move(label));
+ }
+ 
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
+index 1c65bb7d6b4cd92c188cfad71962088ab3fcacd5..5f4eabe36455090cb9fb87984f946ec35322ea62 100644
+--- a/Telegram/SourceFiles/tele/tele_ignored.cpp
++++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
+@@ -7,6 +7,7 @@
+ #include "history/history_item.h"
+ #include "history/view/history_view_element.h"
+ #include "main/main_session.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+ #include "ui/widgets/menu/menu_add_action_callback_factory.h"
+@@ -251,8 +252,8 @@ void AddIgnoreAction(
+ 	const auto ignored = IsIgnored(user);
+ 	addAction(
+ 		(ignored
+-			? u"Stop ignoring this user"_q
+-			: u"Ignore messages from this user"_q),
++			? Lower(u"Stop ignoring this user"_q)
++			: Lower(u"Ignore messages from this user"_q)),
+ 		[=] { SetIgnored(user, !ignored); },
+ 		ignored ? &st::menuIconUnmute : &st::menuIconMute);
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_jump_to_first.cpp b/Telegram/SourceFiles/tele/tele_jump_to_first.cpp
+index 04e5160d642b550ad0f9001c4afb66a11c3dbd36..744c8ef3988ac57ea6420b2c1eb1ff30a8fb3fc8 100644
+--- a/Telegram/SourceFiles/tele/tele_jump_to_first.cpp
++++ b/Telegram/SourceFiles/tele/tele_jump_to_first.cpp
+@@ -4,6 +4,7 @@
+ #include "data/data_thread.h"
+ #include "dialogs/dialogs_key.h"
+ #include "main/main_session.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/widgets/menu/menu_add_action_callback.h"
+ #include "window/window_session_controller.h"
+@@ -39,7 +40,7 @@ void AddJumpToFirstAction(
+ 				Window::SectionShow::Way::Forward);
+ 		}
+ 	};
+-	addAction(u"Jump to the first message"_q, [=] {
++	addAction(Lower(u"Jump to the first message"_q), [=] {
+ 		const auto strong = weak.get();
+ 		const auto strongThread = weakThread.get();
+ 		if (!strong || !strongThread) {
+diff --git a/Telegram/SourceFiles/tele/tele_message_menu.cpp b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+index 145be78a1919b81e854e02d91f5610f3f8ec751c..986abc17e3b9eea5ca842c4a3998957faae351e4 100644
+--- a/Telegram/SourceFiles/tele/tele_message_menu.cpp
++++ b/Telegram/SourceFiles/tele/tele_message_menu.cpp
+@@ -4,6 +4,7 @@
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "main/session/session_show.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "tele/tele_view_tl.h"
+ #include "ui/toast/toast.h"
+@@ -28,11 +29,11 @@ namespace {
+ 	const auto parent = menu->menu();
+ 	const auto action = Ui::Menu::CreateAction(
+ 		parent,
+-		u"ID: "_q + text,
++		Lower(u"ID: "_q) + text,
+ 		[=] {
+ 			QGuiApplication::clipboard()->setText(text);
+ 			show->showToast({
+-				.text = { u"Message ID copied to clipboard."_q },
++				.text = { Lower(u"Message ID copied to clipboard."_q) },
+ 				.iconLottie = u"toast/copy"_q,
+ 				.iconLottieSize = st::toastLottieIconSize,
+ 			});
+diff --git a/Telegram/SourceFiles/tele/tele_peer_id.cpp b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+index e8995ab288cfb9f6d796d42cc0bdf8379716650f..b8c405f8af8705f93a10f5a29c3c22dbf8205869 100644
+--- a/Telegram/SourceFiles/tele/tele_peer_id.cpp
++++ b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+@@ -5,6 +5,7 @@
+ #include "lang/lang_tag.h"
+ #include "main/main_session.h"
+ #include "mtproto/mtp_instance.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/image/image_location.h"
+ #include "ui/text/text_utilities.h"
+@@ -115,7 +116,7 @@ void SetupPeerIdLabel(
+ 		TextUtilities::SetClipboardText({ FormatPeerId(peer) });
+ 		if (const auto strong = weak.get()) {
+ 			strong->showToast({
+-				.text = { u"ID copied to clipboard."_q },
++				.text = { Lower(u"ID copied to clipboard."_q) },
+ 				.iconLottie = u"toast/copy"_q,
+ 				.iconLottieSize = st::toastLottieIconSize,
+ 			});
+@@ -129,7 +130,7 @@ void SetupPeerIdLabel(
+ 	label->setContextMenuHook([=](
+ 			Ui::FlatLabel::ContextMenuRequest request) {
+ 		if (request.selection.empty()) {
+-			request.menu->addAction(u"Copy ID"_q, copy);
++			request.menu->addAction(Lower(u"Copy ID"_q), copy);
+ 		} else {
+ 			label->fillContextMenu(request);
+ 		}
+@@ -145,7 +146,7 @@ rpl::producer<TextWithEntities> PeerDcTextValue(not_null<PeerData*> peer) {
+ 		return Ui::Text::Link(
+ 			(location.isEmpty()
+ 				? QString::number(dc)
+-				: u"%1, %2"_q.arg(dc).arg(location)),
++				: u"%1, %2"_q.arg(dc).arg(Lower(location))),
+ 			kLinkIndex);
+ 	});
+ }
+@@ -159,7 +160,7 @@ void SetupPeerDcLabel(
+ 		TextUtilities::SetClipboardText({ QString::number(PeerDc(peer)) });
+ 		if (const auto strong = weak.get()) {
+ 			strong->showToast({
+-				.text = { u"DC copied to clipboard."_q },
++				.text = { Lower(u"DC copied to clipboard."_q) },
+ 				.iconLottie = u"toast/copy"_q,
+ 				.iconLottieSize = st::toastLottieIconSize,
+ 			});
+@@ -173,7 +174,7 @@ void SetupPeerDcLabel(
+ 	label->setContextMenuHook([=](
+ 			Ui::FlatLabel::ContextMenuRequest request) {
+ 		if (request.selection.empty()) {
+-			request.menu->addAction(u"Copy DC"_q, copy);
++			request.menu->addAction(Lower(u"Copy DC"_q), copy);
+ 		} else {
+ 			label->fillContextMenu(request);
+ 		}
+diff --git a/Telegram/SourceFiles/tele/tele_secret_media.cpp b/Telegram/SourceFiles/tele/tele_secret_media.cpp
+index 5f22f21a24b75fbe54a17d5bf4a0d72206418d60..9d4dac1114b2b8562f06ee39eb698be9f1937d65 100644
+--- a/Telegram/SourceFiles/tele/tele_secret_media.cpp
++++ b/Telegram/SourceFiles/tele/tele_secret_media.cpp
+@@ -7,6 +7,7 @@
+ #include "history/history.h"
+ #include "history/history_item.h"
+ #include "main/main_session.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/widgets/popup_menu.h"
+ #include "styles/style_menu_icons.h"
+@@ -45,7 +46,7 @@ void AddMarkViewedAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+ 	}
+ 	const auto session = &item->history()->session();
+ 	const auto itemId = item->fullId();
+-	menu->addAction(u"Mark as viewed"_q, [=] {
++	menu->addAction(Lower(u"Mark as viewed"_q), [=] {
+ 		const auto item = session->data().message(itemId);
+ 		if (!item) {
+ 			return;
+diff --git a/Telegram/SourceFiles/tele/tele_title.cpp b/Telegram/SourceFiles/tele/tele_title.cpp
+index 6789c2c3ec98af929c74aa5dff6730f29d79ebb2..4c6317f887bcdd01d4db58562f7601e79c9c492d 100644
+--- a/Telegram/SourceFiles/tele/tele_title.cpp
++++ b/Telegram/SourceFiles/tele/tele_title.cpp
+@@ -16,6 +16,7 @@
+ #include "mtproto/facade.h"
+ #include "mtproto/mtp_instance.h"
+ #include "tele/tele_build.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "window/window_controller.h"
+ #include "window/window_session_controller.h"
+@@ -188,7 +189,7 @@ struct Context {
+ 	if (name == u"build"_q) {
+ 		return (BuildNumber() > 0)
+ 			? u"#%1"_q.arg(BuildNumber())
+-			: u"DEV"_q;
++			: Lower(u"DEV"_q);
+ 	} else if (name == u"version"_q) {
+ 		return QString::fromLatin1(AppVersionStr);
+ 	} else if (name == u"time"_q) {
+diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
+index 8addc40a778e5cf0dbfbb2201f414a180f290a00..1887dbe665cb89cf7c48044e0f9b6c322c5eafe1 100644
+--- a/Telegram/SourceFiles/tele/tele_updater.cpp
++++ b/Telegram/SourceFiles/tele/tele_updater.cpp
+@@ -8,6 +8,7 @@
+ #include "core/version.h"
+ #include "settings.h"
+ #include "tele/tele_build.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ 
+ #include <QtCore/QCoreApplication>
+@@ -545,8 +546,8 @@ void Updater::verifyFeed(const QByteArray &envelope) {
+ 		finish({ .state = UpdateState::Latest });
+ 		return;
+ 	} else if (!CanWriteNextToInstall()) {
+-		fail(u"can't write to the tele folder, "
+-			"download %1 from GitHub by hand"_q.arg(release.tag));
++		fail(Lower(u"can't write to the tele folder, "
++			"download %1 from GitHub by hand"_q).arg(release.tag));
+ 		return;
+ 	}
+ 	_status = UpdateStatus{
+diff --git a/Telegram/SourceFiles/tele/tele_view_tl.cpp b/Telegram/SourceFiles/tele/tele_view_tl.cpp
+index 21392f571090085e79266a0f9a69712731e03cf3..12764f2220afaf080c552a267e2712b8890a3a2f 100644
+--- a/Telegram/SourceFiles/tele/tele_view_tl.cpp
++++ b/Telegram/SourceFiles/tele/tele_view_tl.cpp
+@@ -19,6 +19,7 @@
+ #include "history/history_item.h"
+ #include "main/main_session.h"
+ #include "main/session/session_show.h"
++#include "tele/tele_lowercase.h"
+ #include "tele/tele_options.h"
+ #include "ui/basic_click_handlers.h"
+ #include "window/themes/window_theme.h"
+@@ -182,7 +183,7 @@ void OpenTlResult(
+ 		const std::shared_ptr<Main::SessionShow> &show,
+ 		const QByteArray &bytes) {
+ 	if (bytes.isEmpty()) {
+-		show->showToast(u"The server didn't return this object."_q);
++		show->showToast(Lower(u"The server didn't return this object."_q));
+ 	} else {
+ 		OpenTl(bytes);
+ 	}
+@@ -195,7 +196,7 @@ void ShowTlError(
+ }
+ 
+ QString ViewTlText() {
+-	return u"View as TL"_q;
++	return Lower(u"View as TL"_q);
+ }
+ 
+ void ViewMessageTl(

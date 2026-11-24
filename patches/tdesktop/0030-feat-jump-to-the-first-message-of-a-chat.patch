@@ -1,0 +1,216 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 05:11:43 +0300
+Subject: [PATCH] feat: jump to the first message of a chat
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ .../SourceFiles/settings/settings_tele.cpp    |  1 +
+ .../SourceFiles/tele/tele_jump_to_first.cpp   | 55 +++++++++++++++++++
+ .../SourceFiles/tele/tele_jump_to_first.h     | 22 ++++++++
+ Telegram/SourceFiles/tele/tele_options.cpp    | 12 ++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 +
+ .../SourceFiles/window/window_peer_menu.cpp   |  3 +
+ 7 files changed, 97 insertions(+)
+ create mode 100644 Telegram/SourceFiles/tele/tele_jump_to_first.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_jump_to_first.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index e09bece78f13906b90dd51af9de2152e65c6e80b..815d210cab2ef91bcda0f6abdf40a749270019bf 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2805,6 +2805,8 @@ PRIVATE
+     tele/tele_lowercase.h
+     tele/tele_message_menu.cpp
+     tele/tele_message_menu.h
++    tele/tele_jump_to_first.cpp
++    tele/tele_jump_to_first.h
+     tele/tele_options.cpp
+     tele/tele_options.h
+     tele/tele_peer_id.cpp
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 7136a0f8bf59556a44ee02d0fc6dbb46a8c68378..939a1d69d4954b71df365b357b57474eb74dea1a 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -629,6 +629,7 @@ void TeleSection::setupContent() {
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideSponsored);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionNoLinkWarning);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionHideAllChats);
++	AddOptionToggle(content, controller(), ::Tele::kOptionJumpToFirst);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+diff --git a/Telegram/SourceFiles/tele/tele_jump_to_first.cpp b/Telegram/SourceFiles/tele/tele_jump_to_first.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..04e5160d642b550ad0f9001c4afb66a11c3dbd36
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_jump_to_first.cpp
+@@ -0,0 +1,55 @@
++#include "tele/tele_jump_to_first.h"
++
++#include "apiwrap.h"
++#include "data/data_thread.h"
++#include "dialogs/dialogs_key.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++#include "ui/widgets/menu/menu_add_action_callback.h"
++#include "window/window_session_controller.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++
++void AddJumpToFirstAction(
++		not_null<Window::SessionController*> controller,
++		Data::Thread *thread,
++		const Ui::Menu::MenuCallback &addAction) {
++	if (!JumpToFirst()
++		|| !thread
++		|| (!thread->asHistory() && !thread->asTopic())) {
++		return;
++	}
++	const auto topic = (thread->asTopic() != nullptr);
++	const auto weak = base::make_weak(controller);
++	const auto weakThread = base::make_weak(thread);
++	const auto open = [=](not_null<PeerData*> peer, MsgId id) {
++		const auto strong = weak.get();
++		if (!strong || !id) {
++			return;
++		} else if (!topic) {
++			strong->showPeerHistory(
++				peer,
++				Window::SectionShow::Way::Forward,
++				id);
++		} else if (const auto strongThread = weakThread.get()) {
++			strong->showThread(
++				strongThread,
++				id,
++				Window::SectionShow::Way::Forward);
++		}
++	};
++	addAction(u"Jump to the first message"_q, [=] {
++		const auto strong = weak.get();
++		const auto strongThread = weakThread.get();
++		if (!strong || !strongThread) {
++			return;
++		}
++		strong->session().api().resolveJumpToDate(
++			Dialogs::Key(strongThread),
++			QDate(1970, 1, 2),
++			open);
++	}, &st::menuIconShowInChat);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_jump_to_first.h b/Telegram/SourceFiles/tele/tele_jump_to_first.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..4840c2bf2f9333525c9deda53787ff8522a0a1c4
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_jump_to_first.h
+@@ -0,0 +1,22 @@
++#pragma once
++
++namespace Data {
++class Thread;
++} // namespace Data
++
++namespace Ui::Menu {
++struct MenuCallback;
++} // namespace Ui::Menu
++
++namespace Window {
++class SessionController;
++} // namespace Window
++
++namespace Tele {
++
++void AddJumpToFirstAction(
++	not_null<Window::SessionController*> controller,
++	Data::Thread *thread,
++	const Ui::Menu::MenuCallback &addAction);
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 3a4eb6d5f95efed66d63d4af07073b496cb82fc7..1e8625f75f9d6d8cc269359922aeaed64478dfac 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -15,6 +15,7 @@ const char kOptionLowercase[] = "tele-lowercase";
+ const char kOptionHideSponsored[] = "tele-hide-sponsored";
+ const char kOptionNoLinkWarning[] = "tele-no-link-warning";
+ const char kOptionHideAllChats[] = "tele-hide-all-chats";
++const char kOptionJumpToFirst[] = "tele-jump-to-first";
+ const char kOptionShowGiftIds[] = "tele-show-gift-ids";
+ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
+ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
+@@ -121,6 +122,13 @@ base::options::toggle HideAllChatsOption({
+ 		"the folder tabs and the chat list opens on your first folder.",
+ });
+ 
++base::options::toggle JumpToFirstOption({
++	.id = kOptionJumpToFirst,
++	.name = "Jump to the first message",
++	.description = "Add Jump to the first message to the chat menu in "
++		"the top bar. It scrolls the chat or topic to its very start.",
++});
++
+ base::options::toggle ShowGiftIdsOption({
+ 	.id = kOptionShowGiftIds,
+ 	.name = "Show gift IDs",
+@@ -309,6 +317,10 @@ rpl::producer<> HideAllChatsChanges() {
+ 	return HideAllChatsOption.changes();
+ }
+ 
++bool JumpToFirst() {
++	return JumpToFirstOption.value();
++}
++
+ bool ShowGiftIds() {
+ 	return ShowGiftIdsOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index eaf058704d83cdd7117c6ddd98b0de88bc418e1e..db0fc99215c2a3c9dd163d3a98de82cdfc03061c 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -13,6 +13,7 @@ extern const char kOptionLowercase[];
+ extern const char kOptionHideSponsored[];
+ extern const char kOptionNoLinkWarning[];
+ extern const char kOptionHideAllChats[];
++extern const char kOptionJumpToFirst[];
+ extern const char kOptionShowGiftIds[];
+ extern const char kOptionPeerIdsWithoutSpaces[];
+ extern const char kOptionBotApiPeerIds[];
+@@ -44,6 +45,7 @@ extern const char kOptionTitleTemplate[];
+ [[nodiscard]] bool NoLinkWarning();
+ [[nodiscard]] bool HideAllChats();
+ [[nodiscard]] rpl::producer<> HideAllChatsChanges();
++[[nodiscard]] bool JumpToFirst();
+ [[nodiscard]] bool ShowGiftIds();
+ [[nodiscard]] bool PeerIdsWithoutSpaces();
+ [[nodiscard]] bool BotApiPeerIds();
+diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
+index ac1032bd653870cf2e6f8be51c1a317302a702d6..d824bd9958d098cd357c6fa48ce06e8549625133 100644
+--- a/Telegram/SourceFiles/window/window_peer_menu.cpp
++++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
+@@ -132,6 +132,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "boxes/premium_preview_box.h"
+ #include "tele/tele_deleted_section.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_jump_to_first.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_credits.h"
+@@ -1969,6 +1970,7 @@ void Filler::fillHistoryActions() {
+ 	addToggleMuteSubmenu(true);
+ 	addCreateTopic();
+ 	addInfo();
++	Tele::AddJumpToFirstAction(_controller, _thread, _addAction);
+ 	addViewAsTopics();
+ 	addManageChat();
+ 	addPostStory();
+@@ -2026,6 +2028,7 @@ void Filler::fillProfileActions() {
+ void Filler::fillRepliesActions() {
+ 	if (_topic) {
+ 		addInfo();
++		Tele::AddJumpToFirstAction(_controller, _topic, _addAction);
+ 		addManageTopic();
+ 	}
+ 	addBoostChat();

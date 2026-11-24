@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 4 Oct 2026 11:18:19 +0300
+Subject: [PATCH] fix: read archived stickers from cache for every account
+
+---
+ Telegram/SourceFiles/storage/storage_account.cpp | 12 ++++--------
+ Telegram/SourceFiles/storage/storage_account.h   |  2 ++
+ 2 files changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/Telegram/SourceFiles/storage/storage_account.cpp b/Telegram/SourceFiles/storage/storage_account.cpp
+index c1079de865ffee202b0d5f8b3400f076e76e7fd1..28996f19caeeb60b2dbb4edaa7d202bf822e088d 100644
+--- a/Telegram/SourceFiles/storage/storage_account.cpp
++++ b/Telegram/SourceFiles/storage/storage_account.cpp
+@@ -2711,26 +2711,22 @@ void Account::readFavedStickers() {
+ void Account::readArchivedStickers() {
+ 	DEBUG_LOG(("Init: Read archived stickers."));
+ 
+-	// TODO: refactor to support for multiple accounts.
+-	static bool archivedStickersRead = false;
+-	if (!archivedStickersRead) {
++	if (!_archivedStickersRead) {
+ 		readStickerSets(
+ 			_archivedStickersKey,
+ 			&_owner->session().data().stickers().archivedSetsOrderRef());
+-		archivedStickersRead = true;
++		_archivedStickersRead = true;
+ 	}
+ }
+ 
+ void Account::readArchivedMasks() {
+ 	DEBUG_LOG(("Init: Read archived masks."));
+ 
+-	// TODO: refactor to support for multiple accounts.
+-	static bool archivedMasksRead = false;
+-	if (!archivedMasksRead) {
++	if (!_archivedMasksRead) {
+ 		readStickerSets(
+ 			_archivedMasksKey,
+ 			&_owner->session().data().stickers().archivedMaskSetsOrderRef());
+-		archivedMasksRead = true;
++		_archivedMasksRead = true;
+ 	}
+ }
+ 
+diff --git a/Telegram/SourceFiles/storage/storage_account.h b/Telegram/SourceFiles/storage/storage_account.h
+index b9f388e4a5398e8a008e2bc22098da27f82c8d9d..c67727380e042082701553e7f9ceca1ac9217a29 100644
+--- a/Telegram/SourceFiles/storage/storage_account.h
++++ b/Telegram/SourceFiles/storage/storage_account.h
+@@ -402,6 +402,8 @@ private:
+ 	bool _searchSuggestionsRead = false;
+ 	bool _inlineBotsDownloadsRead = false;
+ 	bool _mediaLastPlaybackPositionsRead = false;
++	bool _archivedStickersRead = false;
++	bool _archivedMasksRead = false;
+ 
+ 	std::vector<std::pair<DocumentId, crl::time>> _mediaLastPlaybackPosition;
+ 

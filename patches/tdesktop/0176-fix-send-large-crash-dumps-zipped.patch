@@ -1,0 +1,214 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Fri, 2 Oct 2026 09:47:09 +0300
+Subject: [PATCH] fix: send large crash dumps zipped
+
+---
+ .../SourceFiles/core/crash_report_window.cpp  | 41 +++-----
+ Telegram/SourceFiles/tele/tele_crash.cpp      | 96 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_crash.h        | 14 +++
+ 3 files changed, 122 insertions(+), 29 deletions(-)
+
+diff --git a/Telegram/SourceFiles/core/crash_report_window.cpp b/Telegram/SourceFiles/core/crash_report_window.cpp
+index ec3510cbe86afd9f889f87ce32f6672f8b90404b..e9985f97770507bc1defbd0b472e6ca36d6dc57d 100644
+--- a/Telegram/SourceFiles/core/crash_report_window.cpp
++++ b/Telegram/SourceFiles/core/crash_report_window.cpp
+@@ -613,7 +613,7 @@ void LastCrashedWindow::sendReport() {
+ 
+ QString LastCrashedWindow::minidumpFileName() {
+ 	QFileInfo dmpFile(_minidumpFull);
+-	if (dmpFile.exists() && dmpFile.size() > 0 && dmpFile.size() < 20 * 1024 * 1024 &&
++	if (dmpFile.exists() && dmpFile.size() > 0 && dmpFile.size() <= Tele::MaxRawDumpSize() &&
+ 		QRegularExpression(u"^[a-zA-Z0-9\\-]{1,64}\\.dmp$"_q).match(dmpFile.fileName()).hasMatch()) {
+ 		return dmpFile.fileName();
+ 	}
+@@ -656,37 +656,20 @@ void LastCrashedWindow::checkingFinished() {
+ 	QHttpPart reportPart;
+ 	reportPart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
+ 	reportPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"report\"; filename=\"report.telegramcrash\""));
+-	reportPart.setBody(getCrashReportRaw());
++	const auto dump = Tele::ZipCrashDump(_minidumpFull, minidumpFileName());
++	reportPart.setBody(Tele::WithDumpNote(getCrashReportRaw(), dump.note));
+ 	multipart->append(reportPart);
+ 
+-	QString dmpName = minidumpFileName();
+-	if (!dmpName.isEmpty()) {
+-		QFile file(_minidumpFull);
+-		if (file.open(QIODevice::ReadOnly)) {
+-			QByteArray minidump = file.readAll();
+-			file.close();
++	if (dump.note.isEmpty()) {
++		QHttpPart dumpPart;
++		dumpPart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
++		dumpPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(u"form-data; name=\"dump\"; filename=\"%1\""_q.arg(dump.name)));
++		dumpPart.setBody(dump.zip);
++		multipart->append(dumpPart);
+ 
+-			QString zipName = QString(dmpName).replace(qstr(".dmp"), qstr(".zip"));
+-
+-			zlib::FileToWrite minidumpZip;
+-
+-			zip_fileinfo zfi = { { 0, 0, 0, 0, 0, 0 }, 0, 0, 0 };
+-			QByteArray dmpNameUtf = dmpName.toUtf8();
+-			minidumpZip.openNewFile(dmpNameUtf.constData(), &zfi, nullptr, 0, nullptr, 0, nullptr, Z_DEFLATED, Z_DEFAULT_COMPRESSION);
+-			minidumpZip.writeInFile(minidump.constData(), minidump.size());
+-			minidumpZip.closeFile();
+-			minidumpZip.close();
+-
+-			if (minidumpZip.error() == ZIP_OK) {
+-				QHttpPart dumpPart;
+-				dumpPart.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/octet-stream"));
+-				dumpPart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant(u"form-data; name=\"dump\"; filename=\"%1\""_q.arg(zipName)));
+-				dumpPart.setBody(minidumpZip.result());
+-				multipart->append(dumpPart);
+-
+-				_minidump.setText(u"+ %1 (%2 KB)"_q.arg(zipName).arg(minidumpZip.result().size() / 1024));
+-			}
+-		}
++		_minidump.setText(u"+ %1 (%2 KB)"_q.arg(dump.name).arg(dump.zip.size() / 1024));
++	} else {
++		_minidump.setText(dump.note);
+ 	}
+ 
+ 	_sendReply = _sendManager.post(QNetworkRequest(Tele::CrashReportUrl(u"act=report"_q)), multipart);
+diff --git a/Telegram/SourceFiles/tele/tele_crash.cpp b/Telegram/SourceFiles/tele/tele_crash.cpp
+index e9756c7cfe2f980fab0b899e51b7ed75951dec86..305e055d01177f98268917ec9447f555bf839c76 100644
+--- a/Telegram/SourceFiles/tele/tele_crash.cpp
++++ b/Telegram/SourceFiles/tele/tele_crash.cpp
+@@ -1,9 +1,43 @@
+ #include "tele/tele_crash.h"
+ 
++#include "base/zlib_help.h"
+ #include "tele/tele_launch_flags.h"
+ #include "tele/tele_options.h"
+ 
+ namespace Tele {
++namespace {
++
++constexpr auto kMegabyte = qint64(1024 * 1024);
++constexpr auto kMaxRawDumpSize = 256 * kMegabyte;
++constexpr auto kMaxDumpZipSize = 20 * kMegabyte;
++
++[[nodiscard]] QString Megabytes(qint64 size) {
++	return QString::number(double(size) / kMegabyte, 'f', 1) + u" MB"_q;
++}
++
++[[nodiscard]] QString Limit(qint64 size) {
++	return QString::number(size / kMegabyte) + u" MB"_q;
++}
++
++[[nodiscard]] CrashDumpZip NotSent(const QString &reason) {
++	return { .note = u"Dump: not sent (%1)"_q.arg(reason) };
++}
++
++[[nodiscard]] QString SkipReason(const QString &path) {
++	const auto info = QFileInfo(path);
++	if (path.isEmpty() || !info.exists()) {
++		return u"missing"_q;
++	} else if (info.size() <= 0) {
++		return u"empty file"_q;
++	} else if (info.size() > kMaxRawDumpSize) {
++		return u"raw %1 > %2"_q.arg(
++			Megabytes(info.size()),
++			Limit(kMaxRawDumpSize));
++	}
++	return u"bad file name"_q;
++}
++
++} // namespace
+ 
+ bool CollectCrashReports() {
+ 	return !ServerOffForLaunch() && !ServerUrl().isEmpty();
+@@ -16,4 +50,66 @@ QString CrashReportUrl(const QString &query) {
+ 		: (base + u"/v1/crash.php?"_q + query);
+ }
+ 
++qint64 MaxRawDumpSize() {
++	return kMaxRawDumpSize;
++}
++
++qint64 MaxDumpZipSize() {
++	return kMaxDumpZipSize;
++}
++
++CrashDumpZip ZipCrashDump(const QString &path, const QString &name) {
++	if (name.isEmpty()) {
++		return NotSent(SkipReason(path));
++	}
++	auto file = QFile(path);
++	if (!file.open(QIODevice::ReadOnly)) {
++		return NotSent(u"read error"_q);
++	}
++	const auto minidump = file.readAll();
++	file.close();
++	if (minidump.isEmpty()) {
++		return NotSent(u"empty file"_q);
++	}
++
++	auto zip = zlib::FileToWrite();
++	auto info = zip_fileinfo{ { 0, 0, 0, 0, 0, 0 }, 0, 0, 0 };
++	const auto utf = name.toUtf8();
++	zip.openNewFile(
++		utf.constData(),
++		&info,
++		nullptr,
++		0,
++		nullptr,
++		0,
++		nullptr,
++		Z_DEFLATED,
++		Z_DEFAULT_COMPRESSION);
++	zip.writeInFile(minidump.constData(), minidump.size());
++	zip.closeFile();
++	zip.close();
++	if (zip.error() != ZIP_OK) {
++		return NotSent(u"zip error %1"_q.arg(zip.error()));
++	}
++	auto result = zip.result();
++	if (result.size() > kMaxDumpZipSize) {
++		return NotSent(u"zip %1 > %2"_q.arg(
++			Megabytes(result.size()),
++			Limit(kMaxDumpZipSize)));
++	}
++	return {
++		.name = QString(name).replace(u".dmp"_q, u".zip"_q),
++		.zip = std::move(result),
++	};
++}
++
++QByteArray WithDumpNote(QByteArray report, const QString &note) {
++	if (note.isEmpty()) {
++		return report;
++	} else if (!report.isEmpty() && !report.endsWith('\n')) {
++		report.append('\n');
++	}
++	return report.append(note.toUtf8()).append('\n');
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_crash.h b/Telegram/SourceFiles/tele/tele_crash.h
+index bc43192c402e1a47b1aaed85da9ff7c696088492..6f04a623182a23f0899fcb1d4f3439eea9c20e71 100644
+--- a/Telegram/SourceFiles/tele/tele_crash.h
++++ b/Telegram/SourceFiles/tele/tele_crash.h
+@@ -2,7 +2,21 @@
+ 
+ namespace Tele {
+ 
++struct CrashDumpZip {
++	QString name;
++	QByteArray zip;
++	QString note;
++};
++
+ [[nodiscard]] bool CollectCrashReports();
+ [[nodiscard]] QString CrashReportUrl(const QString &query);
++[[nodiscard]] qint64 MaxRawDumpSize();
++[[nodiscard]] qint64 MaxDumpZipSize();
++[[nodiscard]] CrashDumpZip ZipCrashDump(
++	const QString &path,
++	const QString &name);
++[[nodiscard]] QByteArray WithDumpNote(
++	QByteArray report,
++	const QString &note);
+ 
+ } // namespace Tele

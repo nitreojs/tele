@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Wed, 30 Sep 2026 05:44:20 +0300
+Subject: [PATCH] fix: send mkv files as videos
+
+---
+ Telegram/SourceFiles/storage/localimageloader.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Telegram/SourceFiles/storage/localimageloader.cpp b/Telegram/SourceFiles/storage/localimageloader.cpp
+index b249a0b19af93e7994546d6ddbf1147e69b0667b..7c73081e71dd9c451ad265cb2634f40543e54694 100644
+--- a/Telegram/SourceFiles/storage/localimageloader.cpp
++++ b/Telegram/SourceFiles/storage/localimageloader.cpp
+@@ -637,6 +637,7 @@ bool FileLoadTask::IsVideoFile(
+ 		u".mov"_q,
+ 		u".m4v"_q,
+ 		u".webm"_q,
++		u".mkv"_q,
+ 	};
+ 	return CheckMimeOrExtensions(filepath, filemime, mimes, extensions);
+ }

@@ -1,0 +1,201 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 05:04:17 +0300
+Subject: [PATCH] feat: copy the callback data of bot buttons
+
+---
+ .../history/history_inner_widget.cpp          |  5 ++
+ .../view/history_view_context_menu.cpp        |  5 ++
+ .../SourceFiles/tele/tele_button_payload.cpp  | 82 ++++++++++++++++++-
+ .../SourceFiles/tele/tele_button_payload.h    | 13 +++
+ 4 files changed, 102 insertions(+), 3 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index aa15f97fad1e5828ae745466589a69861cc0c5c7..162449bf416102c5896b21f364d93b5c21c40847 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -135,6 +135,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_histories.h"
+ #include "data/data_changes.h"
+ #include "dialogs/ui/dialogs_video_userpic.h"
++#include "tele/tele_button_payload.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_ignored.h"
+@@ -3790,6 +3791,10 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 				HistoryView::CopyPostLink(controller, itemId, HistoryView::Context::History);
+ 			}, &st::menuIconLink);
+ 		}
++		Tele::AddCopyButtonPayloadAction(
++			_menu.get(),
++			controller->uiShow(),
++			link);
+ 		if (sponsored) {
+ 			const auto hasAbout = ranges::any_of(
+ 				_menu->actions(),
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index 2e03939301e8e308a11045adc80c350172a87c77..3bc0d39b00386bb7ed6f0fbce37713eaa3db3bfa 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -115,6 +115,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tgw/tgw_log_box.h"
+ #include "tgw/tgw_selection.h"
+ #include "apiwrap.h"
++#include "tele/tele_button_payload.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_secret_media.h"
+@@ -1943,6 +1944,10 @@ void FillContextMenuItems(
+ 	}
+ 
+ 	AddCopyLinkAction(result, link);
++	Tele::AddCopyButtonPayloadAction(
++		result,
++		list->controller()->uiShow(),
++		link);
+ 	AddMessageActions(result, request, list);
+ 
+ 	const auto wasAmount = result->actions().size();
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.cpp b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+index 3e331eedc1b954094a5a5d3bf596b2855bfb3978..935f08c13ce4a6086f0321ad3fee5691807a00b5 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.cpp
++++ b/Telegram/SourceFiles/tele/tele_button_payload.cpp
+@@ -5,11 +5,20 @@
+ #include "data/data_session.h"
+ #include "data/data_user.h"
+ #include "history/history_item.h"
++#include "history/history_item_components.h"
+ #include "history/history_item_reply_markup.h"
+ #include "inline_bots/bot_attach_web_view.h"
++#include "lang/lang_keys.h"
++#include "main/session/session_show.h"
+ #include "tele/tele_options.h"
++#include "ui/toast/toast.h"
++#include "ui/widgets/popup_menu.h"
++#include "styles/style_chat_helpers.h"
++#include "styles/style_menu_icons.h"
+ 
+ #include <QtCore/QDataStream>
++#include <QtGui/QClipboard>
++#include <QtGui/QGuiApplication>
+ 
+ namespace Tele {
+ namespace {
+@@ -47,13 +56,17 @@ using Type = Button::Type;
+ 	return true;
+ }
+ 
++[[nodiscard]] bool IsText(const QByteArray &data) {
++	const auto text = QString::fromUtf8(data);
++	return (text.toUtf8() == data) && IsPrintable(text);
++}
++
+ [[nodiscard]] QString Bytes(const QByteArray &data) {
+ 	if (data.isEmpty()) {
+ 		return u"(empty)"_q;
+ 	}
+-	const auto text = QString::fromUtf8(data);
+-	if (text.toUtf8() == data && IsPrintable(text)) {
+-		return Quoted(text);
++	if (IsText(data)) {
++		return Quoted(QString::fromUtf8(data));
+ 	}
+ 	return u"hex, %1 bytes: %2"_q.arg(data.size()).arg(
+ 		Limited(QString::fromLatin1(data.toHex(' '))));
+@@ -264,4 +277,67 @@ QString MarkupButtonTooltip(
+ 	return lines.join('\n');
+ }
+ 
++void AddCopyButtonPayloadAction(
++		not_null<Ui::PopupMenu*> menu,
++		std::shared_ptr<Main::SessionShow> show,
++		const ClickHandlerPtr &link) {
++	const auto handler = dynamic_cast<ReplyMarkupClickHandler*>(link.get());
++	const auto button = handler ? handler->getButton() : nullptr;
++	if (!button) {
++		return;
++	}
++	const auto &data = button->data;
++	auto action = QString();
++	auto text = QString();
++	auto toast = QString();
++	switch (button->type) {
++	case Type::Callback:
++	case Type::CallbackWithPassword:
++		if (IsText(data)) {
++			action = u"Copy callback data"_q;
++			text = QString::fromUtf8(data);
++		} else {
++			action = u"Copy callback data as hex"_q;
++			text = QString::fromLatin1(data.toHex());
++		}
++		toast = u"Callback data copied to clipboard."_q;
++		break;
++	case Type::SwitchInline:
++	case Type::SwitchInlineSame:
++		action = u"Copy inline query"_q;
++		text = QString::fromUtf8(data);
++		toast = u"Inline query copied to clipboard."_q;
++		break;
++	case Type::WebView:
++	case Type::SimpleWebView:
++		action = u"Copy web app URL"_q;
++		text = QString::fromUtf8(data);
++		toast = u"Web app URL copied to clipboard."_q;
++		break;
++	case Type::CopyText:
++		action = u"Copy text from button"_q;
++		text = QString::fromUtf8(data);
++		toast = tr::lng_text_copied(tr::now);
++		break;
++	case Type::UserProfile:
++		action = u"Copy user ID"_q;
++		text = QString::number(data.toULongLong());
++		toast = u"ID copied to clipboard."_q;
++		break;
++	default:
++		break;
++	}
++	if (text.isEmpty()) {
++		return;
++	}
++	menu->addAction(action, [=] {
++		QGuiApplication::clipboard()->setText(text);
++		show->showToast({
++			.text = { toast },
++			.iconLottie = u"toast/copy"_q,
++			.iconLottieSize = st::toastLottieIconSize,
++		});
++	}, &st::menuIconCopy);
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_button_payload.h b/Telegram/SourceFiles/tele/tele_button_payload.h
+index 4861df4775f9603c4fae8c545b48c00cd3af4cbf..7f02449bdb175f598b15086b2c604c3847ca3af4 100644
+--- a/Telegram/SourceFiles/tele/tele_button_payload.h
++++ b/Telegram/SourceFiles/tele/tele_button_payload.h
+@@ -8,6 +8,14 @@ namespace Data {
+ class Session;
+ } // namespace Data
+ 
++namespace Main {
++class SessionShow;
++} // namespace Main
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
+ namespace Tele {
+ 
+ [[nodiscard]] QString MarkupButtonTooltip(
+@@ -16,4 +24,9 @@ namespace Tele {
+ 	const HistoryMessageMarkupButton *button,
+ 	bool fullDisplayed);
+ 
++void AddCopyButtonPayloadAction(
++	not_null<Ui::PopupMenu*> menu,
++	std::shared_ptr<Main::SessionShow> show,
++	const ClickHandlerPtr &link);
++
+ } // namespace Tele

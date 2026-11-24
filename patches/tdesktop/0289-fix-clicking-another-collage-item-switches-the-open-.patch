@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 10 Oct 2026 12:45:54 +0300
+Subject: [PATCH] fix: clicking another collage item switches the open media
+ viewer
+
+---
+ .../SourceFiles/media/view/media_view_overlay_widget.cpp     | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index bc7b308d7ab03dfd0b1436a90748ae85e3f4d74a..c865fc3d537772bdc98f7dc736656e7c63ec2f40 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -4722,7 +4722,10 @@ void OverlayWidget::show(OpenRequest request) {
+ 	const auto contextMonoforumPeerId = request.monoforumPeerId();
+ 	_drawButtonEnabled = request.showDrawButton();
+ 	if (!request.continueStreaming() && !request.startTime() && !_reShow) {
+-		if (_message && (_message == contextItem)) {
++		if (_message && (_message == contextItem)
++			&& ((!photo && !document)
++				|| (_photo && (_photo == photo))
++				|| (_document && (_document == document)))) {
+ 			return close();
+ 		} else if (_user && (_user == contextPeer)) {
+ 			if ((_photo && (_photo == photo))

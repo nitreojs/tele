@@ -9,7 +9,7 @@ Subject: [PATCH] feat: let picked fonts use their real metrics on windows
  2 files changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/ui/style/style_core_font.cpp b/ui/style/style_core_font.cpp
-index e179ece9410b513683419782f15791a36ab0c1bb..f8b4615911564be59a874b1263908023ecb32ce0 100644
+index 66b322a6784b76cdda00625cd2efc9045effd52d..68b905b8c906ea448e15de252cca7b7bb4c53bb1 100644
 --- a/ui/style/style_core_font.cpp
 +++ b/ui/style/style_core_font.cpp
 @@ -46,6 +46,7 @@ namespace {

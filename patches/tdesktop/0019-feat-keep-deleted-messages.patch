@@ -52,10 +52,10 @@ Subject: [PATCH] feat: keep deleted messages
  create mode 100644 Telegram/SourceFiles/tele/tele_deleted_section.h
 
 diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
-index 15521264c543a58d0ef5f2caedf05977c5bb1176..f0ed694292e2bfe807483a8f0491fc8df0dc1669 100644
+index 35f1809e13b011d47251368d7ba926023c6e2e3d..3b3b3f85d2dbb65588042c39417648562535c492 100644
 --- a/Telegram/CMakeLists.txt
 +++ b/Telegram/CMakeLists.txt
-@@ -2662,6 +2662,10 @@ PRIVATE
+@@ -2789,6 +2789,10 @@ PRIVATE
      tele/tele_bubble_badges.h
      tele/tele_button_payload.cpp
      tele/tele_button_payload.h
@@ -67,7 +67,7 @@ index 15521264c543a58d0ef5f2caedf05977c5bb1176..f0ed694292e2bfe807483a8f0491fc8d
      tele/tele_edit_history.h
      tele/tele_gifts.cpp
 diff --git a/Telegram/SourceFiles/data/data_histories.cpp b/Telegram/SourceFiles/data/data_histories.cpp
-index 05ee208255ee6e51e0523271bca34fab8a583a12..3bbe443b3ff1073da3fb666be78ce91414e47ef5 100644
+index 9d0273a509ad90c815320f4c3489d18c251abc71..81d3f813cd4400d068d4067ee76af8a9283142db 100644
 --- a/Telegram/SourceFiles/data/data_histories.cpp
 +++ b/Telegram/SourceFiles/data/data_histories.cpp
 @@ -35,6 +35,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -78,7 +78,7 @@ index 05ee208255ee6e51e0523271bca34fab8a583a12..3bbe443b3ff1073da3fb666be78ce914
  
  namespace Data {
  namespace {
-@@ -1019,7 +1020,7 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
+@@ -1020,7 +1021,7 @@ void Histories::deleteMessages(const MessageIdsList &ids, bool revoke) {
  				continue;
  			}
  			remove.push_back(item);
@@ -88,7 +88,7 @@ index 05ee208255ee6e51e0523271bca34fab8a583a12..3bbe443b3ff1073da3fb666be78ce914
  			}
  		}
 diff --git a/Telegram/SourceFiles/data/data_session.cpp b/Telegram/SourceFiles/data/data_session.cpp
-index ad7b8ab0d904cba723bd1cc640f2cde2d9466002..a236c618d6c463457593d1b8135cd39908b665ae 100644
+index c5280879d1d5ebe9966c10bc8615a50a8f7367cb..eab2ad8a6a1cb678081d921fb7215a1b5a7a8f59 100644
 --- a/Telegram/SourceFiles/data/data_session.cpp
 +++ b/Telegram/SourceFiles/data/data_session.cpp
 @@ -96,6 +96,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -99,7 +99,7 @@ index ad7b8ab0d904cba723bd1cc640f2cde2d9466002..a236c618d6c463457593d1b8135cd399
  
  namespace Data {
  namespace {
-@@ -3388,6 +3389,7 @@ void Session::processMessagesDeleted(
+@@ -3391,6 +3392,7 @@ void Session::processMessagesDeleted(
  			affected->unknownMessageDeleted(messageId.v);
  		}
  	}
@@ -107,7 +107,7 @@ index ad7b8ab0d904cba723bd1cc640f2cde2d9466002..a236c618d6c463457593d1b8135cd399
  	if (!toDestroy.empty()) {
  		notifyItemsAboutToBeDestroyed(toDestroy);
  		for (const auto &item : toDestroy) {
-@@ -3412,6 +3414,7 @@ void Session::processNonChannelMessagesDeleted(const QVector<MTPint> &data) {
+@@ -3415,6 +3417,7 @@ void Session::processNonChannelMessagesDeleted(const QVector<MTPint> &data) {
  			historiesToCheck.emplace(history);
  		}
  	}
@@ -116,10 +116,10 @@ index ad7b8ab0d904cba723bd1cc640f2cde2d9466002..a236c618d6c463457593d1b8135cd399
  		notifyItemsAboutToBeDestroyed(toDestroy);
  		for (const auto &item : toDestroy) {
 diff --git a/Telegram/SourceFiles/history/history.cpp b/Telegram/SourceFiles/history/history.cpp
-index ad33222ac1cb62338e2b918f7da2550a34a04fe6..627d0d2953b32470e48f67385d498eec2942be58 100644
+index 517909598125b68140a37785f6ed31f92cb64f2e..686a0c5822e661bdf343867aa788fe135dfb1075 100644
 --- a/Telegram/SourceFiles/history/history.cpp
 +++ b/Telegram/SourceFiles/history/history.cpp
-@@ -83,6 +83,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -84,6 +84,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "base/options.h"
  #include "base/unixtime.h"
  #include "base/qt/qt_common_adapters.h"
@@ -127,7 +127,7 @@ index ad33222ac1cb62338e2b918f7da2550a34a04fe6..627d0d2953b32470e48f67385d498eec
  #include "styles/style_dialogs.h"
  
  namespace {
-@@ -1903,6 +1904,10 @@ void History::addEdgesToSharedMedia() {
+@@ -1907,6 +1908,10 @@ void History::addEdgesToSharedMedia() {
  void History::addOlderSlice(const QVector<MTPMessage> &slice) {
  	if (slice.isEmpty()) {
  		_loadedAtTop = true;
@@ -138,7 +138,7 @@ index ad33222ac1cb62338e2b918f7da2550a34a04fe6..627d0d2953b32470e48f67385d498eec
  		checkLocalMessages();
  		return;
  	}
-@@ -1917,7 +1922,8 @@ void History::addOlderSlice(const QVector<MTPMessage> &slice) {
+@@ -1921,7 +1926,8 @@ void History::addOlderSlice(const QVector<MTPMessage> &slice) {
  		}
  	}
  
@@ -148,7 +148,7 @@ index ad33222ac1cb62338e2b918f7da2550a34a04fe6..627d0d2953b32470e48f67385d498eec
  		addCreatedOlderSlice(added);
  	} else {
  		// If no items were added it means we've loaded everything old.
-@@ -1959,7 +1965,8 @@ void History::addNewerSlice(const QVector<MTPMessage> &slice) {
+@@ -1963,7 +1969,8 @@ void History::addNewerSlice(const QVector<MTPMessage> &slice) {
  		}
  	}
  
@@ -159,10 +159,10 @@ index ad33222ac1cb62338e2b918f7da2550a34a04fe6..627d0d2953b32470e48f67385d498eec
  
  		for (const auto &item : added) {
 diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
-index cf891eeda21a4ea35f67072b508f08ded9068440..3257d48f817c06b80114ee66f123a25f55b229c7 100644
+index 979f8e4b4e1fe55ba10c38c94b8dcbc87de6a8ea..c57befae24a9e1aa0fbffdfbda3c464399e0af4c 100644
 --- a/Telegram/SourceFiles/history/history_inner_widget.cpp
 +++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
-@@ -134,6 +134,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -135,6 +135,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "data/data_histories.h"
  #include "data/data_changes.h"
  #include "dialogs/ui/dialogs_video_userpic.h"
@@ -170,7 +170,7 @@ index cf891eeda21a4ea35f67072b508f08ded9068440..3257d48f817c06b80114ee66f123a25f
  #include "tele/tele_edit_history.h"
  #include "tele/tele_ignored.h"
  #include "styles/style_chat.h"
-@@ -6619,6 +6620,9 @@ auto HistoryInner::DelegateMixin()
+@@ -6625,6 +6626,9 @@ auto HistoryInner::DelegateMixin()
  }
  
  bool CanSendReply(not_null<const HistoryItem*> item) {
@@ -181,7 +181,7 @@ index cf891eeda21a4ea35f67072b508f08ded9068440..3257d48f817c06b80114ee66f123a25f
  		return false;
  	}
 diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
-index d44898dc6aeb2e356cc2a9c1ce216f5d60521f65..1d7b7447ec662702eb15785615bd892ab47026dc 100644
+index 68df8d6f1eb6c71c6bf3dec1e16e2829f0b65fb9..c63244a36ce1c13ab2200f331dd294f7f9cfd1b6 100644
 --- a/Telegram/SourceFiles/history/history_item.cpp
 +++ b/Telegram/SourceFiles/history/history_item.cpp
 @@ -87,6 +87,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -334,7 +334,7 @@ index 51b8e2cbed48a74a7bf00e2ce5c8b481e97bb722..b2cc514bbeda30d051f1f7991f949af5
  			&& context != Context::Replies
  			&& context != Context::Monoforum)) {
 diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
-index 680c088a334fb3be3b98f7b8c3033bdb107ca144..7b408c29dd4803ed98836474555fca32716017ed 100644
+index e26c37f0c2b34ee7e13ebff074186316e587d13a..0f20d5811e4a9f2c843d2fe5ece13f0a7f7731d9 100644
 --- a/Telegram/SourceFiles/history/view/history_view_message.cpp
 +++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
 @@ -67,6 +67,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
@@ -509,7 +509,7 @@ index a107694314d67239029955dda87b185ad8e074f0..c4fbc3202ec68e30f8c82de0f10e72ac
  			part.value,
  			part.valueLeft,
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_document.cpp b/Telegram/SourceFiles/history/view/media/history_view_document.cpp
-index d5275ebe7098715e4e3b0842095b9da9011bbca6..1a7c8940f36d4adaa9698def1cca3bf75b5f3bc4 100644
+index a11530c4f1b6fdb66c67789c52db9b12b6d6492f..d8aaf66a0a5e1a4c67e1c04cf9233a5fd8c120e0 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_document.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_document.cpp
 @@ -777,7 +777,8 @@ void Document::draw(
@@ -972,7 +972,7 @@ index f173a359e4a43232c1b6443fbc922bf39e934dc6..072679ecd132eff2478509117df4db81
  	} else if (!_owner->showVotes()) {
  		paintRadio(p, answer, left, top, textPadding, context);
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_service_box.cpp b/Telegram/SourceFiles/history/view/media/history_view_service_box.cpp
-index 03f15eec961021fe0a848a3340bd8801e21236e7..43b68d141abd4fc0003d62eec8b211fa01dbe7e8 100644
+index a323b455a92af1e14fd131796fef7a4d93a5afda..1c7f2c48643c7db6c6614bfd02f153b96dfc4f4a 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_service_box.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_service_box.cpp
 @@ -294,7 +294,7 @@ void ServiceBox::draw(Painter &p, const PaintContext &context) const {
@@ -1008,10 +1008,10 @@ index 3fd08432906b412ff71d3544acf95f8a27a12b66..5b9a3c0c6195bf1419e9fe27a051e282
  
  		auto pen = stm->msgBg->p;
 diff --git a/Telegram/SourceFiles/history/view/media/history_view_theme_document.cpp b/Telegram/SourceFiles/history/view/media/history_view_theme_document.cpp
-index 65f8f230bd012106f43ee04809105233969aa321..cf2888bc3c29d5eaad225e68f3d57b9b46a20104 100644
+index 929adc3b01982b5e788512aaeebe65b49ad80ece..ef8e1e9d344c4fd7d75a48fa09e032b8c143b3ea 100644
 --- a/Telegram/SourceFiles/history/view/media/history_view_theme_document.cpp
 +++ b/Telegram/SourceFiles/history/view/media/history_view_theme_document.cpp
-@@ -286,19 +286,20 @@ void ThemeDocument::draw(Painter &p, const PaintContext &context) const {
+@@ -328,19 +328,20 @@ void ThemeDocument::draw(Painter &p, const PaintContext &context) const {
  				p.setBrush(over ? st->msgDateImgBgOver() : st->msgDateImgBg());
  			}
  
@@ -2650,10 +2650,10 @@ index 22802623b8129b96684eae30ee88a597ebf8e7f5..b0c114063480e5f0a6d3a27dddab7aee
  	}
  	p.restore();
 diff --git a/Telegram/SourceFiles/window/window_peer_menu.cpp b/Telegram/SourceFiles/window/window_peer_menu.cpp
-index 280a5418f4e04dd4a65bed7737347c0cec472f12..adf0937b89f464a2506bbfeed7617a7db2919c22 100644
+index bb4cc36e30315427b8df0216f5431bac3ad2d14d..ac1032bd653870cf2e6f8be51c1a317302a702d6 100644
 --- a/Telegram/SourceFiles/window/window_peer_menu.cpp
 +++ b/Telegram/SourceFiles/window/window_peer_menu.cpp
-@@ -128,6 +128,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+@@ -130,6 +130,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
  #include "boxes/peers/edit_peer_info_box.h"
  #include "boxes/peers/manage_community_box.h"
  #include "boxes/premium_preview_box.h"
@@ -2661,7 +2661,7 @@ index 280a5418f4e04dd4a65bed7737347c0cec472f12..adf0937b89f464a2506bbfeed7617a7d
  #include "tele/tele_ignored.h"
  #include "styles/style_chat.h"
  #include "styles/style_chat_helpers.h"
-@@ -1952,6 +1953,7 @@ void Filler::fillHistoryActions() {
+@@ -1982,6 +1983,7 @@ void Filler::fillHistoryActions() {
  	addViewDiscussion();
  	addDirectMessages();
  	addExportChat();

@@ -176,8 +176,9 @@ rate limits come from one hook in `mtproto/mtp_instance.cpp` (`rpcErrorOccured`)
 
 ### self-updater and the signed feed
 
-`tele/tele_updater.*` checks `https://github.com/nitreojs/tele/releases/latest/download/tele-update-<platform>.json`, where the platform is `win64`, `linux64` or `macos`. the file is `{"feed": base64(json), "signature": base64(ed25519 signature of those bytes)}`. the inner json holds `tag`, `base` (upstream `AppVersion`), `counter` (the release number), `url`, `zip_sha256` and `exe_sha256`.
+`tele/tele_updater.*` checks `https://github.com/nitreojs/tele/releases/latest/download/tele-update-<platform>.json`, where the platform is `win64`, `linux64` or `macos`. the file is `{"feed": base64(json), "signature": base64(ed25519 signature of those bytes)}`. the inner json holds `tag`, `base` (upstream `AppVersion`), `counter` (the release number), `url`, `zip_sha256`, `exe_sha256` and, on `win64` and `linux64`, `helper_sha256`.
 
+- the zips carry upstream's widget helper next to the exe: `modules/x64/TelegramWidgetHelper.exe` on Windows, `TelegramHelpers/TelegramWidgetHelper` on Linux, `tele.app/Contents/Helpers/TelegramWidgetHelper` on macOS. the exe only runs widgets with the exact helper it was built with (authenticode hash, sha256, per-arch cdhash), so nothing may modify the helper after the build: the macOS packaging doesn't re-sign it. the updater installs the helper together with the exe, and a release build whose helper doesn't match `helper_sha256` of its own release fetches that release's zip once and installs only the helper.
 - the public key is compiled into `tele_updater.cpp` and has to match `ci/update-public-key.pem`.
 - the download url has to point at this repository's releases.
 - it's off for local builds, in sandboxes and while `-noteleupdate` is set. the `tele-auto-update` option turns the periodic check off.

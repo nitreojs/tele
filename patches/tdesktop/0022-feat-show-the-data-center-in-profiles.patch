@@ -1,0 +1,270 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 04:52:34 +0300
+Subject: [PATCH] feat: show the data center in profiles
+
+---
+ .../info/profile/info_profile_actions.cpp     | 10 ++
+ .../SourceFiles/settings/settings_tele.cpp    |  1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    | 13 +++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 +
+ Telegram/SourceFiles/tele/tele_peer_id.cpp    | 92 +++++++++++++++++--
+ Telegram/SourceFiles/tele/tele_peer_id.h      |  6 ++
+ 6 files changed, 118 insertions(+), 6 deletions(-)
+
+diff --git a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+index 9dad18194bc39d45332ce46e7488f8c7522a1a5d..d9a383bea51010b0c51d11bfa5998b5707cfedd6 100644
+--- a/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
++++ b/Telegram/SourceFiles/info/profile/info_profile_actions.cpp
+@@ -78,6 +78,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "menu/menu_mute.h"
+ #include "settings/settings_common.h"
+ #include "support/support_helper.h"
++#include "tele/tele_options.h"
+ #include "tele/tele_peer_id.h"
+ #include "ui/boxes/peer_qr_box.h"
+ #include "ui/boxes/report_box_graphics.h"
+@@ -1865,6 +1866,15 @@ BlockPart DetailsFiller::makeInfo() {
+ 			_peer,
+ 			controller);
+ 	}
++	if (!_topic && Tele::ShowDc()) {
++		Tele::SetupPeerDcLabel(
++			addInfoOneLine(
++				u"DC"_q,
++				Tele::PeerDcTextValue(_peer),
++				QString()).text,
++			_peer,
++			controller);
++	}
+ 	raw->toggleOn(tracker.atLeastOneShownValue());
+ 	raw->finishAnimating();
+ 
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c625b75e28427e71a7fae273190b2bc9c8548296..c733161b91159d64248199f155f7cb210f539015 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -654,6 +654,7 @@ void TeleSection::setupContent() {
+ 		controller(),
+ 		::Tele::kOptionPeerIdsWithoutSpaces);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionBotApiPeerIds);
++	AddOptionToggle(content, controller(), ::Tele::kOptionShowDc);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 0d6a6cb71d30dfd7981c9d448e208916ccd30eea..95d34159a5bd562d32d72631a07b9e8e54eb856b 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -15,6 +15,7 @@ const char kOptionLowercase[] = "tele-lowercase";
+ const char kOptionShowGiftIds[] = "tele-show-gift-ids";
+ const char kOptionPeerIdsWithoutSpaces[] = "tele-peer-ids-without-spaces";
+ const char kOptionBotApiPeerIds[] = "tele-bot-api-peer-ids";
++const char kOptionShowDc[] = "tele-show-dc";
+ const char kOptionHideIgnored[] = "tele-hide-ignored";
+ const char kOptionIgnoredUsers[] = "tele-ignored-users";
+ const char kOptionMessageSeconds[] = "tele-message-seconds";
+@@ -113,6 +114,14 @@ base::options::toggle BotApiPeerIdsOption({
+ 		"get -100 in front.",
+ });
+ 
++base::options::toggle ShowDcOption({
++	.id = kOptionShowDc,
++	.name = "Show data center",
++	.description = "Show a DC row in profiles with the data center "
++		"the account or chat lives in, known from its profile photo. "
++		"Click it to copy.",
++});
++
+ base::options::toggle HideIgnoredOption({
+ 	.id = kOptionHideIgnored,
+ 	.name = "Hide ignored messages completely",
+@@ -239,6 +248,10 @@ rpl::producer<> PeerIdFormatChanges() {
+ 		BotApiPeerIdsOption.changes());
+ }
+ 
++bool ShowDc() {
++	return ShowDcOption.value();
++}
++
+ bool HideIgnored() {
+ 	return HideIgnoredOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index dc60455f9a2afd3f82397d99553b0474800dc1b5..08316b24f87ca9b8dfdaf1bf01a93b4b12d3f50f 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -13,6 +13,7 @@ extern const char kOptionLowercase[];
+ extern const char kOptionShowGiftIds[];
+ extern const char kOptionPeerIdsWithoutSpaces[];
+ extern const char kOptionBotApiPeerIds[];
++extern const char kOptionShowDc[];
+ extern const char kOptionHideIgnored[];
+ extern const char kOptionIgnoredUsers[];
+ extern const char kOptionMessageSeconds[];
+@@ -36,6 +37,7 @@ extern const char kOptionTitleTemplate[];
+ [[nodiscard]] bool PeerIdsWithoutSpaces();
+ [[nodiscard]] bool BotApiPeerIds();
+ [[nodiscard]] rpl::producer<> PeerIdFormatChanges();
++[[nodiscard]] bool ShowDc();
+ [[nodiscard]] bool HideIgnored();
+ [[nodiscard]] rpl::producer<bool> HideIgnoredValue();
+ void SetIgnoredList(const QString &value);
+diff --git a/Telegram/SourceFiles/tele/tele_peer_id.cpp b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+index bceff86574c906665766197febbcc10019224135..e8995ab288cfb9f6d796d42cc0bdf8379716650f 100644
+--- a/Telegram/SourceFiles/tele/tele_peer_id.cpp
++++ b/Telegram/SourceFiles/tele/tele_peer_id.cpp
+@@ -1,8 +1,12 @@
+ #include "tele/tele_peer_id.h"
+ 
++#include "data/data_changes.h"
+ #include "data/data_peer.h"
+ #include "lang/lang_tag.h"
++#include "main/main_session.h"
++#include "mtproto/mtp_instance.h"
+ #include "tele/tele_options.h"
++#include "ui/image/image_location.h"
+ #include "ui/text/text_utilities.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/labels.h"
+@@ -16,10 +20,10 @@ namespace {
+ constexpr auto kLinkIndex = uint16(1);
+ constexpr auto kChannelShift = int64(1000000000000LL);
+ 
+-class PeerIdClickHandler final : public ClickHandler {
++class CopyClickHandler final : public ClickHandler {
+ public:
+-	PeerIdClickHandler(QString id, Fn<void()> copy)
+-	: _id(std::move(id))
++	CopyClickHandler(QString text, Fn<void()> copy)
++	: _text(std::move(text))
+ 	, _copy(std::move(copy)) {
+ 	}
+ 
+@@ -29,11 +33,11 @@ public:
+ 		}
+ 	}
+ 	QString dragText() const override {
+-		return _id;
++		return _text;
+ 	}
+ 
+ private:
+-	const QString _id;
++	const QString _text;
+ 	const Fn<void()> _copy;
+ 
+ };
+@@ -48,6 +52,38 @@ private:
+ 	});
+ }
+ 
++[[nodiscard]] int PeerDc(not_null<PeerData*> peer) {
++	if (peer->isSelf()) {
++		return peer->session().mtp().mainDcId();
++	}
++	const auto &data = peer->userpicLocation().file().data;
++	const auto file = std::get_if<StorageFileLocation>(&data);
++	return file ? file->dcId() : 0;
++}
++
++[[nodiscard]] QString DcLocation(not_null<PeerData*> peer, int dc) {
++	if (peer->session().isTestMode()) {
++		return QString();
++	}
++	switch (dc) {
++	case 1:
++	case 3: return u"Miami"_q;
++	case 2:
++	case 4: return u"Amsterdam"_q;
++	case 5: return u"Singapore"_q;
++	}
++	return QString();
++}
++
++[[nodiscard]] rpl::producer<int> PeerDcValue(not_null<PeerData*> peer) {
++	return peer->session().changes().peerFlagsValue(
++		peer,
++		Data::PeerUpdate::Flag::Photo
++	) | rpl::map([=](const Data::PeerUpdate &) {
++		return PeerDc(peer);
++	}) | rpl::distinct_until_changed();
++}
++
+ } // namespace
+ 
+ QString FormatPeerId(not_null<PeerData*> peer) {
+@@ -88,7 +124,7 @@ void SetupPeerIdLabel(
+ 	PeerIdValue(peer) | rpl::on_next([=](const QString &id) {
+ 		label->setLink(
+ 			kLinkIndex,
+-			std::make_shared<PeerIdClickHandler>(id, copy));
++			std::make_shared<CopyClickHandler>(id, copy));
+ 	}, label->lifetime());
+ 	label->setContextMenuHook([=](
+ 			Ui::FlatLabel::ContextMenuRequest request) {
+@@ -100,4 +136,48 @@ void SetupPeerIdLabel(
+ 	});
+ }
+ 
++rpl::producer<TextWithEntities> PeerDcTextValue(not_null<PeerData*> peer) {
++	return PeerDcValue(peer) | rpl::map([=](int dc) {
++		if (!dc) {
++			return TextWithEntities();
++		}
++		const auto location = DcLocation(peer, dc);
++		return Ui::Text::Link(
++			(location.isEmpty()
++				? QString::number(dc)
++				: u"%1, %2"_q.arg(dc).arg(location)),
++			kLinkIndex);
++	});
++}
++
++void SetupPeerDcLabel(
++		not_null<Ui::FlatLabel*> label,
++		not_null<PeerData*> peer,
++		not_null<Window::SessionController*> controller) {
++	const auto weak = base::make_weak(controller);
++	const auto copy = [=] {
++		TextUtilities::SetClipboardText({ QString::number(PeerDc(peer)) });
++		if (const auto strong = weak.get()) {
++			strong->showToast({
++				.text = { u"DC copied to clipboard."_q },
++				.iconLottie = u"toast/copy"_q,
++				.iconLottieSize = st::toastLottieIconSize,
++			});
++		}
++	};
++	PeerDcValue(peer) | rpl::on_next([=](int dc) {
++		label->setLink(
++			kLinkIndex,
++			std::make_shared<CopyClickHandler>(QString::number(dc), copy));
++	}, label->lifetime());
++	label->setContextMenuHook([=](
++			Ui::FlatLabel::ContextMenuRequest request) {
++		if (request.selection.empty()) {
++			request.menu->addAction(u"Copy DC"_q, copy);
++		} else {
++			label->fillContextMenu(request);
++		}
++	});
++}
++
+ } // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_peer_id.h b/Telegram/SourceFiles/tele/tele_peer_id.h
+index 0694ee4e0a33c8985887473a8b697394654d3bdd..9cd684d5016c2fc39e085737f778ebba66546e21 100644
+--- a/Telegram/SourceFiles/tele/tele_peer_id.h
++++ b/Telegram/SourceFiles/tele/tele_peer_id.h
+@@ -19,5 +19,11 @@ void SetupPeerIdLabel(
+ 	not_null<Ui::FlatLabel*> label,
+ 	not_null<PeerData*> peer,
+ 	not_null<Window::SessionController*> controller);
++[[nodiscard]] rpl::producer<TextWithEntities> PeerDcTextValue(
++	not_null<PeerData*> peer);
++void SetupPeerDcLabel(
++	not_null<Ui::FlatLabel*> label,
++	not_null<PeerData*> peer,
++	not_null<Window::SessionController*> controller);
+ 
+ } // namespace Tele

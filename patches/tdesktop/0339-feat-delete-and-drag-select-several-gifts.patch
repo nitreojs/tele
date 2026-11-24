@@ -1,0 +1,1034 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sat, 14 Nov 2026 15:44:47 +0300
+Subject: [PATCH] feat: delete and drag-select several gifts
+
+---
+ Telegram/Resources/tele/translations/ru.json  |  22 ++
+ Telegram/Resources/tele/translations/uk.json  |  22 ++
+ .../peer_gifts/info_peer_gifts_widget.cpp     | 177 +++++++++++++-
+ .../settings/settings_credits_graphics.cpp    |  34 ++-
+ .../settings/settings_credits_graphics.h      |   8 +
+ Telegram/SourceFiles/tele/tele_gift_batch.cpp |   1 +
+ Telegram/SourceFiles/tele/tele_gift_list.cpp  | 230 +++++++++++++++++-
+ Telegram/SourceFiles/tele/tele_gift_list.h    |  13 +-
+ 8 files changed, 475 insertions(+), 32 deletions(-)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 0a5613c982f390899b0c716cfb59df6ce29d4e36..afe60495a584cbff62f7f9d3919717326cb8736f 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -144,6 +144,11 @@
+ 			"few": "%1 подарка больше нельзя обменять",
+ 			"many": "%1 подарков больше нельзя обменять"
+ 		},
++		"%1 gifts can't be deleted": {
++			"one": "%1 подарок нельзя удалить",
++			"few": "%1 подарка нельзя удалить",
++			"many": "%1 подарков нельзя удалить"
++		},
+ 		"%1 gifts can't be sold": {
+ 			"one": "%1 подарок нельзя продать",
+ 			"few": "%1 подарка нельзя продать",
+@@ -164,6 +169,11 @@
+ 			"few": "%1 подарка пока нельзя передать",
+ 			"many": "%1 подарков пока нельзя передать"
+ 		},
++		"%1 gifts deleted": {
++			"one": "Удалён %1 подарок",
++			"few": "Удалено %1 подарка",
++			"many": "Удалено %1 подарков"
++		},
+ 		"%1 gifts hidden": {
+ 			"one": "%1 подарок скрыт",
+ 			"few": "%1 подарка скрыты",
+@@ -731,6 +741,11 @@
+ 		"Composer": "Поле сообщения",
+ 		"Compress photos less": "Меньше сжимать фото",
+ 		"Confirm before sending": "Подтверждать перед отправкой",
++		"Confirm permanent deletion of %1 gifts. This can't be undone and pays no Stars.": {
++			"one": "Безвозвратно удалить %1 подарок? Отменить это действие нельзя, звёзды не начисляются.",
++			"few": "Безвозвратно удалить %1 подарка? Отменить это действие нельзя, звёзды не начисляются.",
++			"many": "Безвозвратно удалить %1 подарков? Отменить это действие нельзя, звёзды не начисляются."
++		},
+ 		"Confirmations": "Подтверждения",
+ 		"Connect to any server on the internet.": "Подключаться к любому серверу в интернете.",
+ 		"Connect to these servers: %1.": "Подключаться к этим серверам: %1.",
+@@ -898,6 +913,11 @@
+ 			"few": "Удалить %1 файла (%2) из DebugLogs?",
+ 			"many": "Удалить %1 файлов (%2) из DebugLogs?"
+ 		},
++		"Delete %1 gifts permanently? You won't receive any Stars.": {
++			"one": "Удалить %1 подарок навсегда? Вы не получите звёзды.",
++			"few": "Удалить %1 подарка навсегда? Вы не получите звёзды.",
++			"many": "Удалить %1 подарков навсегда? Вы не получите звёзды."
++		},
+ 		"Delete %1 messages for both of you?": {
+ 			"one": "Удалить %1 сообщение у вас обоих?",
+ 			"few": "Удалить %1 сообщения у вас обоих?",
+@@ -930,6 +950,7 @@
+ 		"Deleted messages": "Удалённые сообщения",
+ 		"Deleted messages (%1)": "Удалённые сообщения (%1)",
+ 		"Deleted messages can't be replied to, so they can be quoted instead.": "На удалённые сообщения нельзя ответить, поэтому вместо ответа их можно процитировать.",
++		"Deleting gifts": "Удаление подарков",
+ 		"Dim hidden gifts": "Затемнять скрытые подарки",
+ 		"Disappearing media": "Исчезающие медиа",
+ 		"Discord": "Discord",
+@@ -2186,6 +2207,7 @@
+ 		"This device still has the keys of a wallet you used before. Save its secret phrase, then remove it from this device to keep using your current wallet.": "На этом устройстве остались ключи кошелька, которым вы пользовались раньше. Сохраните его секретную фразу, затем удалите его с этого устройства, чтобы продолжить пользоваться текущим кошельком.",
+ 		"This emoji can't be used for a sticker": "Этот эмодзи нельзя использовать для стикера",
+ 		"This file can't be kept in a draft.": "Этот файл нельзя сохранить в черновике.",
++		"This gift can no longer be deleted.": "Этот подарок больше нельзя удалить.",
+ 		"This isn't a private key or an address with 12 words.": "Это не приватный ключ и не адрес с 12 словами.",
+ 		"This isn't a tele settings file.": "Это не файл настроек tele.",
+ 		"This link doesn't point to a script.": "Эта ссылка не ведёт к скрипту.",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index 6394e3dd66834a5f335462c04bee596cfceb194a..04004c022aa1c2dfb12e9c56816e6633686820bb 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -144,6 +144,11 @@
+ 			"few": "%1 подарунки більше не можна обміняти",
+ 			"many": "%1 подарунків більше не можна обміняти"
+ 		},
++		"%1 gifts can't be deleted": {
++			"one": "%1 подарунок не можна видалити",
++			"few": "%1 подарунки не можна видалити",
++			"many": "%1 подарунків не можна видалити"
++		},
+ 		"%1 gifts can't be sold": {
+ 			"one": "%1 подарунок не можна продати",
+ 			"few": "%1 подарунки не можна продати",
+@@ -164,6 +169,11 @@
+ 			"few": "%1 подарунки поки не можна передати",
+ 			"many": "%1 подарунків поки не можна передати"
+ 		},
++		"%1 gifts deleted": {
++			"one": "%1 подарунок видалено",
++			"few": "%1 подарунки видалено",
++			"many": "%1 подарунків видалено"
++		},
+ 		"%1 gifts hidden": {
+ 			"one": "%1 подарунок приховано",
+ 			"few": "%1 подарунки приховано",
+@@ -731,6 +741,11 @@
+ 		"Composer": "Поле повідомлення",
+ 		"Compress photos less": "Менше стискати фото",
+ 		"Confirm before sending": "Підтверджувати перед надсиланням",
++		"Confirm permanent deletion of %1 gifts. This can't be undone and pays no Stars.": {
++			"one": "Остаточно видалити %1 подарунок? Це неможливо скасувати, зірки не нараховуються.",
++			"few": "Остаточно видалити %1 подарунки? Це неможливо скасувати, зірки не нараховуються.",
++			"many": "Остаточно видалити %1 подарунків? Це неможливо скасувати, зірки не нараховуються."
++		},
+ 		"Confirmations": "Підтвердження",
+ 		"Connect to any server on the internet.": "Підключатися до будь-якого сервера в інтернеті.",
+ 		"Connect to these servers: %1.": "Підключатися до цих серверів: %1.",
+@@ -898,6 +913,11 @@
+ 			"few": "Видалити %1 файли (%2) з DebugLogs?",
+ 			"many": "Видалити %1 файлів (%2) з DebugLogs?"
+ 		},
++		"Delete %1 gifts permanently? You won't receive any Stars.": {
++			"one": "Видалити %1 подарунок назавжди? Ви не отримаєте зірок.",
++			"few": "Видалити %1 подарунки назавжди? Ви не отримаєте зірок.",
++			"many": "Видалити %1 подарунків назавжди? Ви не отримаєте зірок."
++		},
+ 		"Delete %1 messages for both of you?": {
+ 			"one": "Видалити %1 повідомлення для вас обох?",
+ 			"few": "Видалити %1 повідомлення для вас обох?",
+@@ -930,6 +950,7 @@
+ 		"Deleted messages": "Видалені повідомлення",
+ 		"Deleted messages (%1)": "Видалені повідомлення (%1)",
+ 		"Deleted messages can't be replied to, so they can be quoted instead.": "На видалені повідомлення не можна відповісти, тож замість цього їх можна процитувати.",
++		"Deleting gifts": "Видалення подарунків",
+ 		"Dim hidden gifts": "Затемнювати приховані подарунки",
+ 		"Disappearing media": "Зникаючі медіа",
+ 		"Discord": "Discord",
+@@ -2186,6 +2207,7 @@
+ 		"This device still has the keys of a wallet you used before. Save its secret phrase, then remove it from this device to keep using your current wallet.": "На цьому пристрої залишилися ключі гаманця, яким ви користувалися раніше. Збережіть його секретну фразу, потім видаліть його з цього пристрою, щоб і далі користуватися поточним гаманцем.",
+ 		"This emoji can't be used for a sticker": "Цей емодзі не можна використати для стікера",
+ 		"This file can't be kept in a draft.": "Цей файл не можна зберегти в чернетці.",
++		"This gift can no longer be deleted.": "Цей подарунок більше не можна видалити.",
+ 		"This isn't a private key or an address with 12 words.": "Це не приватний ключ і не адреса з 12 словами.",
+ 		"This isn't a tele settings file.": "Це не файл налаштувань tele.",
+ 		"This link doesn't point to a script.": "Це посилання не веде до скрипта.",
+diff --git a/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp b/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp
+index 67d65cd0fdd6cc522b4a5a0872056d20fa2a9fc0..f3f57c3f9d9795ce778355ae48aa15f4b915ddbc 100644
+--- a/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp
++++ b/Telegram/SourceFiles/info/peer_gifts/info_peer_gifts_widget.cpp
+@@ -191,6 +191,12 @@ private:
+ 		QPoint point;
+ 		QPoint startPos;
+ 	};
++	struct RangeSelection {
++		int anchor = -1;
++		QPoint start;
++		QPoint position;
++		bool enabled = false;
++	};
+ 	struct ShiftAnimation {
+ 		Ui::Animations::Simple xAnimation;
+ 		Ui::Animations::Simple yAnimation;
+@@ -212,6 +218,7 @@ private:
+ 		int visibleTop,
+ 		int visibleBottom) override;
+ 	void paintEvent(QPaintEvent *e) override;
++	bool eventHook(QEvent *e) override;
+ 	void mousePressEvent(QMouseEvent *e) override;
+ 	void mouseMoveEvent(QMouseEvent *e) override;
+ 	void mouseReleaseEvent(QMouseEvent *e) override;
+@@ -233,6 +240,9 @@ private:
+ 	void refreshAbout();
+ 	void refreshCollectionsTabs();
+ 	void teleShowFound();
++	[[nodiscard]] const Data::SavedStarGift *teleLookupGift(
++		const Data::SavedStarGiftId &id) const;
++	void updateRangeSelection(QPoint global);
+ 
+ 	void updateSelected();
+ 	int giftFromGlobalPos(const QPoint &p) const;
+@@ -309,6 +319,7 @@ private:
+ 	int _visibleTill = 0;
+ 
+ 	DragState _dragging;
++	RangeSelection _rangeSelection;
+ 	base::flat_map<int, ShiftAnimation> _shiftAnimations;
+ 	int _selected = -1;
+ 	int _pressedIndex = -1;
+@@ -376,7 +387,7 @@ InnerWidget::InnerWidget(
+ 		_addingToCollectionId ? nullptr : _scroll,
+ 		_window,
+ 		_peer,
+-		[=] { refreshButtons(); },
++		[=] { cancelDragging(); },
+ 		[=] { return _collections; },
+ 		[=](int id) {
+ 			loadCollections();
+@@ -385,7 +396,8 @@ InnerWidget::InnerWidget(
+ 			} else {
+ 				_perCollection.erase(id);
+ 			}
+-		});
++		},
++		[=](const Data::SavedStarGiftId &id) { return teleLookupGift(id); });
+ 
+ 	if (peer->canManageGifts()) {
+ 		subscribeToUpdates();
+@@ -452,7 +464,8 @@ void InnerWidget::switchTo(int collectionId) {
+ 	const auto entries = collectionId
+ 		? &_perCollection[collectionId]
+ 		: &_all;
+-	if (entries != _entries.get() && _dragging.index >= 0) {
++	if (entries != _entries.get()
++		&& (_dragging.index >= 0 || _rangeSelection.anchor >= 0)) {
+ 		cancelDragging();
+ 	}
+ 	retryCollections();
+@@ -466,6 +479,9 @@ void InnerWidget::switchTo(int collectionId) {
+ }
+ 
+ void InnerWidget::teleShowFound() {
++	if (_rangeSelection.anchor >= 0) {
++		cancelDragging();
++	}
+ 	const auto descriptor = _descriptor.current();
+ 	const auto searching = _teleSearch && _teleSearch->active();
+ 	const auto dating = _teleDates && _teleDates->active();
+@@ -570,6 +586,11 @@ void InnerWidget::subscribeToUpdates() {
+ 				applyUpdateTo(entries, update);
+ 			}
+ 		}
++		if (update.action == Action::Convert
++			|| update.action == Action::Transfer
++			|| update.action == Action::Delete) {
++			applyUpdateTo(_teleFound, update);
++		}
+ 	}, lifetime());
+ }
+ 
+@@ -596,6 +617,9 @@ void InnerWidget::applyUpdateTo(
+ 		return;
+ 	}
+ 	const auto index = int(i - begin(list));
++	if (&list == _list.get() && _rangeSelection.anchor >= 0) {
++		cancelDragging();
++	}
+ 	if (removal) {
+ 		list.erase(i);
+ 		if (entries.total > 0) {
+@@ -742,6 +766,9 @@ void InnerWidget::visibleTopBottomUpdated(
+ 	_visibleFrom = visibleTop;
+ 	_visibleTill = visibleBottom;
+ 	validateButtons();
++	if (_rangeSelection.enabled) {
++		updateRangeSelection(_rangeSelection.position);
++	}
+ }
+ 
+ void InnerWidget::paintEvent(QPaintEvent *e) {
+@@ -892,6 +919,33 @@ void InnerWidget::refreshButtons() {
+ 	_viewsTillRow = 0;
+ 	resizeToWidth(width());
+ 	validateButtons();
++	Tele::GiftSelectionRefresh(this);
++	if (_rangeSelection.enabled) {
++		updateRangeSelection(_rangeSelection.position);
++	}
++}
++
++const Data::SavedStarGift *InnerWidget::teleLookupGift(
++		const Data::SavedStarGiftId &id) const {
++	const auto find = [&](const Entries &entries) -> const Data::SavedStarGift* {
++		const auto i = ranges::find(entries.list, id, [](const Entry &entry) {
++			return entry.gift.manageId;
++		});
++		return (i != end(entries.list)) ? &i->gift : nullptr;
++	};
++	if (const auto gift = find(*_entries)) {
++		return gift;
++	} else if (const auto gift = find(_all)) {
++		return gift;
++	} else if (const auto gift = find(_teleFound)) {
++		return gift;
++	}
++	for (const auto &[_, entries] : _perCollection) {
++		if (const auto gift = find(entries)) {
++			return gift;
++		}
++	}
++	return nullptr;
+ }
+ 
+ std::unique_ptr<GiftButton> InnerWidget::createGiftButton() {
+@@ -1803,7 +1857,7 @@ void InnerWidget::removeGiftFromCollection(
+ 					if (_entries->total > 0) {
+ 						--_entries->total;
+ 					}
+-					if (_dragging.index >= 0) {
++					if (_dragging.index >= 0 || _rangeSelection.anchor >= 0) {
+ 						cancelDragging();
+ 					}
+ 					refreshButtons();
+@@ -2108,6 +2162,16 @@ void InnerWidget::flushCollectionReorder() {
+ 	_pendingCollectionReorder = false;
+ }
+ 
++bool InnerWidget::eventHook(QEvent *e) {
++	if (_rangeSelection.anchor >= 0
++		&& (e->type() == QEvent::UngrabMouse
++			|| e->type() == QEvent::WindowDeactivate
++			|| e->type() == QEvent::Hide)) {
++		cancelDragging();
++	}
++	return BoxContentDivider::eventHook(e);
++}
++
+ void InnerWidget::mousePressEvent(QMouseEvent *e) {
+ 	if (e->button() != Qt::LeftButton) {
+ 		return;
+@@ -2117,6 +2181,16 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
+ 		return;
+ 	}
+ 	_pressedIndex = index;
++	if (Tele::GiftSelectionDragBegin(this, (*_list)[index].gift)) {
++		_rangeSelection = {
++			.anchor = index,
++			.start = e->globalPos(),
++			.position = e->globalPos(),
++		};
++		grabMouse();
++		e->accept();
++		return;
++	}
+ 	const auto collectionId = _descriptor.current().collectionId;
+ 	const auto canDrag = !_addingToCollectionId
+ 		&& !Tele::GiftSelectionActive(this)
+@@ -2142,6 +2216,23 @@ void InnerWidget::mousePressEvent(QMouseEvent *e) {
+ }
+ 
+ void InnerWidget::mouseMoveEvent(QMouseEvent *e) {
++	if (_rangeSelection.anchor >= 0) {
++		if (!(e->buttons() & Qt::LeftButton)
++			|| !Tele::GiftSelectionActive(this)) {
++			cancelDragging();
++			return;
++		}
++		if (!_rangeSelection.enabled
++			&& (e->globalPos() - _rangeSelection.start).manhattanLength()
++				> QApplication::startDragDistance()) {
++			_rangeSelection.enabled = true;
++		}
++		if (_rangeSelection.enabled) {
++			updateRangeSelection(e->globalPos());
++		}
++		e->accept();
++		return;
++	}
+ 	if (_dragging.index < 0) {
+ 		updateSelected();
+ 		return;
+@@ -2307,6 +2398,29 @@ void InnerWidget::mouseMoveEvent(QMouseEvent *e) {
+ }
+ 
+ void InnerWidget::mouseReleaseEvent(QMouseEvent *e) {
++	if (_rangeSelection.anchor >= 0) {
++		if (e->button() != Qt::LeftButton) {
++			return;
++		}
++		const auto dragged = _rangeSelection.enabled;
++		const auto pressed = _pressedIndex;
++		if (dragged) {
++			updateRangeSelection(e->globalPos());
++		}
++		_rangeSelection = {};
++		_pressedIndex = -1;
++		Tele::GiftSelectionDragEnd(this);
++		_scrollAnimation.stop();
++		if (mouseGrabber() == this) {
++			releaseMouse();
++		}
++		const auto index = giftFromGlobalPos(e->globalPos());
++		if (!dragged && index >= 0 && index == pressed) {
++			showGift(index);
++		}
++		e->accept();
++		return;
++	}
+ 	const auto pressedIndex = base::take(_pressedIndex);
+ 	if (mouseGrabber() == this) {
+ 		releaseMouse();
+@@ -2398,6 +2512,39 @@ void InnerWidget::mouseReleaseEvent(QMouseEvent *e) {
+ 	}
+ }
+ 
++void InnerWidget::updateRangeSelection(QPoint global) {
++	if (!_perRow
++		|| _rangeSelection.anchor < 0
++		|| _rangeSelection.anchor >= _list->size()
++		|| !Tele::GiftSelectionActive(this)) {
++		cancelDragging();
++		return;
++	}
++	_rangeSelection.position = global;
++	const auto extend = _delegate.buttonExtend();
++	const auto origin = posFromIndex(0) + QPoint(extend.left(), extend.top());
++	const auto point = mapFromGlobal(global) - origin;
++	const auto skip = st::giftBoxGiftSkip;
++	const auto row = std::clamp(
++		std::max(point.y(), 0) / (_single.height() + skip.y()),
++		0,
++		(int(_list->size()) - 1) / _perRow);
++	const auto column = std::clamp(
++		std::max(point.x(), 0) / (_single.width() + skip.x()),
++		0,
++		_perRow - 1);
++	const auto target = std::min(row * _perRow + column, int(_list->size()) - 1);
++	const auto anchor = _rangeSelection.anchor;
++	Tele::GiftSelectionDragUpdate(
++		this,
++		std::min(anchor, target),
++		std::max(anchor, target) + 1,
++		[=](int index) -> const Data::SavedStarGift& {
++			return (*_list)[index].gift;
++		});
++	checkForScrollAnimation();
++}
++
+ void InnerWidget::updateSelected() {
+ 	if (_dragging.enabled) {
+ 		return;
+@@ -2518,13 +2665,15 @@ void InnerWidget::reorderCollections(
+ }
+ 
+ void InnerWidget::focusOutEvent(QFocusEvent *e) {
+-	if (_dragging.enabled) {
++	if (_dragging.enabled || _rangeSelection.anchor >= 0) {
+ 		cancelDragging();
+ 	}
+ 	BoxContentDivider::focusOutEvent(e);
+ }
+ 
+ void InnerWidget::cancelDragging() {
++	_rangeSelection = {};
++	Tele::GiftSelectionDragEnd(this);
+ 	if (mouseGrabber() == this) {
+ 		releaseMouse();
+ 	}
+@@ -2546,6 +2695,9 @@ void InnerWidget::updateScrollCallback() {
+ 	const auto oldTop = _scroll->scrollTop();
+ 	_scroll->scrollToY(oldTop + delta);
+ 	const auto newTop = _scroll->scrollTop();
++	if (_rangeSelection.enabled) {
++		updateRangeSelection(_rangeSelection.position);
++	}
+ 
+ 	if (newTop == 0 || newTop == _scroll->scrollTopMax()) {
+ 		_scrollAnimation.stop();
+@@ -2554,24 +2706,31 @@ void InnerWidget::updateScrollCallback() {
+ 
+ void InnerWidget::checkForScrollAnimation() {
+ 	const auto delta = deltaFromEdge();
+-	if (!_scroll || !delta || _scrollAnimation.animating()) {
++	if (!_scroll || !delta) {
++		_scrollAnimation.stop();
++		return;
++	} else if (_scrollAnimation.animating()) {
+ 		return;
+ 	}
+ 	_scrollAnimation.start();
+ }
+ 
+ int InnerWidget::deltaFromEdge() {
+-	if (!_dragging.enabled || _dragging.index < 0 || !_scroll) {
++	const auto selecting = _rangeSelection.enabled
++		&& _rangeSelection.anchor >= 0
++		&& Tele::GiftSelectionActive(this);
++	if ((!selecting && (!_dragging.enabled || _dragging.index < 0)) || !_scroll) {
+ 		return 0;
+ 	}
+ 
+-	const auto mousePos = QCursor::pos();
++	const auto mousePos = selecting ? _rangeSelection.position : QCursor::pos();
+ 	const auto scrollGlobalRect = QRect(
+ 		_scroll->mapToGlobal(QPoint(0, 0)),
+ 		_scroll->size());
+ 
+ 	const auto scrollTop = scrollGlobalRect.top();
+-	const auto scrollBottom = scrollGlobalRect.bottom();
++	const auto scrollBottom = scrollGlobalRect.bottom()
++		- (selecting ? Tele::GiftSelectionBottomSkip(this) : 0);
+ 
+ 	const auto scrollZone = 50;
+ 	const auto topDistance = mousePos.y() - scrollTop;
+diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
+index 58b95377f4826c3b25a2befbfcf8b2b9627bf7b0..a12549c5b3211ceddd9a3c00f13b2b4238f16719 100644
+--- a/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
++++ b/Telegram/SourceFiles/settings/settings_credits_graphics.cpp
+@@ -306,6 +306,8 @@ void ConvertStarGift(
+ 	}).send();
+ }
+ 
++} // namespace
++
+ [[nodiscard]] bool CanDeleteSavedStarGift(
+ 		not_null<PeerData*> owner,
+ 		const Data::SavedStarGift &data) {
+@@ -323,37 +325,43 @@ void ConvertStarGift(
+ 	return owner->isSelf() && data.mine;
+ }
+ 
+-void DeleteStarGift(
++void DeleteSavedStarGift(
+ 		std::shared_ptr<ChatHelpers::Show> show,
+ 		Data::SavedStarGiftId savedId,
+-		Fn<void(bool)> done) {
++		Fn<void(bool, QString)> done,
++		bool quiet) {
+ 	const auto session = &show->session();
+ 	session->api().request(MTPpayments_DeleteStarGift(
+ 		Api::InputSavedStarGiftId(savedId)
+ 	)).done([=](const MTPBool &result) {
+ 		if (!mtpIsTrue(result)) {
+-			done(false);
++			done(false, QString());
+ 			return;
+ 		}
+ 		session->data().notifyGiftUpdate({
+ 			.id = savedId,
+ 			.action = Data::GiftUpdate::Action::Delete,
+ 		});
+-		show->showToast({
+-			.text = { tr::lng_gift_deleted(tr::now) },
+-			.iconLottie = u"toast/delete"_q,
+-			.iconLottieSize = st::toastLottieIconSize,
+-		});
+-		done(true);
++		if (!quiet) {
++			show->showToast({
++				.text = { tr::lng_gift_deleted(tr::now) },
++				.iconLottie = u"toast/delete"_q,
++				.iconLottieSize = st::toastLottieIconSize,
++			});
++		}
++		done(true, QString());
+ 	}).fail([=](const MTP::Error &error) {
+-		if (!MTP::IgnoreError(error)
++		if (!quiet
++			&& !MTP::IgnoreError(error)
+ 			&& !Ui::ShowGiftErrorToast(show, error)) {
+ 			MTP::ShowErrorFallback(show, error);
+ 		}
+-		done(false);
++		done(false, error.type());
+ 	}).send();
+ }
+ 
++namespace {
++
+ void AddDeleteGiftMenuButton(
+ 		not_null<Ui::GenericBox*> box,
+ 		std::shared_ptr<ChatHelpers::Show> show,
+@@ -366,7 +374,9 @@ void AddDeleteGiftMenuButton(
+ 			return;
+ 		}
+ 		*busy = true;
+-		DeleteStarGift(show, savedId, crl::guard(weak, [=](bool deleted) {
++		DeleteSavedStarGift(show, savedId, crl::guard(weak, [=](
++				bool deleted,
++				const QString &) {
+ 			*busy = deleted;
+ 		}));
+ 	};
+diff --git a/Telegram/SourceFiles/settings/settings_credits_graphics.h b/Telegram/SourceFiles/settings/settings_credits_graphics.h
+index 822797aef92d77aea612419f65c360f6315785c6..b5e3567b0e47ba6109e3bb8e790b3cbbd660fd5b 100644
+--- a/Telegram/SourceFiles/settings/settings_credits_graphics.h
++++ b/Telegram/SourceFiles/settings/settings_credits_graphics.h
+@@ -228,6 +228,14 @@ void ConvertSavedStarGift(
+ 	Data::SavedStarGiftId savedId,
+ 	int stars,
+ 	Fn<void(bool)> done);
++[[nodiscard]] bool CanDeleteSavedStarGift(
++	not_null<PeerData*> owner,
++	const Data::SavedStarGift &data);
++void DeleteSavedStarGift(
++	std::shared_ptr<ChatHelpers::Show> show,
++	Data::SavedStarGiftId savedId,
++	Fn<void(bool, QString)> done,
++	bool quiet = false);
+ enum class SavedStarGiftMenuType {
+ 	List,
+ 	View,
+diff --git a/Telegram/SourceFiles/tele/tele_gift_batch.cpp b/Telegram/SourceFiles/tele/tele_gift_batch.cpp
+index 3fde784dbe93658ae2ac47c7a7c74905e69e8138..738b465b49d8b69d09c1a9009cd9b0134e87304e 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_batch.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_batch.cpp
+@@ -22,6 +22,7 @@ constexpr auto kTick = crl::time(250);
+ 	case mtpc_payments_transferStarGift:
+ 	case mtpc_payments_updateStarGiftPrice:
+ 	case mtpc_payments_convertStarGift:
++	case mtpc_payments_deleteStarGift:
+ 		return true;
+ 	}
+ 	return false;
+diff --git a/Telegram/SourceFiles/tele/tele_gift_list.cpp b/Telegram/SourceFiles/tele/tele_gift_list.cpp
+index 630d2263189a476b7f9507d5e8a3ef2f4500f44e..ea0f42a0397c7c06bbced58d97865291b2e3dd35 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_list.cpp
++++ b/Telegram/SourceFiles/tele/tele_gift_list.cpp
+@@ -65,7 +65,8 @@ struct State {
+ 		not_null<PeerData*> peer,
+ 		Fn<void()> refresh,
+ 		Fn<std::vector<Data::GiftCollection>()> collections,
+-		Fn<void(int)> collectionChanged);
++		Fn<void(int)> collectionChanged,
++		Fn<const Data::SavedStarGift*(const Data::SavedStarGiftId&)> lookup);
+ 	~State();
+ 
+ 	const not_null<Ui::RpWidget*> list;
+@@ -75,9 +76,17 @@ struct State {
+ 	const Fn<void()> refresh;
+ 	const Fn<std::vector<Data::GiftCollection>()> collections;
+ 	const Fn<void(int)> collectionChanged;
++	const Fn<const Data::SavedStarGift*(const Data::SavedStarGiftId&)> lookup;
+ 	std::vector<Data::SavedStarGift> selected;
+ 	rpl::event_stream<> changes;
+ 	base::unique_qptr<Ui::RpWidget> bar;
++	struct Drag {
++		base::flat_set<Data::SavedStarGiftId> before;
++		int from = 0;
++		int till = 0;
++		bool select = false;
++	};
++	std::optional<Drag> drag;
+ 	bool active = false;
+ 	bool busy = false;
+ };
+@@ -115,14 +124,16 @@ State::State(
+ 	not_null<PeerData*> peer,
+ 	Fn<void()> refresh,
+ 	Fn<std::vector<Data::GiftCollection>()> collections,
+-	Fn<void(int)> collectionChanged)
++	Fn<void(int)> collectionChanged,
++	Fn<const Data::SavedStarGift*(const Data::SavedStarGiftId&)> lookup)
+ : list(list)
+ , scroll(scroll)
+ , window(window)
+ , peer(peer)
+ , refresh(std::move(refresh))
+ , collections(std::move(collections))
+-, collectionChanged(std::move(collectionChanged)) {
++, collectionChanged(std::move(collectionChanged))
++, lookup(std::move(lookup)) {
+ 	Registry().emplace(list, this);
+ }
+ 
+@@ -159,6 +170,7 @@ enum class Action {
+ 	Unlist,
+ 	Convert,
+ 	Collection,
++	Delete,
+ };
+ 
+ constexpr auto kActions = std::array{
+@@ -171,6 +183,7 @@ constexpr auto kActions = std::array{
+ 	Action::Unlist,
+ 	Action::Convert,
+ 	Action::Collection,
++	Action::Delete,
+ };
+ 
+ using Gift = Data::SavedStarGift;
+@@ -193,6 +206,7 @@ using Gift = Data::SavedStarGift;
+ 	case Action::Unlist: return Lower(u"Remove from sale"_q);
+ 	case Action::Convert: return Lower(u"Convert to stars"_q);
+ 	case Action::Collection: return tr::lng_gift_collection_add_to(tr::now);
++	case Action::Delete: return tr::lng_gift_menu_delete(tr::now);
+ 	}
+ 	Unexpected("Action in ActionName.");
+ }
+@@ -239,6 +253,27 @@ using Gift = Data::SavedStarGift;
+ 		: Lower(Plural(one, many, count)).arg(count);
+ }
+ 
++[[nodiscard]] bool CanDelete(
++		not_null<State*> state,
++		const Data::SavedStarGiftId &id) {
++	const auto gift = state->lookup(id);
++	return gift && Settings::CanDeleteSavedStarGift(state->peer, *gift);
++}
++
++[[nodiscard]] QString DeleteReason(
++		not_null<State*> state,
++		const std::vector<Data::SavedStarGiftId> &ids) {
++	const auto count = int(ranges::count_if(ids, [&](const auto &id) {
++		return !CanDelete(state, id);
++	}));
++	return count
++		? Lower(Plural(
++			u"%1 gift can't be deleted"_q,
++			u"%1 gifts can't be deleted"_q,
++			count)).arg(count)
++		: QString();
++}
++
+ [[nodiscard]] QString Reason(not_null<State*> state, Action action) {
+ 	const auto &gifts = state->selected;
+ 	if (gifts.empty()) {
+@@ -361,6 +396,12 @@ using Gift = Data::SavedStarGift;
+ 		return (state->collections && !state->collections().empty())
+ 			? QString()
+ 			: Lower(u"No collections yet"_q);
++	case Action::Delete:
++		return Problem(
++			gifts,
++			[&](const Gift &gift) { return !CanDelete(state, gift.manageId); },
++			u"%1 gift can't be deleted"_q,
++			u"%1 gifts can't be deleted"_q);
+ 	}
+ 	return result;
+ }
+@@ -403,6 +444,23 @@ void UpdateChecks(not_null<State*> state, const Data::SavedStarGiftId &id) {
+ 	}
+ }
+ 
++[[nodiscard]] bool SetSelected(
++		not_null<State*> state,
++		const Gift &gift,
++		bool selected) {
++	auto &gifts = state->selected;
++	const auto i = ranges::find(gifts, gift.manageId, &Gift::manageId);
++	if ((i != end(gifts)) == selected) {
++		return false;
++	} else if (selected) {
++		gifts.push_back(gift);
++	} else {
++		gifts.erase(i);
++	}
++	UpdateChecks(state, gift.manageId);
++	return true;
++}
++
+ void SetActive(not_null<State*> state, bool active);
+ 
+ void Finish(not_null<State*> state) {
+@@ -454,9 +512,12 @@ void RunBatch(
+ 		Fn<void(int, Fn<void(bool, QString)>)> step,
+ 		QString success) {
+ 	state->busy = true;
++	state->drag.reset();
+ 	const auto total = int(ids.size());
+ 	const auto show = state->window->uiShow();
+ 	const auto weak = base::make_weak(state->list);
++	const auto window = base::make_weak(state->window.get());
++	const auto session = base::make_weak(&state->window->session());
+ 	const auto progress = std::make_shared<rpl::variable<QString>>(
+ 		Lower(u"%1 of %2"_q).arg(1).arg(total));
+ 	const auto cancelled = std::make_shared<bool>(false);
+@@ -481,7 +542,12 @@ void RunBatch(
+ 		.session = &state->window->session(),
+ 		.total = total,
+ 		.skipFailed = true,
+-		.alive = [=] { return !*cancelled && weak.get(); },
++		.alive = [=] {
++			return !*cancelled
++				&& weak.get()
++				&& window
++				&& (title.isEmpty() || progressBox.get());
++		},
+ 		.step = std::move(step),
+ 		.progress = [=](GiftBatchProgress now) {
+ 			const auto text = Lower(u"%1 of %2"_q)
+@@ -497,7 +563,9 @@ void RunBatch(
+ 			if (const auto strong = progressBox.get()) {
+ 				strong->closeBox();
+ 			}
+-			ShowTeleToast(show, GiftBatchText(result, total, success));
++			if (session && window) {
++				ShowTeleToast(show, GiftBatchText(result, total, success));
++			}
+ 			auto keep = std::vector<Data::SavedStarGiftId>();
+ 			for (const auto index : result.skipped) {
+ 				keep.push_back(ids[index]);
+@@ -510,7 +578,9 @@ void RunBatch(
+ 				}
+ 			}
+ 			const auto strong = weak.get();
+-			const auto current = strong ? Find(strong) : nullptr;
++			const auto current = (strong && session && window)
++				? Find(strong)
++				: nullptr;
+ 			if (!current) {
+ 				return;
+ 			} else if (keep.empty()) {
+@@ -1033,6 +1103,79 @@ void Convert(not_null<State*> state) {
+ 	}));
+ }
+ 
++void ConfirmDelete(
++		not_null<State*> state,
++		std::vector<Data::SavedStarGiftId> ids,
++		bool final) {
++	if (const auto reason = DeleteReason(state, ids); !reason.isEmpty()) {
++		ShowTeleToast(state->window->uiShow(), reason);
++		return;
++	}
++	const auto weak = base::make_weak(state->list);
++	const auto window = base::make_weak(state->window.get());
++	const auto session = base::make_weak(&state->window->session());
++	const auto approved = std::make_shared<bool>(false);
++	const auto total = int(ids.size());
++	state->window->show(Ui::MakeConfirmBox({
++		.text = final
++			? Lower(Plural(
++				u"Confirm permanent deletion of %1 gift. This can't be undone and pays no Stars."_q,
++				u"Confirm permanent deletion of %1 gifts. This can't be undone and pays no Stars."_q,
++				total)).arg(total)
++			: Lower(Plural(
++				u"Delete %1 gift permanently? You won't receive any Stars."_q,
++				u"Delete %1 gifts permanently? You won't receive any Stars."_q,
++				total)).arg(total),
++		.confirmed = [=](Fn<void()> close) {
++			if (*approved) {
++				return;
++			}
++			*approved = true;
++			close();
++			const auto strong = weak.get();
++			const auto current = (strong && window && session)
++				? Find(strong)
++				: nullptr;
++			if (!current || !current->active || current->busy || !GiftSelect()) {
++				return;
++			}
++			if (!final) {
++				ConfirmDelete(current, ids, true);
++				return;
++			}
++			const auto reason = DeleteReason(current, ids);
++			const auto show = current->window->uiShow();
++			if (!reason.isEmpty()) {
++				ShowTeleToast(show, reason);
++				return;
++			}
++			RunBatch(current, Lower(u"Deleting gifts"_q), ids, [=](
++					int index,
++					Fn<void(bool, QString)> done) {
++				const auto strong = weak.get();
++				const auto current = (strong && window && session)
++					? Find(strong)
++					: nullptr;
++				if (!current || !CanDelete(current, ids[index])) {
++					done(false, Lower(u"This gift can no longer be deleted."_q));
++					return;
++				}
++				Settings::DeleteSavedStarGift(
++					show,
++					ids[index],
++					std::move(done),
++					true);
++			}, Lower(Plural(
++				u"%1 gift deleted"_q,
++				u"%1 gifts deleted"_q,
++				total)).arg(total));
++		},
++		.confirmText = tr::lng_box_delete(),
++		.confirmStyle = &st::attentionBoxButton,
++		.title = tr::lng_gift_menu_delete(),
++	}));
++}
++
+ void AddToCollection(
+ 		not_null<State*> state,
+ 		int collectionId,
+@@ -1288,6 +1431,7 @@ void Bar::run(Action action, QPoint global) {
+ 	case Action::Unlist: Unlist(_state); break;
+ 	case Action::Convert: Convert(_state); break;
+ 	case Action::Collection: showCollections(global); break;
++	case Action::Delete: ConfirmDelete(_state, Ids(_state->selected), false); break;
+ 	}
+ }
+ 
+@@ -1297,7 +1441,7 @@ void Bar::showOverflow() {
+ 	}
+ 	_menu = base::make_unique_q<Ui::PopupMenu>(
+ 		this,
+-		st::popupMenuWithIcons);
++		st::defaultPopupMenu);
+ 	for (const auto action : _overflow) {
+ 		const auto reason = Reason(_state, action);
+ 		const auto text = reason.isEmpty()
+@@ -1325,7 +1469,7 @@ void Bar::showCollections(QPoint global) {
+ 	}
+ 	_menu = base::make_unique_q<Ui::PopupMenu>(
+ 		this,
+-		st::popupMenuWithIcons);
++		st::defaultPopupMenu);
+ 	for (const auto &collection : collections) {
+ 		const auto id = collection.id;
+ 		const auto title = collection.title;
+@@ -1464,6 +1608,7 @@ void SetActive(not_null<State*> state, bool active) {
+ 	}
+ 	state->active = active;
+ 	state->selected.clear();
++	state->drag.reset();
+ 	if (active) {
+ 		state->bar = base::make_unique_q<Bar>(state);
+ 	} else if (const auto bar = state->bar.release()) {
+@@ -1547,7 +1692,8 @@ void SetupGiftSelection(
+ 		not_null<PeerData*> peer,
+ 		Fn<void()> refresh,
+ 		Fn<std::vector<Data::GiftCollection>()> collections,
+-		Fn<void(int)> collectionChanged) {
++		Fn<void(int)> collectionChanged,
++		Fn<const Data::SavedStarGift*(const Data::SavedStarGiftId&)> lookup) {
+ 	if (!scroll || !GiftSelect() || !peer->canManageGifts()) {
+ 		return;
+ 	}
+@@ -1558,7 +1704,8 @@ void SetupGiftSelection(
+ 		peer,
+ 		std::move(refresh),
+ 		std::move(collections),
+-		std::move(collectionChanged));
++		std::move(collectionChanged),
++		std::move(lookup));
+ 	peer->owner().giftUpdates(
+ 	) | rpl::on_next([=](const Data::GiftUpdate &update) {
+ 		using Action = Data::GiftUpdate::Action;
+@@ -1629,6 +1776,69 @@ bool GiftSelectionToggle(
+ 	return true;
+ }
+ 
++bool GiftSelectionDragBegin(
++		not_null<Ui::RpWidget*> list,
++		const Data::SavedStarGift &anchor) {
++	const auto state = Find(list);
++	if (!state || !state->active || state->busy || !GiftSelect()) {
++		return false;
++	}
++	state->drag.emplace();
++	auto &drag = *state->drag;
++	drag.select = !Contains(state, anchor.manageId);
++	for (const auto &gift : state->selected) {
++		drag.before.emplace(gift.manageId);
++	}
++	return true;
++}
++
++void GiftSelectionDragUpdate(
++		not_null<Ui::RpWidget*> list,
++		int from,
++		int till,
++		Fn<const Data::SavedStarGift&(int)> giftAt) {
++	const auto state = Find(list);
++	if (!state || !state->active || state->busy || !state->drag) {
++		return;
++	}
++	auto &drag = *state->drag;
++	auto changed = false;
++	if (drag.from == from && drag.till == till) {
++		return;
++	}
++	for (auto i = drag.from; i != drag.till; ++i) {
++		if (i < from || i >= till) {
++			const auto &gift = giftAt(i);
++			changed |= SetSelected(
++				state,
++				gift,
++				drag.before.contains(gift.manageId));
++		}
++	}
++	for (auto i = from; i != till; ++i) {
++		if (i < drag.from || i >= drag.till) {
++			changed |= SetSelected(state, giftAt(i), drag.select);
++		}
++	}
++	drag.from = from;
++	drag.till = till;
++	if (changed) {
++		state->changes.fire({});
++	}
++}
++
++void GiftSelectionDragEnd(not_null<Ui::RpWidget*> list) {
++	if (const auto state = Find(list)) {
++		state->drag.reset();
++	}
++}
++
++void GiftSelectionRefresh(not_null<Ui::RpWidget*> list) {
++	if (const auto state = Find(list); state && state->active) {
++		state->changes.fire({});
++	}
++}
++
+ void GiftSelectionApply(
+ 		not_null<Ui::RpWidget*> list,
+ 		not_null<QWidget*> button,
+diff --git a/Telegram/SourceFiles/tele/tele_gift_list.h b/Telegram/SourceFiles/tele/tele_gift_list.h
+index 663c68276933e75a95900abace52d2c947acc82c..615830954d6a850888a66e69b374478dbe1cbcd7 100644
+--- a/Telegram/SourceFiles/tele/tele_gift_list.h
++++ b/Telegram/SourceFiles/tele/tele_gift_list.h
+@@ -41,7 +41,8 @@ void SetupGiftSelection(
+ 	not_null<PeerData*> peer,
+ 	Fn<void()> refresh,
+ 	Fn<std::vector<Data::GiftCollection>()> collections,
+-	Fn<void(int)> collectionChanged);
++	Fn<void(int)> collectionChanged,
++	Fn<const Data::SavedStarGift*(const Data::SavedStarGiftId&)> lookup);
+ void FillGiftSelectionMenu(
+ 	not_null<Ui::RpWidget*> list,
+ 	const Ui::Menu::MenuCallback &addAction);
+@@ -49,6 +50,16 @@ void FillGiftSelectionMenu(
+ [[nodiscard]] bool GiftSelectionToggle(
+ 	not_null<Ui::RpWidget*> list,
+ 	const Data::SavedStarGift &gift);
++[[nodiscard]] bool GiftSelectionDragBegin(
++	not_null<Ui::RpWidget*> list,
++	const Data::SavedStarGift &anchor);
++void GiftSelectionDragUpdate(
++	not_null<Ui::RpWidget*> list,
++	int from,
++	int till,
++	Fn<const Data::SavedStarGift&(int)> giftAt);
++void GiftSelectionDragEnd(not_null<Ui::RpWidget*> list);
++void GiftSelectionRefresh(not_null<Ui::RpWidget*> list);
+ void GiftSelectionApply(
+ 	not_null<Ui::RpWidget*> list,
+ 	not_null<QWidget*> button,

@@ -71,10 +71,10 @@ index 625d5f83756356fbeb0e8c129433a738329beeb3..2e07773eaa84a1160fba4e3f47b59956
  		if (customTextLink) {
  			if (const auto external = UrlClickHandler::ExternalUrlFromInternalUrl(
 diff --git a/ui/text/text_entity.cpp b/ui/text/text_entity.cpp
-index 6691a69bd2bfd0691c9a859423a66fe44f83a03d..5a791619085deeb95a92c7bc35f3876a755f9637 100644
+index 29783168538506d43a8e2070cfd61d647323b1f9..bb579e0eb03ebd6fce52930bca962d4726da954c 100644
 --- a/ui/text/text_entity.cpp
 +++ b/ui/text/text_entity.cpp
-@@ -2564,12 +2564,21 @@ TextForMimeData TextForMimeData::WithExpandedLinks(
+@@ -2565,12 +2565,21 @@ TextForMimeData TextForMimeData::WithExpandedLinks(
  		result.expanded = text.text;
  	} else {
  		auto from = 0;
@@ -96,7 +96,7 @@ index 6691a69bd2bfd0691c9a859423a66fe44f83a03d..5a791619085deeb95a92c7bc35f3876a
  			// This logic is duplicated in Ui::Text::String::toText.
  			const auto external = UrlClickHandler::ExternalUrlFromInternalUrl(
  				entity.data());
-@@ -2590,6 +2599,19 @@ TextForMimeData TextForMimeData::WithExpandedLinks(
+@@ -2591,6 +2600,19 @@ TextForMimeData TextForMimeData::WithExpandedLinks(
  			result.expanded.append(text.text.data() + from, add);
  			from = till;
  		}

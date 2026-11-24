@@ -1,0 +1,2140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 22 Nov 2026 11:38:23 +0300
+Subject: [PATCH] feat: show matching blockquotes as reply quotes
+
+---
+ Telegram/Resources/tele/translations/ru.json  |   2 +
+ Telegram/Resources/tele/translations/uk.json  |   2 +
+ Telegram/SourceFiles/data/data_msg_id.h       |   8 +-
+ .../admin_log/history_admin_log_inner.cpp     |   3 +-
+ .../history_view_highlight_manager.cpp        |   7 +-
+ .../history/history_view_highlight_manager.h  |   5 +
+ .../history/view/history_view_element.cpp     |  65 +-
+ .../history/view/history_view_element.h       |   6 +-
+ .../history/view/history_view_message.cpp     |  55 +-
+ .../history/view/history_view_message.h       |   1 +
+ .../history/view/history_view_reply.cpp       | 345 ++++++++-
+ .../history/view/history_view_reply.h         |  22 +
+ .../history/view/history_view_rich_quote.cpp  |  39 +-
+ .../view/history_view_scheduled_section.cpp   |   2 +-
+ .../history/view/media/history_view_gif.cpp   |   5 +-
+ .../iv/markdown/iv_markdown_article.cpp       |  12 +
+ .../iv/markdown/iv_markdown_article.h         |  11 +
+ .../iv/markdown/iv_markdown_article_paint.cpp |   1 +
+ .../SourceFiles/settings/settings_tele.cpp    |   4 +
+ Telegram/SourceFiles/tele/tele_ignored.cpp    |  17 +
+ Telegram/SourceFiles/tele/tele_options.cpp    |  16 +
+ Telegram/SourceFiles/tele/tele_options.h      |   3 +
+ Telegram/SourceFiles/tele/tele_rich_quote.cpp | 672 ++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_rich_quote.h   |  16 +
+ .../SourceFiles/tele/tele_settings_io.cpp     |   1 +
+ Telegram/SourceFiles/ui/chat/chat_style.h     |   8 +-
+ 26 files changed, 1284 insertions(+), 44 deletions(-)
+
+diff --git a/Telegram/Resources/tele/translations/ru.json b/Telegram/Resources/tele/translations/ru.json
+index 06307a225335bee5874578cc6113552e3c8005e2..de0661e3e6e2dea2a44348eb6aefa9f04cdafc09 100644
+--- a/Telegram/Resources/tele/translations/ru.json
++++ b/Telegram/Resources/tele/translations/ru.json
+@@ -1388,6 +1388,7 @@
+ 		"Move right": "Сдвинуть вправо",
+ 		"Move to submenu": "Переместить в подменю",
+ 		"Moved": "Перенесено",
++		"Moves an exact leading quote from a rich message into the reply header.": "Переносит начальную цитату в заголовок ответа, если она точно совпадает с текстом расширенного сообщения.",
+ 		"Multiple quotes": "Несколько цитат",
+ 		"Music": "Музыка",
+ 		"Mute folder": "Выключить уведомления папки",
+@@ -1976,6 +1977,7 @@
+ 		"Show hidden characters": "Показывать скрытые символы",
+ 		"Show in folder": "Показать в папке",
+ 		"Show less": "Свернуть",
++		"Show matching blockquotes as reply quotes": "Показывать совпадающие цитаты в заголовке ответа",
+ 		"Show message ID in the message menu": "Показывать ID в меню сообщения",
+ 		"Show more": "Показать больше",
+ 		"Show notifications.": "Показывать уведомления.",
+diff --git a/Telegram/Resources/tele/translations/uk.json b/Telegram/Resources/tele/translations/uk.json
+index 3c6c9d09154d65a1d8c4fbc3065a79b1a58f78ba..dd68ad06c49a9d5949e9755b6f2584de51c3e7ea 100644
+--- a/Telegram/Resources/tele/translations/uk.json
++++ b/Telegram/Resources/tele/translations/uk.json
+@@ -1388,6 +1388,7 @@
+ 		"Move right": "Перемістити праворуч",
+ 		"Move to submenu": "Перемістити в підменю",
+ 		"Moved": "Перенесено",
++		"Moves an exact leading quote from a rich message into the reply header.": "Переносить початкову цитату в заголовок відповіді, якщо вона точно збігається з текстом розширеного повідомлення.",
+ 		"Multiple quotes": "Кілька цитат",
+ 		"Music": "Музика",
+ 		"Mute folder": "Вимкнути звук папки",
+@@ -1976,6 +1977,7 @@
+ 		"Show hidden characters": "Показувати приховані символи",
+ 		"Show in folder": "Показати в папці",
+ 		"Show less": "Згорнути",
++		"Show matching blockquotes as reply quotes": "Показувати однакові цитати в заголовку відповіді",
+ 		"Show message ID in the message menu": "Показувати ID у меню повідомлення",
+ 		"Show more": "Показати більше",
+ 		"Show notifications.": "Показувати сповіщення.",
+diff --git a/Telegram/SourceFiles/data/data_msg_id.h b/Telegram/SourceFiles/data/data_msg_id.h
+index 8e9e856be87a7b3c3f4d8b50123794270c51273c..1af282ab9d8c14444127af8e1ae0247c104d73e4 100644
+--- a/Telegram/SourceFiles/data/data_msg_id.h
++++ b/Telegram/SourceFiles/data/data_msg_id.h
+@@ -22,6 +22,10 @@ namespace Iv {
+ struct RichQuote;
+ } // namespace Iv
+ 
++namespace Iv::Markdown {
++struct RichBlockQuoteTarget;
++} // namespace Iv::Markdown
++
+ struct MsgId {
+ 	constexpr MsgId() noexcept = default;
+ 	constexpr MsgId(int64 value) noexcept : bare(value) {
+@@ -190,12 +194,14 @@ struct MessageHighlightId {
+ 	int todoItemId = 0;
+ 	QByteArray pollOption;
+ 	std::shared_ptr<const Iv::RichQuote> richQuote;
++	std::shared_ptr<const Iv::Markdown::RichBlockQuoteTarget> richBlockQuote;
+ 
+ 	[[nodiscard]] bool empty() const {
+ 		return quote.empty()
+ 			&& !todoItemId
+ 			&& pollOption.isEmpty()
+-			&& !richQuote;
++			&& !richQuote
++			&& !richBlockQuote;
+ 	}
+ 	[[nodiscard]] friend inline bool operator==(
+ 		const MessageHighlightId &a,
+diff --git a/Telegram/SourceFiles/history/admin_log/history_admin_log_inner.cpp b/Telegram/SourceFiles/history/admin_log/history_admin_log_inner.cpp
+index 6aaf251acb17fc5d37b6e52e010a68fe323b72bd..238832902a7119851cfe07b96ba4b007bb21d6f4 100644
+--- a/Telegram/SourceFiles/history/admin_log/history_admin_log_inner.cpp
++++ b/Telegram/SourceFiles/history/admin_log/history_admin_log_inner.cpp
+@@ -1041,7 +1041,8 @@ int InnerWidget::jumpTarget(
+ 	const auto top = itemTop(view);
+ 	const auto height = view->height();
+ 	const auto viewport = _visibleBottom - _visibleTop;
+-	const auto range = (highlight.richQuote && (height > viewport))
++	const auto range = ((highlight.richQuote || highlight.richBlockQuote)
++		&& height > viewport)
+ 		? HistoryView::FindHighlightYRange(
+ 			view,
+ 			_highlighter.state(view->data()))
+diff --git a/Telegram/SourceFiles/history/history_view_highlight_manager.cpp b/Telegram/SourceFiles/history/history_view_highlight_manager.cpp
+index 6cfd311037959531d4b90582c53a55745c93347a..6dff0820ee5f04a40469657ef445b441d38fdac1 100644
+--- a/Telegram/SourceFiles/history/history_view_highlight_manager.cpp
++++ b/Telegram/SourceFiles/history/history_view_highlight_manager.cpp
+@@ -71,6 +71,7 @@ Ui::ChatPaintHighlight ElementHighlighter::state(
+ 			.page = _highlighted.richPage,
+ 			.from = _highlighted.richFrom,
+ 			.till = _highlighted.richTill,
++			.blocks = _highlighted.richBlocks,
+ 		};
+ 		return result;
+ 	}
+@@ -106,7 +107,7 @@ ElementHighlighter::Highlight ElementHighlighter::computeHighlight(
+ 			quote.highlight.todoItemId,
+ 			quote.highlight.pollOption,
+ 		};
+-	} else if (quote.highlight.richQuote) {
++	} else if (quote.highlight.richQuote || quote.highlight.richBlockQuote) {
+ 		auto result = Highlight{
+ 			item->fullId(),
+ 			{},
+@@ -118,6 +119,7 @@ ElementHighlighter::Highlight ElementHighlighter::computeHighlight(
+ 				result.richPage = rich.page;
+ 				result.richFrom = rich.from;
+ 				result.richTill = rich.till;
++				result.richBlocks = rich.blocks;
+ 			}
+ 		}
+ 		return result;
+@@ -158,7 +160,8 @@ void ElementHighlighter::highlight(Highlight data) {
+ 			_animation.start((!data.part.empty()
+ 					|| data.todoListId
+ 					|| !data.pollOption.isEmpty()
+-					|| data.richPage)
++					|| data.richPage
++					|| data.richBlocks)
+ 				&& !IsSubGroupSelection(data.part));
+ 
+ 			repaintHighlightedItem(view);
+diff --git a/Telegram/SourceFiles/history/history_view_highlight_manager.h b/Telegram/SourceFiles/history/history_view_highlight_manager.h
+index e961dedba3c00cdc871fbf179efc0216b037ac4c..eeac9d506d0f9afa4d35980c335928bf50fae498 100644
+--- a/Telegram/SourceFiles/history/history_view_highlight_manager.h
++++ b/Telegram/SourceFiles/history/history_view_highlight_manager.h
+@@ -20,6 +20,10 @@ namespace Iv {
+ struct RichPage;
+ } // namespace Iv
+ 
++namespace Iv::Markdown {
++struct RichBlockQuoteTarget;
++} // namespace Iv::Markdown
++
+ namespace Ui {
+ struct ChatPaintHighlight;
+ } // namespace Ui
+@@ -74,6 +78,7 @@ private:
+ 		std::shared_ptr<const Iv::RichPage> richPage;
+ 		int richFrom = 0;
+ 		int richTill = 0;
++		std::shared_ptr<const Iv::Markdown::RichBlockQuoteTarget> richBlocks;
+ 
+ 		explicit operator bool() const {
+ 			return itemId.operator bool();
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.cpp b/Telegram/SourceFiles/history/view/history_view_element.cpp
+index 97366c58cbb7af78d438450a90ce709113919096..8a9fc3b583dccee8125570dcd01d98b23d801e8b 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_element.cpp
+@@ -2109,6 +2109,9 @@ auto Element::contextDependentServiceText() -> TextWithLinks {
+ }
+ 
+ void Element::validateText() {
++	const auto reply = Get<Reply>();
++	const auto skipLeadingQuote = reply && reply->promotedRichBlock();
++	const auto removedPrefix = reply ? reply->promotedTextPrefix() : 0;
+ 	const auto clearRichPage = [&] {
+ 		if (const auto rich = richpage()) {
+ 			const auto heavy = rich->article.hasHeavyPart();
+@@ -2177,7 +2180,9 @@ void Element::validateText() {
+ 				}
+ 			}, runtime->highlightReadyLifetime);
+ 		}
+-		if (runtime->page == page && runtime->mediaRuntime) {
++		if (runtime->page == page
++			&& runtime->mediaRuntime
++			&& runtime->skipLeadingQuote == skipLeadingQuote) {
+ 			return;
+ 		}
+ 		const auto heavy = runtime->article.hasHeavyPart();
+@@ -2185,6 +2190,7 @@ void Element::validateText() {
+ 		const auto session = &history()->session();
+ 		const auto richLimits = Iv::ResolveRichMessageLimits(session);
+ 		runtime->page = std::move(page);
++		runtime->skipLeadingQuote = skipLeadingQuote;
+ 		runtime->mediaRuntime = Iv::CreateMessageMediaRuntime(
+ 			session,
+ 			not_null<Element*>{ this },
+@@ -2211,6 +2217,11 @@ void Element::validateText() {
+ 			data()->setHasHiddenLinks(true);
+ 			_textItem->setHasHiddenLinks(true);
+ 		}
++		if (skipLeadingQuote) {
++			// Keep native block paths relative to the unmodified source page.
++			auto &blocks = prepared.content.blocks.blocks;
++			blocks.erase(blocks.begin());
++		}
+ 		ClickHandler::clearActive(this);
+ 		runtime->article.setContent(std::move(prepared.content));
+ 		Tele::TrackRichCodeLines(this);
+@@ -2286,7 +2297,8 @@ void Element::validateText() {
+ 	}
+ 	const auto &text = _textItem->_text;
+ 	auto richPage = std::shared_ptr<const Iv::RichPage>();
+-	if (!summaryShownChanged && _text.isEmpty() == text.empty()) {
++	const auto hasText = text.text.size() > removedPrefix;
++	if (!summaryShownChanged && _text.isEmpty() != hasText) {
+ 	} else if (_flags & Flag::ServiceMessage) {
+ 		const auto contextDependentText = contextDependentServiceText();
+ 		const auto &markedText = contextDependentText.text.empty()
+@@ -2320,9 +2332,12 @@ void Element::validateText() {
+ 		if (!unavailable.isEmpty()) {
+ 			setTextWithLinks(tr::italic(unavailable));
+ 		} else {
++			auto translated = _textItem->translatedTextWithLocalEntities();
+ 			setTextWithLinks(Tele::Scripting::DecoratedText(
+ 				_textItem,
+-				_textItem->translatedTextWithLocalEntities()));
++				removedPrefix
++					? Ui::Text::Mid(translated, removedPrefix)
++					: std::move(translated)));
+ 			richPage = _textItem->translatedRichPage();
+ 		}
+ 	}
+@@ -3010,9 +3025,11 @@ auto Element::verticalRepaintRange() const -> VerticalRepaintRange {
+ 
+ bool Element::hasHeavyPart() const {
+ 	const auto rich = richpage();
++	const auto reply = Get<Reply>();
+ 	return (_flags & Flag::HeavyCustomEmoji)
+ 		|| (_media && _media->hasHeavyPart())
+-		|| (rich && rich->article.hasHeavyPart());
++		|| (rich && rich->article.hasHeavyPart())
++		|| (reply && reply->hasHeavyPart());
+ }
+ 
+ void Element::checkHeavyPart() {
+@@ -3198,9 +3215,9 @@ void Element::unloadHeavyPart() {
+ 	if (_flags & Flag::HeavyCustomEmoji) {
+ 		_flags &= ~Flag::HeavyCustomEmoji;
+ 		_text.unloadPersistentAnimation();
+-		if (const auto reply = Get<Reply>()) {
+-			reply->unloadPersistentAnimation();
+-		}
++	}
++	if (const auto reply = Get<Reply>()) {
++		reply->unloadPersistentAnimation();
+ 	}
+ }
+ 
+@@ -3414,7 +3431,8 @@ bool Element::selectionContains(
+ SelectedQuote Element::FindSelectedQuote(
+ 		const Ui::Text::String &text,
+ 		TextSelection selection,
+-		not_null<HistoryItem*> item) {
++		not_null<HistoryItem*> item,
++		int removedPrefix) {
+ 	if (selection.to > text.length()) {
+ 		return {};
+ 	}
+@@ -3441,6 +3459,8 @@ SelectedQuote Element::FindSelectedQuote(
+ 				int(modified.to) - int(modification.added)));
+ 		}
+ 	}
++	modified.from += removedPrefix;
++	modified.to += removedPrefix;
+ 	auto result = item->originalText();
+ 	if (modified.empty() || modified.to > result.text.size()) {
+ 		return {};
+@@ -3483,7 +3503,8 @@ SelectedQuote Element::FindSelectedQuote(
+ 
+ TextSelection Element::FindSelectionFromQuote(
+ 		const Ui::Text::String &text,
+-		const SelectedQuote &quote) {
++		const SelectedQuote &quote,
++		int removedPrefix) {
+ 	Expects(quote.item != nullptr);
+ 
+ 	const auto &rich = quote.highlight.quote;
+@@ -3491,9 +3512,18 @@ TextSelection Element::FindSelectionFromQuote(
+ 		return {};
+ 	}
+ 	const auto &original = quote.item->originalText();
++	const auto withoutPrefix = [&](TextSelection range) {
++		if (range.to <= removedPrefix) {
++			return TextSelection();
++		}
++		return TextSelection{
++			uint16(std::max(0, range.from - removedPrefix)),
++			uint16(range.to - removedPrefix),
++		};
++	};
+ 	if (quote.highlight.quoteOffset == kSearchQueryOffsetHint) {
+ 		return ApplyModificationsFrom(
+-			FindSearchQueryHighlight(original.text, rich.text),
++			withoutPrefix(FindSearchQueryHighlight(original.text, rich.text)),
+ 			text);
+ 	}
+ 	const auto length = int(original.text.size());
+@@ -3559,7 +3589,7 @@ TextSelection Element::FindSelectionFromQuote(
+ 	if (result.empty()) {
+ 		return {};
+ 	}
+-	return ApplyModificationsFrom(result, text);
++	return ApplyModificationsFrom(withoutPrefix(result), text);
+ }
+ 
+ Ui::ChatPaintRichQuote Element::richSelectionFromQuote(
+@@ -3568,7 +3598,7 @@ Ui::ChatPaintRichQuote Element::richSelectionFromQuote(
+ 
+ 	const auto &payload = quote.highlight.richQuote;
+ 	const auto rich = richpage();
+-	if (!payload || !rich || !rich->page) {
++	if (!rich || !rich->page) {
+ 		return {};
+ 	}
+ 	const auto item = quote.item;
+@@ -3577,6 +3607,13 @@ Ui::ChatPaintRichQuote Element::richSelectionFromQuote(
+ 	if (&translated != &original || rich->page != item->richPage()) {
+ 		return {};
+ 	}
++	if (const auto &blocks = quote.highlight.richBlockQuote) {
++		return (blocks->page == rich->page)
++			? Ui::ChatPaintRichQuote{ .blocks = blocks }
++			: Ui::ChatPaintRichQuote();
++	} else if (!payload) {
++		return {};
++	}
+ 	const auto found = Iv::LocateRichQuote(
+ 		&history()->session(),
+ 		*rich->page,
+@@ -3678,6 +3715,10 @@ QPoint Element::mediaTopLeft() const {
+ Element::~Element() {
+ 	ClickHandler::clearActive(this);
+ 	setReactions(nullptr);
++	if (const auto reply = Get<Reply>()) {
++		reply->clearRichBlockPreview();
++		checkHeavyPart();
++	}
+ 
+ 	// Delete media while owner still exists.
+ 	clearSpecialOnlyEmoji();
+diff --git a/Telegram/SourceFiles/history/view/history_view_element.h b/Telegram/SourceFiles/history/view/history_view_element.h
+index 483fabeebc80638a6955da3ca387c2ad315ca5e6..3b499033d1fda717d69c6c411e803174fadf40e2 100644
+--- a/Telegram/SourceFiles/history/view/history_view_element.h
++++ b/Telegram/SourceFiles/history/view/history_view_element.h
+@@ -621,10 +621,12 @@ public:
+ 	[[nodiscard]] static SelectedQuote FindSelectedQuote(
+ 		const Ui::Text::String &text,
+ 		TextSelection selection,
+-		not_null<HistoryItem*> item);
++		not_null<HistoryItem*> item,
++		int removedPrefix = 0);
+ 	[[nodiscard]] static TextSelection FindSelectionFromQuote(
+ 		const Ui::Text::String &text,
+-		const SelectedQuote &quote);
++		const SelectedQuote &quote,
++		int removedPrefix = 0);
+ 
+ 	[[nodiscard]] virtual auto reactionButtonParameters(
+ 		QPoint position,
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.cpp b/Telegram/SourceFiles/history/view/history_view_message.cpp
+index 279ea61c251fe48ebcd93bb428af639c71ba10cb..a5d00bf2b35608af89b421e912815749219e0c69 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_message.cpp
+@@ -1497,7 +1497,18 @@ QSize Message::performCountOptimalSize() {
+ 
+ 	if (replyData && !_hideReply) {
+ 		AddComponents(Reply::Bit());
++		if (Get<Reply>()->preparePromotedQuote(
++				this,
++				showSummaryReply ? nullptr : replyData)) {
++			itemTextUpdated();
++		}
+ 	} else {
++		if (const auto reply = Get<Reply>()) {
++			reply->clearRichBlockPreview();
++			if (reply->promotedTextPrefix()) {
++				itemTextUpdated();
++			}
++		}
+ 		RemoveComponents(Reply::Bit());
+ 	}
+ 	if (showSummaryReply) {
+@@ -5279,7 +5290,12 @@ SelectedQuote Message::selectedQuote(TextSelection selection) const {
+ 		const auto textSelection = mediaBefore
+ 			? media->skipSelection(selection)
+ 			: selection;
+-		return FindSelectedQuote(text(), textSelection, item);
++		const auto reply = Get<Reply>();
++		return FindSelectedQuote(
++			text(),
++			textSelection,
++			item,
++			reply ? reply->promotedTextPrefix() : 0);
+ 	} else if (const auto media = this->media()) {
+ 		if (media->isDisplayed() || isHiddenByGroup()) {
+ 			return media->selectedQuote(selection);
+@@ -5312,7 +5328,11 @@ TextSelection Message::selectionFromQuote(
+ 		const auto media = this->media();
+ 		const auto mediaDisplayed = media && media->isDisplayed();
+ 		const auto mediaBefore = mediaDisplayed && invertMedia();
+-		const auto result = FindSelectionFromQuote(text(), quote);
++		const auto reply = Get<Reply>();
++		const auto result = FindSelectionFromQuote(
++			text(),
++			quote,
++			reply ? reply->promotedTextPrefix() : 0);
+ 		return mediaBefore ? media->unskipSelection(result) : result;
+ 	} else if (const auto media = this->media()) {
+ 		if (media->isDisplayed() || isHiddenByGroup()) {
+@@ -5481,9 +5501,14 @@ MessageSelection Message::adjustSelection(
+ 
+ TextSelection Message::selectionForEdit(
+ 		const MessageSelection &selection) const {
+-	return selection.isFlat()
+-		? selection.flatRangeForEdit()
+-		: TextSelection();
++	auto result = selection.flatRangeForEdit();
++	if (!result.empty() && result != FullSelection) {
++		if (const auto reply = Get<Reply>()) {
++			result.from += reply->promotedTextPrefix();
++			result.to += reply->promotedTextPrefix();
++		}
++	}
++	return result;
+ }
+ 
+ bool Message::selectionContains(
+@@ -7120,7 +7145,14 @@ int Message::resizeContentGetHeight(int newWidth) {
+ 				- st::msgPadding.right());
+ 		}
+ 		if (needInfoDisplay()) {
+-			newHeight += (bottomInfoHeight - st::msgDateFont->height);
++			const auto quoteOnly = reply
++				&& (reply->promotedTextPrefix() || reply->promotedRichBlock())
++				&& !mediaDisplayed
++				&& !check
++				&& !entry
++				&& !hasVisibleText();
++			newHeight += bottomInfoHeight
++				- (quoteOnly ? 0 : st::msgDateFont->height);
+ 		}
+ 
+ 		if (hasCommentsButton()) {
+@@ -7477,13 +7509,19 @@ bool Message::hasVisibleText() const {
+ 		return false;
+ 	}
+ 	const auto media = this->media();
+-	if (hasRichPage()) {
++	if (const auto rich = richpage()) {
++		if (rich->skipLeadingQuote && rich->page->blocks.size() == 1) {
++			return false;
++		}
+ 		return !media || !media->hideMessageText();
+ 	} else if (textItem->emptyText()) {
+ 		if (const auto media = textItem->media()) {
+ 			return media->storyExpired() || media->storyUnsupported();
+ 		}
+ 		return false;
++	} else if (const auto reply = Get<Reply>();
++		reply && reply->promotedTextPrefix() && text().isEmpty()) {
++		return false;
+ 	}
+ 	return !media || !media->hideMessageText();
+ }
+@@ -7513,6 +7551,9 @@ void Message::refreshInfoSkipBlock(HistoryItem *textItem) {
+ 				return media->storyExpired() || media->storyUnsupported();
+ 			}
+ 			return false;
++		} else if (const auto reply = Get<Reply>();
++			reply && reply->promotedTextPrefix() && text().isEmpty()) {
++			return false;
+ 		} else if (factcheckBlock()
+ 			|| data()->Has<HistoryMessageLogEntryOriginal>()) {
+ 			return false;
+diff --git a/Telegram/SourceFiles/history/view/history_view_message.h b/Telegram/SourceFiles/history/view/history_view_message.h
+index c75226a8b0c478c231174362a73bc360de113ae3..6f6ad075bf848caa49b104706785edbd433b9668 100644
+--- a/Telegram/SourceFiles/history/view/history_view_message.h
++++ b/Telegram/SourceFiles/history/view/history_view_message.h
+@@ -110,6 +110,7 @@ struct HistoryMessageRichPage
+ 	mutable int textualWidth = 0;
+ 	mutable uint16 demandedTextWidth = 0;
+ 	bool hasUnsupportedBlocks = false;
++	bool skipLeadingQuote = false;
+ 	mutable ClickHandlerPtr handler;
+ 	mutable std::optional<Iv::Markdown::MarkdownArticleHorizontalScrollHit> handlerHorizontalScrollHit;
+ 	mutable QPoint handlerHorizontalScrollPoint;
+diff --git a/Telegram/SourceFiles/history/view/history_view_reply.cpp b/Telegram/SourceFiles/history/view/history_view_reply.cpp
+index 06c041a46e9f388f45644ab67274dc841039cf52..1b1d405b365d73314708a7c02d87736ffa038e28 100644
+--- a/Telegram/SourceFiles/history/view/history_view_reply.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_reply.cpp
+@@ -7,6 +7,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ */
+ #include "history/view/history_view_reply.h"
+ 
++#include "chat_helpers/spellchecker_common.h"
+ #include "core/click_handler_types.h"
+ #include "core/ui_integration.h"
+ #include "data/stickers/data_custom_emoji.h"
+@@ -24,7 +25,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "history/history_item.h"
+ #include "history/history_item_components.h"
+ #include "history/history_item_helpers.h"
++#include "iv/iv_cached_media.h"
+ #include "iv/iv_rich_page.h"
++#include "iv/markdown/iv_markdown_article.h"
++#include "iv/markdown/iv_markdown_media_block.h"
+ #include "lang/lang_keys.h"
+ #include "main/main_session.h"
+ #include "ui/chat/chat_style.h"
+@@ -37,10 +41,12 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "ui/power_saving.h"
+ #include "window/window_session_controller.h"
+ #include "tele/tele_bubble_badges.h"
++#include "tele/tele_rich_quote.h"
+ #include "tele/tele_shot_sharp.h"
+ #include "tele/tele_spoilers.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_dialogs.h"
++#include "styles/style_iv.h"
+ #include "styles/style_polls.h"
+ 
+ namespace HistoryView {
+@@ -48,6 +54,36 @@ namespace {
+ 
+ constexpr auto kNonExpandedLinesLimit = 5;
+ 
++[[nodiscard]] bool CanRenderQuoteBlocks(
++		const std::vector<Iv::Markdown::PreparedBlock> &blocks) {
++	using namespace Iv::Markdown;
++	for (const auto &block : blocks) {
++		if (block.kind == PreparedBlockKind::Placeholder) {
++			const auto &placeholder = block.placeholder;
++			if (placeholder.intent == PlaceholderIntent::UnsupportedBlock
++				|| (!placeholder.id
++					&& (placeholder.label == u"Prepare Failed"_q
++						|| placeholder.label == u"Unsupported Block"_q
++						|| placeholder.label == u"Content Too Long"_q))) {
++				return false;
++			}
++		}
++		if (!CanRenderQuoteBlocks(block.children)) {
++			return false;
++		}
++	}
++	return true;
++}
++
++void OpenQuoteBlocks(std::vector<Iv::Markdown::PreparedBlock> &blocks) {
++	for (auto &block : blocks) {
++		// The header is the only interactive part of the preview.
++		block.collapsed = false;
++		block.detailsOpen = true;
++		OpenQuoteBlocks(block.children);
++	}
++}
++
+ [[nodiscard]] QImage MakeTaskImage() {
+ 	const auto diameter = st::normalFont->ascent;
+ 	const auto line = st::historyPollRadio.thickness;
+@@ -345,6 +381,74 @@ void FillBackgroundEmoji(
+ 	p.setOpacity(o);
+ }
+ 
++struct Reply::RichBlockPreview final : Iv::Markdown::MediaBlockHost {
++	RichBlockPreview(
++		not_null<Element*> owner,
++		std::shared_ptr<const Iv::RichPage> body,
++		std::shared_ptr<const Iv::Markdown::RichBlockQuoteTarget> target,
++		Iv::Markdown::MarkdownArticleContent prepared)
++	: view(base::make_weak(owner))
++	, body(std::move(body))
++	, target(std::move(target))
++	, prepared(std::move(prepared)) {
++	}
++
++	~RichBlockPreview() override {
++		highlightLifetime.destroy();
++		if (article) {
++			article->clearBeforeDestroy();
++		}
++	}
++
++	void requestRepaint(QRect) override {
++		if (const auto owner = view.get()) {
++			owner->repaint();
++		}
++	}
++
++	void requestRelayout(QRect) override {
++		crl::on_main([weak = view] {
++			if (const auto owner = weak.get()) {
++				owner->history()->owner().requestViewResize(owner);
++			}
++		});
++	}
++
++	Iv::Markdown::MarkdownArticle &ensureArticle() {
++		if (!article) {
++			article = std::make_unique<Iv::Markdown::MarkdownArticle>(
++				st::messageMarkdown);
++			article->setMediaBlockHost(this);
++			const auto repaint = [weak = view] {
++				if (const auto owner = weak.get()) {
++					owner->repaint();
++				}
++			};
++			article->setTextRepaintCallbacks(repaint, [repaint](QRect) {
++				repaint();
++			});
++			article->setContent(std::move(prepared));
++			Spellchecker::HighlightReady(
++			) | rpl::on_next([this](Spellchecker::HighlightProcessId id) {
++				if (article->highlightProcessDone(id)) {
++					requestRepaint({});
++				}
++			}, highlightLifetime);
++		}
++		return *article;
++	}
++
++	const base::weak_ptr<Element> view;
++	const std::shared_ptr<const Iv::RichPage> body;
++	const std::shared_ptr<const Iv::Markdown::RichBlockQuoteTarget> target;
++	Iv::Markdown::MarkdownArticleContent prepared;
++	std::unique_ptr<Iv::Markdown::MarkdownArticle> article;
++	rpl::lifetime highlightLifetime;
++	int paletteVersion = -1;
++	int visibleHeight = 0;
++	bool clipped = false;
++};
++
+ Reply::Reply()
+ : _name(st::maxSignatureSize / 2)
+ , _text(st::maxSignatureSize / 2) {
+@@ -354,12 +458,76 @@ Reply &Reply::operator=(Reply &&other) = default;
+ 
+ Reply::~Reply() = default;
+ 
++bool Reply::preparePromotedQuote(
++		not_null<Element*> view,
++		const HistoryMessageReply *data) {
++	const auto item = view->data();
++	auto promoted = data
++		? Tele::PromoteReplyQuote(item, data)
++		: Tele::PromotedReplyQuote();
++	const auto wasRichBlock = _promotedRichBlock;
++	if (promoted.preview) {
++		const auto body = item->richPage();
++		if (!_richBlockPreview
++			|| _richBlockPreview->body != body
++			|| _richBlockPreview->target->page != promoted.sourcePage
++			|| _richBlockPreview->target->paths != promoted.sourcePaths) {
++			clearRichBlockPreview();
++			const auto session = &view->history()->session();
++			auto prepared = Iv::Markdown::TryPrepareNativeInstantView({
++				.richPage = std::move(promoted.preview),
++				.mediaRuntime = Iv::CreateMessageMediaRuntime(
++					session,
++					view,
++					[](QString) {},
++					[](QString) {}),
++				.dimensionsOverride
++					= Iv::Markdown::CaptureMarkdownPrepareDimensions(
++						st::messageMarkdown),
++				.tableRenderLimits
++					= Iv::Markdown::PrepareTableRenderLimitsForRichMessage(
++						Iv::ResolveRichMessageLimits(session)),
++				.unsupportedBlockNotices = true,
++				.disableButtons = true,
++			});
++			auto &blocks = prepared.content.blocks.blocks;
++			if (prepared.supported()
++				&& !blocks.empty()
++				&& CanRenderQuoteBlocks(blocks)) {
++				OpenQuoteBlocks(blocks);
++				using Target = Iv::Markdown::RichBlockQuoteTarget;
++				_richBlockPreview = std::make_unique<RichBlockPreview>(
++					view,
++					body,
++					std::make_shared<Target>(Target{
++						.page = std::move(promoted.sourcePage),
++						.paths = std::move(promoted.sourcePaths),
++					}),
++					std::move(prepared.content));
++			} else {
++				promoted = {};
++			}
++		}
++	} else {
++		clearRichBlockPreview();
++	}
++	_promotedQuote = std::move(promoted.quote);
++	_promotedRichBlock = promoted.richBlock;
++	const auto prefixChanged = std::exchange(
++		_promotedTextPrefix,
++		promoted.textPrefix) != promoted.textPrefix;
++	return prefixChanged || (wasRichBlock != _promotedRichBlock);
++}
++
+ void Reply::update(
+ 		not_null<Element*> view,
+ 		not_null<HistoryMessageReply*> data) {
+ 	const auto item = view->data();
+ 	const auto &fields = data->fields();
+-	const auto &quote = fields.displayQuote();
++	const auto &quote = _promotedQuote
++		? _promotedQuote->text
++		: fields.displayQuote();
++	const auto manualQuote = fields.manualQuote || _promotedQuote;
+ 	const auto message = data->resolvedMessage.get();
+ 	const auto messageMedia = (message
+ 			&& (fields.todoItemId || !fields.pollOption.isEmpty()))
+@@ -416,12 +584,13 @@ void Reply::update(
+ 		|| (externalMedia && externalMedia->hasReplyPreview())
+ 		|| (pollMediaPtr
+ 			&& (pollMediaPtr->photo || pollMediaPtr->document));
+-	_hasPreview = hasPreview ? 1 : 0;
++	_hasPreview = (hasPreview && !_richBlockPreview) ? 1 : 0;
+ 	_displaying = data->displaying() ? 1 : 0;
+-	_multiline = data->multiline() ? 1 : 0;
++	_multiline = (data->multiline() || _promotedQuote || _richBlockPreview)
++		? 1
++		: 0;
+ 	const auto hasQuoteIcon = _displaying
+-		&& fields.manualQuote
+-		&& !quote.empty();
++		&& (_richBlockPreview || (manualQuote && !quote.empty()));
+ 	_hasQuoteIcon = hasQuoteIcon ? 1 : 0;
+ 
+ 	const auto repaint = [=] { item->customEmojiRepaint(); };
+@@ -429,7 +598,7 @@ void Reply::update(
+ 		.session = &view->history()->session(),
+ 		.repaint = repaint,
+ 	}));
+-	const auto text = (!_displaying && data->unavailable())
++	const auto text = (_richBlockPreview || (!_displaying && data->unavailable()))
+ 		? TextWithEntities()
+ 		: task
+ 		? Ui::Text::Colorized(task->completionDate
+@@ -450,7 +619,7 @@ void Reply::update(
+ 		? Ui::Text::Colorized(
+ 			Ui::Text::IconEmoji(&st::historyPollReplyIcon)
+ 		).append(messagePoll->question)
+-		: (message && (quote.empty() || !fields.manualQuote))
++		: (message && (quote.empty() || !manualQuote))
+ 		? message->inReplyText()
+ 		: !quote.empty()
+ 		? quote
+@@ -483,7 +652,7 @@ void Reply::update(
+ 	if (_displaying) {
+ 		setLinkFrom(view, data);
+ 		const auto media = message ? message->media() : nullptr;
+-		if (!media
++		if (_richBlockPreview || !media
+ 			|| !media->hasReplyPreview()
+ 			|| !media->hasSpoilerForPreview()) {
+ 			_spoiler = nullptr;
+@@ -496,7 +665,7 @@ void Reply::update(
+ }
+ 
+ bool Reply::expand() {
+-	if (!_expandable || _expanded) {
++	if ((!_richBlockPreview && !_expandable) || _expanded) {
+ 		return false;
+ 	}
+ 	_expanded = true;
+@@ -511,7 +680,13 @@ void Reply::setLinkFrom(
+ 	const auto isAdminLogEntry = view->data()->isAdminLogEntry();
+ 	const auto externalChannelId = peerToChannel(fields.externalPeerId);
+ 	const auto messageId = fields.messageId;
+-	const auto highlight = fields.highlight();
++	auto highlight = fields.highlight();
++	if (_promotedQuote) {
++		highlight.richQuote = _promotedQuote;
++	}
++	if (_richBlockPreview) {
++		highlight.richBlockQuote = _richBlockPreview->target;
++	}
+ 	const auto returnToId = view->data()->fullId();
+ 	const auto externalLink = [=](ClickContext context) {
+ 		const auto my = context.other.value<ClickHandlerContext>();
+@@ -553,6 +728,27 @@ void Reply::setLinkFrom(
+ 		}
+ 	};
+ 	const auto message = data->resolvedMessage.get();
++	if (_richBlockPreview && message) {
++		_link = std::make_shared<LambdaClickHandler>([
++			weak,
++			target = _richBlockPreview->target,
++			jump = JumpToMessageClickHandler(message, returnToId, highlight)
++		](ClickContext context) {
++			const auto view = weak.get();
++			const auto reply = view ? view->Get<Reply>() : nullptr;
++			if (!reply
++				|| !reply->_richBlockPreview
++				|| reply->_richBlockPreview->target != target) {
++				return;
++			}
++			if (reply->expand()) {
++				view->history()->owner().requestViewResize(view);
++			} else {
++				jump->onClick(context);
++			}
++		});
++		return;
++	}
+ 	const auto story = data->resolvedStory.get();
+ 	_link = isAdminLogEntry
+ 		? std::make_shared<LambdaClickHandler>(externalLink)
+@@ -711,7 +907,9 @@ void Reply::updateName(
+ 	const auto nameMaxWidth = previewSkip
+ 		+ _name.maxWidth()
+ 		+ nameIconsSkip();
+-	const auto optimalTextSize = _multiline
++	const auto optimalTextSize = _richBlockPreview
++		? QSize(st::msgMaxWidth, st::normalFont->height)
++		: _multiline
+ 		? countMultilineOptimalSize(previewSkip)
+ 		: QSize(
+ 			(previewSkip
+@@ -769,6 +967,29 @@ int Reply::resizeToWidth(int width) const {
+ 		- st::historyReplyPadding.left()
+ 		- st::historyReplyPadding.right();
+ 	_previewHidden = 0;
++	if (_richBlockPreview && _displaying) {
++		auto &preview = *_richBlockPreview;
++		_nameTwoLines = (_name.countHeight(
++			std::max(innerw - nameIconsSkip(), 1)) > st::semiboldFont->height)
++			? 1
++			: 0;
++		const auto nameHeight = (_nameTwoLines ? 2 : 1)
++			* st::msgServiceNameFont->height;
++		const auto fullHeight = (innerw > 0)
++			? preview.ensureArticle().resizeGetHeight(innerw)
++			: 0;
++		const auto compactHeight = kNonExpandedLinesLimit
++			* st::normalFont->height;
++		preview.clipped = !_expanded && (fullHeight > compactHeight);
++		preview.visibleHeight = preview.clipped ? compactHeight : fullHeight;
++		_height = st::historyReplyPadding.top()
++			+ nameHeight
++			+ std::max(preview.visibleHeight, st::normalFont->height)
++			+ (preview.clipped ? st::normalFont->height : 0)
++			+ st::historyReplyPadding.bottom();
++		return height();
++	}
++
+ 	_previewHidden = (width < _maxWidth
+ 		&& (innerw - previewSkip() < _text.minResizeWidth())) ? 1 : 0;
+ 	if (width >= _maxWidth || !_multiline) {
+@@ -1038,6 +1259,16 @@ void Reply::paint(
+ 					w + 2 * x,
+ 					_nameTwoLines ? 2 : 1);
+ 
++				if (_richBlockPreview) {
++					paintRichBlock(p, context, {
++						textLeft,
++						textTop,
++						textw,
++						_richBlockPreview->visibleHeight,
++					});
++					return;
++				}
++
+ 				p.setPen(inBubble
+ 					? stm->historyTextFg
+ 					: st->msgImgReplyBarColor());
+@@ -1086,6 +1317,72 @@ void Reply::paint(
+ 	}
+ }
+ 
++void Reply::paintRichBlock(
++		Painter &p,
++		const Ui::ChatPaintContext &context,
++		QRect rect) const {
++	auto &preview = *_richBlockPreview;
++	if (!preview.article || rect.isEmpty()) {
++		return;
++	}
++	auto &article = *preview.article;
++	const auto paletteVersion = context.st->paletteVersion();
++	if (preview.paletteVersion != paletteVersion) {
++		preview.paletteVersion = paletteVersion;
++		article.invalidatePaletteCache();
++	}
++	const auto clip = context.clip.intersected(rect);
++	if (!clip.isEmpty()) {
++		const auto stm = context.messageStyle();
++		const auto repaint = [weak = preview.view] {
++			if (const auto owner = weak.get()) {
++				owner->repaint();
++			}
++		};
++		auto articleContext = Iv::Markdown::MarkdownArticlePaintContext(
++			context).translated(-rect.topLeft());
++		articleContext.clip = clip.translated(-rect.topLeft());
++		articleContext.paused = true;
++		articleContext.passiveMedia = true;
++		articleContext.selection = {};
++		articleContext.messageSelection = nullptr;
++		articleContext.highlight = {};
++		articleContext.highlightPathCache = nullptr;
++		const auto owner = preview.view.get();
++		articleContext.caches = {
++			.pre = stm->preCache.get(),
++			.blockquote = context.quoteCache(
++				_colorPeer ? _colorPeer->colorCollectible() : nullptr,
++				_colorPeer
++					? _colorPeer->colorIndex()
++					: std::max(int(_hiddenSenderColorIndexPlusOne) - 1, 0)),
++			.colors = context.st->highlightColors(),
++			.st = &stm->richPageStyle,
++			.repaint = repaint,
++			.repaintRect = [repaint](QRect) { repaint(); },
++		};
++		article.setVisibleTopBottom(
++			articleContext.clip.top(),
++			articleContext.clip.bottom() + 1);
++		p.save();
++		p.setClipRect(clip, Qt::IntersectClip);
++		p.translate(rect.topLeft());
++		article.paint(p, articleContext);
++		p.restore();
++		if (owner && article.hasHeavyPart()) {
++			owner->history()->owner().registerHeavyViewPart(owner);
++		}
++	}
++	if (preview.clipped) {
++		p.setFont(st::normalFont);
++		p.setPen(context.messageStyle()->historyTextFg);
++		p.drawText(
++			rect.x(),
++			rect.y() + rect.height() + st::normalFont->ascent,
++			u"\u2026"_q);
++	}
++}
++
+ void Reply::createRippleAnimation(
+ 		not_null<const Element*> view,
+ 		QSize size) {
+@@ -1192,6 +1489,32 @@ const TextWithEntities &Reply::ComposePreviewQuote(
+ 
+ void Reply::unloadPersistentAnimation() {
+ 	_text.unloadPersistentAnimation();
++	if (hasHeavyPart()) {
++		auto &article = *_richBlockPreview->article;
++		article.setVisibleTopBottom(0, 0);
++		article.unloadHeavyPart();
++	}
++}
++
++bool Reply::hasHeavyPart() const {
++	return _richBlockPreview
++		&& _richBlockPreview->article
++		&& _richBlockPreview->article->hasHeavyPart();
++}
++
++void Reply::clearRichBlockPreview() {
++	const auto hadHeavyPart = hasHeavyPart();
++	if (auto preview = std::move(_richBlockPreview)) {
++		const auto weak = preview->view;
++		_expanded = false;
++		// Destroy before checking whether any other component is still heavy.
++		preview.reset();
++		if (hadHeavyPart) {
++			if (const auto owner = weak.get()) {
++				owner->checkHeavyPart();
++			}
++		}
++	}
+ }
+ 
+ } // namespace HistoryView
+diff --git a/Telegram/SourceFiles/history/view/history_view_reply.h b/Telegram/SourceFiles/history/view/history_view_reply.h
+index f8f29f7352baaa1db40774fddf3dbeb4717f1d87..52a07048d21e96211d5977a512c5a11a96e943d1 100644
+--- a/Telegram/SourceFiles/history/view/history_view_reply.h
++++ b/Telegram/SourceFiles/history/view/history_view_reply.h
+@@ -75,6 +75,16 @@ public:
+ 	Reply &operator=(Reply &&other);
+ 	~Reply();
+ 
++	[[nodiscard]] bool preparePromotedQuote(
++		not_null<Element*> view,
++		const HistoryMessageReply *data);
++	[[nodiscard]] int promotedTextPrefix() const {
++		return _promotedTextPrefix;
++	}
++	[[nodiscard]] bool promotedRichBlock() const {
++		return _promotedRichBlock;
++	}
++
+ 	void update(
+ 		not_null<Element*> view,
+ 		not_null<HistoryMessageReply*> data);
+@@ -101,6 +111,8 @@ public:
+ 		int w,
+ 		bool inBubble) const;
+ 	void unloadPersistentAnimation();
++	[[nodiscard]] bool hasHeavyPart() const;
++	void clearRichBlockPreview();
+ 
+ 	void createRippleAnimation(not_null<const Element*> view, QSize size);
+ 	void saveRipplePoint(QPoint point) const;
+@@ -123,6 +135,8 @@ public:
+ 		const FullReplyTo &replyTo);
+ 
+ private:
++	struct RichBlockPreview;
++
+ 	[[nodiscard]] bool hasBackgroundEmoji() const;
+ 	[[nodiscard]] int nameIconsSkip() const;
+ 	[[nodiscard]] int previewSkip() const;
+@@ -135,6 +149,10 @@ private:
+ 	void setLinkFrom(
+ 		not_null<Element*> view,
+ 		not_null<HistoryMessageReply*> data);
++	void paintRichBlock(
++		Painter &p,
++		const Ui::ChatPaintContext &context,
++		QRect rect) const;
+ 
+ 	[[nodiscard]] PeerData *sender(
+ 		not_null<const Element*> view,
+@@ -148,6 +166,10 @@ private:
+ 		bool shorten) const;
+ 
+ 	ClickHandlerPtr _link;
++	std::shared_ptr<const Iv::RichQuote> _promotedQuote;
++	std::unique_ptr<RichBlockPreview> _richBlockPreview;
++	int _promotedTextPrefix = 0;
++	bool _promotedRichBlock = false;
+ 	std::unique_ptr<Ui::SpoilerAnimation> _spoiler;
+ 	mutable QImage _spoilerCache;
+ 	mutable PeerData *_externalSender = nullptr;
+diff --git a/Telegram/SourceFiles/history/view/history_view_rich_quote.cpp b/Telegram/SourceFiles/history/view/history_view_rich_quote.cpp
+index 02ecd3a69cec6c3bd2802dd3c5e5413ea1bef311..e1e63d006cb8894d0654ed63af5adda45bed625a 100644
+--- a/Telegram/SourceFiles/history/view/history_view_rich_quote.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_rich_quote.cpp
+@@ -236,6 +236,16 @@ void AppendDisplayRanges(
+ 	return Iv::RichQuoteRange{ .from = *quoteFrom, .till = *quoteTill };
+ }
+ 
++[[nodiscard]] bool ValidBlockTarget(
++		not_null<const HistoryMessageRichPage*> rich,
++		not_null<const HistoryItem*> item,
++		const Iv::Markdown::RichBlockQuoteTarget &target) {
++	return target.page
++		&& target.page == rich->page
++		&& target.page == item->richPage()
++		&& &item->translatedText() == &item->originalText();
++}
++
+ } // namespace
+ 
+ RichQuotePaint::RichQuotePaint(
+@@ -246,6 +256,18 @@ RichQuotePaint::RichQuotePaint(
+ 		|| (context->highlight.collapsion <= 0.)) {
+ 		return;
+ 	}
++	if (const auto &blocks = context->highlight.richQuote.blocks) {
++		if (ValidBlockTarget(rich, item, *blocks)) {
++			_target = context->highlightPathCache;
++			for (const auto &path : blocks->paths) {
++				const auto rect = rich->article.sourceBlockRect(path);
++				if (!rect.isEmpty()) {
++					_path.addRect(rect);
++				}
++			}
++		}
++		return;
++	}
+ 	_ranges = RichQuoteDisplayRanges(
+ 		rich,
+ 		item,
+@@ -269,10 +291,19 @@ HighlightYRange RichQuoteHighlightYRange(
+ 		not_null<const HistoryItem*> item,
+ 		const Ui::ChatPaintRichQuote &quote,
+ 		int articleTop) {
+-	const auto ranges = RichQuoteDisplayRanges(rich, item, quote);
+-	const auto rect = ranges.empty()
+-		? QRect()
+-		: rich->article.displayRangesRect(ranges);
++	auto rect = QRect();
++	if (const auto &blocks = quote.blocks) {
++		if (ValidBlockTarget(rich, item, *blocks)) {
++			for (const auto &path : blocks->paths) {
++				rect = rect.united(rich->article.sourceBlockRect(path));
++			}
++		}
++	} else {
++		const auto ranges = RichQuoteDisplayRanges(rich, item, quote);
++		if (!ranges.empty()) {
++			rect = rich->article.displayRangesRect(ranges);
++		}
++	}
+ 	if (rect.isEmpty()) {
+ 		return {};
+ 	}
+diff --git a/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp b/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
+index 301d8978142c706851c2bc33e74e8b1839cc5053..c4668401efa71af77aea7cd61dc41b7a2d5f2f48 100644
+--- a/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_scheduled_section.cpp
+@@ -1627,7 +1627,7 @@ bool ScheduledWidget::showMessage(
+ 	}();
+ 	const auto position = message->position();
+ 	const auto originId = originItem ? originItem->fullId() : FullMsgId();
+-	if (params.highlight.richQuote) {
++	if (params.highlight.richQuote || params.highlight.richBlockQuote) {
+ 		_inner->showAtPosition(
+ 			position,
+ 			params,
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
+index 60b13d2f398e405b7df8e73f4082aaa1d1533c77..7f9d61f5d30ee53ca2bd87915252d7714dff9b4d 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
+@@ -661,7 +661,7 @@ void Gif::draw(Painter &p, const PaintContext &context) const {
+ 	const auto st = context.st;
+ 	const auto sti = context.imageStyle();
+ 	const auto cornerDownload = downloadInCorner();
+-	const auto autoplay = autoplayEligible(true);
++	const auto autoplay = !context.passiveMedia && autoplayEligible(true);
+ 	const auto mediaEditor = (_parent->context() == Context::MediaEditor);
+ 	const auto activeRoundPlaying = activeRoundStreamed();
+ 
+@@ -1840,7 +1840,8 @@ void Gif::drawGrouped(
+ 		validateSpoilerImageCache(geometry.size(), rounding);
+ 	}
+ 
+-	const auto autoplay = autoplayEligible(!_smallGroupPart);
++	const auto autoplay = !context.passiveMedia
++		&& autoplayEligible(!_smallGroupPart);
+ 	const auto canStartPlay = autoplay
+ 		&& !_streamed
+ 		&& !fullHiddenBySpoiler;
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
+index cab16da2707f94b58383ab7f9bda0f2cffd0b9b8..d05792586fffc3e2a1f7f259eb60ebc03c05d749 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.cpp
+@@ -3929,6 +3929,7 @@ public:
+ 		const MarkdownArticleSelectionEndpoints *endpoints) const;
+ 
+ 	[[nodiscard]] bool richPageRtl() const;
++	[[nodiscard]] QRect sourceBlockRect(const PreparedEditBlockPath &path);
+ 
+ 	[[nodiscard]] bool highlightProcessDone(
+ 		Spellchecker::HighlightProcessId processId);
+@@ -5402,6 +5403,12 @@ bool MarkdownArticle::Impl::richPageRtl() const {
+ 	return _content.richPage && _content.richPage->rtl;
+ }
+ 
++QRect MarkdownArticle::Impl::sourceBlockRect(
++		const PreparedEditBlockPath &path) {
++	const auto block = FindLaidOutArticleBlockByPath(&_blocks, path);
++	return block ? block->outer : QRect();
++}
++
+ bool MarkdownArticle::Impl::highlightProcessDone(
+ 		Spellchecker::HighlightProcessId processId) {
+ 	const auto i = _pendingHighlightEntries.find(processId);
+@@ -7307,6 +7314,11 @@ QRect MarkdownArticle::segmentRect(int segmentIndex) const {
+ 	return _impl->segmentRect(segmentIndex);
+ }
+ 
++QRect MarkdownArticle::sourceBlockRect(
++		const PreparedEditBlockPath &path) const {
++	return _impl->sourceBlockRect(path);
++}
++
+ std::vector<MarkdownArticleMediaGeometry>
+ MarkdownArticle::mediaBlockGeometries() const {
+ 	return _impl->mediaBlockGeometries();
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
+index 0c381dfb7704da49834d5907f8a2e04b375c377e..308c46b50206ae56da9609a487aa1de4f0c8b5cc 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article.h
+@@ -36,6 +36,15 @@ struct Markdown;
+ struct TextStyle;
+ } // namespace style
+ 
++namespace Iv::Markdown {
++
++struct RichBlockQuoteTarget {
++	std::shared_ptr<const Iv::RichPage> page;
++	std::vector<PreparedEditBlockPath> paths;
++};
++
++} // namespace Iv::Markdown
++
+ namespace Ui {
+ class PathShiftGradient;
+ } // namespace Ui
+@@ -543,6 +552,8 @@ public:
+ 	[[nodiscard]] QRect textSegmentRect(int segmentIndex) const;
+ 	[[nodiscard]] QRect logicalSegmentRect(int segmentIndex) const;
+ 	[[nodiscard]] QRect segmentRect(int segmentIndex) const;
++	[[nodiscard]] QRect sourceBlockRect(
++		const PreparedEditBlockPath &path) const;
+ 	[[nodiscard]] std::vector<MarkdownArticleMediaGeometry>
+ 		mediaBlockGeometries() const;
+ 	[[nodiscard]] std::vector<QRect> buttonRowControlRects() const;
+diff --git a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
+index 4d5a8c0bf6ee9fd25aabc86e9b635a24171914f0..fc604a966ebe0e90bfbcfeefc3a4c35ca776fc36 100644
+--- a/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
++++ b/Telegram/SourceFiles/iv/markdown/iv_markdown_article_paint.cpp
+@@ -805,6 +805,7 @@ void PaintTextLeaf(
+ 			.colors = context.caches.colors,
+ 			.spoiler = Ui::Text::DefaultSpoilerCache(),
+ 			.now = context.now,
++			.paused = context.passiveMedia,
+ 			.elisionLines = elisionLines,
+ 		};
+ 	};
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index c7bc05fa9768a53d96ea8acda070b96ec8582584..9997e4ae441f8866c4a3d5345b47d2ec412b7fce 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -3335,6 +3335,10 @@ void FillMessages(SectionBuilder &builder) {
+ 		builder,
+ 		::Tele::kOptionMultiQuote,
+ 		{ u"reply"_q, u"blockquote"_q, u"several"_q });
++	AddOptionToggle(
++		builder,
++		::Tele::kOptionPromoteReplyQuotes,
++		{ u"reply"_q, u"blockquote"_q, u"rich"_q });
+ 	AddGroupDivider(builder);
+ 	AddGroupTitle(builder, u"Bubbles"_q);
+ 	AddOptionToggle(
+diff --git a/Telegram/SourceFiles/tele/tele_ignored.cpp b/Telegram/SourceFiles/tele/tele_ignored.cpp
+index 273f98d2cd4ccce52a4fc6ff28cea4657a289472..118c64e11ea07714c18bdf62e670f40b5da78600 100644
+--- a/Telegram/SourceFiles/tele/tele_ignored.cpp
++++ b/Telegram/SourceFiles/tele/tele_ignored.cpp
+@@ -9,6 +9,7 @@
+ #include "data/data_user.h"
+ #include "history/history.h"
+ #include "history/history_item.h"
++#include "history/history_item_components.h"
+ #include "history/view/history_view_element.h"
+ #include "main/main_session.h"
+ #include "tele/tele_hidden_words.h"
+@@ -163,6 +164,22 @@ State::State() {
+ 	) | rpl::on_next([=] {
+ 		RefreshSizes(*this);
+ 	}, lifetime);
++
++	PromoteReplyQuotesChanges(
++	) | rpl::on_next([=] {
++		auto items = base::flat_set<not_null<HistoryItem*>>();
++		for (const auto &view : views) {
++			const auto item = view->data();
++			const auto reply = item->Get<HistoryMessageReply>();
++			const auto source = reply ? reply->resolvedMessage.get() : nullptr;
++			if (source && source->richPage()) {
++				items.emplace(item);
++			}
++		}
++		for (const auto &item : items) {
++			item->history()->owner().requestItemResize(item);
++		}
++	}, lifetime);
+ }
+ 
+ [[nodiscard]] bool Applies(Context context) {
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index e0fff046f98ccff40aa003aacef85d5f8b304a6d..86946e3e9b206ac600ea4c215d490a4af87f6f09 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -134,6 +134,7 @@ const char kOptionRoundSeekAnywhere[] = "tele-round-seek-anywhere";
+ const char kOptionCopyProtected[] = "tele-copy-protected";
+ const char kOptionRichQuote[] = "tele-rich-quote";
+ const char kOptionMultiQuote[] = "tele-multi-quote";
++const char kOptionPromoteReplyQuotes[] = "tele-promote-reply-quotes";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionAllowScreenCapture[] = "tele-allow-screen-capture";
+@@ -1065,6 +1066,13 @@ base::options::toggle MultiQuoteOption({
+ 	.defaultValue = true,
+ });
+ 
++base::options::toggle PromoteReplyQuotesOption({
++	.id = kOptionPromoteReplyQuotes,
++	.name = "Show matching blockquotes as reply quotes",
++	.description = "Moves an exact leading quote from a rich message "
++		"into the reply header.",
++});
++
+ base::options::toggle KeepSecretMediaOption({
+ 	.id = kOptionKeepSecretMedia,
+ 	.name = "Open disappearing media without burning it",
+@@ -2993,6 +3001,14 @@ bool MultiQuote() {
+ 	return MultiQuoteOption.value();
+ }
+ 
++bool PromoteReplyQuotes() {
++	return PromoteReplyQuotesOption.value();
++}
++
++rpl::producer<> PromoteReplyQuotesChanges() {
++	return PromoteReplyQuotesOption.changes();
++}
++
+ bool KeepSecretMedia() {
+ 	return KeepSecretMediaOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 660ba9c64db8283bddfc4b177e3c5402cad81c04..b8fb91a15c6b9b2f4a59120a81126de0a5e399db 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -129,6 +129,7 @@ extern const char kOptionRoundSeekAnywhere[];
+ extern const char kOptionCopyProtected[];
+ extern const char kOptionRichQuote[];
+ extern const char kOptionMultiQuote[];
++extern const char kOptionPromoteReplyQuotes[];
+ extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionAllowScreenCapture[];
+@@ -471,6 +472,8 @@ void SetSavedHistoryPeriod(const QString &value);
+ [[nodiscard]] bool CopyProtected();
+ [[nodiscard]] bool RichQuote();
+ [[nodiscard]] bool MultiQuote();
++[[nodiscard]] bool PromoteReplyQuotes();
++[[nodiscard]] rpl::producer<> PromoteReplyQuotesChanges();
+ [[nodiscard]] bool KeepSecretMedia();
+ [[nodiscard]] bool ScreenshotSecretMedia();
+ [[nodiscard]] bool AllowScreenCapture();
+diff --git a/Telegram/SourceFiles/tele/tele_rich_quote.cpp b/Telegram/SourceFiles/tele/tele_rich_quote.cpp
+index 3be9021beb80080ec84435ca317f559f4388d084..49c34e379f7dd4e06c37688a8a12a2b3d7c35e50 100644
+--- a/Telegram/SourceFiles/tele/tele_rich_quote.cpp
++++ b/Telegram/SourceFiles/tele/tele_rich_quote.cpp
+@@ -17,8 +17,13 @@
+ #include "history/view/media/history_view_document.h"
+ #include "iv/editor/iv_editor_clipboard.h"
+ #include "iv/editor/iv_editor_page_blocks.h"
++#include "iv/editor/iv_editor_page_table_grid.h"
+ #include "iv/editor/iv_editor_session.h"
+ #include "iv/editor/iv_editor_window.h"
++#include "iv/iv_rich_page_quote.h"
++#include "iv/iv_rich_page_quote_builder.h"
++#include "iv/markdown/iv_markdown_prepare_links.h"
++#include "main/main_app_config.h"
+ #include "main/main_session.h"
+ #include "media/player/media_player_float.h"
+ #include "tele/tele_lowercase.h"
+@@ -27,10 +32,15 @@
+ #include "ui/delayed_activation.h"
+ #include "ui/effects/voice_once_particles.h"
+ #include "ui/text/text_entity.h"
++#include "ui/text/text_utilities.h"
+ #include "ui/toast/toast.h"
+ #include "ui/widgets/fields/input_field.h"
+ #include "ui/widgets/popup_menu.h"
+ 
++#include <algorithm>
++#include <array>
++#include <span>
++
+ #include <QtCore/QMimeData>
+ #include <QtWidgets/QApplication>
+ 
+@@ -333,8 +343,670 @@ void AppendToEditor(
+ 	return result;
+ }
+ 
++[[nodiscard]] const Block *LeadingRichQuoteBlock(const Iv::RichPage &page) {
++	if (page.blocks.empty()) {
++		return nullptr;
++	}
++	const auto &block = page.blocks.front();
++	return (block.kind == Iv::RichPage::BlockKind::Quote
++		&& block.anchorId.isEmpty()
++		&& block.text.anchorId.isEmpty()
++		&& block.text.anchorIds.empty()
++		&& block.caption == Iv::RichPage::RichText()
++		&& !block.pullquote
++		&& (block.blocks.empty() || block.text.text.empty()))
++		? &block
++		: nullptr;
++}
++
++[[nodiscard]] bool IsPlainQuoteParagraph(const Block &block) {
++	return (block.kind == Iv::RichPage::BlockKind::Paragraph)
++		&& block.anchorId.isEmpty()
++		&& block.text.anchorId.isEmpty()
++		&& block.text.anchorIds.empty()
++		&& !block.text.text.empty();
++}
++
++[[nodiscard]] TextWithEntities LeadingRichQuoteText(const Block &block) {
++	if (block.blocks.empty()) {
++		return block.text.text;
++	}
++	auto result = TextWithEntities();
++	for (const auto &child : block.blocks) {
++		if (!IsPlainQuoteParagraph(child)) {
++			return {};
++		}
++		if (!result.empty()) {
++			result.append(QChar('\n'));
++		}
++		result.append(child.text.text);
++	}
++	return result;
++}
++
++using BlockKind = Iv::RichPage::BlockKind;
++using RichText = Iv::RichPage::RichText;
++using BlockPath = Iv::Markdown::PreparedEditBlockPath;
++using ContainerKind = Iv::Markdown::PreparedEditBlockContainerKind;
++
++struct SliceEdge {
++	bool first = false;
++	bool last = false;
++};
++
++// Native history copy uses Ui::Text::Mid on directly addressed boundary
++// leaves. Count distinct offsets, not just distinct resulting text.
++[[nodiscard]] int TrimmedTextMatches(
++		const RichText &source,
++		const RichText &quote,
++		SliceEdge edge) {
++	if (source.anchorId != quote.anchorId
++		|| source.anchorIds != quote.anchorIds) {
++		return 0;
++	}
++	const auto from = QStringView(source.text.text);
++	const auto text = QStringView(quote.text.text);
++	const auto plain = source.text.entities.empty();
++	if (text.isEmpty()
++		|| text.size() >= from.size()
++		|| (plain && !quote.text.entities.empty())) {
++		return 0;
++	}
++	const auto last = from.size() - text.size();
++	const auto min = edge.last ? 0 : last;
++	const auto max = edge.first ? last : 0;
++	auto result = 0;
++	for (auto i = min; i <= max;) {
++		const auto offset = from.indexOf(text, i);
++		if (offset < 0 || offset > max) {
++			break;
++		}
++		const auto till = offset + text.size();
++		if ((offset == 0 || !from.at(offset).isLowSurrogate())
++			&& (till == from.size() || !from.at(till).isLowSurrogate())
++			&& (plain
++				|| Ui::Text::Mid(source.text, int(offset), int(text.size()))
++					== quote.text)
++			&& ++result == 2) {
++			break;
++		}
++		i = offset + 1;
++	}
++	return result;
++}
++
++[[nodiscard]] int ListItemMatches(
++		const Iv::RichPage::ListItem &source,
++		const Iv::RichPage::ListItem &quote,
++		SliceEdge edge) {
++	if (source.taskState != quote.taskState
++		|| source.number != quote.number
++		|| source.anchorId != quote.anchorId
++		|| source.blocks != quote.blocks) {
++		return 0;
++	}
++	return (source.text == quote.text)
++		? 1
++		: TrimmedTextMatches(source.text, quote.text, edge);
++}
++
++[[nodiscard]] int ListMatches(
++		const Block &source,
++		const Block &quote,
++		SliceEdge edge) {
++	// In the parsed model a list's only variable data besides its
++	// anchor and numbering is the item vector. Preserve original numbering,
++	// exactly as the history selection copier does when erasing edge items.
++	if (source.listKind != quote.listKind
++		|| source.orderedList != quote.orderedList
++		|| source.anchorId != quote.anchorId) {
++		return 0;
++	}
++	const auto size = int(quote.listItems.size());
++	const auto last = int(source.listItems.size()) - size;
++	if (!size || last < 0) {
++		return 0;
++	}
++	auto result = 0;
++	for (auto i = (edge.last ? 0 : last), end = (edge.first ? last : 0);
++			i <= end;
++			++i) {
++		auto matches = 1;
++		for (auto j = 0; j != size; ++j) {
++			const auto count = ListItemMatches(
++				source.listItems[i + j],
++				quote.listItems[j],
++				{ edge.first && j == 0, edge.last && j == size - 1 });
++			if (!count) {
++				matches = 0;
++				break;
++			}
++			matches = std::max(matches, count);
++		}
++		result += matches;
++		if (result >= 2) {
++			return 2;
++		}
++	}
++	return result;
++}
++
++[[nodiscard]] int BoundaryBlockMatches(
++		const Block &source,
++		const Block &quote,
++		SliceEdge edge) {
++	if (source.kind != quote.kind) {
++		return 0;
++	}
++	if (source.kind == BlockKind::List && !quote.listItems.empty()) {
++		return ListMatches(source, quote, edge);
++	}
++	if (source == quote) {
++		return 1;
++	}
++	const auto text = [&] {
++		switch (source.kind) {
++		case BlockKind::Heading:
++		case BlockKind::Paragraph:
++		case BlockKind::Footer:
++		case BlockKind::Code:
++		case BlockKind::Thinking:
++		case BlockKind::Details:
++		case BlockKind::Table:
++			return true;
++		case BlockKind::Quote:
++			return source.blocks.empty() && !source.collapsed;
++		default:
++			return false;
++		}
++	}();
++	const auto caption = [&] {
++		switch (source.kind) {
++		case BlockKind::Quote:
++			return !source.collapsed;
++		case BlockKind::Photo:
++		case BlockKind::Video:
++		case BlockKind::Audio:
++		case BlockKind::File:
++		case BlockKind::GroupedMedia:
++		case BlockKind::Map:
++			return true;
++		default:
++			return false;
++		}
++	}();
++	const auto trimText = (source.text != quote.text);
++	const auto trimCaption = (source.caption != quote.caption);
++	if ((!trimText && !trimCaption)
++		|| (trimText && !text)
++		|| (trimCaption && !caption)
++		|| (trimText && trimCaption && (!edge.first || !edge.last))) {
++		return 0;
++	}
++	const auto textCount = trimText
++		? TrimmedTextMatches(
++			source.text,
++			quote.text,
++			{ edge.first, edge.last && !trimCaption })
++		: 1;
++	const auto captionCount = trimCaption
++		? TrimmedTextMatches(
++			source.caption,
++			quote.caption,
++			{ edge.first && !trimText, edge.last })
++		: 1;
++	if (!textCount || !captionCount || source.anchorId != quote.anchorId) {
++		return 0;
++	}
++	// Compare canonical metadata and children without cloning tables or
++	// nested blocks merely to replace their directly addressed text.
++	const auto metadataMatches = [&] {
++		switch (source.kind) {
++		case BlockKind::Quote:
++			return (source.pullquote == quote.pullquote)
++				&& (source.collapsed == quote.collapsed)
++				&& (source.blocks == quote.blocks);
++		case BlockKind::Details:
++			return (source.open == quote.open)
++				&& (source.blocks == quote.blocks);
++		case BlockKind::Table:
++			return (source.bordered == quote.bordered)
++				&& (source.striped == quote.striped)
++				&& (source.compact == quote.compact)
++				&& (source.tableRows == quote.tableRows);
++		case BlockKind::GroupedMedia:
++			return (source.mediaIntent == quote.mediaIntent)
++				&& (source.mediaItems == quote.mediaItems);
++		default: {
++			auto trimmed = source;
++			trimmed.text = quote.text;
++			trimmed.caption = quote.caption;
++			return trimmed == quote;
++		}
++		}
++	}();
++	return metadataMatches ? std::max(textCount, captionCount) : 0;
++}
++
++using TableCell = Iv::RichPage::TableCell;
++using GridCell = Iv::Editor::TableGridCellReference;
++
++struct CellRange {
++	int rowFrom;
++	int rowTill;
++	int columnFrom;
++	int columnTill;
++
++	friend bool operator==(const CellRange &, const CellRange &) = default;
++};
++
++[[nodiscard]] CellRange CellBounds(const GridCell &cell) {
++	return { cell.rowFrom, cell.rowTill, cell.columnFrom, cell.columnTill };
++}
++
++void IncludeCell(CellRange &range, const GridCell &cell) {
++	range.rowFrom = std::min(range.rowFrom, cell.rowFrom);
++	range.rowTill = std::max(range.rowTill, cell.rowTill);
++	range.columnFrom = std::min(range.columnFrom, cell.columnFrom);
++	range.columnTill = std::max(range.columnTill, cell.columnTill);
++}
++
++[[nodiscard]] const TableCell &SourceCell(
++		const Block &source,
++		const GridCell &cell) {
++	return source.tableRows[cell.rowIndex].cells[cell.cellIndex];
++}
++
++[[nodiscard]] bool CopiedCellEquals(
++		const Block &source,
++		const GridCell &cell,
++		const TableCell &quote) {
++	const auto &original = SourceCell(source, cell);
++	return (cell.rowTill - cell.rowFrom == quote.rowspan)
++		&& (cell.columnTill - cell.columnFrom == quote.colspan)
++		&& (original.header == quote.header)
++		&& (original.alignment == quote.alignment)
++		&& (original.verticalAlignment == quote.verticalAlignment)
++		&& (original.text == quote.text);
++}
++
++[[nodiscard]] bool IsSelectableCellRange(
++		std::span<const GridCell> cells,
++		const CellRange &range) {
++	const auto contains = [&](const GridCell &cell) {
++		return Iv::Editor::TableGridCellIntersectsRange(cell, range);
++	};
++	auto corners = std::array<const GridCell*, 4>();
++	auto spans = false;
++	for (const auto &cell : cells) {
++		if (!contains(cell)) {
++			continue;
++		}
++		if (cell.rowFrom == range.rowFrom) {
++			if (cell.columnFrom == range.columnFrom) {
++				corners[0] = &cell;
++			}
++			if (cell.columnTill == range.columnTill) {
++				corners[1] = &cell;
++			}
++		}
++		if (cell.rowTill == range.rowTill) {
++			if (cell.columnFrom == range.columnFrom) {
++				corners[2] = &cell;
++			}
++			if (cell.columnTill == range.columnTill) {
++				corners[3] = &cell;
++			}
++		}
++		spans = spans
++			|| (cell.rowTill - cell.rowFrom > 1)
++			|| (cell.columnTill - cell.columnFrom > 1);
++	}
++	const auto opposite = [&](int a, int b) {
++		return corners[a] && corners[b] && corners[a] != corners[b];
++	};
++	if (opposite(0, 3) || opposite(1, 2)) {
++		return true;
++	} else if (!spans) {
++		return false;
++	}
++	const auto selectsRange = [&](const GridCell &a, const GridCell &b) {
++		auto actual = CellBounds(a);
++		IncludeCell(actual, b);
++		while (actual != range) {
++			const auto before = actual;
++			for (const auto &cell : cells) {
++				if (Iv::Editor::TableGridCellIntersectsRange(cell, actual)) {
++					IncludeCell(actual, cell);
++				}
++			}
++			if (actual == before) {
++				return false;
++			}
++		}
++		return true;
++	};
++	// Merged cells can grow a selection past either hit cell.
++	for (auto i = size_t(0); i < cells.size(); ++i) {
++		if (!contains(cells[i])) {
++			continue;
++		}
++		for (auto j = i + 1; j < cells.size(); ++j) {
++			if (contains(cells[j]) && selectsRange(cells[i], cells[j])) {
++				return true;
++			}
++		}
++	}
++	return false;
++}
++
++[[nodiscard]] int TableRangeMatches(
++		const Block &source,
++		const Block &quote,
++		const Iv::Markdown::MarkdownPrepareTableRenderLimits &limits,
++		bool skipWholeMatch) {
++	// TableCellRangeBlocks preserves the title and table styling, drops
++	// anchor/caption, and copies cells with their prepared spans.
++	const auto height = int(quote.tableRows.size());
++	if (source.kind != BlockKind::Table
++		|| !height
++		|| height > int(source.tableRows.size())
++		|| !quote.anchorId.isEmpty()
++		|| quote.caption != RichText()
++		|| source.bordered != quote.bordered
++		|| source.striped != quote.striped
++		|| source.compact != quote.compact
++		|| source.text != quote.text) {
++		return 0;
++	}
++	const auto &firstRow = quote.tableRows.front().cells;
++	if (firstRow.empty()) {
++		return 0;
++	}
++	const auto grid = Iv::Editor::BuildTableGrid(source, limits);
++	const auto cells = std::span(grid.cells);
++	const auto rowStart = [&](int row) {
++		return std::lower_bound(
++			cells.begin(),
++			cells.end(),
++			row,
++			[](const GridCell &cell, int row) {
++				return cell.rowFrom < row;
++			}) - cells.begin();
++	};
++	auto result = 0;
++	for (auto row = 0; row + height <= grid.rowCount; ++row) {
++		const auto first = rowStart(row);
++		const auto last = rowStart(row + height);
++		const auto candidates = cells.subspan(first, last - first);
++		if (ranges::none_of(candidates, [&](const GridCell &cell) {
++			return (cell.rowFrom == row)
++				&& CopiedCellEquals(source, cell, firstRow.front());
++		})) {
++			continue;
++		}
++		for (auto left = 0; left < grid.columnCount; ++left) {
++			for (auto right = left + 1; right <= grid.columnCount; ++right) {
++				const auto range = CellRange{ row, row + height, left, right };
++				if (skipWholeMatch
++					&& range == CellRange{ 0, grid.rowCount, 0, grid.columnCount }) {
++					continue;
++				}
++				auto matches = true;
++				auto bounds = std::optional<CellRange>();
++				auto index = first;
++				for (auto y = 0; y != height && matches; ++y) {
++					const auto &expected = quote.tableRows[y].cells;
++					auto current = size_t(0);
++					for (; index != last && cells[index].rowFrom == row + y;
++							++index) {
++						const auto &cell = cells[index];
++						if (!Iv::Editor::TableGridCellIntersectsRange(cell, range)) {
++							continue;
++						} else if (current == expected.size()
++							|| !CopiedCellEquals(source, cell, expected[current++])) {
++							matches = false;
++							break;
++						}
++						if (bounds) {
++							IncludeCell(*bounds, cell);
++						} else {
++							bounds = CellBounds(cell);
++						}
++					}
++					matches = matches && (current == expected.size());
++				}
++				if (!matches || bounds != range) {
++					continue;
++				}
++				// Spans that begin above the top edge also pull the
++				// selection outside this rectangle.
++				if (ranges::any_of(cells.first(first), [&](const GridCell &cell) {
++					return Iv::Editor::TableGridCellIntersectsRange(cell, range);
++				})) {
++					continue;
++				}
++				if (IsSelectableCellRange(candidates, range)
++					&& ++result == 2) {
++					return result;
++				}
++			}
++		}
++	}
++	return result;
++}
++
++struct StructuralMatches {
++	int count = 0;
++	std::vector<BlockPath> paths;
++};
++
++void FindBlockRanges(
++		const std::vector<Block> &blocks,
++		std::span<const Block> quote,
++		const Iv::Markdown::MarkdownPrepareTableRenderLimits *limits,
++		Iv::Markdown::PreparedEditBlockContainerPath &container,
++		StructuralMatches &result) {
++	const auto size = int(quote.size());
++	const auto end = int(blocks.size()) - size;
++	for (auto i = 0; i <= end && result.count < 2; ++i) {
++		auto count = 1;
++		for (auto j = 0; j != size; ++j) {
++			const auto edge = SliceEdge{ j == 0, j == size - 1 };
++			const auto &block = blocks[i + j];
++			const auto &part = quote[j];
++			auto matches = (edge.first || edge.last)
++				? BoundaryBlockMatches(block, part, edge)
++				: int(block == part);
++			if (limits && part.kind == BlockKind::Table) {
++				matches += TableRangeMatches(block, part, *limits, matches > 0);
++			}
++			if (!matches) {
++				count = 0;
++				break;
++			}
++			count = std::max(matches, count);
++		}
++		if (count && !result.count) {
++			result.paths.reserve(size);
++			for (auto j = 0; j != size; ++j) {
++				result.paths.push_back({ .container = container, .index = i + j });
++			}
++		}
++		result.count += count;
++	}
++	for (auto i = 0; i != int(blocks.size()) && result.count < 2; ++i) {
++		const auto &block = blocks[i];
++		if (!block.blocks.empty()) {
++			container.steps.push_back({ ContainerKind::BlockChildren, i });
++			FindBlockRanges(block.blocks, quote, limits, container, result);
++			container.steps.pop_back();
++		}
++		for (auto j = 0; j != int(block.listItems.size()) && result.count < 2; ++j) {
++			const auto &children = block.listItems[j].blocks;
++			if (!children.empty()) {
++				container.steps.push_back({ ContainerKind::ListItemChildren, i, j });
++				FindBlockRanges(children, quote, limits, container, result);
++				container.steps.pop_back();
++			}
++		}
++	}
++}
++
++[[nodiscard]] StructuralMatches FindStructuralMatches(
++		const Iv::RichPage &source,
++		std::span<const Block> quote,
++		not_null<Main::Session*> session) {
++	auto result = StructuralMatches();
++	const auto includesTable = ranges::any_of(quote, [](const Block &part) {
++		return part.kind == BlockKind::Table;
++	});
++	const auto limits = includesTable
++		? std::make_optional(Iv::Markdown::PrepareTableRenderLimitsForRichMessage(
++			Iv::ResolveRichMessageLimits(session)))
++		: std::nullopt;
++	auto container = Iv::Markdown::PreparedEditBlockContainerPath();
++	FindBlockRanges(
++		source.blocks,
++		quote,
++		limits ? &*limits : nullptr,
++		container,
++		result);
++	return result;
++}
++
++[[nodiscard]] TextWithEntities LeadingTextQuote(
++		const TextWithEntities &body,
++		int &prefix) {
++	const auto first = ranges::find_if(body.entities, [](const auto &entity) {
++		return entity.offset() == 0 && entity.type() == EntityType::Blockquote;
++	});
++	if (first == body.entities.cend()) {
++		return {};
++	}
++	const auto length = first->length();
++	if (length <= 0 || length > body.text.size()) {
++		return {};
++	}
++	prefix = length;
++	while (prefix < body.text.size() && body.text.at(prefix) == QChar('\n')) {
++		++prefix;
++	}
++	auto result = TextWithEntities{ body.text.left(length) };
++	for (const auto &entity : body.entities) {
++		if (&entity == &*first || entity.offset() >= prefix) {
++			continue;
++		} else if (entity.type() == EntityType::Blockquote
++			|| entity.offset() + entity.length() > length) {
++			return {};
++		}
++		result.entities.push_back(entity);
++	}
++	return result;
++}
++
++[[nodiscard]] std::shared_ptr<const Iv::RichQuote> MatchTextQuote(
++		not_null<Main::Session*> session,
++		const Iv::RichPage &page,
++		TextWithEntities quoted) {
++	const auto model = page.quoteModel.get();
++	const auto limit = session->appConfig().quoteLengthMax();
++	if (!model
++		|| model->partial()
++		|| quoted.text.trimmed().isEmpty()
++		|| quoted.text.size() > limit) {
++		return nullptr;
++	}
++	const auto &projection = model->projection();
++	const auto offset = projection.indexOf(quoted.text);
++	if (offset < 0 || projection.indexOf(quoted.text, offset + 1) >= 0) {
++		return nullptr;
++	}
++	const auto built = Iv::BuildRichQuote(session, page, {
++		.from = int(offset),
++		.till = int(offset + quoted.text.size()),
++	}, limit);
++	if (!built || built->offset != offset || built->overflown) {
++		return nullptr;
++	}
++	auto quote = Iv::ParseRichQuote(session, built->fragments, built->offset);
++	Iv::Markdown::SortEntities(&quoted);
++	return (quote && quote->text == quoted) ? std::move(quote) : nullptr;
++}
++
+ } // namespace
+ 
++PromotedReplyQuote PromoteReplyQuote(
++		not_null<const HistoryItem*> item,
++		not_null<const HistoryMessageReply*> reply) {
++	if (!PromoteReplyQuotes()) {
++		return {};
++	}
++	const auto &fields = reply->fields();
++	const auto source = reply->resolvedMessage.get();
++	if (!source
++		|| source == item.get()
++		|| fields.manualQuote
++		|| !fields.quote.empty()
++		|| fields.richQuote
++		|| fields.todoItemId
++		|| !fields.pollOption.isEmpty()
++		|| item->groupId()
++		|| !item->computeUnavailableReason().isEmpty()
++		|| &item->translatedText() != &item->originalText()
++		|| &source->translatedText() != &source->originalText()) {
++		return {};
++	}
++	const auto page = source->richPage();
++	if (!page
++		|| page->part
++		|| !source->computeUnavailableReason().isEmpty()
++		|| source->translatedRichPage() != page) {
++		return {};
++	}
++	const auto body = item->richPage();
++	if (item->translatedRichPage() != body) {
++		return {};
++	}
++	const auto session = &item->history()->session();
++	if (!body) {
++		auto prefix = 0;
++		auto quote = MatchTextQuote(
++			session,
++			*page,
++			LeadingTextQuote(item->originalText(), prefix));
++		return quote
++			? PromotedReplyQuote{ .quote = std::move(quote), .textPrefix = prefix }
++			: PromotedReplyQuote();
++	}
++	const auto outer = body->part ? nullptr : LeadingRichQuoteBlock(*body);
++	if (!outer) {
++		return {};
++	} else if (outer->blocks.empty()) {
++		auto quote = MatchTextQuote(session, *page, outer->text.text);
++		return quote
++			? PromotedReplyQuote{ .quote = std::move(quote), .richBlock = true }
++			: PromotedReplyQuote();
++	}
++	auto matched = FindStructuralMatches(*page, outer->blocks, session);
++	if (matched.count != 1) {
++		return {};
++	}
++	if (auto quote = MatchTextQuote(session, *page, LeadingRichQuoteText(*outer))) {
++		return { .quote = std::move(quote), .richBlock = true };
++	}
++	auto preview = std::make_shared<Iv::RichPage>();
++	preview->url = body->url;
++	preview->rtl = body->rtl;
++	preview->blocks = outer->blocks;
++	return {
++		.richBlock = true,
++		.preview = std::move(preview),
++		.sourcePage = page,
++		.sourcePaths = std::move(matched.paths),
++	};
++}
++
+ QuoteRequest TakeRichQuote(
+ 		HistoryView::SelectedQuote &quote,
+ 		HistoryView::Element *view,
+diff --git a/Telegram/SourceFiles/tele/tele_rich_quote.h b/Telegram/SourceFiles/tele/tele_rich_quote.h
+index b7a6f20f4daf250b392dfbce1c21a0299fa49a95..f636250f1ea72a1f7bfbf11c95bf2f47847a5375 100644
+--- a/Telegram/SourceFiles/tele/tele_rich_quote.h
++++ b/Telegram/SourceFiles/tele/tele_rich_quote.h
+@@ -2,8 +2,11 @@
+ 
+ #include "data/data_msg_id.h"
+ #include "iv/iv_rich_page.h"
++#include "iv/markdown/iv_markdown_prepare.h"
+ 
+ class History;
++class HistoryItem;
++struct HistoryMessageReply;
+ class QMimeData;
+ 
+ namespace HistoryView {
+@@ -42,6 +45,19 @@ struct MultiQuoteCompose {
+ 	not_null<Ui::InputField*> field;
+ };
+ 
++struct PromotedReplyQuote {
++	std::shared_ptr<const Iv::RichQuote> quote;
++	int textPrefix = 0;
++	bool richBlock = false;
++	std::shared_ptr<const Iv::RichPage> preview;
++	std::shared_ptr<const Iv::RichPage> sourcePage;
++	std::vector<Iv::Markdown::PreparedEditBlockPath> sourcePaths;
++};
++
++[[nodiscard]] PromotedReplyQuote PromoteReplyQuote(
++	not_null<const HistoryItem*> item,
++	not_null<const HistoryMessageReply*> reply);
++
+ [[nodiscard]] QuoteRequest TakeRichQuote(
+ 	HistoryView::SelectedQuote &quote,
+ 	HistoryView::Element *view,
+diff --git a/Telegram/SourceFiles/tele/tele_settings_io.cpp b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+index 4dcf43c2b452ea1bb6673cd858dea66c0639997f..7ca90047dae3cb4cac45544e779bc4e24ccaad2c 100644
+--- a/Telegram/SourceFiles/tele/tele_settings_io.cpp
++++ b/Telegram/SourceFiles/tele/tele_settings_io.cpp
+@@ -232,6 +232,7 @@ struct Spec {
+ 		Toggle(kOptionCopyProtected),
+ 		Toggle(kOptionRichQuote),
+ 		Toggle(kOptionMultiQuote),
++		Toggle(kOptionPromoteReplyQuotes),
+ 		Toggle(kOptionBookmarks),
+ 		Toggle(kOptionReturnPoint),
+ 		Toggle(kOptionNoGestures),
+diff --git a/Telegram/SourceFiles/ui/chat/chat_style.h b/Telegram/SourceFiles/ui/chat/chat_style.h
+index e29ff92061fa274dd41349e5c4e78a58d0f5461c..4f7cc120d089fde9e1d012012bd5e9611399fe9d 100644
+--- a/Telegram/SourceFiles/ui/chat/chat_style.h
++++ b/Telegram/SourceFiles/ui/chat/chat_style.h
+@@ -29,6 +29,10 @@ namespace Iv {
+ struct RichPage;
+ } // namespace Iv
+ 
++namespace Iv::Markdown {
++struct RichBlockQuoteTarget;
++} // namespace Iv::Markdown
++
+ namespace style {
+ struct TwoIconButton;
+ struct ScrollArea;
+@@ -200,9 +204,10 @@ struct ChatPaintRichQuote {
+ 	std::shared_ptr<const Iv::RichPage> page;
+ 	int from = 0;
+ 	int till = 0;
++	std::shared_ptr<const Iv::Markdown::RichBlockQuoteTarget> blocks;
+ 
+ 	explicit operator bool() const {
+-		return page && (from < till);
++		return blocks || (page && (from < till));
+ 	}
+ };
+ 
+@@ -303,6 +308,7 @@ struct ChatPaintContext {
+ 	bool skipSelectionCheck = false;
+ 	bool outbg = false;
+ 	bool paused = false;
++	bool passiveMedia = false;
+ 
+ };
+ 

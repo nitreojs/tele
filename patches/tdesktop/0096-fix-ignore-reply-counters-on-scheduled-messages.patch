@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Mon, 28 Sep 2026 05:46:32 +0300
+Subject: [PATCH] fix: ignore reply counters on scheduled messages
+
+---
+ Telegram/SourceFiles/history/history_item.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/history/history_item.cpp b/Telegram/SourceFiles/history/history_item.cpp
+index 35d3b923684d4a23a814e8b9ecf4a21496acf4d7..1cdf43344a96d10c6c96cad2d64052252f3c7081 100644
+--- a/Telegram/SourceFiles/history/history_item.cpp
++++ b/Telegram/SourceFiles/history/history_item.cpp
+@@ -4353,7 +4353,7 @@ void HistoryItem::setPostAuthor(const QString &postAuthor) {
+ }
+ 
+ void HistoryItem::setReplies(HistoryMessageRepliesData &&data, bool notify) {
+-	if (data.isNull) {
++	if (data.isNull || isScheduled()) {
+ 		return;
+ 	}
+ 	auto views = Get<HistoryMessageViews>();

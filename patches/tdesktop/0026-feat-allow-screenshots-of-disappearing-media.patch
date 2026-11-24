@@ -1,0 +1,152 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 05:06:06 +0300
+Subject: [PATCH] feat: allow screenshots of disappearing media
+
+---
+ .../chat_helpers/ttl_media_layer_widget.cpp         |  3 ++-
+ .../media/view/media_view_overlay_widget.cpp        |  2 +-
+ Telegram/SourceFiles/settings/settings_tele.cpp     |  1 +
+ Telegram/SourceFiles/tele/tele_options.cpp          | 13 +++++++++++++
+ Telegram/SourceFiles/tele/tele_options.h            |  2 ++
+ Telegram/SourceFiles/tele/tele_secret_media.cpp     | 10 ++++++++++
+ Telegram/SourceFiles/tele/tele_secret_media.h       |  1 +
+ 7 files changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp b/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp
+index a336782ebbd8f095c5fc64c6e1bd89be48eb7ebb..e02833d198e94db1e068e1e12f4002886655cadc 100644
+--- a/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp
++++ b/Telegram/SourceFiles/chat_helpers/ttl_media_layer_widget.cpp
+@@ -22,6 +22,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "mainwidget.h"
+ #include "media/audio/media_audio.h"
+ #include "media/player/media_player_instance.h"
++#include "tele/tele_options.h"
+ #include "ui/chat/chat_style.h"
+ #include "ui/chat/chat_theme.h"
+ #include "ui/effects/path_shift_gradient.h"
+@@ -386,7 +387,7 @@ void ShowTTLMediaLayerWidget(
+ 	layer->lifetime().add([] { ::Media::Player::instance()->stop(); });
+ 	Core::App().screenshotProtection().addContentReason(
+ 		controller->widget(),
+-		rpl::single(true),
++		rpl::single(!Tele::ScreenshotSecretMedia()),
+ 		layer->lifetime());
+ 	base::install_event_filter(layer.get(), [=](not_null<QEvent*> e) {
+ 		if (e->type() == QEvent::KeyPress) {
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index 8d2cf2afa90ce5393851bd1ddd0f5727f4b66896..c9bfdc7d2fa609c6cf507739ac1d183eb1cb484a 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -6268,7 +6268,7 @@ bool OverlayWidget::contentNeedsScreenshotProtection() const {
+ 		return story->forbidsForward();
+ 	}
+ 	return (_history && !_history->peer->allowsForwarding())
+-		|| (_message && _message->forbidsSaving());
++		|| (_message && Tele::ForbidsCapture(_message));
+ }
+ 
+ void OverlayWidget::refreshScreenshotProtection() {
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 633b880e1b0f36727387e22dee5a770783f5e9bd..b5599484d0391312c19e5181c240681b52aa7e44 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -643,6 +643,7 @@ void TeleSection::setupContent() {
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionDeletedIcon);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionKeepSecretMedia);
++	AddOptionToggle(content, controller(), ::Tele::kOptionScreenshotSecretMedia);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index d48c8b3ce0149f934616988a7819814cb69a5aba..00e8044dc07f3ef3d27430b9e9d0053011a90269 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -25,6 +25,7 @@ const char kOptionEditHistory[] = "tele-edit-history";
+ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+ const char kOptionDeletedIcon[] = "tele-deleted-icon";
+ const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
++const char kOptionScreenshotSecretMedia[] = "tele-screenshot-secret-media";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ 
+@@ -193,6 +194,14 @@ base::options::toggle KeepSecretMediaOption({
+ 		"opened again. Right-click one to mark it as viewed.",
+ });
+ 
++base::options::toggle ScreenshotSecretMediaOption({
++	.id = kOptionScreenshotSecretMedia,
++	.name = "Allow screenshots of disappearing media",
++	.description = "The media viewer and the voice and video message "
++		"player no longer hide view-once and timed media from screen "
++		"capture. Chats that forbid saving stay protected.",
++});
++
+ base::options::option<QString> ServerUrlOption({
+ 	.id = kOptionServerUrl,
+ 	.name = "tele server",
+@@ -376,6 +385,10 @@ bool KeepSecretMedia() {
+ 	return KeepSecretMediaOption.value();
+ }
+ 
++bool ScreenshotSecretMedia() {
++	return ScreenshotSecretMediaOption.value();
++}
++
+ QString ServerUrl() {
+ 	return ServerUrlOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index 3fe11da2e34ac043143c278110dc116e52c83e3d..8f16c8c4b6eba92ba0de6c229a9071f536c4efed 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -23,6 +23,7 @@ extern const char kOptionEditHistory[];
+ extern const char kOptionKeepDeleted[];
+ extern const char kOptionDeletedIcon[];
+ extern const char kOptionKeepSecretMedia[];
++extern const char kOptionScreenshotSecretMedia[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ 
+@@ -56,6 +57,7 @@ void SetIgnoredList(const QString &value);
+ [[nodiscard]] bool DeletedTrashIcon();
+ [[nodiscard]] rpl::producer<bool> DeletedTrashIconValue();
+ [[nodiscard]] bool KeepSecretMedia();
++[[nodiscard]] bool ScreenshotSecretMedia();
+ [[nodiscard]] QString ServerUrl();
+ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();
+diff --git a/Telegram/SourceFiles/tele/tele_secret_media.cpp b/Telegram/SourceFiles/tele/tele_secret_media.cpp
+index 3e7969dbb0202f8d065bbf065067b39b03d65227..5f22f21a24b75fbe54a17d5bf4a0d72206418d60 100644
+--- a/Telegram/SourceFiles/tele/tele_secret_media.cpp
++++ b/Telegram/SourceFiles/tele/tele_secret_media.cpp
+@@ -26,6 +26,16 @@ bool KeepsSecretMedia(not_null<const HistoryItem*> item) {
+ 	return media && media->ttlSeconds();
+ }
+ 
++bool ForbidsCapture(not_null<const HistoryItem*> item) {
++	if (ScreenshotSecretMedia() && !item->forbidsForward()) {
++		const auto media = item->media();
++		if (media && media->ttlSeconds()) {
++			return false;
++		}
++	}
++	return item->forbidsSaving();
++}
++
+ void AddMarkViewedAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
+ 	if (!item
+ 		|| !item->isRegular()
+diff --git a/Telegram/SourceFiles/tele/tele_secret_media.h b/Telegram/SourceFiles/tele/tele_secret_media.h
+index 1a338e0ad8d1f563c35cf01736b333cb06534639..f413526743013b6301eebe434c88398932b0f3d0 100644
+--- a/Telegram/SourceFiles/tele/tele_secret_media.h
++++ b/Telegram/SourceFiles/tele/tele_secret_media.h
+@@ -9,6 +9,7 @@ class PopupMenu;
+ namespace Tele {
+ 
+ [[nodiscard]] bool KeepsSecretMedia(not_null<const HistoryItem*> item);
++[[nodiscard]] bool ForbidsCapture(not_null<const HistoryItem*> item);
+ 
+ void AddMarkViewedAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item);
+ 

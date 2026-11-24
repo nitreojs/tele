@@ -1,0 +1,322 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Sun, 27 Sep 2026 05:04:54 +0300
+Subject: [PATCH] feat: open disappearing media without burning it
+
+---
+ Telegram/CMakeLists.txt                       |  2 +
+ Telegram/SourceFiles/apiwrap.cpp              |  9 +++-
+ .../history/history_inner_widget.cpp          |  2 +
+ .../view/history_view_context_menu.cpp        |  2 +
+ .../view/media/history_view_document.cpp      |  4 ++
+ .../history/view/media/history_view_gif.cpp   |  4 ++
+ .../media/view/media_view_overlay_widget.cpp  |  3 +-
+ .../SourceFiles/settings/settings_tele.cpp    |  1 +
+ Telegram/SourceFiles/tele/tele_options.cpp    | 14 ++++++
+ Telegram/SourceFiles/tele/tele_options.h      |  2 +
+ .../SourceFiles/tele/tele_secret_media.cpp    | 50 +++++++++++++++++++
+ Telegram/SourceFiles/tele/tele_secret_media.h | 15 ++++++
+ 12 files changed, 105 insertions(+), 3 deletions(-)
+ create mode 100644 Telegram/SourceFiles/tele/tele_secret_media.cpp
+ create mode 100644 Telegram/SourceFiles/tele/tele_secret_media.h
+
+diff --git a/Telegram/CMakeLists.txt b/Telegram/CMakeLists.txt
+index d2a07b7a6d8a6e0baec2771ddb36888bb6f90bc5..8ff70a41a58055b84f8a6fd63be6e1458de50590 100644
+--- a/Telegram/CMakeLists.txt
++++ b/Telegram/CMakeLists.txt
+@@ -2805,6 +2805,8 @@ PRIVATE
+     tele/tele_options.h
+     tele/tele_peer_id.cpp
+     tele/tele_peer_id.h
++    tele/tele_secret_media.cpp
++    tele/tele_secret_media.h
+     tele/tele_shortcuts.cpp
+     tele/tele_shortcuts.h
+     tele/tele_time.cpp
+diff --git a/Telegram/SourceFiles/apiwrap.cpp b/Telegram/SourceFiles/apiwrap.cpp
+index 6ba713628a9d1b0cfafa0b072296767702bf8e77..2346d584c1bbd159a6f3e7ea24455f0b8e4b1f26 100644
+--- a/Telegram/SourceFiles/apiwrap.cpp
++++ b/Telegram/SourceFiles/apiwrap.cpp
+@@ -110,6 +110,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "storage/download_manager_mtproto.h"
+ #include "storage/file_upload.h"
+ #include "storage/storage_account.h"
++#include "tele/tele_secret_media.h"
+ #include "tgw/tgw_storage.h"
+ 
+ namespace {
+@@ -1491,7 +1492,9 @@ void ApiWrap::markContentsRead(
+ 		QVector<MTPint>>();
+ 	markedIds.reserve(items.size());
+ 	for (const auto &item : items) {
+-		if (!item->markContentsRead(true) || !item->isRegular()) {
++		if (Tele::KeepsSecretMedia(item)
++			|| !item->markContentsRead(true)
++			|| !item->isRegular()) {
+ 			continue;
+ 		}
+ 		if (const auto channel = item->history()->peer->asChannel()) {
+@@ -1516,7 +1519,9 @@ void ApiWrap::markContentsRead(
+ }
+ 
+ void ApiWrap::markContentsRead(not_null<HistoryItem*> item) {
+-	if (!item->markContentsRead(true) || !item->isRegular()) {
++	if (Tele::KeepsSecretMedia(item)
++		|| !item->markContentsRead(true)
++		|| !item->isRegular()) {
+ 		return;
+ 	}
+ 	const auto ids = MTP_vector<MTPint>(1, MTP_int(item->id));
+diff --git a/Telegram/SourceFiles/history/history_inner_widget.cpp b/Telegram/SourceFiles/history/history_inner_widget.cpp
+index c57befae24a9e1aa0fbffdfbda3c464399e0af4c..aa15f97fad1e5828ae745466589a69861cc0c5c7 100644
+--- a/Telegram/SourceFiles/history/history_inner_widget.cpp
++++ b/Telegram/SourceFiles/history/history_inner_widget.cpp
+@@ -138,6 +138,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_edit_history.h"
+ #include "tele/tele_ignored.h"
++#include "tele/tele_secret_media.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_menu_icons.h"
+ 
+@@ -3106,6 +3107,7 @@ void HistoryInner::showContextMenu(QContextMenuEvent *e, bool showFromTouch) {
+ 			_menu.get(),
+ 			controller,
+ 			albumPartItem ? albumPartItem : item);
++		Tele::AddMarkViewedAction(_menu.get(), item);
+ 		if (session->factchecks().canEdit(item)) {
+ 			const auto text = item->factcheckText();
+ 			const auto phrase = text.empty()
+diff --git a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+index b2cc514bbeda30d051f1f7991f949af587f831c6..2e03939301e8e308a11045adc80c350172a87c77 100644
+--- a/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_context_menu.cpp
+@@ -117,6 +117,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "apiwrap.h"
+ #include "tele/tele_deleted.h"
+ #include "tele/tele_edit_history.h"
++#include "tele/tele_secret_media.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_helpers.h"
+ #include "styles/style_layers.h"
+@@ -1392,6 +1393,7 @@ void AddTopMessageActions(
+ 	AddViewRepliesAction(menu, request, list);
+ 	AddEditMessageAction(menu, request, list);
+ 	Tele::AddEditHistoryAction(menu, request.navigation, request.item);
++	Tele::AddMarkViewedAction(menu, request.item);
+ 	AddFactcheckAction(menu, request, list);
+ 	AddPinMessageAction(menu, request, list);
+ 	AddViewStatisticsAction(menu, request, list);
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_document.cpp b/Telegram/SourceFiles/history/view/media/history_view_document.cpp
+index d8aaf66a0a5e1a4c67e1c04cf9233a5fd8c120e0..4d068781514945e36f3c221d9f5586dad00b83b9 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_document.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_document.cpp
+@@ -11,6 +11,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "lang/lang_keys.h"
+ #include "lottie/lottie_icon.h"
+ #include "storage/localstorage.h"
++#include "tele/tele_secret_media.h"
+ #include "main/main_session.h"
+ #include "media/player/media_player_float.h" // Media::Player::RoundPainter.
+ #include "media/audio/media_audio.h"
+@@ -398,6 +399,9 @@ Document::Document(
+ 		} else if (!_parent->data()->out()) {
+ 			const auto &data = &_parent->data()->history()->owner();
+ 			setDocumentLinks(_data, realParent, [=] {
++				if (Tele::KeepsSecretMedia(_realParent)) {
++					return false;
++				}
+ 				_openl = nullptr;
+ 
+ 				auto lifetime = std::make_shared<rpl::lifetime>();
+diff --git a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
+index b5ea5f06b835d741ac4b84ec15ad31bfce1f722c..6b2a3591267c97f618c312833a36b7b184a4c501 100644
+--- a/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
++++ b/Telegram/SourceFiles/history/view/media/history_view_gif.cpp
+@@ -63,6 +63,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "data/data_document_media.h"
+ #include "data/data_web_page.h"
+ #include "storage/storage_account.h"
++#include "tele/tele_secret_media.h"
+ #include "styles/style_chat.h"
+ #include "styles/style_chat_style.h"
+ 
+@@ -212,6 +213,9 @@ Gif::Gif(
+ 		const auto &data = &_parent->data()->history()->owner();
+ 		const auto isOut = _parent->data()->out();
+ 		setDocumentLinks(_data, realParent, [=] {
++			if (Tele::KeepsSecretMedia(_realParent)) {
++				return false;
++			}
+ 			auto lifetime = std::make_shared<rpl::lifetime>();
+ 			TTLVoiceStops(fullId) | rpl::on_next([=]() mutable {
+ 				if (lifetime) {
+diff --git a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+index 9dc0f67b158d258c4d9aa1f27629e4ddffbc2cd8..8d2cf2afa90ce5393851bd1ddd0f5727f4b66896 100644
+--- a/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
++++ b/Telegram/SourceFiles/media/view/media_view_overlay_widget.cpp
+@@ -123,6 +123,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ #include "styles/style_ttl_media.h"
+ #include "platform/platform_text_recognition.h"
+ #include "tele/tele_options.h"
++#include "tele/tele_secret_media.h"
+ 
+ #include <QGraphicsOpacityEffect>
+ 
+@@ -1425,7 +1426,7 @@ void OverlayWidget::markTimedMediaRead() {
+ 
+ void OverlayWidget::checkSingleViewMediaBurn() {
+ 	const auto item = _message;
+-	if (!item || item->out()) {
++	if (!item || item->out() || Tele::KeepsSecretMedia(item)) {
+ 		return;
+ 	}
+ 	const auto media = item->media();
+diff --git a/Telegram/SourceFiles/settings/settings_tele.cpp b/Telegram/SourceFiles/settings/settings_tele.cpp
+index 1ee22e0fe2fc86aae2f065a473b115e9405a6318..633b880e1b0f36727387e22dee5a770783f5e9bd 100644
+--- a/Telegram/SourceFiles/settings/settings_tele.cpp
++++ b/Telegram/SourceFiles/settings/settings_tele.cpp
+@@ -642,6 +642,7 @@ void TeleSection::setupContent() {
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionEditHistory);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionKeepDeleted);
+ 	AddOptionToggle(content, controller(), ::Tele::kOptionDeletedIcon);
++	AddOptionToggle(content, controller(), ::Tele::kOptionKeepSecretMedia);
+ 	Ui::AddSkip(content);
+ 	Ui::AddDivider(content);
+ 	Ui::AddSkip(content);
+diff --git a/Telegram/SourceFiles/tele/tele_options.cpp b/Telegram/SourceFiles/tele/tele_options.cpp
+index 2be477232e33c4493a12a04affeb3062d2a66e10..d48c8b3ce0149f934616988a7819814cb69a5aba 100644
+--- a/Telegram/SourceFiles/tele/tele_options.cpp
++++ b/Telegram/SourceFiles/tele/tele_options.cpp
+@@ -24,6 +24,7 @@ const char kOptionMessageSeconds[] = "tele-message-seconds";
+ const char kOptionEditHistory[] = "tele-edit-history";
+ const char kOptionKeepDeleted[] = "tele-keep-deleted";
+ const char kOptionDeletedIcon[] = "tele-deleted-icon";
++const char kOptionKeepSecretMedia[] = "tele-keep-secret-media";
+ const char kOptionServerUrl[] = "tele-server-url";
+ const char kOptionTitleTemplate[] = "tele-title";
+ 
+@@ -183,6 +184,15 @@ base::options::toggle DeletedIconOption({
+ 		"icon next to the time.",
+ });
+ 
++base::options::toggle KeepSecretMediaOption({
++	.id = kOptionKeepSecretMedia,
++	.name = "Open disappearing media without burning it",
++	.description = "View-once and timed photos, videos, voice and video "
++		"messages you receive stay unopened for the sender and on the "
++		"server: no timer starts and nothing disappears, so they can be "
++		"opened again. Right-click one to mark it as viewed.",
++});
++
+ base::options::option<QString> ServerUrlOption({
+ 	.id = kOptionServerUrl,
+ 	.name = "tele server",
+@@ -362,6 +372,10 @@ rpl::producer<bool> DeletedTrashIconValue() {
+ 	});
+ }
+ 
++bool KeepSecretMedia() {
++	return KeepSecretMediaOption.value();
++}
++
+ QString ServerUrl() {
+ 	return ServerUrlOption.value();
+ }
+diff --git a/Telegram/SourceFiles/tele/tele_options.h b/Telegram/SourceFiles/tele/tele_options.h
+index bf4c053f1b0a3db83c7c4aa8afe292a6bdc4e098..3fe11da2e34ac043143c278110dc116e52c83e3d 100644
+--- a/Telegram/SourceFiles/tele/tele_options.h
++++ b/Telegram/SourceFiles/tele/tele_options.h
+@@ -22,6 +22,7 @@ extern const char kOptionMessageSeconds[];
+ extern const char kOptionEditHistory[];
+ extern const char kOptionKeepDeleted[];
+ extern const char kOptionDeletedIcon[];
++extern const char kOptionKeepSecretMedia[];
+ extern const char kOptionServerUrl[];
+ extern const char kOptionTitleTemplate[];
+ 
+@@ -54,6 +55,7 @@ void SetIgnoredList(const QString &value);
+ [[nodiscard]] bool KeepDeletedMessages();
+ [[nodiscard]] bool DeletedTrashIcon();
+ [[nodiscard]] rpl::producer<bool> DeletedTrashIconValue();
++[[nodiscard]] bool KeepSecretMedia();
+ [[nodiscard]] QString ServerUrl();
+ void SetServerUrl(const QString &url);
+ [[nodiscard]] rpl::producer<QString> ServerUrlValue();
+diff --git a/Telegram/SourceFiles/tele/tele_secret_media.cpp b/Telegram/SourceFiles/tele/tele_secret_media.cpp
+new file mode 100644
+index 0000000000000000000000000000000000000000..3e7969dbb0202f8d065bbf065067b39b03d65227
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_secret_media.cpp
+@@ -0,0 +1,50 @@
++#include "tele/tele_secret_media.h"
++
++#include "apiwrap.h"
++#include "base/unixtime.h"
++#include "data/data_media_types.h"
++#include "data/data_session.h"
++#include "history/history.h"
++#include "history/history_item.h"
++#include "main/main_session.h"
++#include "tele/tele_options.h"
++#include "ui/widgets/popup_menu.h"
++#include "styles/style_menu_icons.h"
++
++namespace Tele {
++namespace {
++
++bool Burning = false;
++
++} // namespace
++
++bool KeepsSecretMedia(not_null<const HistoryItem*> item) {
++	if (Burning || item->out() || !KeepSecretMedia()) {
++		return false;
++	}
++	const auto media = item->media();
++	return media && media->ttlSeconds();
++}
++
++void AddMarkViewedAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item) {
++	if (!item
++		|| !item->isRegular()
++		|| !item->isIncomingUnreadMedia()
++		|| !KeepsSecretMedia(item)) {
++		return;
++	}
++	const auto session = &item->history()->session();
++	const auto itemId = item->fullId();
++	menu->addAction(u"Mark as viewed"_q, [=] {
++		const auto item = session->data().message(itemId);
++		if (!item) {
++			return;
++		}
++		Burning = true;
++		session->api().markContentsRead(item);
++		Burning = false;
++		item->applyMediaContentsRead(base::unixtime::now());
++	}, &st::menuIconMarkRead);
++}
++
++} // namespace Tele
+diff --git a/Telegram/SourceFiles/tele/tele_secret_media.h b/Telegram/SourceFiles/tele/tele_secret_media.h
+new file mode 100644
+index 0000000000000000000000000000000000000000..1a338e0ad8d1f563c35cf01736b333cb06534639
+--- /dev/null
++++ b/Telegram/SourceFiles/tele/tele_secret_media.h
+@@ -0,0 +1,15 @@
++#pragma once
++
++class HistoryItem;
++
++namespace Ui {
++class PopupMenu;
++} // namespace Ui
++
++namespace Tele {
++
++[[nodiscard]] bool KeepsSecretMedia(not_null<const HistoryItem*> item);
++
++void AddMarkViewedAction(not_null<Ui::PopupMenu*> menu, HistoryItem *item);
++
++} // namespace Tele

@@ -8,9 +8,9 @@ set -euo pipefail
 
 platform=$1
 case "$platform" in
-  win64) entry=tele.exe files=("tele-$TAG-win64.zip") ;;
-  linux64) entry=tele files=("tele-$TAG-linux64.zip" "tele-$TAG-linux64-symbols.zip") ;;
-  macos) entry=tele.app/Contents/MacOS/tele files=("tele-$TAG-macos.zip" "tele-$TAG-macos.dmg" "tele-$TAG-macos-symbols.zip") ;;
+  win64) entry=tele.exe helper=modules/x64/TelegramWidgetHelper.exe files=("tele-$TAG-win64.zip") ;;
+  linux64) entry=tele helper=TelegramHelpers/TelegramWidgetHelper files=("tele-$TAG-linux64.zip" "tele-$TAG-linux64-symbols.zip") ;;
+  macos) entry=tele.app/Contents/MacOS/tele helper= files=("tele-$TAG-macos.zip" "tele-$TAG-macos.dmg" "tele-$TAG-macos-symbols.zip") ;;
   *)
     echo "usage: $0 win64|linux64|macos" >&2
     exit 2
@@ -25,11 +25,18 @@ done
 
 zip="tele-$TAG-$platform.zip"
 [ -n "$(unzip -Z1 "$zip" "$entry")" ]
-printf '{"tag":"%s","base":%s,"counter":%s,"url":"%s","zip_sha256":"%s","exe_sha256":"%s"}' \
+# helper_sha256 (win64, linux64): the widget helper shipped next to the exe; macos carries it inside tele.app
+helper_field=
+if [ -n "$helper" ]; then
+  [ -n "$(unzip -Z1 "$zip" "$helper")" ]
+  helper_field=$(printf ',"helper_sha256":"%s"' "$(unzip -p "$zip" "$helper" | sha256sum | cut -c1-64)")
+fi
+printf '{"tag":"%s","base":%s,"counter":%s,"url":"%s","zip_sha256":"%s","exe_sha256":"%s"%s}' \
   "$TAG" "$BASE" "$COUNTER" \
   "$url/releases/download/$TAG/$zip" \
   "$(sha256sum < "$zip" | cut -c1-64)" \
-  "$(unzip -p "$zip" "$entry" | sha256sum | cut -c1-64)" > "feed-$platform.json"
+  "$(unzip -p "$zip" "$entry" | sha256sum | cut -c1-64)" \
+  "$helper_field" > "feed-$platform.json"
 openssl pkeyutl -sign -rawin -inkey <(printf '%s\n' "$UPDATE_KEY") -in "feed-$platform.json" -out "feed-$platform.sig"
 openssl pkeyutl -verify -rawin -pubin -inkey tele/ci/update-public-key.pem -in "feed-$platform.json" -sigfile "feed-$platform.sig"
 printf '{"feed":"%s","signature":"%s"}\n' "$(base64 -w0 "feed-$platform.json")" "$(base64 -w0 "feed-$platform.sig")" > "tele-update-$platform.json"

@@ -1,0 +1,291 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 08:39:35 +0300
+Subject: [PATCH] feat: ship the widget helper with updates
+
+---
+ Telegram/SourceFiles/tele/tele_updater.cpp | 170 ++++++++++++++++++---
+ 1 file changed, 152 insertions(+), 18 deletions(-)
+
+diff --git a/Telegram/SourceFiles/tele/tele_updater.cpp b/Telegram/SourceFiles/tele/tele_updater.cpp
+index 3989dd630c127fededee9358b35f241437a42f42..195bfb49a00b2bb9f7b7fb0f413dc7e23154b553 100644
+--- a/Telegram/SourceFiles/tele/tele_updater.cpp
++++ b/Telegram/SourceFiles/tele/tele_updater.cpp
+@@ -75,10 +75,12 @@ constexpr auto kPlatform = "";
+ 
+ #if defined Q_OS_WIN
+ constexpr auto kExeInZip = "tele.exe";
++constexpr auto kHelperInZip = "modules/x64/TelegramWidgetHelper.exe";
+ constexpr auto kRenameAttempts = 10;
+ constexpr auto kRenameRetryDelay = 100;
+ #elif !defined Q_OS_MAC
+ constexpr auto kExeInZip = "tele";
++constexpr auto kHelperInZip = "TelegramHelpers/TelegramWidgetHelper";
+ #endif
+ 
+ struct Release {
+@@ -86,6 +88,8 @@ struct Release {
+ 	QString url;
+ 	QByteArray zipSha256;
+ 	QByteArray exeSha256;
++	QByteArray helperSha256;
++	bool helperOnly = false;
+ };
+ 
+ [[nodiscard]] quint64 RunningVersion() {
+@@ -124,6 +128,14 @@ struct Release {
+ #endif
+ }
+ 
++[[nodiscard]] QString HelperPath() {
++#ifdef Q_OS_MAC
++	return QString();
++#else
++	return cExeDir() + QString::fromLatin1(kHelperInZip);
++#endif
++}
++
+ [[nodiscard]] QString FeedUrl() {
+ 	return QString::fromLatin1(kFeedUrlPrefix)
+ 		+ QString::fromLatin1(kPlatform)
+@@ -350,33 +362,102 @@ void RemoveQuarantine(const QString &root) {
+ 	return QString();
+ }
+ #else
+-[[nodiscard]] QString Unpack(const Release &release, const QByteArray &zip) {
+-	auto archive = zlib::FileToRead(zip);
+-	const auto exe = archive.readFileContent(kExeInZip, 0, kMaxExeSize);
+-	if (exe.isEmpty() || archive.error() != UNZ_OK) {
+-		return u"can't unpack %1 from the archive"_q.arg(kExeInZip);
+-	} else if (Sha256Hex(exe) != release.exeSha256) {
+-		return u"unpacked exe doesn't match the feed"_q;
+-	}
+-	const auto newPath = InstallPath() + u".new"_q;
++[[nodiscard]] QString WriteStaged(
++		const QString &path,
++		const QByteArray &data,
++		QFileDevice::Permissions permissions) {
++	const auto newPath = path + u".new"_q;
+ 	QFile::remove(newPath);
++	QDir().mkpath(QFileInfo(path).absolutePath());
+ 	auto file = QFile(newPath);
+ 	if (!file.open(QIODevice::WriteOnly)
+-		|| file.write(exe) != exe.size()
++		|| file.write(data) != data.size()
+ 		|| !file.flush()) {
+ 		file.close();
+ 		QFile::remove(newPath);
+ 		return u"can't write %1"_q.arg(newPath);
+ 	}
+ #ifndef Q_OS_WIN
+-	file.setPermissions(QFile::permissions(InstallPath())
+-		| QFileDevice::ReadOwner
+-		| QFileDevice::WriteOwner
+-		| QFileDevice::ExeOwner);
++	file.setPermissions(permissions);
+ 	base::Platform::FlushFileData(file);
+ #endif
+ 	return QString();
+ }
++
++[[nodiscard]] QString Unpack(const Release &release, const QByteArray &zip) {
++	auto archive = zlib::FileToRead(zip);
++	if (!release.helperSha256.isEmpty()) {
++		const auto helper = archive.readFileContent(
++			kHelperInZip,
++			0,
++			kMaxExeSize);
++		if (helper.isEmpty() || archive.error() != UNZ_OK) {
++			return u"can't unpack %1 from the archive"_q.arg(kHelperInZip);
++		} else if (Sha256Hex(helper) != release.helperSha256) {
++			return u"unpacked widget helper doesn't match the feed"_q;
++		}
++		const auto error = WriteStaged(
++			HelperPath(),
++			helper,
++			QFileDevice::ReadOwner
++				| QFileDevice::WriteOwner
++				| QFileDevice::ExeOwner
++				| QFileDevice::ReadGroup
++				| QFileDevice::ExeGroup
++				| QFileDevice::ReadOther
++				| QFileDevice::ExeOther);
++		if (!error.isEmpty() || release.helperOnly) {
++			return error;
++		}
++	}
++	const auto exe = archive.readFileContent(kExeInZip, 0, kMaxExeSize);
++	if (exe.isEmpty() || archive.error() != UNZ_OK) {
++		return u"can't unpack %1 from the archive"_q.arg(kExeInZip);
++	} else if (Sha256Hex(exe) != release.exeSha256) {
++		return u"unpacked exe doesn't match the feed"_q;
++	}
++	return WriteStaged(
++		InstallPath(),
++		exe,
++		QFile::permissions(InstallPath())
++			| QFileDevice::ReadOwner
++			| QFileDevice::WriteOwner
++			| QFileDevice::ExeOwner);
++}
++
++// Puts a staged <path>.new in place, keeping the replaced file as <path>.old.
++[[nodiscard]] bool SwapStaged(const QString &path) {
++	const auto newPath = path + u".new"_q;
++	const auto oldPath = path + u".old"_q;
++	QFile::remove(oldPath);
++#ifdef Q_OS_WIN
++	const auto rename = RenameWithRetries;
++#else
++	const auto rename = [](const QString &from, const QString &to) {
++		return QFile::rename(from, to);
++	};
++#endif
++	const auto existed = QFile::exists(path);
++	if (existed && !rename(path, oldPath)) {
++		QFile::remove(newPath);
++		return false;
++	} else if (!rename(newPath, path)) {
++		if (existed) {
++			rename(oldPath, path);
++		}
++		QFile::remove(newPath);
++		return false;
++	}
++	return true;
++}
++
++void RestoreSwapped(const QString &path) {
++	const auto oldPath = path + u".old"_q;
++	if (QFile::exists(oldPath)) {
++		QFile::remove(path);
++		QFile::rename(oldPath, path);
++	}
++}
+ #endif
+ 
+ class Updater final : public QObject, public base::has_weak_ptr {
+@@ -397,6 +478,7 @@ private:
+ 	void download(const Release &release);
+ 	void unpack(const Release &release, const QString &path);
+ 	void install(const Release &release);
++	void checkHelper(Release release);
+ 	void fail(const QString &error, bool network = false);
+ 	void finish(UpdateStatus status, crl::time delay = kCheckInterval);
+ 
+@@ -430,6 +512,8 @@ Updater::Updater()
+ #else
+ 	QFile::remove(InstallPath() + u".old"_q);
+ 	QFile::remove(InstallPath() + u".new"_q);
++	QFile::remove(HelperPath() + u".old"_q);
++	QFile::remove(HelperPath() + u".new"_q);
+ #endif
+ 	if (UpdatesOffForLaunch()) {
+ 		_status = UpdateStatus{
+@@ -532,6 +616,10 @@ void Updater::verifyFeed(const QByteArray &envelope) {
+ 		.url = object.value(u"url"_q).toString(),
+ 		.zipSha256 = object.value(u"zip_sha256"_q).toString().toLatin1(),
+ 		.exeSha256 = object.value(u"exe_sha256"_q).toString().toLatin1(),
++#ifndef Q_OS_MAC
++		.helperSha256 = object.value(
++			u"helper_sha256"_q).toString().toLatin1(),
++#endif
+ 	};
+ 	if (!base
+ 		|| !counter
+@@ -542,14 +630,19 @@ void Updater::verifyFeed(const QByteArray &envelope) {
+ 		|| !release.url.endsWith(
+ 			u"-"_q + QString::fromLatin1(kPlatform) + u".zip"_q)
+ 		|| release.zipSha256.size() != 64
+-		|| release.exeSha256.size() != 64) {
++		|| release.exeSha256.size() != 64
++		|| (!release.helperSha256.isEmpty()
++			&& release.helperSha256.size() != 64)) {
+ 		fail(u"malformed feed"_q);
+ 		return;
+ 	}
+ 	const auto version = Core::Updates::MakeUpdateVersion(
+ 		quint32(base),
+ 		quint32(counter));
+-	if (version <= RunningVersion()) {
++	if (version == RunningVersion() && !release.helperSha256.isEmpty()) {
++		checkHelper(release);
++		return;
++	} else if (version <= RunningVersion()) {
+ 		RemoveParts(QString());
+ 		finish({ .state = UpdateState::Latest });
+ 		return;
+@@ -574,6 +667,31 @@ void Updater::verifyFeed(const QByteArray &envelope) {
+ 	});
+ }
+ 
++// Updaters older than tele 29 install only the exe, so a release build can
++// run without the widget helper its exe was built with: fetch it once.
++void Updater::checkHelper(Release release) {
++	release.helperOnly = true;
++	crl::async([=, weak = base::make_weak(this), path = HelperPath()] {
++		const auto matches = (FileSha256Hex(path) == release.helperSha256);
++		crl::on_main(weak, [=] {
++			if (matches) {
++				RemoveParts(QString());
++				finish({ .state = UpdateState::Latest });
++			} else if (!CanWriteNextToInstall()) {
++				fail(u"can't write the widget helper next to tele"_q);
++			} else {
++				LOG(("Tele Updater: widget helper missing or outdated, "
++					"getting it from %1.").arg(release.tag));
++				_status = UpdateStatus{
++					.state = UpdateState::Downloading,
++					.tag = release.tag,
++				};
++				download(release);
++			}
++		});
++	});
++}
++
+ void Updater::download(const Release &release) {
+ 	const auto name = PartName(release);
+ 	const auto path = cExeDir() + name;
+@@ -747,10 +865,24 @@ void Updater::install(const Release &release) {
+ 		QFile::encodeName(newPath).constData(),
+ 		QFile::encodeName(oldPath).constData());
+ 	RegisterBundle(path);
+-#elif defined Q_OS_WIN
++#else
++	if (!release.helperSha256.isEmpty()) {
++		if (!SwapStaged(HelperPath())) {
++			QFile::remove(newPath);
++			fail(u"can't put the new widget helper in place"_q);
++			return;
++		} else if (release.helperOnly) {
++			LOG(("Tele Updater: widget helper installed."));
++			finish({ .state = UpdateState::Latest });
++			return;
++		}
++	}
++#endif
++#if defined Q_OS_WIN
+ 	QFile::remove(oldPath);
+ 	if (!RenameWithRetries(path, oldPath)) {
+ 		QFile::remove(newPath);
++		RestoreSwapped(HelperPath());
+ 		fail(u"can't move the running exe aside"_q);
+ 		return;
+ 	} else if (!RenameWithRetries(newPath, path)) {
+@@ -759,12 +891,14 @@ void Updater::install(const Release &release) {
+ 			return;
+ 		}
+ 		QFile::remove(newPath);
++		RestoreSwapped(HelperPath());
+ 		fail(u"can't put the new exe in place"_q);
+ 		return;
+ 	}
+-#else
++#elif !defined Q_OS_MAC
+ 	if (!base::Platform::RenameWithOverwrite(newPath, path)) {
+ 		QFile::remove(newPath);
++		RestoreSwapped(HelperPath());
+ 		fail(u"can't put the new binary in place"_q);
+ 		return;
+ 	}
