@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 10:11:57 +0300
+Subject: [PATCH] fix: replying to the next message no longer steps past the
+ newest one
+
+---
+ .../SourceFiles/history/view/history_view_list_widget.cpp  | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+index 16f67ca7339e99ce8a30f2d50841e961cc438f67..aabcc2baa8bb37e5a55025937f8329efe9ceee2e 100644
+--- a/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
++++ b/Telegram/SourceFiles/history/view/history_view_list_widget.cpp
+@@ -6587,15 +6587,14 @@ void ListWidget::replyNextMessage(FullMsgId fullId, bool next) {
+ 	if (it == end(list)) {
+ 		replyFirst();
+ 		return;
++	} else if (next && (it == begin(list))) {
++		reply(nullptr);
+ 	} else {
+ 		const auto nextIt = it + (next ? -1 : 1);
+ 		if (nextIt == end(list)) {
+ 			return;
+-		} else if (next && (it == begin(list))) {
+-			reply(nullptr);
+-		} else {
+-			reply(nextIt->get());
+ 		}
++		reply(nextIt->get());
+ 	}
+ }
+ 

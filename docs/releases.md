@@ -2,7 +2,7 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 360 patches, newest release first.
+all 361 patches, newest release first.
 
 ### tele 29 (unreleased)
 
@@ -12,6 +12,7 @@ all 360 patches, newest release first.
 | [348](../patches/tdesktop/0348-feat-show-matching-blockquotes-as-reply-quotes.patch) | move a leading blockquote into the reply header when it uniquely matches the original rich message, including formatted selections and mixed blocks. expand rich quotes in place and jump back to the source; sent messages and native quotes stay unchanged | tele → messages, off |
 | [349](../patches/tdesktop/0349-fix-stalled-media-downloads-fall-back-to-the-regular.patch) | media downloads that keep timing out on a data center's media endpoint switch to its regular connection | always on |
 | [350](../patches/tdesktop/0350-feat-ship-the-widget-helper-with-updates.patch) | the updater installs telegram's widget helper next to tele, and a build missing its helper fetches it once, so bot widgets keep working | always on |
+| [351](../patches/tdesktop/0351-fix-replying-to-the-next-message-no-longer-steps-pas.patch) | ctrl+down on the newest message of a topic, thread or saved chat cancels the reply instead of stepping past the end of the list | always on |
 
 ### [tele 28](https://github.com/nitreojs/tele/releases/tag/v7.4.4-tele.28)
 
