@@ -15,14 +15,23 @@ mkdir -p "$work"
 case "$action" in
   pull)
     for tag in "$@"; do
-      if oras pull --output "$work" "$repo:$tag" > /dev/null 2>&1; then
-        cat "$work"/libs.tar.zst.part-* | zstd -d -q | tar -xf -
+      # a tag pushed moments ago can fail to pull for a while: retry before trying the next tag
+      for attempt in 1 2 3 4; do
+        if oras pull --output "$work" "$repo:$tag" > "$RUNNER_TEMP/oras-pull.log" 2>&1; then
+          cat "$work"/libs.tar.zst.part-* | zstd -d -q | tar -xf -
+          rm -rf "$work"
+          echo "restored $repo:$tag"
+          exit 0
+        fi
+        echo "pull $repo:$tag attempt $attempt failed: $(tail -n 3 "$RUNNER_TEMP/oras-pull.log" | tr '\n' ' ')"
         rm -rf "$work"
-        echo "restored $repo:$tag"
-        exit 0
-      fi
-      rm -rf "$work"
-      mkdir -p "$work"
+        mkdir -p "$work"
+        # with fallbacks a missing tag is expected; a single tag was just pushed and must show up
+        if [ $# -gt 1 ] && grep -qi "not found" "$RUNNER_TEMP/oras-pull.log"; then
+          break
+        fi
+        sleep $((attempt * 30))
+      done
     done
     echo "no libraries in $repo for: $*"
     exit 1
