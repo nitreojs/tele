@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: nitreojs <hello@starkow.dev>
+Date: Tue, 24 Nov 2026 08:26:43 +0300
+Subject: [PATCH] fix: stalled media downloads fall back to the regular
+ connection
+
+---
+ .../SourceFiles/mtproto/session_private.cpp   | 21 ++++++++++++++++++-
+ .../SourceFiles/mtproto/session_private.h     |  1 +
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/Telegram/SourceFiles/mtproto/session_private.cpp b/Telegram/SourceFiles/mtproto/session_private.cpp
+index 550bacf0b7153964704e309808f9868ff42109ef..615578b9bae90aacbde29ade6a7dd55fe3da9f29 100644
+--- a/Telegram/SourceFiles/mtproto/session_private.cpp
++++ b/Telegram/SourceFiles/mtproto/session_private.cpp
+@@ -34,6 +34,7 @@ constexpr auto kIntSize = static_cast<int>(sizeof(mtpPrime));
+ constexpr auto kWaitForBetterTimeout = crl::time(2000);
+ constexpr auto kMinConnectedTimeout = crl::time(1000);
+ constexpr auto kMaxConnectedTimeout = crl::time(8000);
++constexpr auto kMediaConnectTimeoutsBeforeFallback = 2;
+ constexpr auto kMinReceiveTimeout = crl::time(4000);
+ constexpr auto kMaxReceiveTimeout = crl::time(64000);
+ constexpr auto kMarkConnectionOldTimeout = crl::time(192000);
+@@ -435,7 +436,11 @@ uint32 SessionPrivate::nextRequestSeqNumber(bool needAck) {
+ }
+ 
+ bool SessionPrivate::realDcTypeChanged() {
+-	const auto now = _instance->dcOptions().dcType(_shiftedDcId);
++	const auto configured = _instance->dcOptions().dcType(_shiftedDcId);
++	const auto now = (configured == DcType::MediaCluster
++		&& _mediaConnectTimeouts == kMediaConnectTimeoutsBeforeFallback)
++		? DcType::Regular
++		: configured;
+ 	if (_realDcType == now) {
+ 		return false;
+ 	}
+@@ -1246,6 +1251,17 @@ void SessionPrivate::waitConnectedFailed() {
+ 	}
+ 
+ 	connectingTimedOut();
++	if (_currentDcType == DcType::MediaCluster
++		&& isDownloadDcId(_shiftedDcId)
++		&& ++_mediaConnectTimeouts == kMediaConnectTimeoutsBeforeFallback) {
++		DEBUG_LOG(("MTP Info: Media route timed out, trying regular DC %1."
++			).arg(BareDcId(_shiftedDcId)));
++		// The regular route uses its own temporary key. Keep the media key
++		// cached for future sessions, but don't carry it to the new route.
++		releaseKeyCreationOnFail();
++		applyAuthKey(nullptr);
++		_waitForConnected = kMinConnectedTimeout;
++	}
+ 
+ 	DEBUG_LOG(("MTP Info: immediate restart!"));
+ 	InvokeQueued(this, [=] { connectToServer(); });
+@@ -2375,6 +2391,9 @@ void SessionPrivate::onConnected(
+ 		return restart();
+ 	}
+ 
++	if (_currentDcType == DcType::MediaCluster) {
++		_mediaConnectTimeouts = 0;
++	}
+ 	_waitForConnected = kMinConnectedTimeout;
+ 	_waitForConnectedTimer.cancel();
+ 
+diff --git a/Telegram/SourceFiles/mtproto/session_private.h b/Telegram/SourceFiles/mtproto/session_private.h
+index 38ac41b9469e34cfc4a959813f9c3910082eb296..5d7cd8ce8621103807d37e99341517129af10f3f 100644
+--- a/Telegram/SourceFiles/mtproto/session_private.h
++++ b/Telegram/SourceFiles/mtproto/session_private.h
+@@ -188,6 +188,7 @@ private:
+ 	const ShiftedDcId _shiftedDcId = 0;
+ 	DcType _realDcType = DcType();
+ 	DcType _currentDcType = DcType();
++	int _mediaConnectTimeouts = 0;
+ 
+ 	mutable QReadWriteLock _stateMutex;
+ 	int _state = DisconnectedState;
