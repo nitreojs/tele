@@ -1,0 +1,97 @@
+{
+  "suite": {
+    "rfc": 9180,
+    "mode": 2,
+    "kem": 18,
+    "kdf": 3,
+    "aead": 2,
+    "sequence": 0,
+    "name": "DHKEM(P-521, HKDF-SHA512) / HKDF-SHA512 / AES256-GCM",
+    "classical_confidentiality_bits_approximate": 256,
+    "aead_tag_bits": 128
+  },
+  "text_token_prefix": "tele-sealed:v1:",
+  "public_token_prefix": "tele-key:v1:",
+  "token_encoding": "RFC4648 base64url without padding; canonical encoding required; whitespace rejected",
+  "identity": "66-byte P-521 big-endian private scalar in [1,n-1], 133-byte uncompressed SEC1 public key; reject off-curve, infinity, compressed, hybrid or noncanonical encodings",
+  "header": {
+    "version": "1 byte: 1 for text, 2 for binary files",
+    "encPeer": "133-byte HPKE encapsulated key",
+    "encSelf": "133-byte HPKE encapsulated key",
+    "size": 267
+  },
+  "records": "Header followed by peer ciphertext/tag then self ciphertext/tag. The two records have equal length; split remainder exactly in half.",
+  "role": "0 for peer record, 1 for sender record; role encoded as one byte",
+  "binding": "ASCII label || role byte || U16BE(context byte length) || opaque context bytes || complete 267-byte header",
+  "hpke_info_label": "tele sealed hpke v1",
+  "aead_aad_label": "tele sealed aad v1",
+  "context": "Required opaque 1..256-byte caller data; application must bind protocol domain, sender ID, recipient ID and Telegram network. Context is authenticated but not placed in envelope.",
+  "plaintext": "U32BE(original byte length) || original bytes || zero padding",
+  "text_padding": "Exactly 1028 plaintext bytes, original length 1..1024; encrypted record 1044 bytes; binary envelope 2355 bytes; text token 3155 ASCII characters.",
+  "file_padding": "Round (4 + original byte length) up to next 65536-byte bucket; original length 1..16777216. Decryption checks exact canonical bucket and zero padding after AEAD authentication.",
+  "self_notes": "Sender and recipient public key may be equal; same format and distinct role bindings. Decrypt chooses self record when own derived public key equals expected sender key.",
+  "authentication": "Caller supplies exact trusted sender public key. It must never be accepted from an unverified message. Incoming chooses peer record unless expected sender equals own public key.",
+  "fingerprint": "SHA512(ASCII tele sealed fingerprint v1 || 133-byte public key), uppercase hexadecimal, groups of 4 hex digits separated by spaces.",
+  "backup": {
+    "magic": "tele-sealed-key-backup:v1",
+    "layout": "ASCII magic || salt16 || nonce12 || ciphertext66 || tag16 (135 bytes total)",
+    "kdf": "PBKDF2-HMAC-SHA256, 600000 iterations, 16-byte random salt, 32-byte output",
+    "cipher": "AES256-GCM with random 12-byte nonce and 16-byte tag",
+    "plaintext": "66-byte P-521 private scalar only",
+    "aad": "binding with label tele sealed backup aad v1, role 0, caller context, and complete header (magic||salt||nonce)",
+    "context": "Required account and network binding; same account on another device must use identical context.",
+    "passphrase": "At least 16 Unicode scalar values, no isolated UTF16 surrogates, at most 1024 UTF8 bytes; no normalization is performed."
+  },
+  "non_goals": [
+    "No forward secrecy with static retained self-copy keys",
+    "No metadata anonymity or sender/recipient traffic hiding",
+    "No replay prevention by this stateless envelope",
+    "No endpoint or recipient compromise protection"
+  ],
+  "test_vector_source": "https://raw.githubusercontent.com/cfrg/draft-irtf-cfrg-hpke/master/test-vectors.json",
+  "identity_sizes": {
+    "private": 66,
+    "public": 133,
+    "dh": 66,
+    "kem_secret": 64,
+    "hkdf_hash": 64,
+    "aead_key": 32
+  },
+  "fingerprint_hash_bits": 512,
+  "inner_file_payload": {
+    "magic": "8 ASCII bytes: TELEFILE",
+    "legacy_v1": "magic || U8(1) || U16BE(name UTF8 byte length) || U32BE(content byte length) || name UTF8 || content; always Document presentation",
+    "presentation_v2": "magic || U8(2) || U8(presentation) || U16BE(name UTF8 byte length) || U32BE(content byte length) || name UTF8 || content",
+    "presentation_values": {
+      "0": "Document",
+      "1": "Image"
+    },
+    "encoding": "Default Document writes v1 unchanged. Image writes v2. Unknown versions/hints, trailing bytes and invalid lengths are rejected.",
+    "authentication": "This entire payload is inside the file HPKE plaintext. Outer filenames, MIME types, thumbnails or document attributes must never select Image presentation.",
+    "limits": "Total payload <=16777216 bytes; name 1..255 UTF8 bytes, canonical safe normalized filename.",
+    "image": "Only the generic name photo.png with a valid PNG signature and CRC-checked IHDR/IDAT/IEND chunks; IHDR must be 8-bit RGBA, compression/filter 0, noninterlaced; dimensions each 1..16384 and total pixels <=16777216; successful PNG decoding required. No other chunks, trailing bytes or multiframe images. Image creation requires photo sanitization.",
+    "image_creation": "After orientation and the existing 16MP input decode limit, Image presentation is smoothly resized with preserved aspect ratio to a maximum side of 2000 pixels before fresh PNG encoding. Legacy Document sanitization retains original dimensions and fails if its PNG does not fit; no implicit resize fallback. Receiver validation retains the 16MP/16384 bounds."
+  },
+  "rich_text_v2": {
+    "token_prefix": "tele-sealed:v2:",
+    "encoding": "Canonical unpadded RFC4648 base64url of public header followed by the unchanged 2355-byte single-shot HPKE text envelope; exactly3202 ASCII characters including prefix.",
+    "public_header": "U8(2) || random group32 || U8(index) || U8(count),35 bytes. Index is zero-based; count1..64; index<count. All-zero group rejected. No plaintext hash, exact length, tags or stable keys are public.",
+    "group_randomness": "A fresh32-byte OpenSSL CSPRNG group identifier per rich send; entropy failure aborts without output.",
+    "context": "ASCII tele sealed rich context v2 || application context17 || complete public header35. Application context is network U8(0/1) || senderU64BE || recipientU64BE, both IDs nonzero. This combined context is supplied to the existing domain-separated HPKE envelope.",
+    "fragment_plaintext": "U32BE(full serialized payload length) || SHA512(full serialized payload)64 || fragment body. Metadata is inside each encrypted fragment; maximum body956 bytes.",
+    "fragment_sizes": "Count must equal ceil(full payload length/956). Nonfinal fragments are956 bytes; final body is the exact remainder. No partial rich output before every fragment authenticates and the complete payload hash matches.",
+    "limits": {
+      "parts": 64,
+      "serialized_payload_bytes": 61184,
+      "tag_spans": 1024,
+      "distinct_tag_ids": 256,
+      "tag_id_utf8_bytes": 2048
+    },
+    "rich_payload": "ASCII TELERTXT8 || U8(1) || U32BE(text UTF8 byte length) || text UTF8 || U16BE(dictionary count) || each(U16BE(id UTF8 byte length)||id UTF8) || U16BE(tag count) || each(U32BE(UTF16 offset)||U32BE(UTF16 length)||U16BE(dictionary index)).",
+    "canonical_rich_payload": "Nonempty strict UTF8 text, no isolated UTF16 surrogates; dictionary IDs unique and sorted by UTF8 bytes; tag rows sorted by offset,length,dictionary index; rows nonoverlapping, positive length and scalar-aligned. IDs are nonempty strict UTF8 without C0/DEL controls. No duplicate/unused dictionary entries, duplicate rows, unknown version, overflow or trailing bytes. Decoder must reproduce exact canonical bytes.",
+    "tag_semantics": "IDs preserve opaque native TextWithTags composite formatting and custom-emoji identifiers. Codec validates structure only; a native bridge must allow only supported safe native tag schemas before rendering.",
+    "merge_binding": "SHA512(ASCII tele sealed rich merge v2 || application context17 || exact trusted sender public133 || derived own public133). Merge accepts one part per index and requires identical group/count/private size/private hash/merge binding plus the complete whole-payload SHA512. Any duplicate index, including identical replayed bytes, is rejected as ambiguous.",
+    "compatibility": "Untagged text<=1024 UTF8 bytes uses existing v1 tokens unchanged. Formatted or longer text uses v2. Existing v1 reader, HPKE suites, file envelopes, backups and Apple fixtures remain unchanged.",
+    "privacy_limits": "Part count and grouping are visible; Telegram can withhold or replay complete groups. There is no general replay prevention, ratchet, forward secrecy or complete plaintext RAM-erasure guarantee."
+  }
+}

@@ -2,9 +2,15 @@
 
 every tele patch, grouped by the release that brought it, newest first. [features](features.md) has the same rows grouped by settings page. release notes and the in-app what's new are made from these rows, so their format is strict: see [the patch row](development.md#the-patch-row).
 
-all 368 patches, newest release first.
+all 369 patches, newest release first.
 
-### tele 29 (unreleased)
+### tele 30 (unreleased)
+
+| # | what it does | where to toggle |
+|---|---|---|
+| [359](../patches/tdesktop/0359-feat-encrypt-private-messages-and-files.patch) | automatic encrypted private chats and saved messages with formatting, long messages, local search and photo previews. includes authenticated locks, verified keys, password protected backups and optional duress controls | tele → debug → encrypted messages (experimental), off |
+
+### [tele 29](https://github.com/nitreojs/tele/releases/tag/v7.4.6-tele.29)
 
 | # | what it does | where to toggle |
 |---|---|---|
